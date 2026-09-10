@@ -1,0 +1,80 @@
+{
+  "title": "Ngủ đủ giấc",
+  "subtitle": "ba con số đáng để nhớ",
+  "handle": "@suckhoe",
+  "accent": "#38bdf8",
+  "background": "#0a1220",
+  "captions": [
+    {
+      "text": "Người lớn cần bảy đến chín giờ.",
+      "startMs": 2483,
+      "endMs": 4616,
+      "audio": "voices/canh-code-e8b67cd8/line-01.mp3"
+    },
+    {
+      "text": "Ngủ ít hơn là nợ, không phải tiết kiệm.",
+      "startMs": 4766,
+      "endMs": 7514,
+      "audio": "voices/canh-code-e8b67cd8/line-02.mp3"
+    },
+    {
+      "text": "Đi ngủ cùng một giờ mỗi ngày.",
+      "startMs": 7664,
+      "endMs": 9645,
+      "audio": "voices/canh-code-e8b67cd8/line-03.mp3"
+    },
+    {
+      "text": "Kể cả cuối tuần.",
+      "startMs": 9795,
+      "endMs": 11044,
+      "audio": "voices/canh-code-e8b67cd8/line-04.mp3"
+    },
+    {
+      "text": "Tắt màn hình trước chín mươi phút.",
+      "startMs": 11194,
+      "endMs": 13145,
+      "audio": "voices/canh-code-e8b67cd8/line-05.mp3"
+    },
+    {
+      "text": "Lưu lại để làm theo nhé!",
+      "startMs": 13295,
+      "endMs": 15095,
+      "audio": "voices/canh-code-e8b67cd8/line-06.mp3"
+    }
+  ],
+  "scenes": [
+    {
+      "image": "images/canh-code/dem-sao.png",
+      "visual": {
+        "type": "stat",
+        "text": "7-9",
+        "caption": "giờ ngủ mỗi đêm"
+      },
+      "startMs": 0,
+      "endMs": 7664
+    },
+    {
+      "image": null,
+      "visual": {
+        "type": "badge",
+        "text": "Bước 1",
+        "caption": "Cố định giờ đi ngủ"
+      },
+      "startMs": 7664,
+      "endMs": 11194
+    },
+    {
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "90",
+        "caption": "phút trước khi ngủ, bỏ điện thoại"
+      },
+      "startMs": 11194,
+      "endMs": 15245
+    }
+  ],
+  "captionPosition": "bottom",
+  "music": "music/placeholder.mp3",
+  "sfx": true
+}

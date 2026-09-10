@@ -1,0 +1,30 @@
+{
+  "title": "Ba bước làm video",
+  "subtitle": "có cảnh, có ảnh, có phụ đề",
+  "handle": "@demo",
+  "accent": "#e8590c",
+  "background": "#0a0f16",
+  "scenes": [
+    {
+      "image": "images/thu-canh/buoc-1.jpg",
+      "lines": [
+        "Cảnh một: nền ảnh màu xanh.",
+        "Phụ đề vẫn chạy bình thường."
+      ]
+    },
+    {
+      "image": "images/thu-canh/buoc-2.jpg",
+      "lines": [
+        "Cảnh hai: ảnh đã đổi sang cam.",
+        "Chuyển cảnh mờ dần, không giật."
+      ]
+    },
+    {
+      "image": "images/shared/ket-thuc.jpg",
+      "lines": [
+        "Cảnh ba: ảnh xanh lá.",
+        "Lưu lại để xem sau nhé!"
+      ]
+    }
+  ]
+}
