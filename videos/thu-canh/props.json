@@ -1,0 +1,65 @@
+{
+  "title": "Ba bước làm video",
+  "subtitle": "có cảnh, có ảnh, có phụ đề",
+  "handle": "@demo",
+  "accent": "#e8590c",
+  "background": "#0a0f16",
+  "captions": [
+    {
+      "text": "Cảnh một: nền ảnh màu xanh.",
+      "startMs": 2483,
+      "endMs": 4524,
+      "audio": "voices/thu-canh-0d77bb1d/line-01.mp3"
+    },
+    {
+      "text": "Phụ đề vẫn chạy bình thường.",
+      "startMs": 4674,
+      "endMs": 6488,
+      "audio": "voices/thu-canh-0d77bb1d/line-02.mp3"
+    },
+    {
+      "text": "Cảnh hai: ảnh đã đổi sang cam.",
+      "startMs": 6638,
+      "endMs": 9027,
+      "audio": "voices/thu-canh-0d77bb1d/line-03.mp3"
+    },
+    {
+      "text": "Chuyển cảnh mờ dần, không giật.",
+      "startMs": 9177,
+      "endMs": 11146,
+      "audio": "voices/thu-canh-0d77bb1d/line-04.mp3"
+    },
+    {
+      "text": "Cảnh ba: ảnh xanh lá.",
+      "startMs": 11296,
+      "endMs": 13093,
+      "audio": "voices/thu-canh-0d77bb1d/line-05.mp3"
+    },
+    {
+      "text": "Lưu lại để xem sau nhé!",
+      "startMs": 13243,
+      "endMs": 15078,
+      "audio": "voices/thu-canh-0d77bb1d/line-06.mp3"
+    }
+  ],
+  "scenes": [
+    {
+      "image": "images/thu-canh/buoc-1.jpg",
+      "startMs": 0,
+      "endMs": 6638
+    },
+    {
+      "image": "images/thu-canh/buoc-2.jpg",
+      "startMs": 6638,
+      "endMs": 11296
+    },
+    {
+      "image": "images/shared/ket-thuc.jpg",
+      "startMs": 11296,
+      "endMs": 15228
+    }
+  ],
+  "captionPosition": "bottom",
+  "music": "music/placeholder.mp3",
+  "sfx": true
+}
