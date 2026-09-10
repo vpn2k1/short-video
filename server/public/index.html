@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Video Studio</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #161b22; --line: #262d38; --text: #e6edf3;
+    --muted: #8b949e; --accent: #e8590c; --ok: #3fb950; --err: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line);
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 16px; margin: 0; letter-spacing: .3px; }
+  .keys { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .key { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .key.on { color: var(--ok); border-color: #1f4d2a; }
+  .key.off { color: var(--err); border-color: #4d2020; }
+  main { display: grid; grid-template-columns: 230px minmax(0, 1fr) 0;
+         transition: grid-template-columns .18s; height: calc(100vh - 53px); }
+  main.drawer { grid-template-columns: 230px minmax(0, 1fr) 400px; }
+  aside, section, .right { overflow-y: auto; padding: 16px; }
+  aside { border-right: 1px solid var(--line); }
+  .right { border-left: 1px solid var(--line); background: #0b0e13; }
+  main:not(.drawer) .right { display: none; }
+  section { padding: 20px 28px; }
+  .scene .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .scene textarea.sc-lines { min-height: 130px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+            gap: 8px; margin-top: 10px; }
+  .thumbs img { width: 100%; aspect-ratio: 9/16; object-fit: cover; border-radius: 6px;
+                border: 2px solid transparent; cursor: pointer; display: block; }
+  .thumbs img:hover { border-color: var(--accent); }
+  .picker { border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+            margin-top: 10px; background: #10141a; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+          border: 1px solid var(--line); border-radius: 999px; font-size: 12px;
+          cursor: pointer; background: var(--panel); }
+  .chip.on { border-color: var(--accent); color: var(--accent); }
+  .toggle { width: auto; padding: 6px 14px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px;
+       color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .video-item { padding: 8px 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .video-item:hover { background: var(--panel); }
+  .video-item.active { background: var(--panel); border-color: var(--accent); }
+  .video-item .t { font-weight: 600; }
+  .video-item .m { font-size: 11px; color: var(--muted); }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  input, select, textarea, button {
+    font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%;
+  }
+  textarea { resize: vertical; min-height: 60px; font-size: 13px; }
+  button { cursor: pointer; background: #21262d; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .scene { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: var(--panel); }
+  .scene h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); }
+  .log { background: #05070a; border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+         font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+         white-space: pre-wrap; max-height: 240px; overflow-y: auto; color: #9fb0c0; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  video { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #000; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .warn { color: var(--err); font-size: 12px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tabs button { width: auto; padding: 6px 12px; font-size: 13px; }
+  .tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI Video Studio</h1>
+  <span class="muted" id="hint">đang tải…</span>
+  <button class="toggle" style="width:auto;margin-left:auto" onclick="toggleDrawer()">Dựng &amp; render</button>
+  <div class="keys" id="keys" title="Dấu ✓ chỉ nghĩa là key có trong .env, chưa kiểm tra quyền"></div>
+</header>
+
+<main id="main" class="drawer">
+  <aside>
+    <h2>Video</h2>
+    <div id="videos"></div>
+    <button style="margin-top:12px" onclick="newVideo()">+ Video mới</button>
+  </aside>
+
+  <section>
+    <div class="tabs">
+      <button id="tab-create" class="on" onclick="tab('create')">Tạo</button>
+      <button id="tab-edit" onclick="tab('edit')">Sửa kịch bản</button>
+      <button id="tab-assets" onclick="tab('assets')">Ảnh &amp; file</button>
+      <button id="tab-audio" onclick="tab('audio')">Nhạc &amp; tiếng</button>
+      <button id="tab-join" onclick="tab('join')">Ghép video</button>
+    </div>
+
+    <div id="pane-create">
+      <label>Prompt — mô tả video muốn tạo</label>
+      <textarea id="prompt" placeholder="5 mẹo tiết kiệm pin iPhone"></textarea>
+      <label>Tên thư mục (bỏ trống để tự suy từ prompt)</label>
+      <input id="newName" placeholder="pin-iphone" />
+      <p class="muted" id="createNote"></p>
+      <button class="primary" style="margin-top:8px" onclick="createVideo()">Sinh kịch bản</button>
+    </div>
+
+    <div id="pane-edit" class="hidden">
+      <div id="scriptMeta"></div>
+      <div id="scenes"></div>
+      <div class="row" style="margin-top:10px">
+        <button onclick="addScene()">+ Thêm cảnh</button>
+        <button class="primary" onclick="saveScript()">Lưu kịch bản</button>
+      </div>
+    </div>
+
+    <div id="pane-audio" class="hidden">
+      <h2>Nhạc nền</h2>
+      <p class="muted">Sinh bằng ffmpeg — offline, miễn phí. Nhạc tổng hợp, đủ làm nền
+        dưới lời nói nhưng nghe kỹ vẫn ra chất máy.</p>
+      <div class="row">
+        <select id="musicMood"></select>
+        <input id="musicSecs" type="number" value="30" min="5" max="180" />
+        <button style="flex:0 0 auto;width:auto" onclick="genAudio('music','local')">Sinh</button>
+      </div>
+      <div id="musicList" class="picker"></div>
+
+      <h2 style="margin-top:22px">Tiếng động</h2>
+      <div class="row">
+        <select id="sfxKind"></select>
+        <button style="flex:0 0 auto;width:auto" onclick="genAudio('sfx','local')">Sinh</button>
+      </div>
+      <div id="sfxList" class="picker"></div>
+
+      <h2 style="margin-top:22px">Sinh bằng AI theo ngữ cảnh</h2>
+      <p class="muted" id="elevenNote"></p>
+      <div class="row">
+        <select id="aiKind">
+          <option value="music">Nhạc nền</option>
+          <option value="sfx">Tiếng động</option>
+        </select>
+        <input id="aiSecs" type="number" value="20" min="1" max="120" />
+      </div>
+      <input id="aiPrompt" style="margin-top:8px"
+             placeholder="calm lofi beat for a sleep tips video, no vocals" />
+      <input id="aiName" style="margin-top:8px" placeholder="tên file (bỏ trống = suy từ mô tả)" />
+      <button style="margin-top:8px" onclick="genAudio(document.getElementById('aiKind').value,'elevenlabs')">
+        Sinh bằng ElevenLabs</button>
+    </div>
+
+    <div id="pane-join" class="hidden">
+      <h2>Nối nhiều video thành một</h2>
+      <p class="muted">Bấm theo THỨ TỰ muốn ghép. Chỉ video đã render mới ghép được.</p>
+      <div id="joinList"></div>
+      <label>Tên file kết quả</label>
+      <input id="joinName" value="ghep" />
+      <p class="muted">Mã hoá lại toàn bộ nên mất thời gian gần bằng tổng độ dài các video.</p>
+      <button class="primary" style="margin-top:8px" onclick="joinVideos()">Ghép</button>
+    </div>
+
+    <div id="pane-assets" class="hidden">
+      <h2>Lấy ảnh tự động</h2>
+      <p class="muted">Truy vấn viết bằng tiếng Anh — Pexels đánh index tiếng Anh. Mỗi dòng một cảnh.</p>
+      <textarea id="imgQueries" placeholder="iphone charging at night&#10;person holding phone low battery"></textarea>
+      <label>Nguồn (theo thứ tự ưu tiên)</label>
+      <select id="imgSource">
+        <option value="pexels,gemini">pexels → gemini (mặc định)</option>
+        <option value="pexels">chỉ pexels</option>
+        <option value="gemini">chỉ gemini</option>
+      </select>
+      <button class="primary" style="margin-top:10px" onclick="fetchImages()">Tải ảnh</button>
+
+      <h2 style="margin-top:24px">Tải file lên</h2>
+      <label>Loại</label>
+      <select id="upKind">
+        <option value="images">Ảnh → public/images/&lt;video&gt;/</option>
+        <option value="music">Nhạc nền → public/music/</option>
+        <option value="sfx">Tiếng động → public/sfx/</option>
+        <option value="videos">Video clip → public/videos/</option>
+      </select>
+      <input type="file" id="upFile" style="margin-top:8px" />
+      <button style="margin-top:8px" onclick="uploadFile()">Tải lên</button>
+      <div id="upResult" class="muted"></div>
+    </div>
+  </section>
+
+  <div class="right">
+    <h2>Dựng &amp; render</h2>
+    <label>Composition</label>
+    <select id="composition"></select>
+    <label>Giọng đọc</label>
+    <select id="voice"></select>
+    <label>Vị trí phụ đề</label>
+    <select id="subPos">
+      <option value="bottom">Đáy màn hình</option>
+      <option value="center">Giữa màn hình</option>
+    </select>
+    <label>Nhạc nền</label>
+    <select id="music">
+      <option value="">Không</option>
+      <option value="music/placeholder.mp3">placeholder.mp3</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
+      <input type="checkbox" id="regen" checked style="width:auto" />
+      <span style="color:var(--text)">Sinh lại giọng từ kịch bản</span>
+    </label>
+    <p class="muted">Bỏ chọn để render lại từ props.json có sẵn — không gọi API, giữ nguyên phụ đề đã sửa tay.</p>
+    <label style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="sfx" style="width:auto" />
+      <span style="color:var(--text)">Tiếng chuyển cảnh</span>
+    </label>
+
+    <button class="primary" style="margin-top:14px" id="renderBtn" onclick="render()">Render</button>
+    <div class="bar"><div id="bar"></div></div>
+    <div class="log" id="log">sẵn sàng.</div>
+
+    <div id="preview" style="margin-top:14px"></div>
+  </div>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
