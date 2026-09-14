@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FPS, OUTRO_FRAMES } from "../../constants";
 import type { Caption, CaptionPosition, Scene, ShortProps } from "./schema";
+import { DEFAULT_STYLE, isStyleId, STYLE_IDS } from "../../styles/meta";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -25,9 +26,15 @@ export const scriptSceneSchema = z.object({
       caption: z.string().min(1).max(40).nullable(),
     })
     .nullable(),
+  /** Nhãn ngắn hiện suốt cảnh: năm, con số, địa danh, "?"… null nếu không có. */
+  tag: z.string().min(1).max(18).nullable(),
+  /** Cụm từ đắt nhất của cảnh — PHẢI nằm nguyên văn trong một câu của `lines`. */
+  punch: z.string().min(1).max(48).nullable(),
 });
 
 export const videoScriptSchema = z.object({
+  /** Phong cách hình ảnh. Người dùng chọn cụ thể thì server ghi đè giá trị này. */
+  style: z.enum(STYLE_IDS),
   title: z.string().min(1).max(60),
   subtitle: z.string().min(1).max(90),
   handle: z.string().min(1).max(30),
@@ -46,7 +53,27 @@ const legacyScriptSchema = videoScriptSchema
   .omit({ scenes: true })
   .extend({ lines: z.array(z.string().min(1).max(90)).min(1).max(60) });
 
-export const parseScript = (raw: unknown): VideoScript => {
+/** Kịch bản viết trước khi có phong cách/tag/punch: điền giá trị mặc định cho đủ schema. */
+const withStyleDefaults = (raw: unknown) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const r = raw as Record<string, unknown>;
+  return {
+    ...r,
+    style: isStyleId(r.style) ? r.style : DEFAULT_STYLE,
+    ...(Array.isArray(r.scenes)
+      ? {
+          scenes: r.scenes.map((s: Record<string, unknown>) => ({
+            ...s,
+            tag: s.tag ?? null,
+            punch: s.punch ?? null,
+          })),
+        }
+      : {}),
+  };
+};
+
+export const parseScript = (input: unknown): VideoScript => {
+  const raw = withStyleDefaults(input);
   const asScenes = videoScriptSchema.safeParse(raw);
   if (asScenes.success) {
     return asScenes.data;
@@ -55,7 +82,7 @@ export const parseScript = (raw: unknown): VideoScript => {
   const legacy = legacyScriptSchema.safeParse(raw);
   if (legacy.success) {
     const { lines, ...rest } = legacy.data;
-    return { ...rest, scenes: [{ lines, image: null, visual: null }] };
+    return { ...rest, scenes: [{ lines, image: null, visual: null, tag: null, punch: null }] };
   }
 
   // Báo lỗi theo schema mới — đó mới là cái người dùng nên viết.
@@ -92,6 +119,26 @@ export type PropsOptions = {
   sfx?: boolean;
   captionPosition?: CaptionPosition;
   aspect?: string;
+  /** Ghi đè phong cách trong kịch bản (người dùng chọn cụ thể thay vì "Tự động"). */
+  style?: string;
+};
+
+/**
+ * Mốc xuất hiện của câu nhấn: tìm câu chứa nó rồi nội suy theo vị trí ký tự trong
+ * câu. TTS sinh mỗi câu một clip nên không có timestamp từng từ — nội suy theo ký
+ * tự lệch vài trăm ms là cùng, đủ để chữ bật lên "đúng lúc nói tới".
+ */
+const punchTiming = (punch: string, sceneCaptions: Caption[], sceneStartMs: number, sceneEndMs: number) => {
+  const needle = punch.toLocaleLowerCase("vi");
+  for (const caption of sceneCaptions) {
+    const at = caption.text.toLocaleLowerCase("vi").indexOf(needle);
+    if (at >= 0) {
+      const ratio = at / Math.max(1, caption.text.length);
+      return Math.round(caption.startMs + ratio * (caption.endMs - caption.startMs));
+    }
+  }
+  // Model đổi chữ so với câu gốc: hiện ở khoảng 1/3 cảnh.
+  return Math.round(sceneStartMs + (sceneEndMs - sceneStartMs) * 0.33);
 };
 
 /**
@@ -112,6 +159,7 @@ export const scriptToProps = (
     sfx = false,
     captionPosition = "bottom",
     aspect = "9:16",
+    style,
   } = options;
 
   const lines = allLines(script);
@@ -140,9 +188,20 @@ export const scriptToProps = (
       captions.push({ text, startMs, endMs, audio: clip ? clip.src : null });
     }
 
+    const sceneCaptions = captions.slice(captions.length - scriptScene.lines.length);
     scenes.push({
       image: scriptScene.image,
       visual: scriptScene.visual,
+      trimStartMs: 0,
+      volume: 0,
+      crop: null,
+      tag: scriptScene.tag ?? null,
+      punch: scriptScene.punch
+        ? {
+            text: scriptScene.punch,
+            atMs: punchTiming(scriptScene.punch, sceneCaptions, sceneStartMs, cursorMs),
+          }
+        : null,
       startMs: sceneStartMs,
       // Cảnh cuối kéo dài tới hết video; các cảnh khác chạm cảnh kế tiếp.
       endMs: cursorMs,
@@ -162,12 +221,18 @@ export const scriptToProps = (
     background: script.background,
     captions,
     aspect,
+    style: isStyleId(style) ? style : script.style ?? DEFAULT_STYLE,
     scenes,
     captionPosition,
     showTitle: true,
     voiceoverTrack: null,
     music,
     sfx,
+    musicVolume: 0.5,
+    voiceVolume: 1,
+    audioClips: [],
+    texts: [],
+    watermark: null,
   };
 };
 

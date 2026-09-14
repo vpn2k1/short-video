@@ -1,14 +1,14 @@
-import { AbsoluteFill, CalculateMetadataFunction, Sequence } from "remotion";
+import { AbsoluteFill, CalculateMetadataFunction } from "remotion";
 import { FPS, msToFrames, OUTRO_FRAMES, TITLE_FRAMES } from "../../constants";
 import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../../aspects";
-import { Background } from "../../scenes/Background";
-import { Scenes, Scrim } from "../../scenes/Scenes";
-import { SceneVisual } from "../../scenes/SceneVisual";
-import { Captions } from "../../captions/Captions";
-import { ProgressBar } from "../../components/ProgressBar";
 import type { ShortProps } from "./schema";
 import { Soundtrack } from "../../audio/Soundtrack";
-import { TitleCard } from "../../components/TitleCard";
+import { TextOverlays } from "../../components/TextOverlays";
+import { WatermarkOverlay } from "../../components/WatermarkOverlay";
+import { STYLE_COMPONENTS } from "../../styles/registry";
+import { CaptionStyle } from "../../styles/caption";
+import { FONTS } from "../../styles/shared";
+import type { StyleId } from "../../styles/meta";
 
 /** Duration follows the caption track, so editing captions in the Studio resizes the video. */
 export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
@@ -19,6 +19,9 @@ export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
   const lastEndMs = Math.max(
     props.captions.reduce((max, caption) => Math.max(max, caption.endMs), 0),
     props.scenes.reduce((max, scene) => Math.max(max, scene.endMs), 0),
+    // Âm thanh thêm tay kéo dài quá câu cuối thì video dài theo.
+    (props.audioClips ?? []).reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0),
+    (props.texts ?? []).reduce((max, text) => Math.max(max, text.endMs), 0),
   );
 
   return {
@@ -33,51 +36,26 @@ export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
   };
 };
 
-export const Short: React.FC<ShortProps> = ({
-  title,
-  subtitle,
-  accent,
-  background,
-  captions,
-  scenes,
-  captionPosition,
-  showTitle,
-  voiceoverTrack,
-  music,
-  sfx,
-}) => {
+/**
+ * Phần hình do phong cách quyết định (src/styles/), phần tiếng dùng chung.
+ * Cùng một props.json đổi `style` là ra video khác hẳn mà timing không lệch.
+ */
+export const Short: React.FC<ShortProps> = (props) => {
+  const Style = STYLE_COMPONENTS[props.style as StyleId] ?? CaptionStyle;
   return (
-    <AbsoluteFill
-      style={{
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      }}
-    >
-      {/* Thứ tự lớp: nền gradient → ảnh của cảnh → lớp tối → chữ. */}
-      <Background accent={accent} background={background} />
-      <Scenes scenes={scenes} />
-      <Scrim />
-      <SceneVisual scenes={scenes} accent={accent} />
-
-      {!showTitle ? null : (
-        <Sequence durationInFrames={TITLE_FRAMES}>
-          <TitleCard title={title} subtitle={subtitle} accent={accent} />
-        </Sequence>
-      )}
-
-      <Captions
-        captions={captions}
-        accent={accent}
-        position={captionPosition}
-      />
+    <AbsoluteFill style={{ fontFamily: FONTS.sans }}>
+      <Style {...props} />
+      <TextOverlays texts={props.texts ?? []} />
+      {props.watermark ? <WatermarkOverlay watermark={props.watermark} /> : null}
       <Soundtrack
-        captions={captions}
-        voiceoverTrack={voiceoverTrack}
-        music={music}
-        sfx={sfx}
+        captions={props.captions}
+        voiceoverTrack={props.voiceoverTrack}
+        music={props.music}
+        sfx={props.sfx}
+        musicVolume={props.musicVolume}
+        voiceVolume={props.voiceVolume}
+        audioClips={props.audioClips}
       />
-      {/* <Watermark handle={handle} /> — đang tắt, xem ghi chú trong hội thoại */}
-      <ProgressBar accent={accent} />
     </AbsoluteFill>
   );
 };

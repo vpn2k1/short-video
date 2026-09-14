@@ -26,11 +26,14 @@ export const musicVolumeAt = ({
   windows,
   fps,
   durationInFrames,
+  level = MUSIC_LEVEL,
 }: {
   frame: number;
   windows: VoiceWindow[];
   fps: number;
   durationInFrames: number;
+  /** Âm lượng nền chỉnh trong trình chỉnh sửa; mức hạ khi có giọng giữ đúng tỉ lệ. */
+  level?: number;
 }) => {
   const rampFrames = Math.max(1, Math.round(fps * 0.25));
 
@@ -45,7 +48,7 @@ export const musicVolumeAt = ({
     insideness = Math.max(insideness, 1 - Math.min(1, distance / rampFrames));
   }
 
-  const ducked = interpolate(insideness, [0, 1], [MUSIC_LEVEL, MUSIC_DUCKED]);
+  const ducked = interpolate(insideness, [0, 1], [level, level * (MUSIC_DUCKED / MUSIC_LEVEL)]);
 
   const fade = interpolate(
     frame,

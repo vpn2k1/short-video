@@ -1,7 +1,8 @@
-let state = null;
-let current = null;   // { slug, script, props }
+// Một màn hình tạo/sửa video kiểu chat. Tuỳ chọn là các chip bấm mở menu,
+// thư viện và cài đặt ở thanh nav.
 
 const $ = (id) => document.getElementById(id);
+
 const api = async (path, options) => {
   const res = await fetch(path, options);
   const body = await res.json();
@@ -9,668 +10,1456 @@ const api = async (path, options) => {
   return body;
 };
 
-// ---------- khởi động ----------
-async function boot() {
-  state = await api("/api/state");
-  renderKeys();
-  renderVideos();
+const postJson = (path, data) =>
+  api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 
-  $("composition").innerHTML = state.compositions
-    .map((c) => `<option value="${c}">${c}</option>`).join("");
-
-  const groups = { vi: [], en: [] };
-  for (const v of state.voices.catalog) groups[v.lang].push(v);
-  $("voice").innerHTML =
-    `<option value="">Không có giọng</option>` +
-    Object.entries(groups).map(([lang, list]) =>
-      `<optgroup label="${lang === "vi" ? "Tiếng Việt" : "Tiếng Anh"}">` +
-      list.map((v) => `<option value="${v.key}"${v.paidPlan ? " disabled" : ""}>` +
-        `${v.label}${v.paidPlan ? " (cần gói trả phí)" : ""}</option>`).join("") +
-      `</optgroup>`).join("");
-  $("voice").value = "linh";
-
-  fillMusicSelect();
-  try { aspects = (await api("/api/aspects")).aspects; } catch { aspects = []; }
-  $("createNote").textContent = state.keys.anthropic
-    ? "Có ANTHROPIC_API_KEY — sinh kịch bản tự động được."
-    : "Chưa có ANTHROPIC_API_KEY: nút này sẽ lỗi. Tạo video mới rồi tự viết cảnh ở tab Sửa kịch bản.";
-  $("hint").textContent = `${state.videos.length} video`;
-}
-
-function renderKeys() {
-  const label = { anthropic: "Claude", elevenlabs: "ElevenLabs", pexels: "Pexels", gemini: "Gemini" };
-  // Chỉ kiểm tra key CÓ TỒN TẠI trong .env, không gọi API để thử quyền —
-  // gọi thử mỗi lần mở trang thì chậm và tốn quota. Ghi rõ điều đó ở tooltip
-  // để dấu ✓ không bị hiểu nhầm là "dịch vụ chạy được".
-  $("keys").innerHTML = Object.entries(state.keys)
-    .map(([k, on]) => `<span class="key ${on ? "on" : "off"}" title="${
-      on ? "Key có trong .env — chưa kiểm tra quyền thật" : "Chưa có key trong .env"
-    }">${label[k]} ${on ? "✓" : "✗"}</span>`)
-    .join("");
-}
-
-function renderVideos() {
-  $("videos").innerHTML = state.videos.map((v) => `
-    <div class="video-item ${current?.slug === v.slug ? "active" : ""}" onclick="openVideo('${v.slug}')">
-      <div class="t">${escapeHtml(v.title)}</div>
-      <div class="m">${v.slug} · ${v.scenes} cảnh · ${v.captions} câu${v.mp4 ? " · ✓ mp4" : ""}</div>
-    </div>`).join("") || `<p class="muted">Chưa có video nào.</p>`;
-}
-
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g,
+const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-// ---------- tabs ----------
-function tab(name) {
-  if (name === "join") renderJoinList();
-  if (name === "voice") renderVoiceStage();
-  if (name === "scenes") renderSceneCards();
-  if (name === "gallery") renderGallery();
-  if (name === "audio") renderAudio();
-  for (const t of ["create", "scenes", "edit", "voice", "assets", "audio", "join", "gallery"]) {
-    $(`pane-${t}`).classList.toggle("hidden", t !== name);
-    $(`tab-${t}`).classList.toggle("on", t === name);
-  }
-}
+/** Bỏ dấu + chữ thường để gõ "ngu" vẫn tìm ra "Ngủ đủ giấc". */
+const fold = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+  .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+const matches = (p, q) => !q || fold(p.title).includes(q) || p.slug.includes(q);
 
-function toggleDrawer() { $("main").classList.toggle("drawer"); }
+const isVideoFile = (p) => /\.(mp4|mov|webm)(\?|$)/i.test(p);
+const ratioCss = (aspect) => (aspect || "9:16").replace(":", " / ");
+const isWide = (aspect) => { const [w, h] = (aspect || "9:16").split(":").map(Number); return w / h > 1; };
+const CARET = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>`;
 
-// ---------- cài đặt cuộc ----------
+const IDEAS = [
+  "5 mẹo tiết kiệm pin iPhone",
+  "Vì sao Nokia sụp đổ?",
+  "Cách nấu phở bò tại nhà trong 60 giây",
+  "Giới thiệu quán cà phê của tôi từ ảnh tải lên",
+];
+
+/** Gợi ý sửa nhanh dưới kết quả — chỉ điền sẵn vào ô nhập, người dùng tự bấm gửi. */
+const QUICK_EDITS = [
+  { label: "✂️ Ngắn hơn", prompt: "Rút gọn còn khoảng 15 giây, giữ ý chính." },
+  { label: "😄 Vui hơn", prompt: "Viết lại với giọng vui, gần gũi hơn." },
+  { label: "🔁 Phiên bản khác", prompt: "Làm một phiên bản khác cùng chủ đề, với hook mới." },
+];
+
+// Ngắn để không bị xuống dòng trên điện thoại — ví dụ cụ thể đã có ở các nút gợi ý.
+const PLACEHOLDER = {
+  new: { video: "Mô tả video…", image: "Mô tả bộ ảnh…" },
+  edit: { video: "Muốn sửa gì?", image: "Muốn sửa gì?" },
+};
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
+const TEXT_PLACEHOLDER = {
+  new: `Dán kịch bản — mỗi dòng một câu, dòng trống để sang cảnh (${IS_MAC ? "⌘" : "Ctrl"}+Enter để gửi)`,
+  edit: `Dán kịch bản mới để dựng lại (${IS_MAC ? "⌘" : "Ctrl"}+Enter để gửi)`,
+};
+
+const DEFAULT_OPTS = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: "", video: "" };
+const AUTO_STYLE = { id: "auto", emoji: "✨", label: "Tự động", summary: "AI đọc nội dung và chọn phong cách hợp nhất." };
+
+// ---------- trạng thái ----------
+let state = null;          // /api/state
 let aspects = [];
-let settings = { kind: "video", aspect: "9:16" };
+let current = null;        // slug đang mở, null = cuộc mới
+let project = null;        // thông tin từ /api/projects của video đang mở
+let messages = [];
+let pending = [];          // [{ id, name, path|null, url, video }]
+let busy = false;
+let stream = null;
+let timer = null;
+const opts = { ...DEFAULT_OPTS };
+let historyItems = [];
+let historyPoll = null;
 
-async function loadSettings() {
-  if (!current?.slug) return;
-  try { settings = await api(`/api/settings/${current.slug}`); } catch { /* video mới */ }
-  $("setKind").value = settings.kind;
-  $("setAspect").innerHTML = aspects
-    .map((a) => `<option value="${a.id}">${escapeHtml(a.label)} · ${a.width}×${a.height}</option>`).join("");
-  $("setAspect").value = settings.aspect;
-  $("setMusic").innerHTML = `<option value="">Không</option>` +
-    state.audio.music.map((m) => `<option value="${m.path}">${m.name}</option>`).join("");
-  $("setMusic").value = current?.props?.music ?? "";
+const styleMeta = (id) => (id === "auto" ? AUTO_STYLE : state?.styles?.find((s) => s.id === id)) ?? AUTO_STYLE;
+/** Server báo đã có key của MỘT nhà cung cấp viết kịch bản (Claude, ChatGPT, Gemini, Groq, OpenRouter). */
+const hasScriptKey = () => Boolean(state?.keys.script);
+
+// ---------- khởi động ----------
+async function boot() {
+  [state, { aspects }] = await Promise.all([api("/api/state"), api("/api/aspects")]);
+
+  $("ideas").innerHTML = IDEAS.map((t) => `<button type="button">${escapeHtml(t)}</button>`).join("");
+  $("ideas").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => prefill(b.textContent)));
+
+  bindComposer();
+  bindMenu();
+  bindSettings();
+  bindHistory();
+  bindMulti();
+  loadHistory();
+  renderKeyNotice();
+  window.addEventListener("hashchange", route);
+  route();
 }
 
-async function saveSettings() {
-  if (!current?.slug) return log("Lưu kịch bản trước để có tên thư mục.");
-  settings = await api(`/api/settings/${current.slug}`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: $("setKind").value, aspect: $("setAspect").value }),
-  });
-  $("musicStage").value = $("setMusic").value;
-  log(`Cài đặt: ${settings.kind} · ${settings.aspect}`);
-  current = await api(`/api/video/${current.slug}`);
-  await refreshFlow();
+function renderKeyNotice() {
+  // Chế độ nguyên văn không cần key — chỉ nhắc khi đang ở chế độ AI mà thiếu key.
+  $("keyNotice").hidden = hasScriptKey() || opts.mode === "text";
+  $("settingsWarn").hidden = hasScriptKey();
 }
 
-// ---------- thẻ cảnh ----------
-function renderSceneCards() {
-  loadSettings();
-  const sc = current?.script?.scenes;
-  if (!sc) {
-    $("sceneCards").innerHTML =
-      `<p class="muted">Cuộc này chưa có kịch bản (có thể dựng từ audio). Dùng tab Sửa kịch bản.</p>`;
+// ---------- điều hướng ----------
+function route() {
+  closeMenu();
+  closeHistoryDrawer();
+  renderHistory();
+  const hash = location.hash.replace(/^#\/?/, "");
+  if (hash === "library") return showLibrary();
+  if (hash === "multi") return showMulti(null);
+  const multiMatch = hash.match(/^multi\/([a-z0-9-]+)$/);
+  if (multiMatch) return showMulti(multiMatch[1]);
+  const m = hash.match(/^v\/([a-z0-9-]+)$/);
+  showChat(m ? m[1] : null);
+}
+
+function setNav(which) {
+  $("nav-new").classList.toggle("on", which === "new");
+  $("nav-lib").classList.toggle("on", which === "lib");
+  $("nav-multi").classList.toggle("on", which === "multi");
+}
+
+async function showChat(slug) {
+  $("view-library").hidden = true;
+  $("view-multi").hidden = true;
+  $("view-chat").hidden = false;
+  setNav(slug ? "" : "new");
+  stopFollowing();
+
+  current = slug;
+  project = null;
+  messages = [];
+  busy = false;
+  setHint("");
+
+  if (!slug) {
+    // Chưa có key thì mặc định dán kịch bản — vẫn làm được video ngay.
+    Object.assign(opts, DEFAULT_OPTS, { mode: hasScriptKey() ? "ai" : "text" });
+    renderProjectBar();
+    renderComposer();
+    renderThread();
+    loadRecent();
+    $("input").focus();
     return;
   }
-  $("sceneCards").innerHTML = sc.map((s, i) => {
-    const v = s.visual ?? null;
-    return `
-    <div class="sc-card scene" data-index="${i}">
-      <div class="sc-head">
-        <h3>Cảnh ${i + 1}</h3>
-        <button class="mini" onclick="renderSceneOne(${i})">Tạo</button>
-        <button class="mini" onclick="removeScene(${i})">Xoá</button>
-      </div>
-      <div class="sc-body">
-        <div>
-          <label>Prompt / lời thoại — mỗi dòng một câu phụ đề (tối đa 42 ký tự)</label>
-          <textarea class="sc-lines" style="min-height:110px">${escapeHtml(s.lines.join("\n"))}</textarea>
-          <div class="row" style="margin-top:8px">
-            <input class="sc-image" value="${escapeHtml(s.image ?? "")}" placeholder="ảnh nền: images/…" />
-            <input class="sc-query" placeholder="tìm ảnh Pexels (tiếng Anh)" />
-            <button class="mini" style="flex:0 0 auto" onclick="searchImages(${i})">Tìm</button>
-          </div>
-          <div class="picker hidden" id="picker-${i}"></div>
-          <div class="row" style="margin-top:8px">
-            <select class="sc-vtype">
-              <option value=""${!v ? " selected" : ""}>Không hình vẽ</option>
-              <option value="stat"${v?.type === "stat" ? " selected" : ""}>stat</option>
-              <option value="badge"${v?.type === "badge" ? " selected" : ""}>badge</option>
-            </select>
-            <input class="sc-vtext" value="${escapeHtml(v?.text ?? "")}" placeholder="7-9" />
-            <input class="sc-vcaption" value="${escapeHtml(v?.caption ?? "")}" placeholder="chú thích" />
-          </div>
-        </div>
-        <div>
-          <div class="sc-out" id="scout-${i}"><div class="empty">chưa tạo</div></div>
-          <div id="scact-${i}"></div>
-        </div>
-      </div>
-    </div>`;
-  }).join("");
-  paintSceneOutputs();
-}
-
-/** Gắn file đã render (nếu có) vào từng thẻ. */
-async function paintSceneOutputs() {
-  let items = [];
-  try { items = (await api("/api/gallery")).items; } catch { return; }
-  document.querySelectorAll(".sc-card").forEach((el) => {
-    const i = Number(el.dataset.index);
-    const hit = items.find((x) => x.slug === current.slug && x.scene === i + 1);
-    const out = $(`scout-${i}`), act = $(`scact-${i}`);
-    if (!out || !hit) return;
-    out.innerHTML = hit.kind === "image"
-      ? `<img src="${hit.file}?t=${hit.at}" />`
-      : `<video src="${hit.file}?t=${hit.at}" controls></video>`;
-    act.innerHTML = `<a href="${hit.file}" download><button class="mini" style="margin-top:8px">Tải xuống</button></a>`;
-  });
-}
-
-async function renderSceneOne(index) {
-  if (!current?.slug) return log("Lưu kịch bản trước.");
-  $("log").textContent = "";
-  await saveScript();   // cảnh phải được lưu thì render mới đúng nội dung
-
-  // Chỉ sinh lại giọng khi props thật sự đã cũ. Trước đây lần nào tạo cảnh cũng
-  // sinh giọng cho TOÀN BỘ video — tạo 3 cảnh là 3 lần sinh thừa.
-  const st = (await api(`/api/pipeline/${current.slug}`)).stages
-    .find((x) => x.id === "voice");
-  const needVoice = st && (st.state === "stale" || st.state === "missing");
-
-  if (needVoice) {
-    log(`Kịch bản đã đổi — sinh lại giọng trước, rồi render cảnh ${index + 1}.`);
-    pendingScene = { index, kind: $("setKind").value };
-    await runStage("voice");
-  } else {
-    log(`Giọng còn khớp — render thẳng cảnh ${index + 1}.`);
-    await startSceneRender(index, $("setKind").value);
-  }
-}
-
-let pendingScene = null;
-
-async function startSceneRender(index, kind) {
-  const { jobId } = await api("/api/stage/scene", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ slug: current.slug, index, kind }),
-  });
-  follow(jobId, async () => { await paintSceneOutputs(); await refreshFlow(); });
-}
-
-function addSceneCard() {
-  const { script } = collectScript();
-  script.scenes.push({ image: null, visual: null, lines: ["Câu mới."] });
-  current.script = script;
-  renderSceneCards();
-}
-
-async function joinScenes() {
-  const items = (await api("/api/gallery")).items
-    .filter((x) => x.slug === current?.slug && x.scene !== null && x.kind === "video")
-    .sort((a, b) => a.scene - b.scene);
-  if (items.length < 2) return log("Cần ít nhất 2 cảnh đã render dạng video.");
-  log(`Gộp ${items.length} cảnh…`);
-  const { jobId } = await api("/api/concat", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ slugs: items.map((x) => `scenes/${x.slug}-${x.scene}`),
-                           name: `${current.slug}-gop` }),
-  });
-  follow(jobId, () => renderGallery());
-}
-
-// ---------- thư viện ----------
-async function renderGallery() {
-  const { items } = await api("/api/gallery");
-  $("gal").innerHTML = items.map((x) => `
-    <figure>
-      ${x.kind === "image"
-        ? `<img src="${x.file}?t=${x.at}" loading="lazy" />`
-        : `<video src="${x.file}?t=${x.at}" controls preload="metadata"></video>`}
-      <figcaption>${escapeHtml(x.slug)}${x.scene ? ` · cảnh ${x.scene}` : ""}<br>
-        ${(x.bytes / 1e6).toFixed(1)} MB ·
-        <a href="${x.file}" download style="color:var(--accent)">tải</a></figcaption>
-    </figure>`).join("") || `<p class="muted">Chưa có gì.</p>`;
-}
-
-// ---------- flow ----------
-let stages = [];
-const STAGE_TAB = { script: "edit", voice: "voice", images: "assets", audio: "audio", render: null };
-
-async function refreshFlow() {
-  if (!current?.slug) { $("flow").innerHTML = ""; return; }
-  try {
-    const data = await api(`/api/pipeline/${current.slug}`);
-    stages = data.stages;
-  } catch { stages = []; return; }
-
-  $("flow").innerHTML = stages.map((st, i) => `
-    ${i > 0 ? '<div class="arrow">→</div>' : ""}
-    <div class="node" id="node-${st.id}" onclick="openStage('${st.id}')">
-      <div class="n-top"><i class="dot s-${st.state}"></i><span class="n-label">${st.label}</span></div>
-      <div class="n-detail">${escapeHtml(st.detail)}</div>
-      ${st.runnable && (st.id === "voice" || st.id === "render")
-        ? `<button class="n-run" onclick="event.stopPropagation();runStage('${st.id}')">Chạy bước này</button>`
-        : ""}
-    </div>`).join("");
-}
-
-function openStage(id) {
-  document.querySelectorAll(".node").forEach((n) => n.classList.remove("sel"));
-  $(`node-${id}`)?.classList.add("sel");
-  const t = STAGE_TAB[id];
-  if (t) tab(t);
-  else $("main").classList.add("drawer");   // render → mở panel bên phải
-}
-
-function renderVoiceStage() {
-  const fill = (sel, from) => { const cur = $(sel).value; $(sel).innerHTML = from; $(sel).value = cur; };
-  fill("voiceStage", $("voice").innerHTML);
-  fill("musicStage", `<option value="">Không</option>` +
-    state.audio.music.map((m) => `<option value="${m.path}">${m.name}</option>`).join(""));
-  if (current?.props) {
-    $("subPosStage").value = current.props.captionPosition ?? "bottom";
-    $("musicStage").value = current.props.music ?? "";
-    $("sfxStage").checked = Boolean(current.props.sfx);
-  }
-  if (!$("voiceStage").value) $("voiceStage").value = $("voice").value || "linh";
-}
-
-async function runStage(id) {
-  if (!current?.slug) return log("Chọn video trước.");
-  $("log").textContent = ""; $("bar").style.width = "0";
-  $("main").classList.add("drawer");
-
-  // Chốt chặn: select rỗng (chưa mở tab Giọng đọc) thì lấy lại từ props đang có,
-  // nếu không sẽ âm thầm xoá giọng và nhạc của video.
-  const p = current.props;
-  const currentVoice = $("voiceStage").value || $("voice").value || undefined;
-  const currentMusic = $("musicStage").value || p?.music || null;
-  const body = id === "voice"
-    ? { slug: current.slug, voice: currentVoice, music: currentMusic,
-        sfx: $("sfxStage").checked || Boolean(p?.sfx),
-        captionPosition: $("subPosStage").value || p?.captionPosition || "bottom" }
-    : { slug: current.slug, composition: $("composition").value };
-
-  if (id === "voice") {
-    log(`Giọng: ${currentVoice ?? "không"} · Nhạc: ${currentMusic ?? "không"}`);
-  }
 
   try {
-    const { jobId } = await api(`/api/stage/${id}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+    const [chat, { projects }] = await Promise.all([api(`/api/chat/${slug}`), api("/api/projects")]);
+    if (current !== slug) return;   // đã chuyển trang trong lúc chờ
+    messages = chat.messages;
+    Object.assign(opts, {
+      kind: chat.settings.kind ?? "video",
+      style: chat.settings.style ?? "auto",
+      mode: chat.settings.mode === "text" || !hasScriptKey() ? "text" : "ai",
+      aspect: chat.settings.aspect ?? "9:16",
+      voice: chat.settings.voice ?? "",
+      music: chat.settings.music ?? "",
+      video: chat.settings.video ?? "",
     });
-    if (id === "render") $("renderBtn").disabled = true;
-    follow(jobId, async (result, status) => {
-      state = await api("/api/state");
-      current = await api(`/api/video/${current.slug}`);
-      renderVideos(); await refreshFlow();
-      if (id === "voice" && pendingScene) {
-        const p = pendingScene; pendingScene = null;
-        await startSceneRender(p.index, p.kind);
-      }
-      if (status === "done" && result?.mp4) {
-        $("preview").innerHTML = `<video src="${result.mp4}?t=${Date.now()}" controls autoplay muted></video>
-          <a href="${result.mp4}" download style="display:block;margin-top:8px">
-            <button>Tải mp4 xuống</button></a>`;
-      }
-    });
-  } catch (e) { log(`Lỗi: ${e.message}`); $("renderBtn").disabled = false; }
-}
-
-// ---------- nhạc & tiếng ----------
-function fillMusicSelect() {
-  const cur = $("music").value;
-  $("music").innerHTML = `<option value="">Không</option>` +
-    state.audio.music.map((m) => `<option value="${m.path}">${m.name}</option>`).join("");
-  $("music").value = cur;
-}
-
-function renderAudio() {
-  $("musicMood").innerHTML = state.audio.moods
-    .map((m) => `<option value="${m}">${m}</option>`).join("");
-  $("sfxKind").innerHTML = state.audio.sfxKinds
-    .map((k) => `<option value="${k}">${k}</option>`).join("");
-  const list = (items, dir) => items.map((it) =>
-    `<div style="display:flex;align-items:center;gap:8px;margin:4px 0">
-       <span style="flex:0 0 130px">${escapeHtml(it.name)}</span>
-       <audio controls preload="none" src="/public/${it.path}" style="height:30px;flex:1"></audio>
-     </div>`).join("") || `<span class="muted">chưa có file nào</span>`;
-  $("musicList").innerHTML = list(state.audio.music, "music");
-  $("sfxList").innerHTML = list(state.audio.sfx, "sfx");
-  $("elevenNote").textContent = state.keys.elevenlabs
-    ? "Cần key có quyền music_generation / sound_generation. Key mặc định KHÔNG có — sửa quyền trong dashboard ElevenLabs."
-    : "Chưa có ELEVENLABS_API_KEY.";
-}
-
-async function genAudio(kind, engine) {
-  $("log").textContent = ""; $("main").classList.add("drawer");
-  const payload = { kind, engine };
-  if (engine === "local") {
-    payload.which = kind === "music" ? $("musicMood").value : $("sfxKind").value;
-    payload.seconds = kind === "music" ? Number($("musicSecs").value) : 2;
-  } else {
-    payload.prompt = $("aiPrompt").value.trim();
-    payload.name = $("aiName").value.trim();
-    payload.seconds = Number($("aiSecs").value);
-    if (!payload.prompt) return log("Nhập mô tả ngữ cảnh đã.");
+    project = projects.find((p) => p.slug === slug) ?? null;
+    renderProjectBar();
+    renderComposer();
+    renderThread();
+    if (chat.jobId) follow(chat.jobId, opts.kind);
+  } catch (e) {
+    setHint(e.message, true);
   }
-  try {
-    const { jobId } = await api("/api/audio/generate", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    follow(jobId, (result, status) => {
-      if (status === "done" && result?.audio) {
-        state.audio = result.audio;
-        renderAudio(); fillMusicSelect();
-        if (result.path?.startsWith("music/")) $("music").value = result.path;
-      }
-    });
-  } catch (e) { log(`Lỗi: ${e.message}`); }
 }
 
-// ---------- ghép video ----------
-let joinOrder = [];
-function renderJoinList() {
-  joinOrder = joinOrder.filter((s) => state.videos.some((v) => v.slug === s && v.mp4));
-  $("joinList").innerHTML = state.videos.map((v) => {
-    const i = joinOrder.indexOf(v.slug);
-    return `<div class="video-item ${i >= 0 ? "active" : ""}" onclick="toggleJoin('${v.slug}')">
-      <div class="t">${i >= 0 ? `${i + 1}. ` : ""}${escapeHtml(v.title)}</div>
-      <div class="m">${v.slug}${v.mp4 ? "" : " · chưa render, không ghép được"}</div>
-    </div>`;
-  }).join("");
+async function showLibrary() {
+  stopFollowing();
+  $("view-chat").hidden = true;
+  $("view-multi").hidden = true;
+  $("view-library").hidden = false;
+  setNav("lib");
+  $("grid").innerHTML = `<p class="empty-lib">Đang tải…</p>`;
+  try {
+    libraryItems = (await api("/api/projects")).projects;
+    renderLibrary();
+  } catch (e) {
+    $("grid").innerHTML = `<p class="empty-lib">Lỗi: ${escapeHtml(e.message)}</p>`;
+  }
 }
-function toggleJoin(slug) {
-  const v = state.videos.find((x) => x.slug === slug);
-  if (!v?.mp4) return log(`${slug} chưa render.`);
-  const i = joinOrder.indexOf(slug);
-  if (i >= 0) joinOrder.splice(i, 1); else joinOrder.push(slug);
-  renderJoinList();
+
+// ---------- thanh tiêu đề video ----------
+function renderProjectBar() {
+  $("projectBar").hidden = !current;
+  if (!current) return;
+  const style = styleMeta(project?.style ?? opts.style);
+  $("projectTitle").textContent = project?.title ?? messages.find((m) => m.role === "user")?.text ?? current;
+  $("projectMeta").textContent =
+    `${style.emoji} ${style.label} · ${opts.aspect} · ${opts.kind === "image" ? "Ảnh" : "Video"}`;
+  const lastVideo = [...messages].reverse().find((m) => m.mp4)?.mp4;
+  $("projectDownload").hidden = !lastVideo;
+  $("projectDownload").onclick = () => lastVideo && download(lastVideo);
+  $("projectMulti").hidden = !project?.multi;
+  $("projectMulti").href = `#/multi/${current}`;
+  // Trình chỉnh sửa cần props.json — có kết quả (video hoặc ảnh) là có.
+  const editable = Boolean(lastVideo) || messages.some((m) => m.images?.length) || Boolean(project?.editable);
+  $("projectEdit").hidden = !editable;
+  $("projectEdit").href = `/editor.html#${encodeURIComponent(current)}`;
+  $("projectDelete").hidden = busy;
+  $("projectDelete").onclick = () => deleteProjects([current]);
 }
-async function joinVideos() {
-  if (joinOrder.length < 2) return log("Chọn ít nhất 2 video.");
-  $("log").textContent = ""; $("main").classList.add("drawer");
-  const { jobId } = await api("/api/concat", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ slugs: joinOrder, name: $("joinName").value.trim() || "ghep" }),
-  });
-  follow(jobId, (result, status) => {
-    if (status === "done" && result?.mp4) {
-      $("preview").innerHTML = `<video src="${result.mp4}?t=${Date.now()}" controls></video>
-        <a href="${result.mp4}" download style="display:block;margin-top:8px">
-          <button>Tải mp4 xuống</button></a>`;
+
+// ---------- lịch sử ----------
+const narrowScreen = () => window.matchMedia("(max-width: 900px)").matches;
+
+function bindHistory() {
+  // Trạng thái thu gọn chỉ là tiện ích cho người xem — lỗi storage thì bỏ qua.
+  try {
+    if (localStorage.getItem("historyCollapsed") === "1") document.body.classList.add("history-collapsed");
+  } catch { /* storage bị chặn */ }
+  syncHistoryToggle();
+
+  $("historyToggle").addEventListener("click", () => {
+    if (narrowScreen()) {
+      const open = !document.body.classList.contains("history-open");
+      document.body.classList.toggle("history-open", open);
+      $("historyBackdrop").hidden = !open;
+      if (open) $("historySearch").focus();
+    } else {
+      const collapsed = document.body.classList.toggle("history-collapsed");
+      try { localStorage.setItem("historyCollapsed", collapsed ? "1" : "0"); } catch { /* bỏ qua */ }
     }
+    syncHistoryToggle();
   });
+  $("historyBackdrop").addEventListener("click", closeHistoryDrawer);
+  $("historySearch").addEventListener("input", renderHistory);
+  $("historyList").addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-del]");
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    deleteProjects([btn.dataset.del]);
+  });
+  window.addEventListener("resize", syncHistoryToggle);
 }
 
-// ---------- video ----------
-async function openVideo(slug) {
-  current = await api(`/api/video/${slug}`);
-  renderVideos();
-  renderScript();
-  renderVoiceStage();   // đổ sẵn select — nút "Chạy bước này" trên node dùng được ngay
-  await refreshFlow();
-  tab("edit");
-  const v = state.videos.find((x) => x.slug === slug);
-  $("preview").innerHTML = v?.mp4
-    ? `<video src="${v.mp4}?t=${Date.now()}" controls></video>
-       <a href="${v.mp4}" download style="display:block;margin-top:8px">
-         <button>Tải mp4 xuống</button></a>` : "";
-  if (current.props) {
-    $("subPos").value = current.props.captionPosition ?? "bottom";
-    $("music").value = current.props.music ?? "";
-    $("sfx").checked = Boolean(current.props.sfx);
+function syncHistoryToggle() {
+  const visible = narrowScreen()
+    ? document.body.classList.contains("history-open")
+    : !document.body.classList.contains("history-collapsed");
+  $("historyToggle").setAttribute("aria-expanded", String(visible));
+}
+
+function closeHistoryDrawer() {
+  document.body.classList.remove("history-open");
+  $("historyBackdrop").hidden = true;
+  syncHistoryToggle();
+}
+
+async function loadHistory() {
+  clearTimeout(historyPoll);
+  try {
+    historyItems = (await api("/api/projects")).projects;
+    renderHistory();
+  } catch { /* giữ danh sách cũ */ }
+  // Còn video đang dựng (kể cả ở tab khác) thì hỏi lại để trạng thái tự cập nhật.
+  if (historyItems.some((p) => p.status === "running")) {
+    historyPoll = setTimeout(loadHistory, 4000);
   }
 }
 
-function newVideo() {
-  current = { slug: "", script: { title: "Video mới", subtitle: "", handle: "@kenh",
-    accent: "#e8590c", background: "#0b0b12",
-    scenes: [{ image: null, visual: null, lines: ["Câu đầu tiên.", "Câu thứ hai.", "Lưu lại nhé!"] }] }, props: null };
-  renderScript();
-  $("flow").innerHTML = "";
-  tab("edit");
+const HISTORY_GROUPS = [
+  [0, "Hôm nay"], [1, "Hôm qua"], [7, "7 ngày qua"], [30, "30 ngày qua"], [Infinity, "Cũ hơn"],
+];
+
+function historyGroup(time) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const daysAgo = time >= today ? 0 : Math.ceil((today - time) / 86_400_000);
+  return HISTORY_GROUPS.find(([max]) => daysAgo <= max)[1];
 }
 
-function renderScript() {
-  const s = current?.script;
-  if (!s) { $("scenes").innerHTML = `<p class="muted">Video này chưa có script.json (có thể dựng từ audio).</p>`;
-            $("scriptMeta").innerHTML = ""; return; }
-  $("scriptMeta").innerHTML = `
-    <div class="row">
-      <div><label>Tên thư mục</label><input id="f-slug" value="${escapeHtml(current.slug)}" /></div>
-      <div><label>Handle</label><input id="f-handle" value="${escapeHtml(s.handle)}" /></div>
+function historyTime(time) {
+  const d = new Date(time);
+  return historyGroup(time) === "Hôm nay"
+    ? d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+}
+
+function renderHistory() {
+  const list = $("historyList");
+  if (!list) return;
+  const activeSlug = location.hash.match(/^#\/v\/([a-z0-9-]+)$/)?.[1] ?? null;
+  const q = fold($("historySearch").value.trim());
+  const items = historyItems.filter((p) => matches(p, q));
+
+  if (items.length === 0) {
+    list.innerHTML = `<p class="h-empty">${q ? "Không tìm thấy." : "Chưa có video nào.<br>Bắt đầu bằng nút Tạo mới."}</p>`;
+    return;
+  }
+
+  let group = "";
+  list.innerHTML = items.map((p) => {
+    const g = historyGroup(p.updated);
+    const heading = g !== group ? `<div class="h-group">${g}</div>` : "";
+    group = g;
+    const style = styleMeta(p.style);
+    const img = p.kind === "image" ? p.cover : p.thumb;
+    const status = {
+      running: `<span class="h-status running">Đang dựng…</span>`,
+      error: `<span class="h-status error">Lỗi</span> · ${historyTime(p.updated)}`,
+      draft: `Chưa có kết quả · ${historyTime(p.updated)}`,
+      done: `${style.emoji} ${p.kind === "image" ? `${p.images} ảnh` : "Video"} · ${historyTime(p.updated)}`,
+    }[p.status] ?? historyTime(p.updated);
+    return `${heading}
+      <a class="h-item ${p.slug === activeSlug ? "on" : ""}" href="#/v/${p.slug}"
+         ${p.slug === activeSlug ? 'aria-current="page"' : ""} title="${escapeHtml(p.title)}">
+        <span class="h-thumb">${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" />` : style.emoji}</span>
+        <span class="h-text"><b>${escapeHtml(p.title)}</b><small>${status}</small></span>
+        ${p.running ? "" : `<button type="button" class="h-del" data-del="${p.slug}" title="Xoá video này" aria-label="Xoá ${escapeHtml(p.title)}">🗑</button>`}
+      </a>`;
+  }).join("");
+}
+
+// ---------- gần đây & thư viện ----------
+let libraryItems = [];
+
+async function loadRecent() {
+  try {
+    const { projects } = await api("/api/projects");
+    if (current) return;
+    const recent = projects.slice(0, 4);
+    $("recentWrap").hidden = recent.length === 0;
+    $("recent").innerHTML = recent.map(projectCard).join("");
+    bindCards($("recent"));
+  } catch {
+    $("recentWrap").hidden = true;
+  }
+}
+
+function projectCard(p, selectable = false) {
+  const style = styleMeta(p.style);
+  const picked = selectable && selectedSlugs.has(p.slug);
+  let cover = `<div class="none">Chưa có kết quả</div>`;
+  if (p.kind === "image" && p.cover) cover = `<img src="${escapeHtml(p.cover)}" alt="" loading="lazy" />`;
+  else if (p.thumb) cover = `<img src="${escapeHtml(p.thumb)}" alt="" loading="lazy" />`;
+  else if (p.mp4) cover = `<video src="${escapeHtml(p.mp4)}#t=3" muted playsinline preload="metadata"></video>`;
+  const badge = `${style.emoji} ${p.kind === "image" ? `${p.images} ảnh` : "Video"} · ${p.aspect}`;
+  return `
+    <a class="card${selectable ? " selectable" : ""}${picked ? " picked" : ""}${selectable && p.running ? " locked" : ""}"
+       href="#/v/${p.slug}" data-slug="${p.slug}"
+       ${!selectable && p.kind === "video" && p.mp4 ? `data-video="${escapeHtml(p.mp4)}"` : ""}
+       ${selectable ? `role="checkbox" aria-checked="${picked}"` : ""}>
+      <div class="thumb">
+        ${cover}
+        <span class="badge">${escapeHtml(badge)}</span>
+        ${p.running ? `<span class="badge live">Đang xử lý…</span>` : ""}
+        ${selectable ? `<span class="check" aria-hidden="true">${picked ? "✓" : ""}</span>` : ""}
+      </div>
+      <div class="meta">
+        <div class="t" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</div>
+        <div class="m"><span>${new Date(p.updated).toLocaleDateString("vi-VN")}${selectable ? ` · ${fmtBytes(p.bytes)}` : ""}</span>
+          ${!selectable && p.kind === "video" && p.mp4 ? `<button type="button" data-dl="${escapeHtml(p.mp4)}">⬇ Tải</button>` : ""}</div>
+      </div>
+    </a>`;
+}
+
+/** Rê chuột lên thẻ video thì phát thử, nút tải không mở trang video. */
+function bindCards(container) {
+  container.querySelectorAll(".card[data-video]").forEach((card) => {
+    const thumb = card.querySelector(".thumb");
+    let video = thumb.querySelector("video");
+    card.addEventListener("mouseenter", () => {
+      if (!video) {
+        video = document.createElement("video");
+        Object.assign(video, { src: card.dataset.video, muted: true, loop: true, playsInline: true });
+        thumb.insertBefore(video, thumb.querySelector(".badge"));
+      }
+      video.hidden = false;
+      video.play().catch(() => {});
+    });
+    card.addEventListener("mouseleave", () => {
+      if (!video) return;
+      video.pause();
+      if (thumb.querySelector("img")) video.hidden = true;
+    });
+  });
+  container.querySelectorAll("[data-dl]").forEach((b) =>
+    b.addEventListener("click", (ev) => { ev.preventDefault(); ev.stopPropagation(); download(b.dataset.dl); }));
+}
+
+function renderLibrary() {
+  const q = fold($("search").value.trim());
+  const items = libraryItems.filter((p) => matches(p, q));
+  const newCard = q || selecting ? "" : `<a class="card new" href="#/"><div><b>＋</b>Tạo video mới</div></a>`;
+  $("grid").innerHTML = newCard + items.map((p) => projectCard(p, selecting)).join("") +
+    (q && items.length === 0 ? `<p class="empty-lib">Không tìm thấy video nào.</p>` : "");
+  bindCards($("grid"));
+  renderSelectBar();
+}
+
+function download(url) {
+  const a = document.createElement("a");
+  a.href = url.split("?")[0];
+  a.download = "";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ---------- xoá video cũ ----------
+let selecting = false;
+const selectedSlugs = new Set();
+
+const fmtBytes = (n) => {
+  if (!n) return "0 MB";
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+  return `${(n / 1024 ** 3).toFixed(1)} GB`;
+};
+
+function flashNote(text, isError = false) {
+  let el = $("flashNote");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "flashNote";
+    el.className = "flash-note";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.classList.toggle("err", isError);
+  el.hidden = false;
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.hidden = true; }, 3500);
+}
+
+function setSelecting(on) {
+  selecting = on;
+  selectedSlugs.clear();
+  $("libSelect").hidden = on;
+  renderLibrary();
+}
+
+function renderSelectBar() {
+  const bar = $("libSelectBar");
+  bar.hidden = !selecting;
+  if (!selecting) return;
+  const picked = libraryItems.filter((p) => selectedSlugs.has(p.slug));
+  const bytes = picked.reduce((sum, p) => sum + (p.bytes || 0), 0);
+  $("libSelectCount").textContent = picked.length
+    ? `Đã chọn ${picked.length} video · giải phóng ${fmtBytes(bytes)}`
+    : "Bấm vào video để chọn, hoặc chọn nhanh:";
+  $("libDelete").disabled = picked.length === 0;
+  $("libDelete").textContent = picked.length ? `🗑 Xoá ${picked.length} video` : "🗑 Xoá";
+}
+
+/** Chọn nhanh: video không mở/sửa từ N ngày trước (Infinity = tất cả). */
+function selectOlderThan(days) {
+  const cutoff = Date.now() - days * 86_400_000;
+  selectedSlugs.clear();
+  const q = fold($("search").value.trim());
+  libraryItems
+    .filter((p) => !p.running && matches(p, q) && (days === Infinity || p.updated < cutoff))
+    .forEach((p) => selectedSlugs.add(p.slug));
+  renderLibrary();
+  if (selectedSlugs.size === 0) flashNote(days === Infinity ? "Không có video nào để chọn." : `Không có video nào cũ hơn ${days} ngày.`);
+}
+
+function bindLibrarySelect() {
+  $("libSelect").addEventListener("click", () => setSelecting(true));
+  $("libSelectDone").addEventListener("click", () => setSelecting(false));
+  $("libSelectBar").querySelectorAll("[data-older]").forEach((b) =>
+    b.addEventListener("click", () => selectOlderThan(b.dataset.older === "all" ? Infinity : Number(b.dataset.older))));
+  $("libSelectNone").addEventListener("click", () => { selectedSlugs.clear(); renderLibrary(); });
+  $("libDelete").addEventListener("click", async () => {
+    const done = await deleteProjects([...selectedSlugs]);
+    if (done) setSelecting(false);
+  });
+  // Chế độ chọn: bấm thẻ là chọn/bỏ chọn, không mở video.
+  $("grid").addEventListener("click", (ev) => {
+    if (!selecting) return;
+    const card = ev.target.closest(".card[data-slug]");
+    if (!card) return;
+    ev.preventDefault();
+    if (card.classList.contains("locked")) {
+      flashNote("Video đang dựng — đợi xong mới xoá được.");
+      return;
+    }
+    const slug = card.dataset.slug;
+    if (selectedSlugs.has(slug)) selectedSlugs.delete(slug); else selectedSlugs.add(slug);
+    renderLibrary();
+  });
+}
+
+/** Hỏi lại rồi xoá hẳn. Trả về true nếu đã xoá. */
+async function deleteProjects(slugs) {
+  if (slugs.length === 0) return false;
+  const known = [...libraryItems, ...historyItems];
+  const info = slugs.map((s) => known.find((p) => p.slug === s) ?? { slug: s, title: s, bytes: 0 });
+  const bytes = info.reduce((sum, p) => sum + (p.bytes || 0), 0);
+  const names = info.slice(0, 5).map((p) => `• ${p.title}`).join("\n") + (info.length > 5 ? `\n• …và ${info.length - 5} video khác` : "");
+  const question = `Xoá hẳn ${info.length === 1 ? "video này" : `${info.length} video`}? (${fmtBytes(bytes)})\n\n${names}\n\n` +
+    "Bản render, ảnh cảnh, giọng đọc và lịch sử chat sẽ mất, không khôi phục được. File bạn tải lên vẫn giữ trong thư viện.";
+  if (!window.confirm(question)) return false;
+  try {
+    const result = await postJson("/api/projects/delete", { slugs });
+    const gone = new Set(result.deleted);
+    libraryItems = libraryItems.filter((p) => !gone.has(p.slug));
+    historyItems = historyItems.filter((p) => !gone.has(p.slug));
+    renderHistory();
+    renderLibrary();
+    const skipped = result.skipped.length ? ` · bỏ qua ${result.skipped.length} (${result.skipped.map((s) => s.reason).join(", ")})` : "";
+    flashNote(`Đã xoá ${result.deleted.length} video, giải phóng ${fmtBytes(result.freedBytes)}${skipped}.`, result.deleted.length === 0);
+    if (current && gone.has(current)) location.hash = "#/";
+    else if (!current && $("view-library").hidden) loadRecent();
+    return result.deleted.length > 0;
+  } catch (e) {
+    flashNote(`Không xoá được: ${e.message}`, true);
+    return false;
+  }
+}
+
+// ---------- hội thoại ----------
+function renderThread() {
+  const empty = messages.length === 0 && !busy;
+  $("hero").hidden = !empty;
+  $("scroll").hidden = empty;
+  $("bottomDock").hidden = empty;
+  (empty ? $("heroDock") : $("bottomDock")).appendChild($("composerWrap"));
+
+  const lastBot = messages.map((m, i) => (m.role === "assistant" ? i : -1)).filter((i) => i >= 0).pop();
+  $("thread").innerHTML = messages.map((m, i) => renderMessage(m, i === lastBot && !busy)).join("") +
+    (busy ? workingCard() : "");
+  bindMessageActions();
+  updateSend();
+  scrollToEnd();
+}
+
+function renderMessage(m, isLatest) {
+  if (m.role === "user") {
+    const atts = (m.attachments ?? []).map((p) => isVideoFile(p)
+      ? `<video src="/public/${escapeHtml(p)}" muted playsinline preload="metadata"></video>`
+      : `<img src="/public/${escapeHtml(p)}" alt="" />`).join("");
+    return `<div class="msg-user">${atts ? `<div class="atts">${atts}</div>` : ""}
+      <div class="bubble">${escapeHtml(m.text)}</div></div>`;
+  }
+  if (m.error) {
+    return `<div class="msg-bot error"><div class="text">Không làm được: ${escapeHtml(m.text)}</div>
+      ${isLatest ? `<div class="actions"><button type="button" class="btn" data-retry>↻ Thử lại</button>
+        ${/API key/i.test(m.text) ? `<button type="button" class="btn" data-open-settings>🔑 Mở cài đặt</button>` : ""}</div>` : ""}
+    </div>`;
+  }
+  const scenes = m.scenes?.length
+    ? `<details class="script"><summary>Xem kịch bản</summary><ol>${
+        m.scenes.map((s) => `<li>${s.lines.map(escapeHtml).join("<br>")}</li>`).join("")}</ol></details>`
+    : "";
+
+  let result = "";
+  if (m.images?.length) {
+    result = `
+    <div class="shots ${isWide(m.aspect) ? "wide" : ""}">${m.images.map((src, i) => `
+      <div class="shot" style="aspect-ratio:${ratioCss(m.aspect)}">
+        <img src="${escapeHtml(src)}" alt="Ảnh ${i + 1}" loading="lazy" data-zoom="${escapeHtml(src)}" />
+        <button type="button" data-dl="${escapeHtml(src)}" aria-label="Tải ảnh ${i + 1}">⬇</button>
+      </div>`).join("")}
     </div>
-    <label>Tiêu đề</label><input id="f-title" value="${escapeHtml(s.title)}" />
-    <label>Phụ đề tiêu đề</label><input id="f-subtitle" value="${escapeHtml(s.subtitle)}" />
-    <div class="row">
-      <div><label>Màu nhấn</label><input id="f-accent" value="${escapeHtml(s.accent)}" /></div>
-      <div><label>Màu nền</label><input id="f-background" value="${escapeHtml(s.background)}" /></div>
+    ${m.images.length > 1 ? `<div class="actions">
+      <button type="button" class="btn" data-dl-all="${escapeHtml(m.images.join("|"))}">⬇ Tải cả ${m.images.length} ảnh</button></div>` : ""}`;
+  } else if (m.mp4) {
+    result = `
+    <div class="player" style="aspect-ratio:${ratioCss(m.aspect)};width:${playerWidth(m.aspect)}">
+      <video src="${escapeHtml(m.mp4)}" controls playsinline preload="metadata"></video>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn" data-dl="${escapeHtml(m.mp4)}">⬇ Tải xuống</button>
+      ${current ? `<a class="btn" href="/editor.html#${encodeURIComponent(current)}">✂️ Chỉnh sửa (timeline)</a>` : ""}
     </div>`;
-  $("scenes").innerHTML = s.scenes.map((sc, i) => {
-    const v = sc.visual ?? null;
-    return `
-    <div class="scene" data-index="${i}">
-      <h3>Cảnh ${i + 1}</h3>
-      <div class="grid">
-        <div>
-          <label>Ảnh nền (đường dẫn từ public/)</label>
-          <input class="sc-image" value="${escapeHtml(sc.image ?? "")}" placeholder="bỏ trống = chỉ gradient" />
-          <div class="row" style="margin-top:6px">
-            <input class="sc-query" placeholder="tìm ảnh Pexels (tiếng Anh)" />
-            <button style="flex:0 0 auto;width:auto" onclick="searchImages(${i})">Tìm</button>
-          </div>
-          <div class="picker hidden" id="picker-${i}"></div>
+  }
+  // Sửa nhanh bằng câu lệnh cần AI — ở chế độ nguyên văn thì không hiện.
+  const quick = isLatest && (m.mp4 || m.images?.length) && opts.mode === "ai" && hasScriptKey() ? `
+    <div class="quick">
+      <button type="button" data-quick-style>🎨 Đổi phong cách</button>
+      ${QUICK_EDITS.map((q, i) => `<button type="button" data-quick="${i}">${q.label}</button>`).join("")}
+    </div>` : "";
+  return `<div class="msg-bot"><div class="text">${escapeHtml(m.text)}</div>${result}${quick}${scenes}</div>`;
+}
 
-          <label>Hình vẽ bằng code</label>
-          <select class="sc-vtype">
-            <option value=""${!v ? " selected" : ""}>Không có</option>
-            <option value="stat"${v?.type === "stat" ? " selected" : ""}>stat — con số lớn</option>
-            <option value="badge"${v?.type === "badge" ? " selected" : ""}>badge — nhãn bước</option>
-          </select>
-          <input class="sc-vtext" style="margin-top:6px" value="${escapeHtml(v?.text ?? "")}" placeholder="7-9 (≤16 ký tự)" />
-          <input class="sc-vcaption" style="margin-top:6px" value="${escapeHtml(v?.caption ?? "")}" placeholder="chú thích (bỏ trống được)" />
-        </div>
-        <div>
-          <label>Câu phụ đề — mỗi dòng một câu, tối đa 42 ký tự</label>
-          <textarea class="sc-lines">${escapeHtml(sc.lines.join("\n"))}</textarea>
-          <button style="margin-top:8px" onclick="removeScene(${i})">Xoá cảnh</button>
+/** Video dọc không nên rộng hết khung chat — sẽ cao quá màn hình. */
+function playerWidth(aspect) {
+  const [w, h] = (aspect || "9:16").split(":").map(Number);
+  return w / h < 1 ? `min(100%, ${Math.round(360 * (w / h) / (9 / 16))}px)` : "100%";
+}
+
+const STEPS = {
+  video: [["script", "Viết kịch bản"], ["voice", "Giọng đọc"], ["render", "Dựng video"]],
+  image: [["script", "Viết kịch bản"], ["render", "Dựng ảnh"]],
+};
+let progress = { kind: "video", step: "script", percent: 0, last: "Đang bắt đầu…", startedAt: 0 };
+
+const formatElapsed = (ms) => {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
+function workingCard() {
+  const steps = STEPS[progress.kind];
+  const idx = steps.findIndex(([id]) => id === progress.step);
+  return `<div class="msg-bot"><div class="working">
+    <div class="steps">${steps.map(([id, label], i) =>
+      `<span class="step ${i < idx ? "done" : i === idx ? "active" : ""}">${label}</span>`).join("")}
+      <span class="elapsed" id="elapsed">${formatElapsed(Date.now() - progress.startedAt)}</span></div>
+    <div class="progress"><div id="bar" style="width:${progress.step === "render" ? progress.percent : 0}%"></div></div>
+    <div class="lastlog" id="lastlog">${escapeHtml(progress.last)}</div>
+    <div class="note">Thường mất 1–3 phút. Bạn có thể sang trang khác, việc dựng vẫn chạy tiếp.</div>
+  </div></div>`;
+}
+
+function bindMessageActions() {
+  const thread = $("thread");
+  thread.querySelectorAll("[data-dl]").forEach((b) =>
+    b.addEventListener("click", () => download(b.dataset.dl)));
+  thread.querySelectorAll("[data-dl-all]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      // Trình duyệt chặn nhiều lượt tải dồn cùng lúc — giãn ra một chút.
+      for (const src of b.dataset.dlAll.split("|")) {
+        download(src);
+        await new Promise((r) => setTimeout(r, 350));
+      }
+    }));
+  thread.querySelectorAll("[data-zoom]").forEach((img) =>
+    img.addEventListener("click", () => {
+      const box = document.createElement("div");
+      box.className = "lightbox";
+      box.innerHTML = `<img src="${escapeHtml(img.dataset.zoom)}" alt="" />`;
+      box.addEventListener("click", () => box.remove());
+      document.body.appendChild(box);
+    }));
+  thread.querySelectorAll("[data-quick]").forEach((b) =>
+    b.addEventListener("click", () => prefill(QUICK_EDITS[Number(b.dataset.quick)].prompt)));
+  thread.querySelector("[data-quick-style]")?.addEventListener("click", (e) =>
+    openMenu(e.currentTarget, styleMenu((value) => {
+      setOpt("style", value);
+      prefill(`Đổi sang phong cách ${styleMeta(value).label}.`);
+    })));
+  thread.querySelector("[data-retry]")?.addEventListener("click", () => {
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    if (lastUser) prefill(lastUser.text);
+  });
+  thread.querySelector("[data-open-settings]")?.addEventListener("click", openSettings);
+}
+
+function scrollToEnd() {
+  requestAnimationFrame(() => { $("scroll").scrollTop = $("scroll").scrollHeight; });
+}
+
+function prefill(text) {
+  const input = $("input");
+  input.value = text;
+  autosize();
+  updateSend();
+  schedulePreview();
+  input.focus();
+  input.setSelectionRange(text.length, text.length);
+}
+
+// ---------- gửi & theo dõi ----------
+async function send() {
+  const prompt = $("input").value.trim();
+  if (!prompt || busy || pending.some((f) => !f.path)) return;
+  if (opts.mode === "ai" && !hasScriptKey()) {
+    openSettings();
+    return;
+  }
+  setHint("");
+  closeMenu();
+
+  const attachments = pending.map((f) => f.path);
+  try {
+    const { slug, jobId } = await postJson("/api/chat", {
+      slug: current ?? undefined,
+      prompt,
+      attachments,
+      settings: { ...opts, music: opts.music || null },
+    });
+
+    messages.push({ role: "user", text: prompt, attachments, at: Date.now() });
+    $("input").value = ""; autosize();
+    $("textPreview").hidden = true;
+    pending = []; renderPending();
+
+    if (current !== slug) {
+      current = slug;
+      // Đổi URL mà không kích hoạt route() — nếu không sẽ tải lại và mất tin vừa gửi.
+      history.replaceState(null, "", `#/v/${slug}`);
+      setNav("");
+      renderComposer();
+    }
+    renderProjectBar();
+    follow(jobId, opts.kind);
+    loadHistory();
+  } catch (e) {
+    setHint(e.message, true);
+  }
+}
+
+function follow(jobId, jobKind) {
+  stopFollowing();
+  busy = true;
+  progress = { kind: jobKind === "image" ? "image" : "video", step: "script", percent: 0,
+               last: "Đang bắt đầu…", startedAt: Date.now() };
+  renderThread();
+  timer = setInterval(() => {
+    if ($("elapsed")) $("elapsed").textContent = formatElapsed(Date.now() - progress.startedAt);
+  }, 1000);
+
+  const slug = current;
+  stream = new EventSource(`/api/job/${jobId}`);
+  stream.onmessage = async (event) => {
+    const { line, status, error } = JSON.parse(event.data);
+    if (line === "__END__") {
+      stopFollowing();
+      if (slug !== current) return;
+      try {
+        const [chat, { projects }] = await Promise.all([api(`/api/chat/${slug}`), api("/api/projects")]);
+        messages = chat.messages;
+        project = projects.find((p) => p.slug === slug) ?? project;
+      } catch { /* giữ tin nhắn cũ */ }
+      busy = false;
+      if (status === "error" && !messages.at(-1)?.error) {
+        messages.push({ role: "assistant", error: true, text: error ?? "lỗi không rõ" });
+      }
+      renderProjectBar();
+      renderThread();
+      loadHistory();
+      return;
+    }
+    if (line === "__DONE__" || line.startsWith("__ERROR__")) return;
+    if (line.startsWith("__STEP__")) {
+      progress.step = line.split(" ")[1];
+      renderThread();
+      return;
+    }
+    if (line.startsWith("__PROGRESS__")) {
+      progress.percent = Number(line.split(" ")[1]);
+      if (progress.kind === "video") progress.last = `Đang dựng video… ${progress.percent}%`;
+    } else {
+      progress.last = line;
+    }
+    if ($("bar")) $("bar").style.width = `${progress.step === "render" ? progress.percent : 0}%`;
+    if ($("lastlog")) $("lastlog").textContent = progress.last;
+  };
+  stream.onerror = () => {
+    // Server tắt giữa chừng: EventSource tự nối lại, nhưng job đã mất theo tiến trình.
+    if (stream?.readyState === EventSource.CLOSED) { stopFollowing(); busy = false; renderThread(); }
+  };
+}
+
+function stopFollowing() {
+  stream?.close();
+  stream = null;
+  clearInterval(timer);
+  timer = null;
+}
+
+// ---------- chip tuỳ chọn ----------
+function setOpt(key, value) {
+  opts[key] = value;
+  renderComposer();
+  renderProjectBar();
+}
+
+function renderComposer() {
+  const style = styleMeta(opts.style);
+  const voice = state.voices.catalog.find((v) => v.key === opts.voice);
+  const music = state.audio.music.find((m) => m.path === opts.music);
+  const chips = [
+    ["mode", opts.mode === "text" ? "📝 Nguyên văn" : "🤖 AI viết", "Cách có kịch bản"],
+    ["kind", opts.kind === "image" ? "🖼 Ảnh" : "🎬 Video", "Loại kết quả"],
+    ["style", `${style.emoji} ${style.label}`, "Phong cách hình ảnh"],
+    ["aspect", `▭ ${opts.aspect}`, "Tỉ lệ khung hình"],
+  ];
+  // Ảnh tĩnh không có tiếng — ẩn giọng và nhạc cho đỡ rối.
+  if (opts.kind === "video") {
+    chips.push(["video", videoChipLabel(), "Hình của cảnh: ảnh hay video AI"]);
+    chips.push(["voice", voice ? `🎙 ${voice.key}` : "🔇 Không giọng", "Giọng đọc"]);
+    chips.push(["music", music ? `♪ ${music.name.replace(/\.\w+$/, "")}` : "♪ Không nhạc", "Nhạc nền"]);
+  }
+  $("chips").innerHTML = chips.map(([key, label, title]) =>
+    `<button type="button" class="chip" data-chip="${key}" title="${title}" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(label)}${CARET}</button>`).join("");
+  $("chips").querySelectorAll("[data-chip]").forEach((b) =>
+    b.addEventListener("click", () => openMenu(b, menuFor(b.dataset.chip))));
+
+  const textMode = opts.mode === "text";
+  $("input").placeholder = textMode
+    ? TEXT_PLACEHOLDER[current ? "edit" : "new"]
+    : PLACEHOLDER[current ? "edit" : "new"][opts.kind];
+  $("composer").classList.toggle("text-mode", textMode);
+  $("syntaxHelp").hidden = !textMode;
+  if (!textMode) $("textPreview").hidden = true;
+  else schedulePreview();
+  renderKeyNotice();
+}
+
+// ---------- xem trước kịch bản dán vào ----------
+let previewTimer = null;
+let previewSeq = 0;
+
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  if (opts.mode !== "text") return;
+  previewTimer = setTimeout(async () => {
+    const text = $("input").value.trim();
+    const box = $("textPreview");
+    if (!text) { box.hidden = true; return; }
+    const seq = ++previewSeq;
+    try {
+      const p = await postJson("/api/script-preview", { text, style: opts.style });
+      if (seq !== previewSeq) return;   // đã gõ tiếp — bỏ kết quả cũ
+      const style = styleMeta(p.style);
+      box.className = "text-preview ok";
+      box.innerHTML = `<b>✓</b> «${escapeHtml(p.title)}» · ${p.scenes} cảnh · ${p.lines} câu` +
+        (p.punches ? ` · ${p.punches} câu nhấn` : "") + ` · ${style.emoji} ${escapeHtml(style.label)}` +
+        (p.notes.length ? `<br>${p.notes.map(escapeHtml).join(" · ")}` : "");
+    } catch (e) {
+      if (seq !== previewSeq) return;
+      box.className = "text-preview err";
+      box.textContent = e.message;
+    }
+    box.hidden = false;
+  }, 350);
+}
+
+const videoModels = () => state?.videoModels ?? [];
+
+function videoChipLabel() {
+  if (!opts.video) return "🚫 Không dùng model";
+  if (opts.video === "auto") return "✨ Video AI: tự động";
+  const model = videoModels().find((m) => m.key === opts.video);
+  return model ? `✨ ${model.label}` : "✨ Video AI";
+}
+
+function videoMenu(onPick) {
+  const models = videoModels();
+  const anyKey = models.some((m) => m.available);
+  const keyHint = "Thêm key Gemini, fal.ai hoặc Replicate trong Cài đặt";
+  return {
+    id: "video", title: "Hình của cảnh", value: opts.video, onPick,
+    options: [
+      { value: "", title: "🚫 Không dùng model", sub: "Dùng ảnh trong thư viện hoặc file bạn tải lên — miễn phí" },
+      {
+        value: "auto", group: "Video AI — mỗi cảnh một clip, tính tiền theo clip",
+        title: "✨ Tự động", sub: anyKey ? "Model rẻ nhất có key (đổi trong Cài đặt)" : keyHint,
+        disabled: !anyKey,
+      },
+      ...models.map((m) => ({
+        value: m.key,
+        group: m.providerLabel,
+        title: `🎬 ${m.label}`,
+        sub: m.available
+          ? `${m.durations[0]}–${m.durations.at(-1)}s/clip${m.usdPerSecond ? ` · ~$${m.usdPerSecond}/giây` : ""}`
+          : `Cần ${m.env} — điền trong Cài đặt`,
+        disabled: !m.available,
+      })),
+    ],
+  };
+}
+
+function styleMenu(onPick) {
+  return {
+    id: "style", title: "Phong cách hình ảnh", layout: "grid", value: opts.style, onPick,
+    options: [AUTO_STYLE, ...state.styles].map((s) => ({
+      value: s.id, title: `${s.emoji} ${s.label}`, sub: s.summary,
+    })),
+  };
+}
+
+function menuFor(key) {
+  const pick = (value) => setOpt(key, value);
+  if (key === "style") return styleMenu(pick);
+  if (key === "video") return videoMenu(pick);
+  if (key === "mode") {
+    return {
+      id: "mode", title: "Kịch bản lấy từ đâu", value: opts.mode,
+      onPick: (value) => { setOpt("mode", value); $("input").focus(); },
+      options: [
+        {
+          value: "ai", title: "🤖 AI viết kịch bản",
+          sub: hasScriptKey()
+            ? `Gõ ý tưởng, ${state.keys.scriptLabel ?? "AI"} viết nội dung. Sửa bằng câu lệnh.`
+            : "Cần một API key viết kịch bản — Gemini, Groq, OpenRouter có gói miễn phí. Điền trong Cài đặt",
+          disabled: !hasScriptKey(),
+        },
+        { value: "text", title: "📝 Dùng nguyên văn", sub: "Dán kịch bản có sẵn, dựng đúng từng câu. Không cần API key." },
+      ],
+    };
+  }
+  if (key === "kind") {
+    return {
+      id: "kind", title: "Tạo ra", value: opts.kind, onPick: pick,
+      options: [
+        { value: "video", title: "🎬 Video", sub: "Có giọng đọc và nhạc, xuất file mp4" },
+        { value: "image", title: "🖼 Bộ ảnh", sub: "Mỗi cảnh một ảnh PNG, hợp làm carousel" },
+      ],
+    };
+  }
+  if (key === "aspect") {
+    return {
+      id: "aspect", title: "Tỉ lệ khung hình", value: opts.aspect, onPick: pick,
+      options: aspects.map((a) => ({
+        value: a.id, title: a.id, sub: `${a.label.split("—")[1]?.trim() ?? ""} · ${a.width}×${a.height}`,
+      })),
+    };
+  }
+  if (key === "voice") {
+    const langs = { vi: "Tiếng Việt", en: "Tiếng Anh" };
+    return {
+      id: "voice", title: "Giọng đọc", value: opts.voice, onPick: pick,
+      options: [
+        { value: "", title: "🔇 Không giọng", sub: "Chỉ có chữ, thời lượng tính theo độ dài câu" },
+        ...state.voices.catalog.map((v) => ({
+          value: v.key, group: langs[v.lang] ?? v.lang,
+          title: `🎙 ${v.key}`,
+          sub: `${v.label.split("—")[1]?.trim() ?? ""} · ${v.engine === "say" ? "miễn phí" : "ElevenLabs"}${v.paidPlan ? " · cần gói trả phí" : ""}`,
+          disabled: v.paidPlan,
+        })),
+      ],
+    };
+  }
+  return {
+    id: "music", title: "Nhạc nền", value: opts.music, onPick: pick,
+    options: [
+      { value: "", title: "Không nhạc" },
+      ...state.audio.music.map((m) => ({ value: m.path, title: `♪ ${m.name.replace(/\.\w+$/, "")}` })),
+    ],
+  };
+}
+
+// ---------- menu dùng chung ----------
+let menuAnchor = null;
+
+function openMenu(anchor, menu) {
+  const el = $("menu");
+  if (!el.hidden && menuAnchor === anchor) { closeMenu(); return; }
+  closeMenu();
+  menuAnchor = anchor;
+  anchor.setAttribute("aria-expanded", "true");
+
+  let group = null;
+  el.className = `menu ${menu.layout ?? "list"}`;
+  el.setAttribute("aria-label", menu.title);
+  el.innerHTML = `<div class="menu-title">${escapeHtml(menu.title)}</div>` + menu.options.map((o) => {
+    const heading = o.group && o.group !== group ? `<div class="menu-group">${escapeHtml(o.group)}</div>` : "";
+    group = o.group ?? group;
+    const on = o.value === menu.value;
+    return `${heading}<button type="button" class="opt ${on ? "on" : ""}" role="option" aria-selected="${on}"
+      data-value="${escapeHtml(o.value)}" ${o.disabled ? "disabled" : ""}>
+      <b>${escapeHtml(o.title)}</b>${o.sub ? `<span>${escapeHtml(o.sub)}</span>` : ""}</button>`;
+  }).join("");
+  el.hidden = false;
+  el.querySelectorAll(".opt").forEach((b) =>
+    b.addEventListener("click", () => { closeMenu(); menu.onPick(b.dataset.value); }));
+
+  positionMenu(el, anchor, menu.layout === "grid" ? 620 : 340);
+  (el.querySelector(".opt.on:not(:disabled)") ?? el.querySelector(".opt:not(:disabled)"))?.focus({ preventScroll: true });
+}
+
+/** Ưu tiên mở phía trên nút, thiếu chỗ thì mở xuống, cả hai thiếu thì bám mép trên và cuộn. */
+function positionMenu(el, anchor, maxWidth) {
+  const gap = 8, margin = 12;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const rect = anchor.getBoundingClientRect();
+  const width = Math.min(maxWidth, vw - margin * 2);
+  el.style.width = `${width}px`;
+  el.style.maxHeight = "";
+  el.style.left = `${Math.max(margin, Math.min(rect.left, vw - width - margin))}px`;
+  const height = el.scrollHeight;
+  const above = rect.top - gap - margin;
+  const below = vh - rect.bottom - gap - margin;
+  if (height <= above) el.style.top = `${rect.top - gap - height}px`;
+  else if (height <= below) el.style.top = `${rect.bottom + gap}px`;
+  else if (above >= below) { el.style.top = `${margin}px`; el.style.maxHeight = `${rect.top - gap - margin}px`; }
+  else { el.style.top = `${rect.bottom + gap}px`; el.style.maxHeight = `${below}px`; }
+}
+
+function closeMenu() {
+  $("menu").hidden = true;
+  menuAnchor?.setAttribute("aria-expanded", "false");
+  menuAnchor = null;
+}
+
+function bindMenu() {
+  document.addEventListener("click", (e) => {
+    if (!$("menu").hidden && !e.target.closest("#menu") && e.target.closest("button") !== menuAnchor) closeMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if ($("menu").hidden) return;
+    if (e.key === "Escape") { const a = menuAnchor; closeMenu(); a?.focus(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const items = [...$("menu").querySelectorAll(".opt:not(:disabled)")];
+      const i = items.indexOf(document.activeElement);
+      const next = e.key === "ArrowDown" ? Math.min(items.length - 1, i + 1) : Math.max(0, i - 1);
+      items[next]?.focus();
+    }
+  });
+  // Menu định vị cố định — cuộn hay đổi kích thước thì đóng cho khỏi lệch nút.
+  window.addEventListener("resize", closeMenu);
+  $("scroll").addEventListener("scroll", closeMenu);
+  $("hero").addEventListener("scroll", closeMenu);
+}
+
+// ---------- ô nhập & đính kèm ----------
+function bindComposer() {
+  const input = $("input");
+  input.addEventListener("input", () => { autosize(); updateSend(); schedulePreview(); });
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.isComposing) return;
+    // Kịch bản nhiều dòng: Enter xuống dòng, ⌘/Ctrl+Enter mới gửi. Chế độ AI: Enter gửi.
+    const sendNow = opts.mode === "text" ? e.metaKey || e.ctrlKey : !e.shiftKey;
+    if (sendNow) { e.preventDefault(); send(); }
+  });
+  $("useExample").addEventListener("click", () => prefill($("syntaxExample").textContent));
+  $("composer").addEventListener("submit", (e) => { e.preventDefault(); send(); });
+  $("noticeSettings").addEventListener("click", openSettings);
+
+  $("attachBtn").addEventListener("click", () => $("fileInput").click());
+  $("fileInput").addEventListener("change", () => {
+    addFiles([...$("fileInput").files]);
+    $("fileInput").value = "";
+  });
+
+  input.addEventListener("paste", (e) => {
+    const files = [...(e.clipboardData?.files ?? [])];
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  });
+
+  // Kéo thả file vào bất kỳ đâu trong màn hình tạo video.
+  const chat = $("view-chat");
+  chat.addEventListener("dragover", (e) => { e.preventDefault(); $("composer").classList.add("drag"); });
+  chat.addEventListener("dragleave", (e) => {
+    if (!chat.contains(e.relatedTarget)) $("composer").classList.remove("drag");
+  });
+  chat.addEventListener("drop", (e) => {
+    e.preventDefault();
+    $("composer").classList.remove("drag");
+    addFiles([...(e.dataTransfer?.files ?? [])]);
+  });
+
+  $("search").addEventListener("input", renderLibrary);
+  bindLibrarySelect();
+}
+
+function addFiles(files) {
+  for (const file of files) {
+    if (!/^(image|video)\//.test(file.type)) {
+      setHint(`Bỏ qua ${file.name} — chỉ nhận ảnh hoặc video.`, true);
+      continue;
+    }
+    const item = {
+      id: Math.random().toString(36).slice(2),
+      name: file.name, path: null,
+      url: URL.createObjectURL(file),
+      video: file.type.startsWith("video/"),
+    };
+    pending.push(item);
+    upload(file, item);
+  }
+  renderPending();
+}
+
+async function upload(file, item) {
+  try {
+    const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    item.path = body.path;
+  } catch (e) {
+    pending = pending.filter((f) => f !== item);
+    setHint(`Không tải lên được ${file.name}: ${e.message}`, true);
+  }
+  renderPending();
+}
+
+function renderPending() {
+  $("pending").innerHTML = pending.map((f) => `
+    <div class="chip-file ${f.path ? "" : "loading"}" title="${escapeHtml(f.name)}">
+      ${f.video ? `<video src="${f.url}" muted></video><span class="tag">video</span>` : `<img src="${f.url}" alt="" />`}
+      <button type="button" data-rm="${f.id}" aria-label="Bỏ ${escapeHtml(f.name)}">✕</button>
+    </div>`).join("");
+  $("pending").querySelectorAll("[data-rm]").forEach((b) =>
+    b.addEventListener("click", () => {
+      pending = pending.filter((f) => f.id !== b.dataset.rm);
+      renderPending();
+    }));
+  updateSend();
+}
+
+function autosize() {
+  const el = $("input");
+  el.style.height = "auto";
+  // Kịch bản dán vào dài — cho ô cao hơn ở chế độ nguyên văn.
+  const max = opts.mode === "text" ? Math.max(220, window.innerHeight * 0.45) : 220;
+  el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+}
+
+function updateSend() {
+  $("send").disabled = busy || !$("input").value.trim() || pending.some((f) => !f.path);
+}
+
+function setHint(text, isError = false) {
+  $("hint").textContent = text;
+  $("hint").classList.toggle("err", isError);
+}
+
+// ---------- cài đặt API key ----------
+/** Key người dùng bấm Xoá (chờ Lưu mới thật sự xoá). */
+let removals = new Set();
+
+function bindSettings() {
+  $("openSettings").addEventListener("click", openSettings);
+  $("settingsDlg").querySelectorAll("[data-close]").forEach((b) =>
+    b.addEventListener("click", () => $("settingsDlg").close()));
+  $("settingsForm").addEventListener("submit", saveSettings);
+}
+
+async function openSettings() {
+  closeMenu();
+  removals = new Set();
+  $("settingsHint").textContent = "";
+  $("keyFields").innerHTML = `<p class="muted">Đang tải…</p>`;
+  if (!$("settingsDlg").open) $("settingsDlg").showModal();
+  try {
+    const { keys } = await api("/api/keys");
+    let group = "";
+    $("keyFields").innerHTML = keys.map((k) => {
+      const heading = k.group !== group ? `<h3 class="group">${escapeHtml(k.group)}</h3>` : "";
+      group = k.group;
+      const link = k.url ? ` <a href="${k.url}" target="_blank" rel="noopener">Lấy key ↗</a>` : "";
+      let control;
+      let status = "";
+      if (k.type === "select") {
+        control = `<select id="key-${k.name}" name="${k.name}" data-type="select">${
+          k.options.map((o) => `<option value="${o.value}"${(k.value || k.options[0].value) === o.value ? " selected" : ""}>${escapeHtml(o.label)}</option>`).join("")
+        }</select>`;
+      } else if (k.type === "text") {
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="text" type="text" spellcheck="false"${k.maxLength ? ` maxlength="${k.maxLength}"` : ""}
+                          value="${escapeHtml(k.value)}" placeholder="${escapeHtml(k.placeholder ?? "")}" />`;
+      } else {
+        status = `<span class="state ${k.set ? "on" : ""}">${k.set ? `✓ đã có ${escapeHtml(k.preview)}` : "chưa có"}</span>`;
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="secret" type="password" spellcheck="false"
+                          placeholder="${k.set ? "Dán key mới để thay" : "Dán key vào đây"}" />
+          ${k.set ? `<button type="button" class="btn" data-remove="${k.name}">Xoá</button>` : ""}`;
+      }
+      return `${heading}
+      <div class="field" data-name="${k.name}"${k.showIf ? ` data-show-if="${k.showIf.name}=${k.showIf.value}"` : ""}>
+        <div class="field-top"><label for="key-${k.name}">${escapeHtml(k.label)}</label>${status}</div>
+        <div class="row">${control}</div>
+        <div class="help">${escapeHtml(k.help)}${link}</div>
+      </div>`;
+    }).join("");
+    // Ô phụ thuộc (vd. chữ watermark) chỉ hiện khi ô điều khiển chọn đúng giá trị.
+    const applyShowIf = () => $("keyFields").querySelectorAll("[data-show-if]").forEach((field) => {
+      const [name, value] = field.dataset.showIf.split("=");
+      field.hidden = $(`key-${name}`)?.value !== value;
+    });
+    $("keyFields").querySelectorAll("select").forEach((select) =>
+      select.addEventListener("change", () => {
+        applyShowIf();
+        // Vừa bật: đưa con trỏ vào ô đầu tiên vừa hiện ra mà còn trống.
+        $("keyFields").querySelector(`[data-show-if="${select.name}=${select.value}"] input:placeholder-shown`)?.focus();
+      }));
+    applyShowIf();
+    $("keyFields").querySelectorAll("[data-remove]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const name = b.dataset.remove;
+        const field = b.closest(".field");
+        if (removals.has(name)) {
+          removals.delete(name); b.textContent = "Xoá"; field.classList.remove("removing");
+        } else {
+          removals.add(name); b.textContent = "Hoàn tác"; field.classList.add("removing");
+        }
+      }));
+    // Chưa có key viết kịch bản thì đưa con trỏ thẳng vào ô key đầu tiên.
+    ($("keyFields").querySelector('[data-type="secret"]'))?.focus();
+  } catch (e) {
+    $("keyFields").innerHTML = `<p class="hint err">Lỗi: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  const patch = {};
+  $("keyFields").querySelectorAll("input, select").forEach((input) => {
+    const value = input.value.trim();
+    // Ô bí mật để trống = giữ key cũ. Ô thường/ô chọn luôn gửi, rỗng = về mặc định.
+    if (input.dataset.type !== "secret") patch[input.name] = value;
+    else if (value) patch[input.name] = value;
+  });
+  for (const name of removals) {
+    if (!(name in patch)) patch[name] = null;
+  }
+  $("saveKeys").disabled = true;
+  try {
+    await postJson("/api/keys", patch);
+    state = await api("/api/state");
+    renderKeyNotice();
+    // Vừa thêm/xoá key tạo video: cập nhật model dùng được trong danh sách cảnh.
+    if (multi && !$("view-multi").hidden) renderMultiScenes();
+    $("settingsDlg").close();
+  } catch (e) {
+    $("settingsHint").textContent = e.message;
+    $("settingsHint").classList.add("err");
+  } finally {
+    $("saveKeys").disabled = false;
+  }
+}
+
+// ---------- video nhiều cảnh: mỗi cảnh một prompt ----------
+const MAX_MULTI_SCENES = 20;
+/** Độ dài chọn được khi cảnh không dùng model. */
+const FREE_DURATIONS = [2, 3, 4, 5, 6, 8, 10, 12, 15];
+
+/** Bản nháp đang soạn (slug null) hoặc video nhiều cảnh đang mở lại để sửa. */
+let multi = null;
+let multiUploads = 0;
+let multiFileTarget = null;
+
+/** Model thật sẽ chạy cho một lựa chọn: "auto" = model mặc định trong Cài đặt. */
+const resolveVideoModel = (choice) =>
+  videoModels().find((m) => m.key === (choice === "auto" ? state?.videoDefault : choice));
+
+const newMultiScene = () => ({
+  prompt: "",
+  narration: "",
+  model: state?.videoDefault ? "auto" : "",
+  seconds: 5,
+  media: null,
+});
+
+/** Độ dài ngắn nhất phủ đủ số giây muốn; không có thì lấy dài nhất — giống server. */
+const fitSeconds = (durations, seconds) => {
+  const sorted = [...durations].sort((a, b) => a - b);
+  return sorted.find((d) => d >= seconds) ?? sorted.at(-1);
+};
+
+const multiDurations = (scene) =>
+  scene.model ? resolveVideoModel(scene.model)?.durations ?? [4, 6, 8] : FREE_DURATIONS;
+
+function setMultiHint(text, isError = false) {
+  $("multiHint").textContent = text;
+  $("multiHint").classList.toggle("err", isError);
+}
+
+async function showMulti(slug) {
+  stopFollowing();
+  $("view-chat").hidden = true;
+  $("view-library").hidden = true;
+  $("view-multi").hidden = false;
+  setNav(slug ? "" : "multi");
+  current = slug;
+  setMultiHint("");
+
+  if (slug) {
+    $("multiScenes").innerHTML = `<p class="muted">Đang tải…</p>`;
+    try {
+      const data = await api(`/api/multi/${slug}`);
+      if (current !== slug) return;
+      multi = { ...data, music: data.music ?? "" };
+    } catch (e) {
+      multi = null;
+      $("multiScenes").innerHTML = `<p class="hint err">${escapeHtml(e.message)}</p>`;
+      return;
+    }
+  } else if (!multi || multi.slug) {
+    // Giữ bản nháp đang soạn khi chuyển tab rồi quay lại.
+    multi = {
+      slug: null, title: "", aspect: "9:16", voice: DEFAULT_OPTS.voice, music: "",
+      scenes: [newMultiScene(), newMultiScene()],
+    };
+  }
+  renderMulti();
+}
+
+function renderMulti() {
+  $("multiHeading").textContent = multi.slug ? "Sửa video nhiều cảnh" : "Tạo video nhiều cảnh";
+  $("multiTitle").value = multi.title;
+  $("multiAspect").innerHTML = aspects.map((a) =>
+    `<option value="${a.id}"${a.id === multi.aspect ? " selected" : ""}>${escapeHtml(a.label)}</option>`).join("");
+  $("multiVoice").innerHTML = `<option value="">🔇 Không giọng — chỉ phụ đề</option>` +
+    state.voices.catalog.map((v) =>
+      `<option value="${v.key}"${v.key === multi.voice ? " selected" : ""}${v.paidPlan ? " disabled" : ""}>🎙 ${escapeHtml(v.label)}</option>`).join("");
+  $("multiMusic").innerHTML = `<option value="">Không nhạc</option>` +
+    state.audio.music.map((m) =>
+      `<option value="${escapeHtml(m.path)}"${m.path === multi.music ? " selected" : ""}>♪ ${escapeHtml(m.name.replace(/\.\w+$/, ""))}</option>`).join("");
+  renderMultiScenes();
+}
+
+function modelOptions(value) {
+  const anyKey = Boolean(state?.videoDefault);
+  const auto = resolveVideoModel("auto");
+  const groups = new Map();
+  for (const m of videoModels()) {
+    if (!groups.has(m.providerLabel)) groups.set(m.providerLabel, []);
+    groups.get(m.providerLabel).push(m);
+  }
+  return `<option value=""${value === "" ? " selected" : ""}>🚫 Không dùng model</option>` +
+    `<option value="auto"${value === "auto" ? " selected" : ""}${anyKey ? "" : " disabled"}>✨ Tự động${auto ? ` (${escapeHtml(auto.label)})` : " — chưa có key"}</option>` +
+    [...groups].map(([label, models]) => `<optgroup label="${escapeHtml(label)}">${models.map((m) =>
+      `<option value="${m.key}"${m.key === value ? " selected" : ""}${m.available ? "" : " disabled"}>${escapeHtml(m.label)}${m.available ? "" : ` — cần ${m.env}`}</option>`).join("")}</optgroup>`).join("");
+}
+
+function sceneCard(scene, i, total) {
+  const durations = multiDurations(scene);
+  const media = scene.media
+    ? isVideoFile(scene.media)
+      ? `<video src="/public/${escapeHtml(scene.media)}#t=0.5" muted playsinline preload="metadata"></video>`
+      : `<img src="/public/${escapeHtml(scene.media)}" alt="" />`
+    : "";
+  const tag = scene.model ? "✨ video AI" : scene.media ? (isVideoFile(scene.media) ? "🎞 video của bạn" : "🖼 ảnh của bạn") : "nền trơn";
+  return `<article class="ms-card" data-i="${i}">
+    <header class="ms-card-head">
+      <b>Cảnh ${i + 1}</b><span class="tag">${tag}</span>
+      <span class="spacer"></span>
+      <button type="button" data-act="up" title="Đưa lên" aria-label="Đưa cảnh ${i + 1} lên"${i === 0 ? " disabled" : ""}>↑</button>
+      <button type="button" data-act="down" title="Đưa xuống" aria-label="Đưa cảnh ${i + 1} xuống"${i === total - 1 ? " disabled" : ""}>↓</button>
+      <button type="button" data-act="dup" title="Nhân đôi cảnh" aria-label="Nhân đôi cảnh ${i + 1}"${total >= MAX_MULTI_SCENES ? " disabled" : ""}>⧉</button>
+      <button type="button" data-act="del" title="Xoá cảnh" aria-label="Xoá cảnh ${i + 1}"${total === 1 ? " disabled" : ""}>✕</button>
+    </header>
+    <div class="ms-grid">
+      <label class="ms-field ms-wide"><span>Prompt — mô tả hình cho model video${scene.model ? "" : " (chỉ dùng khi chọn model)"}</span>
+        <textarea data-f="prompt" rows="3" placeholder="Slow aerial shot over Ha Long Bay at sunrise, mist on the water, cinematic">${escapeHtml(scene.prompt)}</textarea></label>
+      <label class="ms-field"><span>Model</span><select data-f="model">${modelOptions(scene.model)}</select></label>
+      <label class="ms-field"><span>Độ dài cảnh</span><select data-f="seconds">${durations.map((d) =>
+        `<option value="${d}"${d === scene.seconds ? " selected" : ""}>${d} giây</option>`).join("")}</select></label>
+      <label class="ms-field ms-wide"><span>Lời đọc / phụ đề — mỗi dòng một câu, để trống nếu không cần</span>
+        <textarea data-f="narration" rows="2" placeholder="Hạ Long lúc bình minh đẹp đến nín thở.">${escapeHtml(scene.narration)}</textarea></label>
+      <div class="ms-field ms-wide">
+        <span>${scene.model ? "Ảnh/video dự phòng — dùng nếu tạo clip AI lỗi" : "Ảnh/video của bạn (tuỳ chọn — không có thì nền trơn)"}</span>
+        <div class="ms-media-row">
+          ${media ? `<div class="ms-thumb">${media}</div>` : ""}
+          <button type="button" class="btn" data-act="file">${scene.media ? "Đổi file" : "⬆ Tải lên"}</button>
+          ${scene.media ? `<button type="button" class="btn" data-act="clear">Bỏ file</button>` : ""}
         </div>
       </div>
-    </div>`;
-  }).join("");
+    </div>
+  </article>`;
 }
 
-// ---------- chọn ảnh Pexels ----------
-const lastQuery = {};
-async function searchImages(index) {
-  const scene = document.querySelector(`.scene[data-index="${index}"]`);
-  const query = scene.querySelector(".sc-query").value.trim();
-  if (!query) return log("Nhập từ khoá tiếng Anh để tìm.");
-  const box = $(`picker-${index}`);
-  box.classList.remove("hidden");
-  box.innerHTML = `<span class="muted">đang tìm…</span>`;
-  try {
-    const { photos } = await api(`/api/pexels/search?q=${encodeURIComponent(query)}`);
-    lastQuery[index] = query;
-    box.innerHTML = photos.length
-      ? `<span class="muted">${photos.length} kết quả — bấm để chọn</span>
-         <div class="thumbs">${photos.map((p) =>
-           `<img src="${p.thumb}" title="${escapeHtml(p.photographer)}"
-                 onclick="pickImage(${index}, ${p.id})" />`).join("")}</div>`
-      : `<span class="muted">Không có kết quả.</span>`;
-  } catch (e) {
-    box.innerHTML = `<span class="warn">Lỗi: ${escapeHtml(e.message)}</span>`;
+function renderMultiScenes() {
+  for (const scene of multi.scenes) {
+    // Model vừa bị tắt key: về không dùng model thay vì gửi lựa chọn không chạy được.
+    if (scene.model && !resolveVideoModel(scene.model)?.available) scene.model = "";
+    scene.seconds = fitSeconds(multiDurations(scene), scene.seconds);
   }
+  $("multiScenes").innerHTML = multi.scenes.map((s, i) => sceneCard(s, i, multi.scenes.length)).join("");
+  renderMultiFoot();
 }
 
-async function pickImage(index, id) {
-  if (!current?.slug) return log("Lưu kịch bản trước để có tên thư mục.");
-  const box = $(`picker-${index}`);
-  box.innerHTML = `<span class="muted">đang tải ảnh…</span>`;
-  try {
-    const result = await api("/api/pexels/pick", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: current.slug, query: lastQuery[index], id }),
-    });
-    document.querySelector(`.scene[data-index="${index}"] .sc-image`).value = result.image;
-    box.innerHTML = `<span class="muted">Đã gán: ${escapeHtml(result.image)}<br>${escapeHtml(result.credit)}</span>`;
-    log(`Cảnh ${index + 1}: ${result.credit}`);
-  } catch (e) {
-    box.innerHTML = `<span class="warn">Lỗi: ${escapeHtml(e.message)}</span>`;
+function renderMultiFoot() {
+  const total = multi.scenes.length;
+  const ai = multi.scenes.filter((s) => s.model);
+  let usd = 0;
+  let unpriced = 0;
+  for (const scene of ai) {
+    const model = resolveVideoModel(scene.model);
+    if (model?.usdPerSecond) usd += model.usdPerSecond * scene.seconds;
+    else unpriced += 1;
   }
+  const cost = ai.length === 0
+    ? " · không dùng model, miễn phí"
+    : ` · ${ai.length} clip AI` +
+      (usd ? ` · ước tính ~$${usd.toFixed(2)}` : "") +
+      (unpriced ? ` · ${unpriced} clip giá theo nhà cung cấp` : "");
+  $("multiSummary").textContent = `${total} cảnh${cost}`;
+  $("multiAdd").disabled = total >= MAX_MULTI_SCENES;
+  $("multiSubmit").textContent = multi.slug ? "🎬 Dựng lại video" : "🎬 Tạo video";
 }
 
-function collectScript() {
-  // CHỈ lấy cảnh trong pane đang hiện. Cả tab "Cảnh" lẫn tab "Sửa kịch bản" đều
-  // render phần tử .scene và cùng nằm trong DOM — quét toàn trang sẽ nhân đôi cảnh.
-  const pane = [...document.querySelectorAll("#pane-scenes, #pane-edit")]
-    .find((el) => !el.classList.contains("hidden")) ?? document;
-  const scenes = [...pane.querySelectorAll(".scene")].map((el) => {
-    // Đọc lại visual từ form. Trước đây chỗ này gán cứng null nên mở một video
-    // có visual rồi bấm Lưu là xoá sạch — mất dữ liệu mà không báo gì.
-    const type = el.querySelector(".sc-vtype").value;
-    const text = el.querySelector(".sc-vtext").value.trim();
-    const caption = el.querySelector(".sc-vcaption").value.trim();
-    return {
-      image: el.querySelector(".sc-image").value.trim() || null,
-      visual: type && text ? { type, text, caption: caption || null } : null,
-      lines: el.querySelector(".sc-lines").value.split("\n").map((l) => l.trim()).filter(Boolean),
-    };
-  }).filter((s) => s.lines.length > 0);
-  return {
-    slug: $("f-slug").value.trim(),
-    script: {
-      title: $("f-title").value, subtitle: $("f-subtitle").value,
-      handle: $("f-handle").value, accent: $("f-accent").value,
-      background: $("f-background").value, scenes,
-    },
-  };
-}
-
-function addScene() {
-  const { script } = collectScript();
-  script.scenes.push({ image: null, visual: null, lines: ["Câu mới."] });
-  current.script = script; renderScript();
-}
-function removeScene(i) {
-  const { script } = collectScript();
-  script.scenes.splice(i, 1);
-  current.script = script; renderScript();
-}
-
-async function saveScript() {
-  const { slug, script } = collectScript();
-  if (!slug) return log("Cần tên thư mục.");
-  try {
-    await api(`/api/video/${slug}/script`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(script),
-    });
-    log(`Đã lưu videos/${slug}/script.json`);
-    state = await api("/api/state");
-    current.slug = slug; renderVideos(); await refreshFlow();
-  } catch (e) { log(`Lỗi: ${e.message}`); }
-}
-
-// ---------- job + SSE ----------
-function log(line) {
-  const el = $("log");
-  el.textContent += (el.textContent ? "\n" : "") + line;
-  el.scrollTop = el.scrollHeight;
-}
-
-function follow(jobId, onDone) {
-  const src = new EventSource(`/api/job/${jobId}`);
-  src.onmessage = (event) => {
-    const { line, status, result, error } = JSON.parse(event.data);
-    if (line === "__END__") {
-      src.close();
-      $("renderBtn").disabled = false;
-      if (status === "error") log(`LỖI: ${error}`);
-      onDone?.(result, status);
-      return;
-    }
-    // Marker nội bộ — __END__ đã báo lỗi rồi, in thêm là trùng lặp.
-    if (line === "__DONE__" || line.startsWith("__ERROR__")) return;
-    if (line.startsWith("__PROGRESS__")) {
-      $("bar").style.width = line.split(" ")[1] + "%";
-      return;
-    }
-    log(line);
-  };
-}
-
-// ---------- hành động ----------
-async function createVideo() {
-  const prompt = $("prompt").value.trim();
-  if (!prompt) return log("Nhập prompt đã.");
-  $("log").textContent = "";
-  try {
-    const { jobId } = await api("/api/create", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, name: $("newName").value.trim() || undefined }),
-    });
-    follow(jobId, async (result) => {
-      if (result?.slug) { state = await api("/api/state"); await openVideo(result.slug); }
-    });
-  } catch (e) { log(`Lỗi: ${e.message}`); }
-}
-
-async function fetchImages() {
-  if (!current?.slug) return log("Chọn hoặc lưu video trước.");
-  const queries = $("imgQueries").value.split("\n").map((s) => s.trim()).filter(Boolean);
-  if (!queries.length) return log("Nhập ít nhất một truy vấn.");
-  $("log").textContent = "";
-  const { jobId } = await api("/api/images", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ slug: current.slug, queries, sources: $("imgSource").value.split(",") }),
+function bindMulti() {
+  $("multiTitle").addEventListener("input", (e) => { if (multi) multi.title = e.target.value; });
+  $("multiAspect").addEventListener("change", (e) => { multi.aspect = e.target.value; });
+  $("multiVoice").addEventListener("change", (e) => { multi.voice = e.target.value; });
+  $("multiMusic").addEventListener("change", (e) => { multi.music = e.target.value; });
+  $("multiAdd").addEventListener("click", () => {
+    if (multi.scenes.length >= MAX_MULTI_SCENES) return;
+    multi.scenes.push(newMultiScene());
+    renderMultiScenes();
+    $("multiScenes").lastElementChild?.querySelector("textarea")?.focus();
   });
-  follow(jobId, (result) => {
-    if (result?.files?.length) log(`\nGán vào cảnh:\n${result.files.join("\n")}`);
+  $("multiSubmit").addEventListener("click", submitMulti);
+
+  const box = $("multiScenes");
+  // Ô chữ: chỉ ghi vào state, không vẽ lại — vẽ lại sẽ làm mất con trỏ đang gõ.
+  box.addEventListener("input", (e) => {
+    const card = e.target.closest("[data-i]");
+    if (!card || !e.target.dataset.f || e.target.tagName === "SELECT") return;
+    multi.scenes[Number(card.dataset.i)][e.target.dataset.f] = e.target.value;
+  });
+  box.addEventListener("change", (e) => {
+    const card = e.target.closest("[data-i]");
+    if (!card || !e.target.dataset.f || e.target.tagName !== "SELECT") return;
+    const scene = multi.scenes[Number(card.dataset.i)];
+    scene[e.target.dataset.f] = e.target.dataset.f === "seconds" ? Number(e.target.value) : e.target.value;
+    renderMultiScenes();
+  });
+  box.addEventListener("click", (e) => {
+    const button = e.target.closest("[data-act]");
+    const card = e.target.closest("[data-i]");
+    if (!button || !card) return;
+    const i = Number(card.dataset.i);
+    const list = multi.scenes;
+    const act = button.dataset.act;
+    if (act === "file") {
+      multiFileTarget = list[i];
+      $("multiFile").click();
+      return;
+    }
+    if (act === "up" && i > 0) [list[i - 1], list[i]] = [list[i], list[i - 1]];
+    else if (act === "down" && i < list.length - 1) [list[i + 1], list[i]] = [list[i], list[i + 1]];
+    else if (act === "dup" && list.length < MAX_MULTI_SCENES) list.splice(i + 1, 0, { ...list[i] });
+    else if (act === "del" && list.length > 1) list.splice(i, 1);
+    else if (act === "clear") list[i].media = null;
+    renderMultiScenes();
+  });
+
+  $("multiFile").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const scene = multiFileTarget;
+    if (!file || !scene) return;
+    if (!/^(image|video)\//.test(file.type)) {
+      setMultiHint(`Bỏ qua ${file.name} — chỉ nhận ảnh hoặc video.`, true);
+      return;
+    }
+    multiUploads += 1;
+    setMultiHint(`Đang tải lên ${file.name}…`);
+    try {
+      const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      scene.media = body.path;
+      setMultiHint("");
+    } catch (err) {
+      setMultiHint(`Không tải lên được ${file.name}: ${err.message}`, true);
+    } finally {
+      multiUploads -= 1;
+      if (multi?.scenes.includes(scene)) renderMultiScenes();
+    }
   });
 }
 
-async function uploadFile() {
-  const file = $("upFile").files[0];
-  if (!file) return log("Chọn file đã.");
-  const kind = $("upKind").value;
-  const dir = kind === "images" ? `images/${current?.slug ?? "shared"}` : kind;
-  const res = await fetch(`/api/upload?dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(file.name)}`,
-    { method: "POST", body: file });
-  const body = await res.json();
-  $("upResult").textContent = res.ok
-    ? `Đã lưu public/${body.path} (${(body.bytes / 1024).toFixed(0)} KB)`
-    : `Lỗi: ${body.error}`;
-}
-
-async function render() {
-  if (!current?.slug) return log("Chọn video trước.");
-  $("log").textContent = ""; $("bar").style.width = "0";
-  $("renderBtn").disabled = true;
+async function submitMulti() {
+  if (multiUploads > 0) {
+    setMultiHint("Đợi tải file lên xong đã.", true);
+    return;
+  }
+  setMultiHint("");
+  $("multiSubmit").disabled = true;
   try {
-    const { jobId } = await api("/api/render", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        slug: current.slug, voice: $("voice").value || undefined,
-        music: $("music").value || null, sfx: $("sfx").checked,
-        captionPosition: $("subPos").value, composition: $("composition").value,
-        regenerateVoice: $("regen").checked,
-      }),
+    const { slug } = await postJson("/api/multi", {
+      ...multi,
+      slug: multi.slug ?? undefined,
+      music: multi.music || null,
     });
-    follow(jobId, async (result, status) => {
-      if (status === "done" && result?.mp4) {
-        state = await api("/api/state");
-        renderVideos();
-        $("preview").innerHTML = `<video src="${result.mp4}?t=${Date.now()}" controls autoplay muted></video>
-          <a href="${result.mp4}" download style="display:block;margin-top:8px">
-            <button>Tải mp4 xuống</button></a>`;
-      }
-    });
-  } catch (e) { log(`Lỗi: ${e.message}`); $("renderBtn").disabled = false; }
+    multi = null;
+    loadHistory();
+    // Màn hình chat theo dõi tiến độ và hiện video khi xong.
+    location.hash = `#/v/${slug}`;
+  } catch (e) {
+    setMultiHint(e.message, true);
+  } finally {
+    $("multiSubmit").disabled = false;
+  }
 }
 
-boot().catch((e) => { $("hint").textContent = "lỗi: " + e.message; });
+boot().catch((e) => setHint(`Lỗi khởi động: ${e.message}`, true));

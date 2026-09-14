@@ -3,6 +3,7 @@ import { renderMedia, renderStill, selectComposition } from "@remotion/renderer"
 import { enableTailwind } from "@remotion/tailwind-v4";
 import path from "path";
 import type { ShortProps } from "../src/compositions/Short/schema";
+import { watermarkFromSettings } from "./watermark";
 
 export const COMPOSITION_ID = "Short";
 
@@ -25,13 +26,15 @@ const getBundle = () => {
 };
 
 export const renderShort = async (
-  inputProps: ShortProps,
+  props: ShortProps,
   outputLocation: string,
   /** "Short" | "LongVideo" | "Explainer". Mặc định Short. */
   compositionId: string = COMPOSITION_ID,
   /** Nhận phần trăm 0-100; server dùng để đẩy tiến độ về UI. */
   onProgressPercent?: (percent: number) => void,
 ) => {
+  // Watermark theo Cài đặt lúc render, không theo props.json đã lưu.
+  const inputProps: ShortProps = { ...props, watermark: watermarkFromSettings() };
   const serveUrl = await getBundle();
 
   // selectComposition chạy calculateMetadata với chính props này, nên độ dài
@@ -90,11 +93,33 @@ export const renderScene = async (
   const sceneProps: ShortProps = {
     ...inputProps,
     captions,
-    scenes: [{ ...scene, startMs: 0, endMs: scene.endMs - shift }],
+    scenes: [{
+      ...scene,
+      startMs: 0,
+      endMs: scene.endMs - shift,
+      punch: scene.punch ? { ...scene.punch, atMs: Math.max(0, scene.punch.atMs - shift) } : null,
+    }],
+    // Âm thanh thêm tay giao với cảnh: dời về mốc 0, phần trước cảnh thì cắt đầu.
+    audioClips: (inputProps.audioClips ?? [])
+      .filter((clip) => clip.startMs < scene.endMs && clip.startMs + clip.durationMs > scene.startMs)
+      .map((clip) => {
+        const cut = Math.max(0, scene.startMs - clip.startMs);
+        return {
+          ...clip,
+          startMs: Math.max(0, clip.startMs - shift),
+          trimStartMs: clip.trimStartMs + cut,
+          durationMs: clip.durationMs - cut,
+        };
+      }),
+    // Chữ tự do giao với cảnh: dời về mốc 0 như phụ đề.
+    texts: (inputProps.texts ?? [])
+      .filter((t) => t.startMs < scene.endMs && t.endMs > scene.startMs)
+      .map((t) => ({ ...t, startMs: Math.max(0, t.startMs - shift), endMs: t.endMs - shift })),
     // Title card thuộc về đầu video, không lặp lại ở từng cảnh.
     showTitle: false,
     // Voiceover là một track cho cả video — cắt theo cảnh sẽ lệch, nên bỏ.
     voiceoverTrack: null,
+    watermark: watermarkFromSettings(),
   };
 
   const serveUrl = await getBundle();

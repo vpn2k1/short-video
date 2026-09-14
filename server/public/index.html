@@ -6,339 +6,549 @@
 <title>AI Video Studio</title>
 <style>
   :root {
-    --bg: #0e1116; --panel: #161b22; --line: #262d38; --text: #e6edf3;
-    --muted: #8b949e; --accent: #e8590c; --ok: #3fb950; --err: #f85149;
+    --bg: #0b0d11; --panel: #14171d; --panel-2: #1b1f27; --line: #262b35; --line-2: #343b47;
+    --text: #e8ecf2; --muted: #8a93a3; --accent: #ff7a1a; --accent-ink: #1a0d00;
+    --ok: #3fb950; --err: #ff6b6b; --radius: 18px;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body { margin: 0; background: var(--bg); color: var(--text);
-         font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 14px 20px; border-bottom: 1px solid var(--line);
-           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  h1 { font-size: 16px; margin: 0; letter-spacing: .3px; }
-  .keys { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
-  .key { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .key.on { color: var(--ok); border-color: #1f4d2a; }
-  .key.off { color: var(--err); border-color: #4d2020; }
-  main { display: grid; grid-template-columns: 230px minmax(0, 1fr) 0;
-         transition: grid-template-columns .18s; height: calc(100vh - 53px); }
-  main.drawer { grid-template-columns: 230px minmax(0, 1fr) 400px; }
-  aside, section, .right { overflow-y: auto; padding: 16px; }
-  aside { border-right: 1px solid var(--line); }
-  .right { border-left: 1px solid var(--line); background: #0b0e13; }
-  main:not(.drawer) .right { display: none; }
-  section { padding: 20px 28px; }
-  .scene .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .scene textarea.sc-lines { min-height: 130px; }
-  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-            gap: 8px; margin-top: 10px; }
-  .thumbs img { width: 100%; aspect-ratio: 9/16; object-fit: cover; border-radius: 6px;
-                border: 2px solid transparent; cursor: pointer; display: block; }
-  .thumbs img:hover { border-color: var(--accent); }
-  .picker { border: 1px solid var(--line); border-radius: 10px; padding: 12px;
-            margin-top: 10px; background: #10141a; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
-          border: 1px solid var(--line); border-radius: 999px; font-size: 12px;
-          cursor: pointer; background: var(--panel); }
-  .chip.on { border-color: var(--accent); color: var(--accent); }
-  .toggle { width: auto; padding: 6px 14px; }
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         display: flex; flex-direction: column; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  [hidden] { display: none !important; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  /* --- Cài đặt cuộc --- */
-  .settings { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
-              padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
-              background: var(--panel); margin-bottom: 16px; }
-  .settings > div { flex: 1 1 150px; }
-  .settings label { margin-top: 0; }
+  /* ---------- nav ---------- */
+  .nav { display: flex; align-items: center; gap: 4px; padding: 10px 20px;
+         border-bottom: 1px solid var(--line); background: rgba(11,13,17,.9);
+         backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 20; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650;
+           letter-spacing: .2px; margin-right: 16px; text-decoration: none; }
+  .brand i { width: 22px; height: 22px; border-radius: 7px; display: inline-block;
+             background: conic-gradient(from 200deg, var(--accent), #ffd166, #4d7cff, var(--accent)); }
+  .nav-link { text-decoration: none; color: var(--muted); padding: 7px 14px; border: 0;
+              background: none; border-radius: 999px; font-size: 14px;
+              display: inline-flex; align-items: center; gap: 7px; position: relative; }
+  .nav-link:hover { color: var(--text); background: var(--panel); }
+  .nav-link.on { color: var(--text); background: var(--panel-2); }
+  .nav .spacer { flex: 1; }
+  .warn-dot { position: absolute; top: 6px; left: 22px; width: 8px; height: 8px; border-radius: 50%;
+              background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
 
-  /* --- Thẻ cảnh --- */
-  .sc-card { border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
-             margin-bottom: 14px; overflow: hidden; }
-  .sc-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-             border-bottom: 1px solid var(--line); }
-  .sc-head h3 { margin: 0; font-size: 13px; color: var(--accent); flex: 1; }
-  .sc-body { display: grid; grid-template-columns: 1fr 300px; gap: 14px; padding: 14px; }
-  .sc-body.narrow { grid-template-columns: 1fr; }
-  .sc-out { border: 1px solid var(--line); border-radius: 8px; background: #05070a;
-            min-height: 150px; display: flex; align-items: center; justify-content: center;
-            overflow: hidden; }
-  .sc-out img, .sc-out video { width: 100%; display: block; }
-  .sc-out .empty { color: var(--muted); font-size: 12px; padding: 20px; text-align: center; }
-  .mini { width: auto; padding: 5px 10px; font-size: 12px; }
+  .nav-toggle { width: 34px; height: 34px; margin-right: 6px; border-color: transparent; }
 
-  /* --- Thư viện --- */
-  .gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
-  .gal figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
-                background: var(--panel); }
-  .gal img, .gal video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
-  .gal figcaption { font-size: 10.5px; color: var(--muted); padding: 5px 7px; line-height: 1.35; }
+  /* ---------- khung: lịch sử + nội dung ---------- */
+  .app { flex: 1; display: flex; min-height: 0; }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .history { width: 276px; flex: 0 0 276px; border-right: 1px solid var(--line); background: #0e1015;
+             display: flex; flex-direction: column; min-height: 0; }
+  body.history-collapsed .history { display: none; }
+  .h-top { padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); }
+  .h-new { justify-content: center; padding: 8px 12px; }
+  .h-top input { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+                 padding: 7px 11px; outline: 0; font-size: 13px; }
+  .h-top input:focus { border-color: var(--line-2); }
+  .h-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
+  .h-group { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px;
+             padding: 14px 8px 6px; font-weight: 600; }
+  .h-item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px;
+            text-decoration: none; color: var(--text); }
+  .h-item:hover { background: var(--panel); }
+  .h-item.on { background: var(--panel-2); box-shadow: inset 2px 0 0 var(--accent); }
+  .h-thumb { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 8px; overflow: hidden;
+             background: var(--panel-2); display: grid; place-items: center; font-size: 17px; }
+  .h-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .h-text { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+  .h-text b { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-text small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-status.running { color: var(--accent); }
+  .h-status.running::before { content: "● "; animation: pulse 1s infinite alternate; }
+  .h-status.error { color: var(--err); }
+  .h-empty { color: var(--muted); font-size: 13px; padding: 20px 8px; text-align: center; }
+  .history-backdrop { display: none; }
 
-  /* --- Flow --- */
-  .flow { display: flex; align-items: stretch; gap: 0; margin-bottom: 14px;
-          overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
-  .flow::-webkit-scrollbar { height: 6px; }
-  .flow::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-  .flow::-webkit-scrollbar-track { background: transparent; }
-  .node { flex: 1 1 0; min-width: 120px; border: 1px solid var(--line);
-          border-radius: 10px; padding: 10px 12px; background: var(--panel);
-          cursor: pointer; position: relative; }
-  .node:hover { border-color: var(--accent); }
-  .node.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-  .node .n-top { display: flex; align-items: center; gap: 7px; }
-  .node .dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
-  .node .n-label { font-weight: 600; font-size: 13px; }
-  .node .n-detail { font-size: 11px; color: var(--muted); margin-top: 5px;
-                    line-height: 1.4; min-height: 30px; }
-  .node .n-run { width: 100%; padding: 4px; font-size: 11.5px; margin-top: 4px; }
-  .arrow { flex: 0 0 18px; display: flex; align-items: center; justify-content: center;
-           color: var(--line); font-size: 15px; }
-  .s-done   { background: var(--ok); }
-  .s-stale  { background: #d29922; }
-  .s-missing{ background: var(--err); }
-  .s-skipped{ background: #4b5563; }
-  .legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted);
-            margin: -12px 0 16px; flex-wrap: wrap; }
-  .legend span { display: inline-flex; align-items: center; gap: 5px; }
-  /* <i> là inline nên width/height không ăn — phải ép inline-block */
-  .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
-  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px;
-       color: var(--muted); margin: 0 0 10px; font-weight: 600; }
-  .video-item { padding: 8px 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
-  .video-item:hover { background: var(--panel); }
-  .video-item.active { background: var(--panel); border-color: var(--accent); }
-  .video-item .t { font-weight: 600; }
-  .video-item .m { font-size: 11px; color: var(--muted); }
-  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
-  input, select, textarea, button {
-    font: inherit; color: var(--text); background: var(--panel);
-    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%;
+  @media (max-width: 900px) {
+    /* Điện thoại / cửa sổ hẹp: lịch sử là ngăn kéo trượt ra, mặc định đóng. */
+    .history { position: fixed; top: 0; bottom: 0; left: 0; z-index: 45; width: min(300px, 86vw);
+               transform: translateX(-100%); transition: transform .2s ease; display: flex !important;
+               box-shadow: 0 0 40px rgba(0,0,0,.5); }
+    body.history-open .history { transform: none; }
+    .history-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 44; }
   }
-  textarea { resize: vertical; min-height: 60px; font-size: 13px; }
-  button { cursor: pointer; background: #21262d; }
-  button:hover:not(:disabled) { border-color: var(--accent); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  .row { display: flex; gap: 8px; }
-  .row > * { flex: 1; }
-  .scene { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: var(--panel); }
-  .scene h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); }
-  .log { background: #05070a; border: 1px solid var(--line); border-radius: 8px; padding: 10px;
-         font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-         white-space: pre-wrap; max-height: 240px; overflow-y: auto; color: #9fb0c0; }
-  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 8px 0; }
-  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
-  video { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #000; }
-  .muted { color: var(--muted); font-size: 12px; }
-  .warn { color: var(--err); font-size: 12px; }
-  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
-  .tabs button { width: auto; padding: 6px 12px; font-size: 13px; }
-  .tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .hidden { display: none; }
+
+  /* ---------- thanh tiêu đề video ---------- */
+  .project-bar { border-bottom: 1px solid var(--line); background: var(--bg); }
+  .project-bar .inner { max-width: 820px; margin: 0 auto; padding: 10px 16px;
+                        display: flex; align-items: center; gap: 10px; }
+  .pb-title { flex: 1; min-width: 0; }
+  .pb-title b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap;
+                overflow: hidden; text-overflow: ellipsis; }
+  .pb-title span { font-size: 12px; color: var(--muted); }
+
+  /* ---------- chat ---------- */
+  .chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .scroll { flex: 1; overflow-y: auto; padding: 24px 16px 8px; }
+  .thread { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+  .hero { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center;
+          padding: clamp(28px, 10vh, 110px) 16px 32px; text-align: center; }
+  .hero h1 { font-size: clamp(26px, 4vw, 38px); margin: 0 0 8px; font-weight: 650; letter-spacing: -.5px; }
+  .hero > p { color: var(--muted); margin: 0 0 22px; max-width: 560px; }
+  .hero .dock { width: 100%; text-align: left; }
+  .ideas { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 720px; margin-top: 18px; }
+  .ideas button { background: transparent; border: 1px solid var(--line); border-radius: 999px;
+                  padding: 7px 14px; font-size: 13px; color: var(--muted); }
+  .ideas button:hover { color: var(--text); border-color: var(--line-2); }
+
+  .recent { width: 100%; max-width: 780px; margin-top: 40px; text-align: left; }
+  .recent-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .recent-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .7px;
+                    color: var(--muted); margin: 0; font-weight: 600; }
+  .recent-head a { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .recent-head a:hover { color: var(--text); }
+  .recent-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .msg-user { align-self: flex-end; max-width: 85%; }
+  .msg-user .bubble { background: var(--panel-2); border-radius: var(--radius) var(--radius) 6px var(--radius);
+                      padding: 10px 14px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg-bot { align-self: flex-start; width: 100%; }
+  .msg-bot .text { margin-bottom: 10px; }
+  .msg-bot.error .text { color: var(--err); white-space: pre-wrap; }
+  .atts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-bottom: 6px; }
+  .atts img, .atts video { height: 84px; border-radius: 10px; object-fit: cover; background: #000; }
+
+  .player { background: #000; border-radius: 14px; overflow: hidden; border: 1px solid var(--line);
+            max-height: 72vh; max-width: 100%; display: block; }
+  .player video { width: 100%; height: 100%; display: block; }
+  .actions, .quick { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--panel);
+         border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px;
+         font-size: 13px; text-decoration: none; white-space: nowrap; }
+  .btn:hover { border-color: var(--line-2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .quick { margin-top: 12px; }
+  .quick button { background: transparent; border: 1px dashed var(--line-2); border-radius: 999px;
+                  padding: 5px 12px; font-size: 13px; color: var(--muted); }
+  .quick button:hover { color: var(--text); border-style: solid; }
+  details.script { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  details.script summary { cursor: pointer; }
+  details.script ol { margin: 8px 0 0; padding-left: 20px; }
+  details.script li { margin-bottom: 6px; }
+
+  .working { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .steps { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; align-items: center; }
+  .step { color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .step::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line-2); }
+  .step.active { color: var(--text); }
+  .step.active::before { background: var(--accent); animation: pulse 1s infinite alternate; }
+  .step.done::before { background: var(--ok); }
+  .elapsed { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  @keyframes pulse { to { opacity: .35; } }
+  .progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 12px 0 8px; }
+  .progress div { height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+  .lastlog { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .working .note { font-size: 12px; color: var(--muted); margin-top: 6px; opacity: .8; }
+
+  /* ---------- ô nhập ---------- */
+  .dock { padding: 10px 16px 18px; }
+  .notice { max-width: 780px; margin: 0 auto 10px; display: flex; align-items: center; gap: 12px;
+            background: rgba(255,122,26,.08); border: 1px solid rgba(255,122,26,.35);
+            border-radius: 14px; padding: 10px 12px 10px 14px; font-size: 14px; text-align: left; }
+  .notice span { flex: 1; }
+  .composer { max-width: 780px; margin: 0 auto; background: var(--panel);
+              border: 1px solid var(--line); border-radius: 22px; padding: 10px;
+              transition: border-color .15s; }
+  .composer:focus-within { border-color: var(--line-2); }
+  .composer.drag { border-color: var(--accent); background: rgba(255,122,26,.05); }
+  .input-row { display: flex; align-items: flex-end; gap: 8px; }
+  .composer textarea { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; resize: none;
+                       min-height: 38px; max-height: 45vh; padding: 8px 4px; line-height: 1.45; }
+  .pending { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 8px 4px; }
+  .pending:empty { display: none; }
+  .chip-file { position: relative; width: 64px; height: 64px; border-radius: 10px; overflow: hidden;
+               background: #000; border: 1px solid var(--line); }
+  .chip-file img, .chip-file video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .chip-file.loading { opacity: .5; }
+  .chip-file button { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px;
+                      border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff;
+                      font-size: 12px; line-height: 20px; padding: 0; }
+  .chip-file .tag { position: absolute; left: 4px; bottom: 3px; font-size: 10px; color: #fff; text-shadow: 0 1px 2px #000; }
+  .icon-btn { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 50%; border: 1px solid var(--line);
+              background: transparent; display: grid; place-items: center; color: var(--muted); padding: 0;
+              text-decoration: none; }
+  .icon-btn:hover { color: var(--text); border-color: var(--line-2); }
+  .send { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 50%; border: 0; background: var(--accent);
+          color: var(--accent-ink); display: grid; place-items: center; padding: 0; }
+  .send:disabled { background: var(--line); color: var(--muted); }
+
+  .chips { display: flex; gap: 6px; margin: 8px 0 0 46px; overflow-x: auto; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+          background: transparent; border: 1px solid var(--line); border-radius: 999px;
+          padding: 5px 9px 5px 11px; font-size: 13px; color: var(--muted); }
+  .chip svg { opacity: .6; }
+  .chip:hover, .chip[aria-expanded="true"] { color: var(--text); border-color: var(--line-2); background: var(--panel-2); }
+  .composer.text-mode textarea { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; }
+  .text-preview { max-width: 780px; margin: 8px auto 0; font-size: 13px; color: var(--muted); text-align: left; padding: 0 6px; }
+  .text-preview.ok b { color: var(--ok); font-weight: 600; }
+  .text-preview.err { color: var(--err); }
+  .syntax { max-width: 780px; margin: 10px auto 0; font-size: 13px; color: var(--muted); text-align: left; }
+  .syntax summary { cursor: pointer; padding: 2px 6px; width: fit-content; }
+  .syntax summary:hover { color: var(--text); }
+  .syntax-body { margin-top: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .syntax pre { margin: 0 0 10px; padding: 10px 12px; background: var(--bg); border-radius: 10px; overflow-x: auto;
+                font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text); white-space: pre; }
+  .syntax ul { margin: 0 0 10px; padding-left: 18px; }
+  .syntax li { margin-bottom: 4px; }
+  .hint { max-width: 780px; margin: 8px auto 0; font-size: 13px; color: var(--muted); text-align: center; }
+  .hint.err { color: var(--err); }
+
+  /* ---------- menu chung cho các chip ---------- */
+  .menu { position: fixed; z-index: 40; background: var(--panel); border: 1px solid var(--line-2);
+          border-radius: 16px; padding: 8px; box-shadow: 0 18px 50px rgba(0,0,0,.6); overflow-y: auto; }
+  .menu.list { display: flex; flex-direction: column; gap: 2px; }
+  .menu.grid { display: grid; gap: 8px; padding: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .menu-title, .menu-group { font-size: 11px; color: var(--muted); text-transform: uppercase;
+                             letter-spacing: .7px; padding: 6px 8px 4px; }
+  .menu.grid .menu-title { grid-column: 1 / -1; }
+  .menu-group { padding-top: 10px; }
+  .opt { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 10px;
+         padding: 8px 10px; color: var(--text); display: flex; flex-direction: column; gap: 1px; }
+  .menu.grid .opt { background: var(--bg); border-color: var(--line); padding: 10px 11px; gap: 3px; }
+  .opt:hover:not(:disabled), .opt:focus-visible { background: var(--panel-2); outline: none; }
+  .opt.on { border-color: var(--accent); }
+  .menu.list .opt.on { background: rgba(255,122,26,.08); }
+  .opt b { font-size: 14px; font-weight: 550; }
+  .opt span { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .opt:disabled { opacity: .45; }
+
+  /* ---------- kết quả ảnh ---------- */
+  .shots { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .shots.wide { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .shot { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+  .shot button { position: absolute; right: 6px; bottom: 6px; border: 0; border-radius: 999px;
+                 background: rgba(0,0,0,.7); color: #fff; font-size: 12px; padding: 4px 9px; }
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.88); display: grid; place-items: center;
+              z-index: 50; padding: 16px; cursor: zoom-out; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+
+  /* ---------- thẻ video (thư viện + gần đây) ---------- */
+  .library { flex: 1; overflow-y: auto; padding: 28px 20px; }
+  .lib-head { max-width: 1200px; margin: 0 auto 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .lib-head h1 { font-size: 22px; margin: 0; flex: 1; font-weight: 650; white-space: nowrap; }
+  .lib-head input { background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+                    padding: 7px 14px; min-width: 0; width: 240px; max-width: 100%; outline: 0; }
+  .grid { max-width: 1200px; margin: 0 auto; display: grid; gap: 14px;
+          grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+          text-decoration: none; display: block; transition: border-color .15s, transform .15s; min-width: 0; }
+  .card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+  .thumb { aspect-ratio: 9 / 16; background: linear-gradient(160deg, #1b1f27, #0e1116); position: relative; overflow: hidden; }
+  .recent .thumb { aspect-ratio: 4 / 5; }
+  .thumb img, .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+  .badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.65); border-radius: 999px;
+           font-size: 11px; padding: 2px 8px; color: #fff; }
+  .badge.live { left: auto; right: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .meta { padding: 9px 11px; }
+  .meta .t { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta .m { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .meta .m button { background: none; border: 0; padding: 0; color: var(--muted); font-size: 12px; }
+  .meta .m button:hover { color: var(--text); }
+  .card.new { display: grid; place-items: center; border-style: dashed; color: var(--muted);
+              min-height: 200px; text-align: center; font-size: 14px; }
+  .card.new b { display: block; font-size: 30px; font-weight: 300; line-height: 1; margin-bottom: 6px; }
+  .empty-lib { text-align: center; color: var(--muted); padding: 60px 0; grid-column: 1 / -1; }
+
+  /* ---------- xoá video cũ ---------- */
+  .h-del { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent;
+           font-size: 13px; padding: 0; opacity: 0; transition: opacity .12s; }
+  .h-item:hover .h-del, .h-del:focus-visible { opacity: .7; }
+  .h-del:hover { opacity: 1; background: rgba(255,80,80,.15); }
+  @media (hover: none) { .h-del { opacity: .55; } }
+  .btn.danger { border-color: rgba(255,90,90,.45); color: #ff8a8a; }
+  .btn.danger:hover:not(:disabled) { background: rgba(255,90,90,.12); border-color: #ff6b6b; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .lib-select { max-width: 1200px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+                background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px;
+                position: sticky; top: 0; z-index: 5; }
+  .lib-select > span { flex: 1; min-width: 180px; font-size: 14px; }
+  .lib-select-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .card.selectable { cursor: pointer; }
+  .card.selectable:hover { transform: none; }
+  .card.picked { border-color: #ff6b6b; box-shadow: 0 0 0 2px rgba(255,107,107,.5); }
+  .card.locked { opacity: .5; cursor: not-allowed; }
+  .check { position: absolute; right: 8px; bottom: 8px; width: 24px; height: 24px; border-radius: 50%;
+           border: 2px solid #fff; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center;
+           font-size: 14px; font-weight: 700; }
+  .card.picked .check { background: #ff5a5a; border-color: #ff5a5a; }
+  .flash-note { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
+                background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 14px;
+                font-size: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  .flash-note.err { border-color: rgba(255,90,90,.6); }
+
+  /* ---------- hộp thoại cài đặt ---------- */
+  .muted { color: var(--muted); font-size: 13px; }
+  code { background: var(--panel-2); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+  .dlg { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+         border-radius: 18px; padding: 20px 22px; width: min(520px, calc(100vw - 32px)); }
+  .dlg::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
+  .dlg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .dlg-head h2 { font-size: 18px; margin: 0; }
+  #keyFields { max-height: min(62vh, 560px); overflow-y: auto; padding-right: 4px; }
+  .dlg h3.group { font-size: 12px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted);
+                  margin: 22px 0 -4px; font-weight: 600; }
+  .field { margin-top: 16px; }
+  .field-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .field label { font-weight: 600; font-size: 14px; }
+  .field .state { font-size: 12px; color: var(--muted); }
+  .field .state.on { color: var(--ok); }
+  .field .row { display: flex; gap: 6px; margin-top: 6px; }
+  .field input, .field select { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line);
+                 border-radius: 10px; padding: 8px 11px; outline: 0; font-size: 14px; }
+  .field input[data-type="secret"] { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .field input:focus, .field select:focus { border-color: var(--line-2); }
+  .field .help { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .field .help a { color: var(--accent); }
+  .field.removing input { text-decoration: line-through; opacity: .5; }
+  .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .dlg .hint { text-align: left; margin: 12px 0 0; }
+
+  @media (max-width: 720px) {
+    .recent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    .nav { padding: 8px 12px; }
+    .brand { margin-right: 6px; }
+    .brand span, .nav-link .label { display: none; }
+    .chips { margin-left: 0; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .library { padding: 18px 16px; }
+    .lib-head input { width: 100%; order: 3; }
+    .menu.grid { grid-template-columns: 1fr 1fr; }
+    .project-bar .btn .label { display: none; }
+  }
+
+  /* ---------- video nhiều cảnh ---------- */
+  .multi { flex: 1; overflow-y: auto; padding: 28px 20px 40px; }
+  .ms-wrap { max-width: 900px; margin: 0 auto; }
+  .ms-wrap .lib-head { margin-bottom: 4px; }
+  .ms-wrap > .muted { margin: 0; }
+  .ms-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 16px 0 18px; }
+  .ms-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px 12px; }
+  .ms-wide { grid-column: 1 / -1; }
+  .ms-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .ms-field > span { font-size: 12px; color: var(--muted); }
+  .ms-field input, .ms-field select, .ms-field textarea {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; outline: 0; width: 100%; min-width: 0; }
+  .ms-field textarea { resize: vertical; }
+  .ms-field input:focus, .ms-field select:focus, .ms-field textarea:focus { border-color: var(--line-2); }
+  .ms-scenes { display: flex; flex-direction: column; gap: 12px; }
+  .ms-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 14px; }
+  .ms-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .ms-card-head .tag { font-size: 11.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  .ms-card-head .spacer, .ms-foot .spacer { flex: 1; }
+  .ms-card-head button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); padding: 0; }
+  .ms-card-head button:disabled { opacity: .35; }
+  .ms-media-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ms-thumb { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #000; flex: 0 0 64px; }
+  .ms-thumb img, .ms-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ms-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .ms-wrap .hint { text-align: left; margin: 10px 0 0; max-width: none; white-space: pre-line; }
+  @media (max-width: 640px) {
+    .multi { padding: 18px 16px 32px; }
+    .ms-settings, .ms-grid { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>AI Video Studio</h1>
-  <span class="muted" id="hint">đang tải…</span>
-  <button class="toggle" style="width:auto;margin-left:auto" onclick="toggleDrawer()">Dựng &amp; render</button>
-  <div class="keys" id="keys" title="Dấu ✓ chỉ nghĩa là key có trong .env, chưa kiểm tra quyền"></div>
-</header>
 
-<main id="main" class="drawer">
-  <aside>
-    <h2>Video</h2>
-    <div id="videos"></div>
-    <button style="margin-top:12px" onclick="newVideo()">+ Video mới</button>
-  </aside>
+<nav class="nav">
+  <button type="button" class="icon-btn nav-toggle" id="historyToggle" title="Lịch sử" aria-label="Mở/đóng lịch sử"
+          aria-controls="history" aria-expanded="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+  </button>
+  <a class="brand" href="#/"><i></i><span>AI Video Studio</span></a>
+  <a class="nav-link" id="nav-new" href="#/">Tạo mới</a>
+  <a class="nav-link" id="nav-multi" href="#/multi" title="Mỗi cảnh một prompt, chọn model riêng cho từng cảnh">🎬 <span class="label">Nhiều cảnh</span></a>
+  <a class="nav-link" id="nav-lib" href="#/library">Thư viện</a>
+  <a class="nav-link" href="/editor.html#new" title="Tải video lên và chỉnh sửa trên timeline — không cần AI">✂️ <span class="label">Edit video</span></a>
+  <span class="spacer"></span>
+  <button type="button" class="nav-link" id="openSettings" title="Cài đặt API key">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span class="label">Cài đặt</span>
+    <i class="warn-dot" id="settingsWarn" title="Chưa có API key" hidden></i>
+  </button>
+</nav>
 
-  <section>
-    <div id="flow" class="flow"></div>
-    <div class="legend">
-      <span><i class="dot s-done"></i> xong</span>
-      <span><i class="dot s-stale"></i> cũ — dữ liệu đã đổi sau bước này</span>
-      <span><i class="dot s-missing"></i> thiếu</span>
-      <span><i class="dot s-skipped"></i> không dùng</span>
-    </div>
-
-    <div class="tabs">
-      <button id="tab-create" class="on" onclick="tab('create')">Tạo</button>
-      <button id="tab-scenes" onclick="tab('scenes')">Cảnh</button>
-      <button id="tab-edit" onclick="tab('edit')">Sửa kịch bản</button>
-      <button id="tab-voice" onclick="tab('voice')">Giọng đọc</button>
-      <button id="tab-assets" onclick="tab('assets')">Ảnh &amp; file</button>
-      <button id="tab-audio" onclick="tab('audio')">Nhạc &amp; tiếng</button>
-      <button id="tab-join" onclick="tab('join')">Ghép video</button>
-      <button id="tab-gallery" onclick="tab('gallery')">Thư viện</button>
-    </div>
-
-    <div id="pane-create">
-      <label>Prompt — mô tả video muốn tạo</label>
-      <textarea id="prompt" placeholder="5 mẹo tiết kiệm pin iPhone"></textarea>
-      <label>Tên thư mục (bỏ trống để tự suy từ prompt)</label>
-      <input id="newName" placeholder="pin-iphone" />
-      <p class="muted" id="createNote"></p>
-      <button class="primary" style="margin-top:8px" onclick="createVideo()">Sinh kịch bản</button>
-    </div>
-
-    <div id="pane-edit" class="hidden">
-      <div id="scriptMeta"></div>
-      <div id="scenes"></div>
-      <div class="row" style="margin-top:10px">
-        <button onclick="addScene()">+ Thêm cảnh</button>
-        <button class="primary" onclick="saveScript()">Lưu kịch bản</button>
-      </div>
-    </div>
-
-    <div id="pane-audio" class="hidden">
-      <h2>Nhạc nền</h2>
-      <p class="muted">Sinh bằng ffmpeg — offline, miễn phí. Nhạc tổng hợp, đủ làm nền
-        dưới lời nói nhưng nghe kỹ vẫn ra chất máy.</p>
-      <div class="row">
-        <select id="musicMood"></select>
-        <input id="musicSecs" type="number" value="30" min="5" max="180" />
-        <button style="flex:0 0 auto;width:auto" onclick="genAudio('music','local')">Sinh</button>
-      </div>
-      <div id="musicList" class="picker"></div>
-
-      <h2 style="margin-top:22px">Tiếng động</h2>
-      <div class="row">
-        <select id="sfxKind"></select>
-        <button style="flex:0 0 auto;width:auto" onclick="genAudio('sfx','local')">Sinh</button>
-      </div>
-      <div id="sfxList" class="picker"></div>
-
-      <h2 style="margin-top:22px">Sinh bằng AI theo ngữ cảnh</h2>
-      <p class="muted" id="elevenNote"></p>
-      <div class="row">
-        <select id="aiKind">
-          <option value="music">Nhạc nền</option>
-          <option value="sfx">Tiếng động</option>
-        </select>
-        <input id="aiSecs" type="number" value="20" min="1" max="120" />
-      </div>
-      <input id="aiPrompt" style="margin-top:8px"
-             placeholder="calm lofi beat for a sleep tips video, no vocals" />
-      <input id="aiName" style="margin-top:8px" placeholder="tên file (bỏ trống = suy từ mô tả)" />
-      <button style="margin-top:8px" onclick="genAudio(document.getElementById('aiKind').value,'elevenlabs')">
-        Sinh bằng ElevenLabs</button>
-    </div>
-
-    <div id="pane-join" class="hidden">
-      <h2>Nối nhiều video thành một</h2>
-      <p class="muted">Bấm theo THỨ TỰ muốn ghép. Chỉ video đã render mới ghép được.</p>
-      <div id="joinList"></div>
-      <label>Tên file kết quả</label>
-      <input id="joinName" value="ghep" />
-      <p class="muted">Mã hoá lại toàn bộ nên mất thời gian gần bằng tổng độ dài các video.</p>
-      <button class="primary" style="margin-top:8px" onclick="joinVideos()">Ghép</button>
-    </div>
-
-    <div id="pane-scenes" class="hidden">
-      <div class="settings">
-        <div><label>Loại đầu ra</label>
-          <select id="setKind">
-            <option value="video">Video</option>
-            <option value="image">Ảnh</option>
-          </select></div>
-        <div><label>Tỉ lệ</label><select id="setAspect"></select></div>
-        <div><label>Nhạc nền</label><select id="setMusic"></select></div>
-        <div style="flex:0 0 auto"><button class="mini" onclick="saveSettings()">Lưu cài đặt</button></div>
-      </div>
-
-      <div id="sceneCards"></div>
-
-      <div class="row" style="margin-top:4px">
-        <button onclick="addSceneCard()">+ Thêm cảnh</button>
-        <button class="primary" onclick="saveScript()">Lưu tất cả</button>
-        <button onclick="joinScenes()">Gộp các cảnh thành 1 video</button>
-      </div>
-    </div>
-
-    <div id="pane-gallery" class="hidden">
-      <h2>Tất cả ảnh &amp; video đã tạo</h2>
-      <p class="muted">Gộp từ mọi cuộc. Bấm để mở, hoặc dùng nút tải xuống.</p>
-      <div id="gal" class="gal"></div>
-    </div>
-
-    <div id="pane-voice" class="hidden">
-      <h2>Sinh giọng đọc</h2>
-      <p class="muted">Chỉ sinh giọng và cập nhật <code>props.json</code> — KHÔNG render.
-        Dùng khi đổi giọng hoặc sau khi sửa kịch bản.</p>
-      <label>Giọng</label>
-      <select id="voiceStage"></select>
-      <label>Vị trí phụ đề</label>
-      <select id="subPosStage">
-        <option value="bottom">Đáy màn hình</option>
-        <option value="center">Giữa màn hình</option>
-      </select>
-      <label>Nhạc nền</label>
-      <select id="musicStage"></select>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
-        <input type="checkbox" id="sfxStage" style="width:auto" />
-        <span style="color:var(--text)">Tiếng chuyển cảnh</span>
-      </label>
-      <button class="primary" style="margin-top:14px" onclick="runStage('voice')">
-        Sinh giọng &amp; cập nhật props</button>
-      <p class="muted" style="margin-top:10px">Xong rồi bấm node <b>Render</b> để xuất video.</p>
-    </div>
-
-    <div id="pane-assets" class="hidden">
-      <h2>Lấy ảnh tự động</h2>
-      <p class="muted">Truy vấn viết bằng tiếng Anh — Pexels đánh index tiếng Anh. Mỗi dòng một cảnh.</p>
-      <textarea id="imgQueries" placeholder="iphone charging at night&#10;person holding phone low battery"></textarea>
-      <label>Nguồn (theo thứ tự ưu tiên)</label>
-      <select id="imgSource">
-        <option value="pexels,gemini">pexels → gemini (mặc định)</option>
-        <option value="pexels">chỉ pexels</option>
-        <option value="gemini">chỉ gemini</option>
-      </select>
-      <button class="primary" style="margin-top:10px" onclick="fetchImages()">Tải ảnh</button>
-
-      <h2 style="margin-top:24px">Tải file lên</h2>
-      <label>Loại</label>
-      <select id="upKind">
-        <option value="images">Ảnh → public/images/&lt;video&gt;/</option>
-        <option value="music">Nhạc nền → public/music/</option>
-        <option value="sfx">Tiếng động → public/sfx/</option>
-        <option value="videos">Video clip → public/videos/</option>
-      </select>
-      <input type="file" id="upFile" style="margin-top:8px" />
-      <button style="margin-top:8px" onclick="uploadFile()">Tải lên</button>
-      <div id="upResult" class="muted"></div>
-    </div>
-  </section>
-
-  <div class="right">
-    <h2>Dựng &amp; render</h2>
-    <label>Composition</label>
-    <select id="composition"></select>
-    <label>Giọng đọc</label>
-    <select id="voice"></select>
-    <label>Vị trí phụ đề</label>
-    <select id="subPos">
-      <option value="bottom">Đáy màn hình</option>
-      <option value="center">Giữa màn hình</option>
-    </select>
-    <label>Nhạc nền</label>
-    <select id="music">
-      <option value="">Không</option>
-      <option value="music/placeholder.mp3">placeholder.mp3</option>
-    </select>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
-      <input type="checkbox" id="regen" checked style="width:auto" />
-      <span style="color:var(--text)">Sinh lại giọng từ kịch bản</span>
-    </label>
-    <p class="muted">Bỏ chọn để render lại từ props.json có sẵn — không gọi API, giữ nguyên phụ đề đã sửa tay.</p>
-    <label style="display:flex;align-items:center;gap:8px">
-      <input type="checkbox" id="sfx" style="width:auto" />
-      <span style="color:var(--text)">Tiếng chuyển cảnh</span>
-    </label>
-
-    <button class="primary" style="margin-top:14px" id="renderBtn" onclick="render()">Render</button>
-    <div class="bar"><div id="bar"></div></div>
-    <div class="log" id="log">sẵn sàng.</div>
-
-    <div id="preview" style="margin-top:14px"></div>
+<div class="app">
+<!-- ===== Lịch sử ===== -->
+<aside class="history" id="history" aria-label="Lịch sử">
+  <div class="h-top">
+    <a class="btn primary h-new" href="#/">＋ Tạo mới</a>
+    <input id="historySearch" type="search" placeholder="Tìm trong lịch sử…" aria-label="Tìm trong lịch sử" />
   </div>
-</main>
+  <nav class="h-list" id="historyList"></nav>
+</aside>
+<div class="history-backdrop" id="historyBackdrop" hidden></div>
+
+<div class="main">
+<!-- ===== Tạo / sửa video ===== -->
+<section class="chat" id="view-chat">
+  <header class="project-bar" id="projectBar" hidden>
+    <div class="inner">
+      <a class="icon-btn" href="#/library" title="Về thư viện" aria-label="Về thư viện">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="pb-title"><b id="projectTitle"></b><span id="projectMeta"></span></div>
+      <a class="btn" id="projectMulti" href="#" hidden title="Mở lại danh sách cảnh để sửa prompt, model, lời đọc">🎬 <span class="label">Sửa cảnh</span></a>
+      <a class="btn" id="projectEdit" href="#" hidden title="Mở trình chỉnh sửa timeline">✂️ <span class="label">Chỉnh sửa</span></a>
+      <button type="button" class="btn" id="projectDownload" hidden>⬇ <span class="label">Tải video</span></button>
+      <button type="button" class="btn" id="projectDelete" hidden title="Xoá video này">🗑 <span class="label">Xoá</span></button>
+      <a class="btn" href="#/">＋ <span class="label">Tạo mới</span></a>
+    </div>
+  </header>
+
+  <div class="hero" id="hero">
+    <h1>Bạn muốn tạo gì hôm nay?</h1>
+    <p>Mô tả ý tưởng, đính kèm ảnh hoặc video nếu có. Có kết quả rồi thì cứ nhắn tiếp để sửa.</p>
+    <div class="dock" id="heroDock"></div>
+    <div class="ideas" id="ideas"></div>
+    <div class="recent" id="recentWrap" hidden>
+      <div class="recent-head"><h2>Gần đây</h2><a href="#/library">Xem tất cả →</a></div>
+      <div class="recent-grid" id="recent"></div>
+    </div>
+  </div>
+
+  <div class="scroll" id="scroll" hidden>
+    <div class="thread" id="thread"></div>
+  </div>
+
+  <div class="dock" id="bottomDock" hidden></div>
+
+  <!-- Ô nhập duy nhất — JS chuyển nó giữa hero và đáy màn hình -->
+  <div id="composerWrap">
+    <div class="notice" id="keyNotice" hidden>
+      <span>🔑 Cần một API key để AI viết kịch bản — Gemini, Groq, OpenRouter có gói miễn phí.</span>
+      <button type="button" class="btn primary" id="noticeSettings">Mở cài đặt</button>
+    </div>
+    <form class="composer" id="composer" autocomplete="off">
+      <div class="pending" id="pending"></div>
+      <div class="input-row">
+        <button type="button" class="icon-btn" id="attachBtn" title="Thêm ảnh hoặc video" aria-label="Thêm ảnh hoặc video">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <textarea id="input" rows="1" aria-label="Mô tả video"></textarea>
+        <button type="submit" class="send" id="send" title="Gửi (Enter)" aria-label="Gửi">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+      <div class="chips" id="chips" aria-label="Tuỳ chọn"></div>
+      <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden />
+    </form>
+    <p class="text-preview" id="textPreview" hidden></p>
+    <p class="hint" id="hint"></p>
+    <details class="syntax" id="syntaxHelp" hidden>
+      <summary>Cách viết kịch bản để dán (không cần API key)</summary>
+      <div class="syntax-body">
+        <pre id="syntaxExample"># Pin iPhone tụt nhanh?
+&gt; 5 mẹo chỉnh được ngay
+
+[Mẹo 1]
+Tắt làm mới ứng dụng nền.
+Bật **chế độ nguồn điện thấp** từ 50%.
+
+[Mẹo 2]
+! 80% | mức pin nên giữ
+Đừng để pin cạn về 0%.
+Lưu lại để làm theo nhé!</pre>
+        <ul>
+          <li>Mỗi dòng là một câu phụ đề/lời đọc. <b>Dòng trống</b> = sang cảnh mới.</li>
+          <li><code># …</code> tiêu đề · <code>&gt; …</code> dòng phụ · <code>[…]</code> nhãn của cảnh.</li>
+          <li><code>**…**</code> cụm được nhấn nổi bật · <code>! 80% | chú thích</code> con số lớn.</li>
+          <li>Không có cú pháp cũng được: dán đoạn văn, câu dài tự tách. Ảnh đính kèm gán lần lượt cho từng cảnh.</li>
+        </ul>
+        <button type="button" class="btn" id="useExample">Dùng mẫu này</button>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===== Thư viện ===== -->
+<section class="library" id="view-library" hidden>
+  <div class="lib-head">
+    <h1>Thư viện</h1>
+    <input id="search" type="search" placeholder="Tìm video…" />
+    <button type="button" class="btn" id="libSelect">🗑 Xoá bản cũ</button>
+    <a class="btn" href="/editor.html#new">✂️ Edit video mới</a>
+    <a class="btn primary" href="#/">＋ Tạo mới</a>
+  </div>
+  <div class="lib-select" id="libSelectBar" hidden>
+    <span id="libSelectCount"></span>
+    <div class="lib-select-actions">
+      <button type="button" class="btn" data-older="7">Cũ hơn 7 ngày</button>
+      <button type="button" class="btn" data-older="30">Cũ hơn 30 ngày</button>
+      <button type="button" class="btn" data-older="all">Chọn tất cả</button>
+      <button type="button" class="btn" id="libSelectNone">Bỏ chọn</button>
+      <button type="button" class="btn danger" id="libDelete" disabled>🗑 Xoá</button>
+      <button type="button" class="btn" id="libSelectDone">Xong</button>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- ===== Video nhiều cảnh ===== -->
+<section class="multi" id="view-multi" hidden>
+  <div class="ms-wrap">
+    <div class="lib-head"><h1 id="multiHeading">Tạo video nhiều cảnh</h1></div>
+    <p class="muted">Mỗi cảnh một prompt và một model video AI riêng — hoặc 🚫 không dùng model và dùng ảnh/video của bạn.
+      Lời đọc tuỳ chọn: cảnh dài theo số giây đã chọn, hoặc dài hơn nếu lời đọc dài hơn.</p>
+    <div class="ms-settings">
+      <label class="ms-field ms-wide"><span>Tên video</span>
+        <input id="multiTitle" type="text" maxlength="60" placeholder="Một ngày ở Hạ Long" /></label>
+      <label class="ms-field"><span>Tỉ lệ khung</span><select id="multiAspect"></select></label>
+      <label class="ms-field"><span>Giọng đọc</span><select id="multiVoice"></select></label>
+      <label class="ms-field"><span>Nhạc nền</span><select id="multiMusic"></select></label>
+    </div>
+    <div class="ms-scenes" id="multiScenes"></div>
+    <div class="ms-foot">
+      <button type="button" class="btn" id="multiAdd">＋ Thêm cảnh</button>
+      <span class="muted" id="multiSummary"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" id="multiSubmit">🎬 Tạo video</button>
+    </div>
+    <p class="hint" id="multiHint"></p>
+    <input type="file" id="multiFile" accept="image/*,video/*" hidden />
+  </div>
+</section>
+</div>
+</div>
+
+<!-- Menu dùng chung cho mọi chip tuỳ chọn -->
+<div class="menu" id="menu" role="listbox" hidden></div>
+
+<!-- ===== Cài đặt API key ===== -->
+<dialog class="dlg" id="settingsDlg">
+  <form id="settingsForm" autocomplete="off">
+    <div class="dlg-head">
+      <h2>Cài đặt API key</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng">✕</button>
+    </div>
+    <p class="muted">Điền key vào các ô dưới đây. Key chỉ lưu trên máy này và có hiệu lực ngay.
+      Bỏ trống ô nào thì giữ nguyên key đang có.</p>
+    <div id="keyFields"></div>
+    <p class="hint" id="settingsHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>Huỷ</button>
+      <button type="submit" class="btn primary" id="saveKeys">Lưu</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="/app.js"></script>
 </body>

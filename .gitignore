@@ -1,5 +1,7 @@
 node_modules
 dist
+# Bản đóng gói desktop (npm run dist:mac)
+release
 .DS_Store
 .env
 
@@ -21,3 +23,9 @@ whisper.cpp-*
 
 # Cảnh render riêng
 out/scenes
+
+# File người dùng tải lên qua giao diện chat
+public/uploads
+
+# API key điền trong ô Cài đặt của giao diện web
+data/api-keys.json

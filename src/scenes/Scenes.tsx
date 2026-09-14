@@ -1,7 +1,10 @@
+import { ClipVideo } from "./ClipVideo";
+import { CropBox } from "./CropBox";
 import {
   AbsoluteFill,
   Img,
   interpolate,
+  Sequence,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
@@ -13,6 +16,8 @@ import type { Scene } from "../compositions/Short/schema";
 const CROSSFADE_SECONDS = 0.5;
 /** Ken Burns: ảnh tĩnh phóng chậm cho đỡ chết cứng. */
 const KEN_BURNS_ZOOM = 0.08;
+/** "image" của cảnh có thể là video người dùng tải lên. */
+const VIDEO_EXT = /\.(mp4|mov|webm)$/i;
 
 type Props = {
   scenes: Scene[];
@@ -63,17 +68,36 @@ export const Scenes: React.FC<Props> = ({ scenes }) => {
           extrapolateRight: "clamp",
         });
 
+        // Video người dùng tải lên: bắt đầu phát từ đầu cảnh, tắt tiếng (voiceover
+        // và nhạc nền là tiếng chính), lặp nếu clip ngắn hơn cảnh.
+        if (VIDEO_EXT.test(scene.image)) {
+          return (
+            <AbsoluteFill key={`scene-${index}`} style={{ opacity }}>
+              <Sequence from={start}>
+                <ClipVideo
+                  src={scene.image}
+                  trimStartMs={scene.trimStartMs}
+                  volume={scene.volume}
+                  crop={scene.crop}
+                />
+              </Sequence>
+            </AbsoluteFill>
+          );
+        }
+
         return (
           <AbsoluteFill key={`scene-${index}`} style={{ opacity }}>
-            <Img
-              src={staticFile(scene.image)}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transform: `scale(${1 + progress * KEN_BURNS_ZOOM})`,
-              }}
-            />
+            <CropBox crop={scene.crop}>
+              <Img
+                src={staticFile(scene.image)}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  transform: `scale(${1 + progress * KEN_BURNS_ZOOM})`,
+                }}
+              />
+            </CropBox>
           </AbsoluteFill>
         );
       })}
