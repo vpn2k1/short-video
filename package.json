@@ -10,13 +10,16 @@
     "@remotion/bundler": "^4.0.523",
     "@remotion/cli": "4.0.523",
     "@remotion/install-whisper-cpp": "^4.0.523",
+    "@remotion/media": "4.0.523",
     "@remotion/renderer": "^4.0.523",
     "@remotion/tailwind-v4": "4.0.523",
     "@remotion/zod-types": "4.0.523",
+    "ffmpeg-static": "^5.3.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.523",
     "tailwindcss": "4.0.0",
+    "tsx": "^4.23.13",
     "zod": "4.5.4"
   },
   "devDependencies": {
@@ -24,12 +27,52 @@
     "@types/node": "^22.20.2",
     "@types/react": "19.2.7",
     "@types/web": "0.0.166",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
     "eslint": "9.19.0",
     "prettier": "3.8.1",
-    "tsx": "^4.23.13",
     "typescript": "5.9.3"
   },
+  "main": "desktop/main.cjs",
+  "productName": "AI Video Studio",
+  "build": {
+    "appId": "net.rabiloo.ai-video-studio",
+    "productName": "AI Video Studio",
+    "asar": false,
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "package.json",
+      "tsconfig.json",
+      "remotion.config.ts",
+      "desktop/**",
+      "src/**",
+      "server/**",
+      "scripts/**",
+      ".claude/skills/style-*/**",
+      "public/images/**",
+      "public/music/**",
+      "public/sfx/**"
+    ],
+    "afterPack": "desktop/after-pack.cjs",
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.video",
+      "identity": null
+    }
+  },
   "scripts": {
+    "desktop": "electron .",
+    "dist:mac": "electron-builder --mac",
     "audio-assets": "bash scripts/make-audio-assets.sh",
     "audio-to-video": "tsx scripts/audio-to-video.ts",
     "build": "remotion bundle",

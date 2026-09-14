@@ -29,10 +29,51 @@ miễn phí không làm được việc đó.
 npm start    # http://localhost:5177
 ```
 
-Làm được cả pipeline bằng chuột: sửa kịch bản, tìm/chọn ảnh Pexels theo thumbnail, tải
-file lên, render có thanh tiến độ, ghép nhiều video thành một.
+Một ô chat kiểu Google Flow: gõ prompt (kèm ảnh/video tải lên) → AI viết kịch bản → giọng
+đọc → render. Nhắn tiếp để sửa. Chọn Video/Ảnh, phong cách, tỉ lệ, giọng, nhạc ngay trong ô
+nhập. Thư viện ở thanh nav, API key điền trong Cài đặt (lưu `data/api-keys.json`).
 
-Server `node:http` + một file HTML, không framework, không build step. Code ở `server/`.
+Server `node:http` + một file HTML, không framework, không build step. Code ở `server/`
+(`chat.ts` là pipeline của ô chat, `keys.ts` là cài đặt key).
+
+### Trình chỉnh sửa timeline
+
+`/editor.html#<slug>` (nút ✂️ Chỉnh sửa trong chat). Kiểu CapCut: Remotion Player xem trước
+chính composition `Short`, timeline 5 track (cảnh, chữ, giọng, nhạc, âm thanh), bảng thuộc tính,
+thư viện media. Ghi thẳng vào `props.json`; nút Xuất video render lại mp4.
+
+- Code React ở `server/editor/`, server đóng gói bằng esbuild + Tailwind lúc chạy
+  (`server/editor-build.ts`) — sửa `src/` hay `server/editor/` là lần tải sau tự build lại.
+- Thao tác timeline là hàm thuần trong `server/editor/ops.ts` (tách, cắt đầu/đuôi kiểu ripple,
+  kéo mép, xoá) — test bằng tsx được, không cần trình duyệt.
+- Dữ liệu mới trong schema: `scene.trimStartMs`, `scene.volume` (clip video), `musicVolume`,
+  `voiceVolume`, `audioClips[]` (âm thanh thêm tay). Video trong cảnh phải đi qua
+  `src/scenes/ClipVideo.tsx` để cắt đầu clip và âm lượng có tác dụng ở mọi phong cách.
+- Sửa bằng chat sau khi đã chỉnh tay: AI sinh lại `props.json` từ kịch bản → mất chỉnh tay.
+
+## Phong cách hình ảnh
+
+Cùng một `props.json`, đổi `style` là ra video khác hẳn — timing và audio không đổi.
+Danh sách ở `src/styles/meta.ts`, bản vẽ ở `src/styles/<id>/`, luật từng phong cách ở skill:
+
+| `style` | Skill | Hợp với |
+|---|---|---|
+| `caption` | `style-caption` | mẹo nhanh, bán hàng, đọc thẳng |
+| `vox` | `style-vox` | giải thích sự kiện, lịch sử, kinh tế |
+| `kinetic` | `style-kinetic` | câu nói mạnh, tuyên ngôn, ít hình |
+| `documentary` | `style-documentary` | kể chuyện nghiêm túc, địa danh, con người |
+| `whiteboard` | `style-whiteboard` | dạy học, từng bước, khái niệm |
+| `tech` | `style-tech` | công nghệ, số liệu, sản phẩm số |
+| `plain` | `style-plain` | clip quay sẵn, vlog, ghép clip |
+| `bold` | `style-bold` | nói thẳng vào camera, bài học, động lực, bán hàng |
+| `chat` | `style-chat` | kể chuyện bằng tin nhắn, drama, hội thoại |
+| `news` | `style-news` | tin tức, cập nhật, sự kiện vừa xảy ra |
+| `retro` | `style-retro` | hoài niệm, chuyện ngày xưa, meme |
+
+Đoạn `<!-- ai-guide -->` trong mỗi skill được server đưa thẳng vào prompt viết kịch bản
+(`scripts/style-guides.ts`) — sửa skill là AI viết khác theo. Thêm phong cách mới: id trong
+`meta.ts`, component trong `src/styles/<id>/`, một dòng trong `registry.tsx`, và skill
+`style-<id>` có đoạn ai-guide.
 
 ## Chọn đường
 
@@ -45,6 +86,8 @@ Server `node:http` + một file HTML, không framework, không build step. Code 
 | Chia cảnh, chọn hình cho từng cảnh | `storyboard` | — |
 | Cần ảnh nền | `image-generation` | `/generate-assets` |
 | Cần giọng đọc | `voice-generation` | `/generate-assets` |
+| Chọn/sửa phong cách hình ảnh của video | `style-<id>` tương ứng | đổi `style` trong props |
+| Tạo phong cách mới | `remotion`, một skill `style-*` làm mẫu | — |
 | Sửa animation, timing, API Remotion | `remotion` | — |
 | Render lại, xuất file | `remotion` (mục render) | `/render` |
 | Soát lại video đã dựng | — | `/review` |
