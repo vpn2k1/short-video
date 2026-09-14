@@ -12,21 +12,7 @@ export const TITLE_FRAMES = 70;
 export const msToFrames = (ms: number) => Math.round((ms / 1000) * FPS);
 
 /**
- * Vùng an toàn 9:16 (px trên khung 1080×1920), theo skill short-form-video.
- * Nền tảng vẽ UI của họ đè lên các dải này: đỉnh là avatar/nhạc, đáy là caption
- * tự động + nút like/share + thanh audio. Mọi thứ mang thông tin phải nằm ngoài.
+ * Kích thước MẶC ĐỊNH. Kích thước thật của từng video nằm ở props.aspect và do
+ * calculateMetadata quyết định — xem src/aspects.ts. Hai hằng số này chỉ dùng
+ * làm giá trị khởi tạo cho composition và cho script xử lý ảnh khi chưa biết aspect.
  */
-export const SAFE = {
-  top: 120,
-  bottom: 320,
-  side: 120,
-} as const;
-
-/**
- * Xếp chỗ theo chiều dọc, tính từ đáy khung, để watermark và phụ đề không đè nhau:
- *   0    – 320   dải nền tảng chiếm dụng
- *   360  – ~450  watermark
- *   500  – ...   phụ đề (khi đặt ở đáy)
- */
-export const WATERMARK_BOTTOM = SAFE.bottom + 40;
-export const CAPTION_BOTTOM = SAFE.bottom + 180;

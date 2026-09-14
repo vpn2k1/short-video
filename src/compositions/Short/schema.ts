@@ -1,5 +1,6 @@
 import { zColor } from "@remotion/zod-types";
 import { z } from "zod";
+import { ASPECT_IDS, DEFAULT_ASPECT } from "../../aspects";
 
 export const captionSchema = z.object({
   text: z.string(),
@@ -36,6 +37,8 @@ export const shortSchema = z.object({
   accent: zColor(),
   background: zColor(),
   captions: z.array(captionSchema),
+  /** Tỉ lệ khung hình — quyết định width/height và vùng an toàn. */
+  aspect: z.enum(ASPECT_IDS as [string, ...string[]]).default(DEFAULT_ASPECT),
   // Có default để props.json sinh trước khi thêm cảnh vẫn render được.
   scenes: z.array(sceneSchema).default([]),
   /** Vị trí phụ đề: đáy màn hình hay chính giữa. */

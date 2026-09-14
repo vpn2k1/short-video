@@ -1,12 +1,6 @@
 import { AbsoluteFill, CalculateMetadataFunction, Sequence } from "remotion";
-import {
-  FPS,
-  HEIGHT,
-  msToFrames,
-  OUTRO_FRAMES,
-  TITLE_FRAMES,
-  WIDTH,
-} from "../../constants";
+import { FPS, msToFrames, OUTRO_FRAMES, TITLE_FRAMES } from "../../constants";
+import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../../aspects";
 import { Background } from "../../scenes/Background";
 import { Scenes, Scrim } from "../../scenes/Scenes";
 import { SceneVisual } from "../../scenes/SceneVisual";
@@ -33,8 +27,9 @@ export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
       msToFrames(lastEndMs) + OUTRO_FRAMES,
     ),
     fps: FPS,
-    width: WIDTH,
-    height: HEIGHT,
+    ...(({ width, height }) => ({ width, height }))(
+      ASPECTS[(props.aspect as AspectId) ?? DEFAULT_ASPECT] ?? ASPECTS[DEFAULT_ASPECT],
+    ),
   };
 };
 

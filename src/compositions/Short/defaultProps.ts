@@ -7,6 +7,7 @@ export const defaultShortProps: ShortProps = {
   handle: "@shortvideo",
   accent: "#ff2e63",
   background: "#0b0b12",
+  aspect: "9:16",
   captionPosition: "bottom",
   showTitle: true,
   scenes: [{ image: null, visual: null, startMs: 0, endMs: 15400 }],

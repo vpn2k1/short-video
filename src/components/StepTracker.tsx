@@ -1,5 +1,6 @@
-import { msToFrames, SAFE } from "../constants";
-import { useCurrentFrame } from "remotion";
+import { msToFrames } from "../constants";
+import { layoutFor } from "../aspects";
+import { useCurrentFrame, useVideoConfig } from "remotion";
 import type { Scene } from "../compositions/Short/schema";
 
 /**
@@ -11,6 +12,8 @@ export const StepTracker: React.FC<{ scenes: Scene[]; accent: string }> = ({
   accent,
 }) => {
   const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const { safe } = layoutFor(width, height);
 
   if (scenes.length < 2) {
     return null;
@@ -26,7 +29,7 @@ export const StepTracker: React.FC<{ scenes: Scene[]; accent: string }> = ({
   return (
     <div
       className="absolute inset-x-0 flex items-center justify-center gap-4"
-      style={{ top: SAFE.top + 40 }}
+      style={{ top: safe.top + 40 }}
     >
       {scenes.map((_, index) => (
         <div
