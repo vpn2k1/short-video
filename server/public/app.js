@@ -62,14 +62,97 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g,
 // ---------- tabs ----------
 function tab(name) {
   if (name === "join") renderJoinList();
+  if (name === "voice") renderVoiceStage();
   if (name === "audio") renderAudio();
-  for (const t of ["create", "edit", "assets", "audio", "join"]) {
+  for (const t of ["create", "edit", "voice", "assets", "audio", "join"]) {
     $(`pane-${t}`).classList.toggle("hidden", t !== name);
     $(`tab-${t}`).classList.toggle("on", t === name);
   }
 }
 
 function toggleDrawer() { $("main").classList.toggle("drawer"); }
+
+// ---------- flow ----------
+let stages = [];
+const STAGE_TAB = { script: "edit", voice: "voice", images: "assets", audio: "audio", render: null };
+
+async function refreshFlow() {
+  if (!current?.slug) { $("flow").innerHTML = ""; return; }
+  try {
+    const data = await api(`/api/pipeline/${current.slug}`);
+    stages = data.stages;
+  } catch { stages = []; return; }
+
+  $("flow").innerHTML = stages.map((st, i) => `
+    ${i > 0 ? '<div class="arrow">→</div>' : ""}
+    <div class="node" id="node-${st.id}" onclick="openStage('${st.id}')">
+      <div class="n-top"><i class="dot s-${st.state}"></i><span class="n-label">${st.label}</span></div>
+      <div class="n-detail">${escapeHtml(st.detail)}</div>
+      ${st.runnable && (st.id === "voice" || st.id === "render")
+        ? `<button class="n-run" onclick="event.stopPropagation();runStage('${st.id}')">Chạy bước này</button>`
+        : ""}
+    </div>`).join("");
+}
+
+function openStage(id) {
+  document.querySelectorAll(".node").forEach((n) => n.classList.remove("sel"));
+  $(`node-${id}`)?.classList.add("sel");
+  const t = STAGE_TAB[id];
+  if (t) tab(t);
+  else $("main").classList.add("drawer");   // render → mở panel bên phải
+}
+
+function renderVoiceStage() {
+  const fill = (sel, from) => { const cur = $(sel).value; $(sel).innerHTML = from; $(sel).value = cur; };
+  fill("voiceStage", $("voice").innerHTML);
+  fill("musicStage", `<option value="">Không</option>` +
+    state.audio.music.map((m) => `<option value="${m.path}">${m.name}</option>`).join(""));
+  if (current?.props) {
+    $("subPosStage").value = current.props.captionPosition ?? "bottom";
+    $("musicStage").value = current.props.music ?? "";
+    $("sfxStage").checked = Boolean(current.props.sfx);
+  }
+  if (!$("voiceStage").value) $("voiceStage").value = $("voice").value || "linh";
+}
+
+async function runStage(id) {
+  if (!current?.slug) return log("Chọn video trước.");
+  $("log").textContent = ""; $("bar").style.width = "0";
+  $("main").classList.add("drawer");
+
+  // Chốt chặn: select rỗng (chưa mở tab Giọng đọc) thì lấy lại từ props đang có,
+  // nếu không sẽ âm thầm xoá giọng và nhạc của video.
+  const p = current.props;
+  const currentVoice = $("voiceStage").value || $("voice").value || undefined;
+  const currentMusic = $("musicStage").value || p?.music || null;
+  const body = id === "voice"
+    ? { slug: current.slug, voice: currentVoice, music: currentMusic,
+        sfx: $("sfxStage").checked || Boolean(p?.sfx),
+        captionPosition: $("subPosStage").value || p?.captionPosition || "bottom" }
+    : { slug: current.slug, composition: $("composition").value };
+
+  if (id === "voice") {
+    log(`Giọng: ${currentVoice ?? "không"} · Nhạc: ${currentMusic ?? "không"}`);
+  }
+
+  try {
+    const { jobId } = await api(`/api/stage/${id}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (id === "render") $("renderBtn").disabled = true;
+    follow(jobId, async (result, status) => {
+      state = await api("/api/state");
+      current = await api(`/api/video/${current.slug}`);
+      renderVideos(); await refreshFlow();
+      if (status === "done" && result?.mp4) {
+        $("preview").innerHTML = `<video src="${result.mp4}?t=${Date.now()}" controls autoplay muted></video>
+          <a href="${result.mp4}" download style="display:block;margin-top:8px">
+            <button>Tải mp4 xuống</button></a>`;
+      }
+    });
+  } catch (e) { log(`Lỗi: ${e.message}`); $("renderBtn").disabled = false; }
+}
 
 // ---------- nhạc & tiếng ----------
 function fillMusicSelect() {
@@ -163,6 +246,8 @@ async function openVideo(slug) {
   current = await api(`/api/video/${slug}`);
   renderVideos();
   renderScript();
+  renderVoiceStage();   // đổ sẵn select — nút "Chạy bước này" trên node dùng được ngay
+  await refreshFlow();
   tab("edit");
   const v = state.videos.find((x) => x.slug === slug);
   $("preview").innerHTML = v?.mp4
@@ -181,6 +266,7 @@ function newVideo() {
     accent: "#e8590c", background: "#0b0b12",
     scenes: [{ image: null, visual: null, lines: ["Câu đầu tiên.", "Câu thứ hai.", "Lưu lại nhé!"] }] }, props: null };
   renderScript();
+  $("flow").innerHTML = "";
   tab("edit");
 }
 
@@ -317,7 +403,7 @@ async function saveScript() {
     });
     log(`Đã lưu videos/${slug}/script.json`);
     state = await api("/api/state");
-    current.slug = slug; renderVideos();
+    current.slug = slug; renderVideos(); await refreshFlow();
   } catch (e) { log(`Lỗi: ${e.message}`); }
 }
 

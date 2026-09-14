@@ -139,6 +139,34 @@ npm start   # http://localhost:5177
 
 Server là `node:http`, UI là một file HTML tĩnh — **không framework, không bước build**.
 
+### Flow — màn hình chính
+
+Trên cùng là dãy 5 node theo đúng thứ tự pipeline:
+
+```
+Kịch bản → Giọng đọc → Ảnh → Nhạc nền → Render
+```
+
+Mỗi node có chấm màu cho biết trạng thái:
+
+| Màu | Nghĩa |
+|---|---|
+| 🟢 xanh | xong |
+| 🟡 vàng | **cũ** — dữ liệu đã đổi sau bước này |
+| 🔴 đỏ | thiếu |
+| ⚫ xám | không dùng |
+
+"Cũ" tính bằng thời gian sửa file: `script.json` mới hơn `props.json` nghĩa là giọng
+đã cũ; `props.json` mới hơn `.mp4` nghĩa là bản render đã cũ. Đây là thứ khó thấy nhất
+khi làm thủ công — sửa chữ xong quên render lại là chuyện thường.
+
+Bấm node để mở đúng tab tương ứng. Node **Giọng đọc** và **Render** có nút
+**"Chạy bước này"** — chạy riêng một bước, không đụng các bước khác.
+
+> Chạy riêng bước Giọng đọc sẽ **không** render. Xong rồi bấm node Render.
+> Ngược lại, Render đọc thẳng `props.json` nên **không** đụng tới giọng —
+> giữ nguyên phụ đề bạn đã sửa tay.
+
 ### Tab Tạo
 Nhập prompt → sinh `videos/<slug>/script.json`. Cần `ANTHROPIC_API_KEY`.
 
