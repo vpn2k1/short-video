@@ -25,6 +25,7 @@ import {
   writeScript,
 } from "./api";
 import { getJob, startJob } from "./jobs";
+import { pipelineStatus, runRenderStage, runVoiceStage } from "./pipeline";
 
 try {
   process.loadEnvFile(path.resolve(process.cwd(), ".env"));
@@ -167,6 +168,27 @@ const server = http.createServer(async (req, res) => {
           body.sources?.length ? body.sources : ["pexels", "gemini"],
           log,
         ),
+      );
+      return send(res, 200, { jobId: job.id });
+    }
+
+    if (route.startsWith("/api/pipeline/")) {
+      return send(res, 200, { stages: pipelineStatus(route.split("/")[3]) });
+    }
+
+    if (route === "/api/stage/voice" && req.method === "POST") {
+      const body = await readJson<{
+        slug: string; voice?: string; music?: string | null;
+        sfx?: boolean; captionPosition?: "bottom" | "center";
+      }>(req);
+      const job = startJob((log) => runVoiceStage(body.slug, body, log));
+      return send(res, 200, { jobId: job.id });
+    }
+
+    if (route === "/api/stage/render" && req.method === "POST") {
+      const body = await readJson<{ slug: string; composition?: string }>(req);
+      const job = startJob((log) =>
+        runRenderStage(body.slug, body.composition, log),
       );
       return send(res, 200, { jobId: job.id });
     }
