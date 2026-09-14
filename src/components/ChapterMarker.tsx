@@ -1,5 +1,6 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { msToFrames, SAFE } from "../constants";
+import { msToFrames } from "../constants";
+import { layoutFor } from "../aspects";
 import type { Scene } from "../compositions/Short/schema";
 
 const SHOW_SECONDS = 2.2;
@@ -13,7 +14,8 @@ export const ChapterMarker: React.FC<{ scenes: Scene[]; accent: string }> = ({
   accent,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
+  const { safe } = layoutFor(width, height);
   const showFrames = Math.round(fps * SHOW_SECONDS);
 
   const index = scenes.findIndex((scene, i) => {
@@ -40,7 +42,7 @@ export const ChapterMarker: React.FC<{ scenes: Scene[]; accent: string }> = ({
   return (
     <div
       className="absolute inset-x-0 flex justify-center"
-      style={{ top: SAFE.top + 40, opacity: Math.min(enter, exit) }}
+      style={{ top: safe.top + 40, opacity: Math.min(enter, exit) }}
     >
       <span
         className="rounded-lg px-8 py-3 text-3xl font-bold uppercase tracking-[0.2em] text-white"

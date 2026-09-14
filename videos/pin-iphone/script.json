@@ -6,26 +6,26 @@
   "background": "#12100e",
   "scenes": [
     {
+      "lines": [
+        "Tắt Background App Refresh cho app ít dùng.",
+        "Bật Low Power Mode ngay từ 50%.",
+        "Giảm độ sáng màn hình xuống 60%."
+      ],
       "image": "images/pin-iphone/01-iphone-charging-on-a-dark-nights.jpg",
       "visual": {
         "type": "badge",
         "text": "Mẹo 1-2",
         "caption": null
-      },
-      "lines": [
-        "Tắt Background App Refresh cho app ít dùng.",
-        "Bật Low Power Mode ngay từ 50%.",
-        "Giảm độ sáng màn hình xuống 60%."
-      ]
+      }
     },
     {
-      "image": "images/pin-iphone/02-person-holding-phone-with-low-ba.jpg",
-      "visual": null,
       "lines": [
         "Tắt Location Services cho app không cần.",
         "Sạc đêm chậm, đừng để pin cạn 0%.",
         "Lưu lại để làm theo nhé!"
-      ]
+      ],
+      "image": "images/pin-iphone/02-person-holding-phone-with-low-ba.jpg",
+      "visual": null
     }
   ]
 }

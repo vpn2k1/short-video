@@ -91,6 +91,7 @@ export type PropsOptions = {
   music?: string | null;
   sfx?: boolean;
   captionPosition?: CaptionPosition;
+  aspect?: string;
 };
 
 /**
@@ -110,6 +111,7 @@ export const scriptToProps = (
     music = null,
     sfx = false,
     captionPosition = "bottom",
+    aspect = "9:16",
   } = options;
 
   const lines = allLines(script);
@@ -159,6 +161,7 @@ export const scriptToProps = (
     accent: script.accent,
     background: script.background,
     captions,
+    aspect,
     scenes,
     captionPosition,
     showTitle: true,

@@ -7,7 +7,7 @@ import { TITLE_FRAMES } from "../src/constants";
 import { generateScript } from "../scripts/generate-script";
 import { generateVoiceover, type TtsEngine } from "../scripts/tts";
 import { fetchAccountVoices, findVoice, VOICES } from "../scripts/voices";
-import { renderShort } from "../scripts/render";
+import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist, listAllImages } from "../scripts/images";
 import { downloadPhoto, searchPhotos, writeCredits } from "../scripts/pexels";
 import { generateImage } from "../scripts/gemini-image";
@@ -439,6 +439,98 @@ export const makeAudioElevenLabs = async (
   const rel = `${isMusic ? "music" : "sfx"}/${safe}.mp3`;
   log(`Đã lưu ${rel}`);
   return { path: rel };
+};
+
+/** Mọi ảnh/video đã render, gộp từ mọi cuộc — thư viện chung. */
+export const gallery = () => {
+  const items: {
+    file: string; slug: string; kind: "image" | "video";
+    scene: number | null; bytes: number; at: number;
+  }[] = [];
+
+  const scan = (dir: string, scene: boolean) => {
+    const abs = path.join(outDir(), dir);
+    if (!fs.existsSync(abs)) return;
+    for (const name of fs.readdirSync(abs)) {
+      const full = path.join(abs, name);
+      if (!fs.statSync(full).isFile()) continue;
+      const ext = path.extname(name).toLowerCase();
+      if (![".mp4", ".png", ".jpg"].includes(ext)) continue;
+      const base = path.basename(name, ext);
+      const m = scene ? base.match(/^(.*)-(\d+)$/) : null;
+      items.push({
+        file: `/out/${dir ? dir + "/" : ""}${name}`,
+        slug: m ? m[1] : base,
+        kind: ext === ".mp4" ? "video" : "image",
+        scene: m ? Number(m[2]) : null,
+        bytes: fs.statSync(full).size,
+        at: fs.statSync(full).mtimeMs,
+      });
+    }
+  };
+
+  scan("", false);
+  scan("scenes", true);
+  return items.sort((a, b) => b.at - a.at);
+};
+
+/** Render một cảnh thành file riêng trong out/scenes/. */
+export const renderOneScene = async (
+  slug: string,
+  index: number,
+  kind: "image" | "video",
+  log: Log,
+) => {
+  const propsPath = path.join(videosDir(), slug, "props.json");
+  if (!fs.existsSync(propsPath)) {
+    throw new Error(`${slug} chưa có props.json — chạy bước Giọng đọc trước.`);
+  }
+  const props = shortSchema.parse(JSON.parse(fs.readFileSync(propsPath, "utf8")));
+  assertImagesExist(props);
+
+  const dir = path.join(outDir(), "scenes");
+  fs.mkdirSync(dir, { recursive: true });
+  const ext = kind === "image" ? "png" : "mp4";
+  const output = path.join(dir, `${slug}-${index + 1}.${ext}`);
+
+  log(`Render cảnh ${index + 1} (${kind})…`);
+  const result = await renderScene(props, index, kind, output,
+    (percent) => log(`__PROGRESS__ ${percent}`));
+
+  log(`Xong: out/scenes/${path.basename(output)}`);
+  return { file: `/out/scenes/${path.basename(output)}`, kind, ...result };
+};
+
+/** Đổi cài đặt chung của một cuộc: tỉ lệ, loại đầu ra. */
+export const updateSettings = (
+  slug: string,
+  patch: { aspect?: string; kind?: "image" | "video" },
+) => {
+  const propsPath = path.join(videosDir(), slug, "props.json");
+  if (fs.existsSync(propsPath) && patch.aspect) {
+    const props = JSON.parse(fs.readFileSync(propsPath, "utf8"));
+    props.aspect = patch.aspect;
+    fs.writeFileSync(propsPath, JSON.stringify(shortSchema.parse(props), null, 2));
+  }
+  const metaPath = path.join(videosDir(), slug, "meta.json");
+  const meta = fs.existsSync(metaPath)
+    ? JSON.parse(fs.readFileSync(metaPath, "utf8"))
+    : {};
+  fs.mkdirSync(path.dirname(metaPath), { recursive: true });
+  fs.writeFileSync(metaPath, JSON.stringify({ ...meta, ...patch }, null, 2));
+  return { ...meta, ...patch };
+};
+
+export const readSettings = (slug: string) => {
+  const metaPath = path.join(videosDir(), slug, "meta.json");
+  const propsPath = path.join(videosDir(), slug, "props.json");
+  const meta = fs.existsSync(metaPath)
+    ? JSON.parse(fs.readFileSync(metaPath, "utf8"))
+    : {};
+  const props = fs.existsSync(propsPath)
+    ? JSON.parse(fs.readFileSync(propsPath, "utf8"))
+    : null;
+  return { kind: meta.kind ?? "video", aspect: props?.aspect ?? meta.aspect ?? "9:16" };
 };
 
 export const probe = (file: string) => {

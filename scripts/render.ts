@@ -1,5 +1,5 @@
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { enableTailwind } from "@remotion/tailwind-v4";
 import path from "path";
 import type { ShortProps } from "../src/compositions/Short/schema";
@@ -57,6 +57,77 @@ export const renderShort = async (
       }
       if (percent >= lastLogged && percent % 20 === 0 && !onProgressPercent) {
         process.stdout.write(`  render ${percent}%\n`);
+      }
+    },
+  });
+
+  return { outputLocation, durationInFrames: composition.durationInFrames };
+};
+
+/**
+ * Render MỘT cảnh thành file riêng.
+ *
+ * Cắt props xuống còn đúng cảnh đó và dời mốc thời gian về 0, thay vì render cả
+ * video rồi cắt — làm vậy nhanh hơn nhiều và cho phép chạy song song nhiều cảnh.
+ */
+export const renderScene = async (
+  inputProps: ShortProps,
+  sceneIndex: number,
+  kind: "video" | "image",
+  outputLocation: string,
+  onProgressPercent?: (percent: number) => void,
+) => {
+  const scene = inputProps.scenes[sceneIndex];
+  if (!scene) {
+    throw new Error(`Không có cảnh ${sceneIndex + 1}`);
+  }
+
+  const shift = scene.startMs;
+  const captions = inputProps.captions
+    .filter((c) => c.startMs >= scene.startMs && c.startMs < scene.endMs)
+    .map((c) => ({ ...c, startMs: c.startMs - shift, endMs: c.endMs - shift }));
+
+  const sceneProps: ShortProps = {
+    ...inputProps,
+    captions,
+    scenes: [{ ...scene, startMs: 0, endMs: scene.endMs - shift }],
+    // Title card thuộc về đầu video, không lặp lại ở từng cảnh.
+    showTitle: false,
+    // Voiceover là một track cho cả video — cắt theo cảnh sẽ lệch, nên bỏ.
+    voiceoverTrack: null,
+  };
+
+  const serveUrl = await getBundle();
+  const composition = await selectComposition({
+    serveUrl,
+    id: COMPOSITION_ID,
+    inputProps: sceneProps,
+  });
+
+  if (kind === "image") {
+    await renderStill({
+      composition,
+      serveUrl,
+      output: outputLocation,
+      inputProps: sceneProps,
+      // Giữa cảnh: qua phần spring-in, chữ đã hiện đủ.
+      frame: Math.floor(composition.durationInFrames / 2),
+    });
+    return { outputLocation, durationInFrames: 1 };
+  }
+
+  let last = -1;
+  await renderMedia({
+    composition,
+    serveUrl,
+    codec: "h264",
+    outputLocation,
+    inputProps: sceneProps,
+    onProgress: ({ progress }) => {
+      const percent = Math.floor(progress * 100);
+      if (percent > last) {
+        last = percent;
+        onProgressPercent?.(percent);
       }
     },
   });

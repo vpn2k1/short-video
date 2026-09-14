@@ -13,11 +13,15 @@ import {
   concatVideos,
   createFromPrompt,
   fetchSceneImages,
+  gallery,
   listAudio,
   makeAudioElevenLabs,
   makeAudioLocal,
   pickPexels,
+  readSettings,
+  renderOneScene,
   searchPexels,
+  updateSettings,
   listVideos,
   readVideo,
   voiceCatalog,
@@ -168,6 +172,36 @@ const server = http.createServer(async (req, res) => {
           body.sources?.length ? body.sources : ["pexels", "gemini"],
           log,
         ),
+      );
+      return send(res, 200, { jobId: job.id });
+    }
+
+    if (route === "/api/gallery") {
+      return send(res, 200, { items: gallery() });
+    }
+
+    if (route === "/api/aspects") {
+      const { ASPECTS, ASPECT_IDS } = await import("../src/aspects");
+      return send(res, 200, {
+        aspects: ASPECT_IDS.map((id) => ASPECTS[id]),
+      });
+    }
+
+    if (route.startsWith("/api/settings/")) {
+      const slug = route.split("/")[3];
+      if (req.method === "POST") {
+        const body = await readJson<{ aspect?: string; kind?: "image" | "video" }>(req);
+        return send(res, 200, updateSettings(slug, body));
+      }
+      return send(res, 200, readSettings(slug));
+    }
+
+    if (route === "/api/stage/scene" && req.method === "POST") {
+      const body = await readJson<{
+        slug: string; index: number; kind?: "image" | "video";
+      }>(req);
+      const job = startJob((log) =>
+        renderOneScene(body.slug, body.index, body.kind ?? "video", log),
       );
       return send(res, 200, { jobId: job.id });
     }

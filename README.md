@@ -167,6 +167,34 @@ Bấm node để mở đúng tab tương ứng. Node **Giọng đọc** và **Re
 > Ngược lại, Render đọc thẳng `props.json` nên **không** đụng tới giọng —
 > giữ nguyên phụ đề bạn đã sửa tay.
 
+### Tab Cảnh — nơi làm việc chính
+
+Thanh cài đặt trên cùng: **loại đầu ra** (video / ảnh), **tỉ lệ**, **nhạc nền**.
+
+5 tỉ lệ, mỗi tỉ lệ có vùng an toàn riêng — 9:16 phải chừa nhiều vì nền tảng
+short-form vẽ UI đè lên, 16:9 xem trên desktop gần như không bị che:
+
+| Tỉ lệ | Kích thước | Chừa đỉnh/đáy/hai bên |
+|---|---|---|
+| 9:16 | 1080×1920 | 120 / 320 / 120 |
+| 3:4 | 1080×1440 | 90 / 200 / 90 |
+| 1:1 | 1080×1080 | 80 / 160 / 80 |
+| 16:9 | 1920×1080 | 60 / 100 / 90 |
+| 2:1 | 1920×960 | 50 / 90 / 90 |
+
+Bên dưới là **thẻ từng cảnh**, mỗi thẻ có: ô prompt multiline (mỗi dòng một câu phụ đề),
+ô ảnh nền + tìm ảnh Pexels, hình vẽ bằng code, và **khung kết quả bên phải** hiện
+ảnh/video của riêng cảnh đó kèm nút tải xuống.
+
+Nút **Tạo** trên mỗi thẻ render **riêng cảnh đó** ra `out/scenes/<slug>-<N>.mp4`
+(hoặc `.png` nếu chọn loại Ảnh) — nhanh hơn render cả video, và nhiều cảnh chạy
+song song được. Giọng chỉ sinh lại khi kịch bản đã đổi.
+
+**+ Thêm cảnh** để thêm, **Gộp các cảnh thành 1 video** để nối lại.
+
+### Tab Thư viện
+Tất cả ảnh và video đã tạo từ **mọi cuộc**, kèm dung lượng và nút tải.
+
 ### Tab Tạo
 Nhập prompt → sinh `videos/<slug>/script.json`. Cần `ANTHROPIC_API_KEY`.
 

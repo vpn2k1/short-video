@@ -1,5 +1,6 @@
 import { spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { CAPTION_BOTTOM, msToFrames } from "../constants";
+import { msToFrames } from "../constants";
+import { layoutFor } from "../aspects";
 import type { Caption, CaptionPosition } from "../compositions/Short/schema";
 
 type Props = {
@@ -14,7 +15,8 @@ type Props = {
  */
 export const Captions: React.FC<Props> = ({ captions, accent, position }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
+  const { captionBottom } = layoutFor(width, height);
 
   // Hold each caption until the next one starts — so the track never blinks
   // out between lines, and the closing line stays up through the outro.
@@ -43,7 +45,7 @@ export const Captions: React.FC<Props> = ({ captions, accent, position }) => {
           ? "absolute inset-0 flex items-center justify-center px-20"
           : "absolute inset-x-0 flex justify-center px-20"
       }
-      style={position === "center" ? undefined : { bottom: CAPTION_BOTTOM }}
+      style={position === "center" ? undefined : { bottom: captionBottom }}
     >
       <span
         className="rounded-3xl px-10 py-6 text-center text-6xl font-extrabold leading-snug text-white"

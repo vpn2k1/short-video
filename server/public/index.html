@@ -42,6 +42,35 @@
   .chip.on { border-color: var(--accent); color: var(--accent); }
   .toggle { width: auto; padding: 6px 14px; }
 
+  /* --- Cài đặt cuộc --- */
+  .settings { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
+              padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+              background: var(--panel); margin-bottom: 16px; }
+  .settings > div { flex: 1 1 150px; }
+  .settings label { margin-top: 0; }
+
+  /* --- Thẻ cảnh --- */
+  .sc-card { border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+             margin-bottom: 14px; overflow: hidden; }
+  .sc-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+             border-bottom: 1px solid var(--line); }
+  .sc-head h3 { margin: 0; font-size: 13px; color: var(--accent); flex: 1; }
+  .sc-body { display: grid; grid-template-columns: 1fr 300px; gap: 14px; padding: 14px; }
+  .sc-body.narrow { grid-template-columns: 1fr; }
+  .sc-out { border: 1px solid var(--line); border-radius: 8px; background: #05070a;
+            min-height: 150px; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; }
+  .sc-out img, .sc-out video { width: 100%; display: block; }
+  .sc-out .empty { color: var(--muted); font-size: 12px; padding: 20px; text-align: center; }
+  .mini { width: auto; padding: 5px 10px; font-size: 12px; }
+
+  /* --- Thư viện --- */
+  .gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .gal figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+                background: var(--panel); }
+  .gal img, .gal video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
+  .gal figcaption { font-size: 10.5px; color: var(--muted); padding: 5px 7px; line-height: 1.35; }
+
   /* --- Flow --- */
   .flow { display: flex; align-items: stretch; gap: 0; margin-bottom: 14px;
           overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
@@ -131,11 +160,13 @@
 
     <div class="tabs">
       <button id="tab-create" class="on" onclick="tab('create')">Tạo</button>
+      <button id="tab-scenes" onclick="tab('scenes')">Cảnh</button>
       <button id="tab-edit" onclick="tab('edit')">Sửa kịch bản</button>
       <button id="tab-voice" onclick="tab('voice')">Giọng đọc</button>
       <button id="tab-assets" onclick="tab('assets')">Ảnh &amp; file</button>
       <button id="tab-audio" onclick="tab('audio')">Nhạc &amp; tiếng</button>
       <button id="tab-join" onclick="tab('join')">Ghép video</button>
+      <button id="tab-gallery" onclick="tab('gallery')">Thư viện</button>
     </div>
 
     <div id="pane-create">
@@ -198,6 +229,33 @@
       <input id="joinName" value="ghep" />
       <p class="muted">Mã hoá lại toàn bộ nên mất thời gian gần bằng tổng độ dài các video.</p>
       <button class="primary" style="margin-top:8px" onclick="joinVideos()">Ghép</button>
+    </div>
+
+    <div id="pane-scenes" class="hidden">
+      <div class="settings">
+        <div><label>Loại đầu ra</label>
+          <select id="setKind">
+            <option value="video">Video</option>
+            <option value="image">Ảnh</option>
+          </select></div>
+        <div><label>Tỉ lệ</label><select id="setAspect"></select></div>
+        <div><label>Nhạc nền</label><select id="setMusic"></select></div>
+        <div style="flex:0 0 auto"><button class="mini" onclick="saveSettings()">Lưu cài đặt</button></div>
+      </div>
+
+      <div id="sceneCards"></div>
+
+      <div class="row" style="margin-top:4px">
+        <button onclick="addSceneCard()">+ Thêm cảnh</button>
+        <button class="primary" onclick="saveScript()">Lưu tất cả</button>
+        <button onclick="joinScenes()">Gộp các cảnh thành 1 video</button>
+      </div>
+    </div>
+
+    <div id="pane-gallery" class="hidden">
+      <h2>Tất cả ảnh &amp; video đã tạo</h2>
+      <p class="muted">Gộp từ mọi cuộc. Bấm để mở, hoặc dùng nút tải xuống.</p>
+      <div id="gal" class="gal"></div>
     </div>
 
     <div id="pane-voice" class="hidden">

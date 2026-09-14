@@ -30,6 +30,7 @@ async function boot() {
   $("voice").value = "linh";
 
   fillMusicSelect();
+  try { aspects = (await api("/api/aspects")).aspects; } catch { aspects = []; }
   $("createNote").textContent = state.keys.anthropic
     ? "Có ANTHROPIC_API_KEY — sinh kịch bản tự động được."
     : "Chưa có ANTHROPIC_API_KEY: nút này sẽ lỗi. Tạo video mới rồi tự viết cảnh ở tab Sửa kịch bản.";
@@ -63,14 +64,174 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g,
 function tab(name) {
   if (name === "join") renderJoinList();
   if (name === "voice") renderVoiceStage();
+  if (name === "scenes") renderSceneCards();
+  if (name === "gallery") renderGallery();
   if (name === "audio") renderAudio();
-  for (const t of ["create", "edit", "voice", "assets", "audio", "join"]) {
+  for (const t of ["create", "scenes", "edit", "voice", "assets", "audio", "join", "gallery"]) {
     $(`pane-${t}`).classList.toggle("hidden", t !== name);
     $(`tab-${t}`).classList.toggle("on", t === name);
   }
 }
 
 function toggleDrawer() { $("main").classList.toggle("drawer"); }
+
+// ---------- cài đặt cuộc ----------
+let aspects = [];
+let settings = { kind: "video", aspect: "9:16" };
+
+async function loadSettings() {
+  if (!current?.slug) return;
+  try { settings = await api(`/api/settings/${current.slug}`); } catch { /* video mới */ }
+  $("setKind").value = settings.kind;
+  $("setAspect").innerHTML = aspects
+    .map((a) => `<option value="${a.id}">${escapeHtml(a.label)} · ${a.width}×${a.height}</option>`).join("");
+  $("setAspect").value = settings.aspect;
+  $("setMusic").innerHTML = `<option value="">Không</option>` +
+    state.audio.music.map((m) => `<option value="${m.path}">${m.name}</option>`).join("");
+  $("setMusic").value = current?.props?.music ?? "";
+}
+
+async function saveSettings() {
+  if (!current?.slug) return log("Lưu kịch bản trước để có tên thư mục.");
+  settings = await api(`/api/settings/${current.slug}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind: $("setKind").value, aspect: $("setAspect").value }),
+  });
+  $("musicStage").value = $("setMusic").value;
+  log(`Cài đặt: ${settings.kind} · ${settings.aspect}`);
+  current = await api(`/api/video/${current.slug}`);
+  await refreshFlow();
+}
+
+// ---------- thẻ cảnh ----------
+function renderSceneCards() {
+  loadSettings();
+  const sc = current?.script?.scenes;
+  if (!sc) {
+    $("sceneCards").innerHTML =
+      `<p class="muted">Cuộc này chưa có kịch bản (có thể dựng từ audio). Dùng tab Sửa kịch bản.</p>`;
+    return;
+  }
+  $("sceneCards").innerHTML = sc.map((s, i) => {
+    const v = s.visual ?? null;
+    return `
+    <div class="sc-card scene" data-index="${i}">
+      <div class="sc-head">
+        <h3>Cảnh ${i + 1}</h3>
+        <button class="mini" onclick="renderSceneOne(${i})">Tạo</button>
+        <button class="mini" onclick="removeScene(${i})">Xoá</button>
+      </div>
+      <div class="sc-body">
+        <div>
+          <label>Prompt / lời thoại — mỗi dòng một câu phụ đề (tối đa 42 ký tự)</label>
+          <textarea class="sc-lines" style="min-height:110px">${escapeHtml(s.lines.join("\n"))}</textarea>
+          <div class="row" style="margin-top:8px">
+            <input class="sc-image" value="${escapeHtml(s.image ?? "")}" placeholder="ảnh nền: images/…" />
+            <input class="sc-query" placeholder="tìm ảnh Pexels (tiếng Anh)" />
+            <button class="mini" style="flex:0 0 auto" onclick="searchImages(${i})">Tìm</button>
+          </div>
+          <div class="picker hidden" id="picker-${i}"></div>
+          <div class="row" style="margin-top:8px">
+            <select class="sc-vtype">
+              <option value=""${!v ? " selected" : ""}>Không hình vẽ</option>
+              <option value="stat"${v?.type === "stat" ? " selected" : ""}>stat</option>
+              <option value="badge"${v?.type === "badge" ? " selected" : ""}>badge</option>
+            </select>
+            <input class="sc-vtext" value="${escapeHtml(v?.text ?? "")}" placeholder="7-9" />
+            <input class="sc-vcaption" value="${escapeHtml(v?.caption ?? "")}" placeholder="chú thích" />
+          </div>
+        </div>
+        <div>
+          <div class="sc-out" id="scout-${i}"><div class="empty">chưa tạo</div></div>
+          <div id="scact-${i}"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  paintSceneOutputs();
+}
+
+/** Gắn file đã render (nếu có) vào từng thẻ. */
+async function paintSceneOutputs() {
+  let items = [];
+  try { items = (await api("/api/gallery")).items; } catch { return; }
+  document.querySelectorAll(".sc-card").forEach((el) => {
+    const i = Number(el.dataset.index);
+    const hit = items.find((x) => x.slug === current.slug && x.scene === i + 1);
+    const out = $(`scout-${i}`), act = $(`scact-${i}`);
+    if (!out || !hit) return;
+    out.innerHTML = hit.kind === "image"
+      ? `<img src="${hit.file}?t=${hit.at}" />`
+      : `<video src="${hit.file}?t=${hit.at}" controls></video>`;
+    act.innerHTML = `<a href="${hit.file}" download><button class="mini" style="margin-top:8px">Tải xuống</button></a>`;
+  });
+}
+
+async function renderSceneOne(index) {
+  if (!current?.slug) return log("Lưu kịch bản trước.");
+  $("log").textContent = "";
+  await saveScript();   // cảnh phải được lưu thì render mới đúng nội dung
+
+  // Chỉ sinh lại giọng khi props thật sự đã cũ. Trước đây lần nào tạo cảnh cũng
+  // sinh giọng cho TOÀN BỘ video — tạo 3 cảnh là 3 lần sinh thừa.
+  const st = (await api(`/api/pipeline/${current.slug}`)).stages
+    .find((x) => x.id === "voice");
+  const needVoice = st && (st.state === "stale" || st.state === "missing");
+
+  if (needVoice) {
+    log(`Kịch bản đã đổi — sinh lại giọng trước, rồi render cảnh ${index + 1}.`);
+    pendingScene = { index, kind: $("setKind").value };
+    await runStage("voice");
+  } else {
+    log(`Giọng còn khớp — render thẳng cảnh ${index + 1}.`);
+    await startSceneRender(index, $("setKind").value);
+  }
+}
+
+let pendingScene = null;
+
+async function startSceneRender(index, kind) {
+  const { jobId } = await api("/api/stage/scene", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug: current.slug, index, kind }),
+  });
+  follow(jobId, async () => { await paintSceneOutputs(); await refreshFlow(); });
+}
+
+function addSceneCard() {
+  const { script } = collectScript();
+  script.scenes.push({ image: null, visual: null, lines: ["Câu mới."] });
+  current.script = script;
+  renderSceneCards();
+}
+
+async function joinScenes() {
+  const items = (await api("/api/gallery")).items
+    .filter((x) => x.slug === current?.slug && x.scene !== null && x.kind === "video")
+    .sort((a, b) => a.scene - b.scene);
+  if (items.length < 2) return log("Cần ít nhất 2 cảnh đã render dạng video.");
+  log(`Gộp ${items.length} cảnh…`);
+  const { jobId } = await api("/api/concat", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slugs: items.map((x) => `scenes/${x.slug}-${x.scene}`),
+                           name: `${current.slug}-gop` }),
+  });
+  follow(jobId, () => renderGallery());
+}
+
+// ---------- thư viện ----------
+async function renderGallery() {
+  const { items } = await api("/api/gallery");
+  $("gal").innerHTML = items.map((x) => `
+    <figure>
+      ${x.kind === "image"
+        ? `<img src="${x.file}?t=${x.at}" loading="lazy" />`
+        : `<video src="${x.file}?t=${x.at}" controls preload="metadata"></video>`}
+      <figcaption>${escapeHtml(x.slug)}${x.scene ? ` · cảnh ${x.scene}` : ""}<br>
+        ${(x.bytes / 1e6).toFixed(1)} MB ·
+        <a href="${x.file}" download style="color:var(--accent)">tải</a></figcaption>
+    </figure>`).join("") || `<p class="muted">Chưa có gì.</p>`;
+}
 
 // ---------- flow ----------
 let stages = [];
@@ -145,6 +306,10 @@ async function runStage(id) {
       state = await api("/api/state");
       current = await api(`/api/video/${current.slug}`);
       renderVideos(); await refreshFlow();
+      if (id === "voice" && pendingScene) {
+        const p = pendingScene; pendingScene = null;
+        await startSceneRender(p.index, p.kind);
+      }
       if (status === "done" && result?.mp4) {
         $("preview").innerHTML = `<video src="${result.mp4}?t=${Date.now()}" controls autoplay muted></video>
           <a href="${result.mp4}" download style="display:block;margin-top:8px">
@@ -360,7 +525,11 @@ async function pickImage(index, id) {
 }
 
 function collectScript() {
-  const scenes = [...document.querySelectorAll(".scene")].map((el) => {
+  // CHỈ lấy cảnh trong pane đang hiện. Cả tab "Cảnh" lẫn tab "Sửa kịch bản" đều
+  // render phần tử .scene và cùng nằm trong DOM — quét toàn trang sẽ nhân đôi cảnh.
+  const pane = [...document.querySelectorAll("#pane-scenes, #pane-edit")]
+    .find((el) => !el.classList.contains("hidden")) ?? document;
+  const scenes = [...pane.querySelectorAll(".scene")].map((el) => {
     // Đọc lại visual từ form. Trước đây chỗ này gán cứng null nên mở một video
     // có visual rồi bấm Lưu là xoá sạch — mất dữ liệu mà không báo gì.
     const type = el.querySelector(".sc-vtype").value;

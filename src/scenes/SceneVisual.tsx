@@ -1,5 +1,6 @@
 import { spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { msToFrames } from "../constants";
+import { layoutFor } from "../aspects";
 import type { Scene } from "../compositions/Short/schema";
 
 type Props = {
@@ -14,7 +15,8 @@ type Props = {
  */
 export const SceneVisual: React.FC<Props> = ({ scenes, accent }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
+  const { safe } = layoutFor(width, height);
 
   const active = scenes.find(
     (scene) =>
@@ -41,7 +43,8 @@ export const SceneVisual: React.FC<Props> = ({ scenes, accent }) => {
   };
 
   return (
-    <div className="absolute inset-x-0 top-[18%] flex flex-col items-center px-20">
+    <div className="absolute inset-x-0 flex flex-col items-center px-20"
+      style={{ top: safe.top + Math.round(height * 0.1) }}>
       {type === "badge" ? (
         <span
           className="rounded-full px-12 py-5 text-5xl font-black uppercase tracking-widest text-white"
