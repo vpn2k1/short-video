@@ -14,7 +14,7 @@ import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { generateAiVideo, isVideoModelChoice, videoModelCatalog } from "../scripts/ai-video";
 import { TITLE_FRAMES } from "../src/constants";
 import { editScript, generateScript, scriptProvider, type StyleChoice } from "../scripts/generate-script";
-import { moveToTrash } from "../scripts/trash";
+import { moveToAppTrash } from "./app-trash";
 import { isStyleId, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
 import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
@@ -30,6 +30,9 @@ import { promisify } from "util";
 import { transcribeSentences } from "../scripts/transcribe";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import type { Caption } from "../src/compositions/Short/schema";
+import {
+  isTranslateEngine, isTranslateLanguage, missingTranslateKey, translateEngineLabel, translateLanguageLabel, translateLines,
+} from "../scripts/translate";
 
 export type ChatSettings = {
   /** Tạo video (có giọng + nhạc) hay bộ ảnh tĩnh, mỗi cảnh một ảnh. */
@@ -201,11 +204,22 @@ const runFile = promisify(execFile);
  * mốc thời gian về vị trí của nó trên timeline.
  */
 export const startAutoSubtitles = (slug: string, body: unknown) => {
-  const opts = (body ?? {}) as { source?: unknown; index?: unknown; language?: unknown; quality?: unknown; replace?: unknown };
+  const opts = (body ?? {}) as {
+    source?: unknown; index?: unknown; language?: unknown; quality?: unknown; replace?: unknown;
+    translate?: { to?: unknown; engine?: unknown; keepOriginal?: unknown } | null;
+  };
   const language = opts.language === "en" || opts.language === "auto" ? opts.language : "vi";
   // medium đúng tên riêng tiếng Việt hơn hẳn; small nhanh gấp ~3 lần.
   const model = opts.quality === "fast" ? "small" : "medium";
   const replace = opts.replace !== false;
+  // Dịch sau khi phiên âm (tuỳ chọn). Kiểm key trước để khỏi chờ phiên âm xong mới báo thiếu.
+  let translate: { to: Parameters<typeof translateLanguageLabel>[0]; engine: Parameters<typeof translateEngineLabel>[0]; keepOriginal: boolean } | null = null;
+  if (opts.translate && isTranslateLanguage(opts.translate.to)) {
+    if (!isTranslateEngine(opts.translate.engine)) throw new Error("Chọn model dịch.");
+    const missing = missingTranslateKey(opts.translate.engine);
+    if (missing) throw new Error(`Chưa có key ${missing} để dịch — điền trong ⚙ Cài đặt, hoặc chọn model dịch khác.`);
+    translate = { to: opts.translate.to, engine: opts.translate.engine, keepOriginal: opts.translate.keepOriginal === true };
+  }
   if (running.has(slug)) {
     throw new Error("Video này đang được xử lý — đợi xong đã.");
   }
@@ -246,7 +260,7 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
     const tmp = path.join(process.cwd(), "out", ".subtitles");
     fs.mkdirSync(tmp, { recursive: true });
     try {
-      const created: Caption[] = [];
+      let created: Caption[] = [];
       for (const [k, seg] of segments.entries()) {
         log(`Đang phiên âm ${seg.label} (${k + 1}/${segments.length}, model ${model})…`);
         const wav = path.join(tmp, `${Date.now()}-${k}.wav`);
@@ -281,6 +295,19 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
         }
       }
 
+      // Dịch giữ nguyên thời gian từng câu, chỉ thay chữ. Giữ bản gốc = song ngữ: gốc một hàng, bản dịch hàng kế trên.
+      let original: Caption[] = [];
+      if (translate && created.length > 0) {
+        log(`Đang dịch ${created.length} câu sang ${translateLanguageLabel(translate.to)} bằng ${translateEngineLabel(translate.engine)}…`);
+        const texts = await translateLines(
+          created.map((c) => c.text),
+          { to: translate.to, from: language === "auto" ? undefined : language, engine: translate.engine },
+          log,
+        );
+        if (translate.keepOriginal) original = created;
+        created = created.map((c, k) => ({ ...c, text: texts[k] }));
+      }
+
       const latest = readEditorProps(slug).props;
       const keep = replace
         ? latest.captions.filter((c) => !segments.some((seg) => c.startMs < seg.startMs + seg.durationMs && c.endMs > seg.startMs))
@@ -292,15 +319,23 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
         const track = usedTracks.indexOf(c.track ?? 0);
         return { ...c, track: track > 0 ? track : undefined };
       });
-      const track = usedTracks.length;
+      const originalTrack = original.length > 0 ? usedTracks.length : undefined;
+      const track = usedTracks.length + (original.length > 0 ? 1 : 0);
+      const onTrack = (captions: Caption[], row: number) => captions.map((c) => ({ ...c, track: row > 0 ? row : undefined }));
       const next = shortSchema.parse({
         ...latest,
-        captions: [...compacted, ...created.map((c) => ({ ...c, track: track > 0 ? track : undefined }))]
+        captions: [...compacted, ...onTrack(original, originalTrack ?? 0), ...onTrack(created, track)]
           .sort((a, b) => a.startMs - b.startMs),
       });
       fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(next, null, 2));
       log(`Xong: ${created.length} câu phụ đề ở hàng Phụ đề ${track + 1}.`);
-      return { props: next, count: created.length, track };
+      return {
+        props: next,
+        count: created.length,
+        track,
+        originalTrack,
+        translatedTo: translate && created.length > 0 ? translateLanguageLabel(translate.to) : undefined,
+      };
     } finally {
       running.delete(slug);
     }
@@ -453,13 +488,18 @@ const projectFiles = (slug: string) => {
   return files.filter((f) => fs.existsSync(f));
 };
 
-/** Xoá hẳn các video đã chọn. Video đang dựng thì bỏ qua. */
+/**
+ * Chuyển các video đã chọn vào Thùng rác của app (Thư viện › 🗑 Thùng rác) — khôi phục được, không xoá hẳn.
+ * Mỗi video là một mục: dời trọn hoặc không dời gì (file bị khoá trên Windows thì bỏ qua cả video).
+ * Video đang dựng thì bỏ qua.
+ */
 export const deleteProjects = (value: unknown) => {
   const slugs = Array.isArray(value) ? [...new Set(value)] : [];
   if (slugs.length === 0 || slugs.length > 500 || !slugs.every(isSlug)) {
     throw new Error("Danh sách video cần xoá không hợp lệ.");
   }
   const deleted: string[] = [];
+  const trashIds: string[] = [];
   const skipped: { slug: string; reason: string }[] = [];
   let freedBytes = 0;
   for (const slug of slugs) {
@@ -472,22 +512,23 @@ export const deleteProjects = (value: unknown) => {
       skipped.push({ slug, reason: "không tồn tại" });
       continue;
     }
-    // Chuyển vào Thùng rác (lấy lại được), không xoá hẳn. Một file bị khoá (Windows: video vừa được
-    // phát trong thư viện) không được làm hỏng cả lượt: ghi lý do, chuyển tiếp phần còn lại.
-    const failed: string[] = [];
-    for (const file of files) {
-      const bytes = dirBytes(file);
-      try {
-        moveToTrash(file);
-        freedBytes += bytes;
-      } catch (error) {
-        failed.push((error as NodeJS.ErrnoException).code ?? (error as Error).message);
-      }
+    const props = readJson(path.join(videoDir(slug), "props.json"));
+    const script = readJson(path.join(videoDir(slug), "script.json"));
+    try {
+      const entry = moveToAppTrash(files, {
+        kind: "video",
+        title: script?.title ?? props?.title ?? slug,
+        slug,
+        preview: firstSceneImage(props, script),
+      });
+      freedBytes += entry.bytes;
+      deleted.push(slug);
+      trashIds.push(entry.id);
+    } catch (error) {
+      skipped.push({ slug, reason: `không chuyển được (${(error as NodeJS.ErrnoException).code ?? (error as Error).message})` });
     }
-    if (failed.length === 0) deleted.push(slug);
-    else skipped.push({ slug, reason: `không xoá hết file (${[...new Set(failed)].join(", ")})` });
   }
-  return { deleted, skipped, freedBytes };
+  return { deleted, skipped, freedBytes, trashIds };
 };
 
 export const listProjects = () => {

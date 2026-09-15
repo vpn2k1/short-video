@@ -16,6 +16,7 @@ import {
   DEFAULT_OPENAI_MODEL,
 } from "../scripts/generate-script";
 import { PROVIDERS, VIDEO_MODELS } from "../scripts/ai-video";
+import { DEFAULT_TRANSLATE_OLLAMA_MODEL } from "../scripts/translate";
 import { WATERMARK_MAX_LENGTH } from "../scripts/watermark";
 
 type Field = {
@@ -69,6 +70,15 @@ export const KEY_FIELDS: Field[] = [
     group: "Viết kịch bản",
     type: "text",
     placeholder: DEFAULT_OLLAMA_HOST,
+  },
+  {
+    name: "TRANSLATE_OLLAMA_MODEL",
+    label: "Model dịch trên máy (Ollama)",
+    help: `Dùng khi chọn Ollama ở mục "Dịch phụ đề sang" lúc tạo phụ đề. Bỏ trống để dùng ${DEFAULT_TRANSLATE_OLLAMA_MODEL} (~3,3 GB, máy 8 GB RAM chạy được). Máy 16 GB RAM trở lên: translategemma:12b (~8,1 GB) dịch tốt hơn. Tải bằng lệnh "ollama pull <tên model>". Dịch trên mạng không cần ô này — dùng lại key Gemini, Groq, OpenRouter, ChatGPT hoặc Claude đã điền.`,
+    group: "Dịch phụ đề",
+    type: "text",
+    url: "https://ollama.com/library/translategemma",
+    placeholder: DEFAULT_TRANSLATE_OLLAMA_MODEL,
   },
   {
     name: "ANTHROPIC_API_KEY",

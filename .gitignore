@@ -27,5 +27,8 @@ out/scenes
 # File người dùng tải lên qua giao diện chat
 public/uploads
 
+# Thùng rác của app (Thư viện › Thùng rác)
+.trash
+
 # API key điền trong ô Cài đặt của giao diện web
 data/api-keys.json

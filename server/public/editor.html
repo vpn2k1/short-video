@@ -409,6 +409,15 @@
   .in-tip { font-size: 12.5px; color: var(--muted); margin: 12px 14px 0; line-height: 1.6; padding: 9px 11px;
             background: var(--panel-2); border-radius: 10px; }
   .in-link { margin: 8px 14px; background: none; border: 0; color: var(--accent); font-size: 13px; padding: 0; }
+  .in-guide { display: flex; flex-direction: column; gap: 8px; margin: 2px 0 10px; padding: 10px 11px; font-size: 12.5px; line-height: 1.55;
+              background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+  .in-guide p { margin: 0; color: var(--muted); }
+  .in-guide ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .in-guide a { color: var(--accent); }
+  .in-cmd { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 3px 3px 3px 8px; background: var(--bg);
+            border: 1px solid var(--line); border-radius: 7px; }
+  .in-cmd code { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 11.5px ui-monospace, Menlo, monospace; }
+  .in-cmd button { flex: 0 0 auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font-size: 11.5px; }
 
   /* ---------- timeline ---------- */
   .tl { height: 300px; max-height: 46vh; border-top: 1px solid var(--line); display: flex; flex-direction: column; background: #111215; }

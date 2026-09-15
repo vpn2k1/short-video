@@ -205,8 +205,6 @@
   .chip-v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; font-weight: 500; }
   .chip svg { opacity: .6; flex: 0 0 auto; }
   .chip:hover, .chip[aria-expanded="true"] { border-color: var(--accent); }
-  .chip.more { background: transparent; border-style: dashed; color: var(--muted); }
-  .chip.more:hover { color: var(--text); }
 
   /* ---------- thẻ chọn cách bắt đầu ---------- */
   .starts { width: 100%; max-width: 820px; display: grid; gap: 10px; margin: 0 0 14px;
@@ -345,6 +343,23 @@
   .badge.unused { background: rgba(0,0,0,.65); }
   .badge.builtin { background: rgba(90,110,160,.9); }
   .media-card .used-by { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; margin-top: 2px; }
+  /* ---------- thư viện: tab 🗑 Thùng rác ---------- */
+  .tab-count { font-size: 11.5px; min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--panel-2);
+               color: var(--muted); margin-left: 2px; }
+  .tab-count:empty { display: none; }
+  .trash-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .trash-grid .thumb { aspect-ratio: 1 / 1; }
+  .trash-grid .thumb img, .trash-grid .thumb video { filter: saturate(.55); }
+  .trash-grid .thumb .none { font-size: 42px; }
+  .badge.days { left: auto; right: 8px; }
+  .badge.days.soon { background: rgba(220,60,60,.9); }
+  .trash-note { grid-column: 1 / -1; margin: 0; font-size: 13.5px; color: var(--muted); background: var(--panel);
+                border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  .trash-card .m.warn { color: #f5b454; display: block; margin-top: 2px; }
+  .trash-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .trash-actions .btn.primary { flex: 1; justify-content: center; }
+  .flash-note { display: flex; align-items: center; gap: 12px; }
+  .flash-note .btn { flex: 0 0 auto; }
   .confirm-list { max-height: 40vh; overflow-y: auto; margin: 10px 0 0; padding-left: 20px; font-size: 14px; }
   .confirm-list li { margin: 2px 0; overflow-wrap: anywhere; }
   .flash-note { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
@@ -590,11 +605,13 @@ Lưu lại để làm theo nhé!</pre>
     <h1>Thư viện</h1>
     <input id="search" type="search" placeholder="Tìm video…" />
     <button type="button" class="btn" id="libSelect">☑️ Chọn để xoá</button>
+    <button type="button" class="btn danger" id="trashEmpty" hidden>🧹 Dọn sạch thùng rác</button>
     <a class="btn primary" href="#/">＋ Tạo video</a>
   </div>
   <div class="lib-tabs" role="tablist">
     <button type="button" role="tab" data-libtab="videos" class="on">🎬 Video</button>
     <button type="button" role="tab" data-libtab="media">🗂 Tài nguyên</button>
+    <button type="button" role="tab" data-libtab="trash">🗑 Thùng rác <span class="tab-count" id="trashCount"></span></button>
     <div class="lib-filter" id="libFilter" hidden>
       <button type="button" data-mfilter="all" class="on">Tất cả</button>
       <button type="button" data-mfilter="image">Ảnh</button>
@@ -617,6 +634,7 @@ Lưu lại để làm theo nhé!</pre>
   </div>
   <div class="grid" id="grid"></div>
   <div class="grid media-grid" id="mediaGrid" hidden></div>
+  <div class="grid trash-grid" id="trashGrid" hidden></div>
 </section>
 
 <!-- ===== Video nhiều cảnh ===== -->
