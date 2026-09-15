@@ -1,4 +1,4 @@
-import { Children, isValidElement, useState } from "react";
+import { Children, isValidElement, useCallback, useEffect, useState } from "react";
 import { CAPTION_FONTS, CAPTION_PRESETS, type CaptionLook, type ShortProps } from "../../src/compositions/Short/schema";
 import { ASPECT_IDS, ASPECTS } from "../../src/aspects";
 import { STYLE_IDS, STYLES } from "../../src/styles/meta";
@@ -6,7 +6,7 @@ import {
   CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, canCustomizeCaptions, resolveCaptionLook, textLook, usesCustomCaptions,
 } from "../../src/components/captionLook";
 import { captionTextStyle } from "../../src/components/CustomCaptions";
-import type { MediaItem, SubtitleOptions, VoiceOption } from "./api";
+import { api, type MediaItem, type SubtitleOptions, type TranslateCatalog, type TranslateEngine, type TranslateEngineInfo, type VoiceOption } from "./api";
 import * as ops from "./ops";
 
 type Props = {
@@ -73,6 +73,175 @@ const VoiceSelect: React.FC<{ voices: VoiceOption[]; value: string; onChange: (k
     ))}
   </select>
 );
+
+/** Lựa chọn dịch phụ đề — nhớ trong trình duyệt. `to` rỗng = không dịch; `engine` rỗng = tự chọn model đã có key. */
+type TranslateChoice = { to: string; engine: TranslateEngine | ""; keepOriginal: boolean };
+const TRANSLATE_STORE = "editor.subtitleTranslate";
+
+const loadTranslateChoice = (): TranslateChoice => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TRANSLATE_STORE) ?? "null");
+    if (saved && typeof saved === "object") {
+      return {
+        to: typeof saved.to === "string" ? saved.to : "",
+        engine: typeof saved.engine === "string" ? saved.engine : "",
+        keepOriginal: saved.keepOriginal === true,
+      };
+    }
+  } catch {
+    // trình duyệt chặn lưu — dùng mặc định
+  }
+  return { to: "", engine: "", keepOriginal: false };
+};
+
+type Os = "darwin" | "win32" | "linux";
+const OS_TABS: { id: Os; label: string }[] = [
+  { id: "darwin", label: "macOS" },
+  { id: "win32", label: "Windows" },
+  { id: "linux", label: "Linux" },
+];
+
+/** Một lệnh kèm nút chép. */
+const Command: React.FC<{ text: string }> = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="in-cmd">
+      <code>{text}</code>
+      <button
+        type="button"
+        onClick={() => {
+          navigator.clipboard?.writeText(text)
+            .then(() => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            })
+            .catch(() => undefined);
+        }}
+      >
+        {copied ? "Đã chép" : "Chép"}
+      </button>
+    </div>
+  );
+};
+
+const DOWNLOAD = <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>;
+
+/** Hướng dẫn cài Ollama + model dịch, theo từng hệ điều hành. Mặc định mở tab đúng máy đang chạy app. */
+const OllamaGuide: React.FC<{
+  info: NonNullable<TranslateEngineInfo["ollama"]>;
+  platform: string;
+  checking: boolean;
+  onRefresh: () => void;
+}> = ({ info, platform, checking, onRefresh }) => {
+  const [os, setOs] = useState<Os>(OS_TABS.some((t) => t.id === platform) ? (platform as Os) : "win32");
+  const size = info.model === "translategemma:4b" ? "~3,3 GB, " : info.model === "translategemma:12b" ? "~8,1 GB, " : "";
+  return (
+    <div className="in-guide">
+      <b>Cài model dịch chạy trên máy</b>
+      <p>
+        {info.status === "not-running"
+          ? `Chưa kết nối được Ollama ở ${info.host} — máy chưa cài hoặc Ollama chưa chạy.`
+          : `Ollama đang chạy nhưng chưa có model ${info.model}.`}
+      </p>
+      <div className="in-seg" role="tablist" aria-label="Hệ điều hành">
+        {OS_TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" aria-selected={os === t.id} className={os === t.id ? "on" : ""} onClick={() => setOs(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <ol>
+        {info.status === "not-running" ? (
+          os === "darwin" ? (
+            <li>
+              Tải app Ollama ở {DOWNLOAD}, kéo vào Applications rồi mở — app tự chạy nền. Dùng Homebrew thì chạy lần lượt:
+              <Command text="brew install ollama" />
+              <Command text="ollama serve" />
+            </li>
+          ) : os === "win32" ? (
+            <li>
+              Tải <b>OllamaSetup.exe</b> ở {DOWNLOAD} và cài như app thường. Cài xong Ollama tự chạy nền (biểu tượng ở khay hệ
+              thống cạnh đồng hồ).
+            </li>
+          ) : (
+            <li>
+              Mở Terminal, cài bằng lệnh dưới — Ollama tự chạy thành dịch vụ nền:
+              <Command text="curl -fsSL https://ollama.com/install.sh | sh" />
+            </li>
+          )
+        ) : null}
+        <li>
+          Mở <b>{os === "win32" ? "PowerShell" : "Terminal"}</b>, tải model dịch ({size}chỉ tải một lần):
+          <Command text={`ollama pull ${info.model}`} />
+        </li>
+        <li>Bấm <b>Kiểm tra lại</b>.</li>
+      </ol>
+      <small className="in-hint">
+        {os === "win32" ? "Máy không có card đồ hoạ rời vẫn chạy được bằng CPU, chỉ chậm hơn. " : ""}
+        Cần máy 8 GB RAM trở lên. Máy 16 GB RAM: điền translategemma:12b ở trang chính › ⚙ Cài đặt › Dịch phụ đề để dịch tốt hơn.
+      </small>
+      <small className="in-hint">Không muốn cài: thêm key miễn phí Gemini, Groq hoặc OpenRouter ở trang chính › ⚙ Cài đặt.</small>
+      <div className="in-actions">
+        <button type="button" onClick={onRefresh} disabled={checking}>{checking ? "Đang kiểm tra…" : "↻ Kiểm tra lại"}</button>
+      </div>
+    </div>
+  );
+};
+
+/** Chọn ngôn ngữ đích và model dịch cho phụ đề tự động. */
+const TranslateSettings: React.FC<{
+  choice: TranslateChoice;
+  engine: TranslateEngine;
+  catalog: TranslateCatalog | null;
+  checking: boolean;
+  onChange: (next: TranslateChoice) => void;
+  onRefresh: () => void;
+}> = ({ choice, engine, catalog, checking, onChange, onRefresh }) => {
+  const cloud = catalog?.engines.filter((e) => e.id !== "ollama") ?? [];
+  const local = catalog?.engines.find((e) => e.id === "ollama");
+  const localNote = !local?.ollama
+    ? ""
+    : local.ready ? ` · ${local.ollama.model}` : local.ollama.status === "no-model" ? " (chưa tải model)" : " (chưa cài hoặc chưa mở)";
+  return (
+    <>
+      <Field label="Dịch phụ đề sang">
+        <select value={choice.to} onChange={(e) => onChange({ ...choice, to: e.target.value })}>
+          <option value="">Không dịch</option>
+          {catalog?.languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+        </select>
+      </Field>
+      {choice.to ? (
+        <>
+          {catalog ? (
+            <Field label="Model dịch">
+              <select value={engine} onChange={(e) => onChange({ ...choice, engine: e.target.value as TranslateEngine })}>
+                <optgroup label="Trên mạng — dùng key trong Cài đặt">
+                  {cloud.map((e) => (
+                    <option key={e.id} value={e.id} disabled={!e.ready}>{e.label}{e.ready ? "" : " (chưa có key)"}</option>
+                  ))}
+                </optgroup>
+                {local ? (
+                  <optgroup label="Trên máy">
+                    <option value="ollama">{local.label}{localNote}</option>
+                  </optgroup>
+                ) : null}
+              </select>
+            </Field>
+          ) : (
+            <small className="in-hint">Đang kiểm tra model dịch…</small>
+          )}
+          {engine === "ollama" && local?.ollama && !local.ready ? (
+            <OllamaGuide info={local.ollama} platform={catalog?.platform ?? ""} checking={checking} onRefresh={onRefresh} />
+          ) : null}
+          <label className="in-check">
+            <input type="checkbox" checked={choice.keepOriginal} onChange={(e) => onChange({ ...choice, keepOriginal: e.target.checked })} />
+            Giữ phụ đề gốc ở một hàng riêng (song ngữ)
+          </label>
+        </>
+      ) : null}
+    </>
+  );
+};
 
 const hexOr = (value: string, fallback: string) => (/^#[0-9a-f]{6}$/i.test(value) ? value : fallback);
 
@@ -417,8 +586,36 @@ export const Inspector: React.FC<Props> = ({
   const [subLanguage, setSubLanguage] = useState<SubtitleOptions["language"]>("vi");
   const [subQuality, setSubQuality] = useState<SubtitleOptions["quality"]>("accurate");
   const [subReplace, setSubReplace] = useState(true);
+  const [translateChoice, setTranslateChoice] = useState(loadTranslateChoice);
+  const [translateCatalog, setTranslateCatalog] = useState<TranslateCatalog | null>(null);
+  const [checkingTranslate, setCheckingTranslate] = useState(false);
+  const refreshTranslate = useCallback(() => {
+    setCheckingTranslate(true);
+    api<TranslateCatalog>("/api/translate/engines")
+      .then(setTranslateCatalog)
+      .catch(() => undefined)
+      .finally(() => setCheckingTranslate(false));
+  }, []);
+  useEffect(refreshTranslate, [refreshTranslate]);
+  const changeTranslate = (next: TranslateChoice) => {
+    setTranslateChoice(next);
+    try {
+      localStorage.setItem(TRANSLATE_STORE, JSON.stringify(next));
+    } catch {
+      // không lưu được — chỉ mất lựa chọn khi tải lại trang
+    }
+  };
+  // Model đã chọn còn dùng được thì giữ; không thì lấy model đầu tiên có key; chưa có key nào → Ollama (hiện hướng dẫn cài).
+  const translateEngine: TranslateEngine = (() => {
+    const engines = translateCatalog?.engines ?? [];
+    const saved = engines.find((e) => e.id === translateChoice.engine);
+    if (saved && (saved.ready || saved.id === "ollama")) return saved.id;
+    return engines.find((e) => e.ready)?.id ?? "ollama";
+  })();
+  const translateBlocked = Boolean(translateChoice.to) && !translateCatalog?.engines.find((e) => e.id === translateEngine)?.ready;
   const subtitleOptions = (source: SubtitleOptions["source"], index?: number): SubtitleOptions => ({
     source, index, language: subLanguage, quality: subQuality, replace: subReplace,
+    translate: translateChoice.to ? { to: translateChoice.to, engine: translateEngine, keepOriginal: translateChoice.keepOriginal } : null,
   });
   const subtitleSettings = (
     <>
@@ -441,6 +638,14 @@ export const Inspector: React.FC<Props> = ({
         <input type="checkbox" checked={subReplace} onChange={(e) => setSubReplace(e.target.checked)} />
         Xoá phụ đề cũ trùng đoạn được phiên âm (mọi hàng)
       </label>
+      <TranslateSettings
+        choice={translateChoice}
+        engine={translateEngine}
+        catalog={translateCatalog}
+        checking={checkingTranslate}
+        onChange={changeTranslate}
+        onRefresh={refreshTranslate}
+      />
       <small className="in-hint">Phụ đề tạo ra nằm ở một hàng phụ đề mới (Phụ đề 2, 3…) — kéo lên/xuống trên timeline để đổi hàng.</small>
     </>
   );
@@ -655,7 +860,7 @@ export const Inspector: React.FC<Props> = ({
             <h3>📝 Phụ đề tự động</h3>
             {subtitleSettings}
             <div className="in-actions">
-              <button onClick={() => onAutoSubtitles(subtitleOptions("scene", i))}>📝 Tạo phụ đề từ tiếng của cảnh này</button>
+              <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("scene", i))}>📝 Tạo phụ đề từ tiếng của cảnh này</button>
             </div>
           </section>
         ) : null}
@@ -775,7 +980,7 @@ export const Inspector: React.FC<Props> = ({
           <h3>📝 Phụ đề tự động</h3>
           {subtitleSettings}
           <div className="in-actions">
-            <button onClick={() => onAutoSubtitles(subtitleOptions("clip", i))}>📝 Tạo phụ đề từ đoạn âm thanh này</button>
+            <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("clip", i))}>📝 Tạo phụ đề từ đoạn âm thanh này</button>
           </div>
         </section>
       </Panel>
@@ -862,7 +1067,7 @@ export const Inspector: React.FC<Props> = ({
         </p>
         {subtitleSettings}
         <div className="in-actions">
-          <button onClick={() => onAutoSubtitles(subtitleOptions("all"))}>📝 Tạo phụ đề cho cả video</button>
+          <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("all"))}>📝 Tạo phụ đề cho cả video</button>
         </div>
         <small className="in-hint">Mất khoảng ⅓–1 lần thời lượng video. Chọn riêng một cảnh hoặc đoạn âm thanh để tạo phụ đề cho phần đó.</small>
       </section>

@@ -367,12 +367,17 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
         },
         (status, result, error) => {
           if (status === "done") {
-            const { props: next, count, track } = result as { props: ShortProps; count: number; track?: number };
+            const { props: next, count, track, originalTrack, translatedTo } = result as {
+              props: ShortProps; count: number; track?: number; originalTrack?: number; translatedTo?: string;
+            };
             commit(next, current, null);
             setJob({ status: "idle" });
-            flash(count > 0
-              ? `Đã tạo ${count} câu ở hàng Phụ đề ${(track ?? 0) + 1} — sửa chữ trong mục 💬 Phụ đề nếu nghe nhầm.`
-              : "Không nhận ra lời nói nào trong đoạn đã chọn.");
+            flash(count === 0
+              ? "Không nhận ra lời nói nào trong đoạn đã chọn."
+              : translatedTo
+                ? `Đã tạo ${count} câu dịch sang ${translatedTo} ở hàng Phụ đề ${(track ?? 0) + 1}` +
+                  `${originalTrack !== undefined ? `, bản gốc ở hàng Phụ đề ${originalTrack + 1}` : ""} — soát lại câu dịch trong mục 💬 Phụ đề.`
+                : `Đã tạo ${count} câu ở hàng Phụ đề ${(track ?? 0) + 1} — sửa chữ trong mục 💬 Phụ đề nếu nghe nhầm.`);
           } else {
             setJob({ status: "error", title: "Không tạo được phụ đề", message: error ?? "Lỗi không rõ." });
           }

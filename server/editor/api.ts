@@ -8,6 +8,10 @@ export type MediaItem = {
   at: number;
 };
 
+import type { TranslateEngine, TranslateEngineInfo } from "../../scripts/translate";
+
+export type { TranslateEngine, TranslateEngineInfo };
+
 /** Tuỳ chọn tạo phụ đề tự động (whisper.cpp trên server). */
 export type SubtitleOptions = {
   source: "all" | "scene" | "clip";
@@ -15,6 +19,16 @@ export type SubtitleOptions = {
   language: "vi" | "en" | "auto";
   quality: "fast" | "accurate";
   replace: boolean;
+  /** Dịch sau khi phiên âm; null = giữ nguyên ngôn ngữ lời nói. */
+  translate: { to: string; engine: TranslateEngine; keepOriginal: boolean } | null;
+};
+
+/** GET /api/translate/engines */
+export type TranslateCatalog = {
+  engines: TranslateEngineInfo[];
+  languages: { code: string; label: string }[];
+  /** process.platform của server — app chạy trên chính máy người dùng. */
+  platform: string;
 };
 
 /** Giọng trong /api/state → voices.catalog. */

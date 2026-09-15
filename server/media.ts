@@ -6,7 +6,7 @@ import { execFile } from "child_process";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
-import { moveToTrash } from "../scripts/trash";
+import { moveToAppTrash } from "./app-trash";
 
 const run = promisify(execFile);
 
@@ -147,7 +147,7 @@ export const listLibraryMedia = () => {
 const LIBRARY_PATH = new RegExp(`^(${LIBRARY_ROOTS.join("|")})/[^\\0]+$`);
 
 /**
- * Chuyển tài nguyên đã chọn vào Thùng rác (không xoá hẳn). Tài nguyên mặc định của app luôn bị từ chối.
+ * Chuyển tài nguyên đã chọn vào Thùng rác của app (không xoá hẳn). Tài nguyên mặc định của app luôn bị từ chối.
  * Mặc định bỏ qua file đang được video dùng; `force` (người dùng đã xác nhận cảnh báo) thì chuyển cả
  * những file đó — video dùng chúng sẽ thiếu hình/tiếng khi dựng lại.
  * Thư mục con rỗng sau đó được dọn luôn (không đụng thư mục gốc).
@@ -160,6 +160,7 @@ export const deleteLibraryMedia = (value: unknown, force = false) => {
   const publicDir = path.join(process.cwd(), "public");
   const usage = mediaUsage();
   const deleted: string[] = [];
+  const trashIds: string[] = [];
   const skipped: { path: string; reason: string }[] = [];
   let freedBytes = 0;
 
@@ -188,10 +189,14 @@ export const deleteLibraryMedia = (value: unknown, force = false) => {
       continue;
     }
     try {
-      const bytes = fs.statSync(abs).size;
-      moveToTrash(abs);
-      freedBytes += bytes;
+      const entry = moveToAppTrash([abs], {
+        kind: "media",
+        title: path.basename(abs),
+        mediaKind: KIND.find(([re]) => re.test(abs))?.[1],
+      });
+      freedBytes += entry.bytes;
       deleted.push(rel);
+      trashIds.push(entry.id);
       for (let dir = path.dirname(abs); dir.startsWith(root + path.sep); dir = path.dirname(dir)) {
         if (fs.readdirSync(dir).length > 0) break;
         fs.rmdirSync(dir);
@@ -200,7 +205,7 @@ export const deleteLibraryMedia = (value: unknown, force = false) => {
       skipped.push({ path: rel, reason: `lỗi: ${(error as NodeJS.ErrnoException).code ?? (error as Error).message}` });
     }
   }
-  return { deleted, skipped, freedBytes };
+  return { deleted, skipped, freedBytes, trashIds };
 };
 
 const VIDEO_PATH = /^(uploads|videos|images)\/[\w./-]+\.(mp4|mov|webm)$/i;

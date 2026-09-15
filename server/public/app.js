@@ -109,6 +109,7 @@ function route() {
   const hash = location.hash.replace(/^#\/?/, "");
   if (hash === "library") return showLibrary("videos");
   if (hash === "library/media") return showLibrary("media");
+  if (hash === "library/trash") return showLibrary("trash");
   if (hash === "multi") return showMulti(null);
   const multiMatch = hash.match(/^multi\/([a-z0-9-]+)$/);
   if (multiMatch) return showMulti(multiMatch[1]);
@@ -132,7 +133,6 @@ async function showChat(slug) {
   project = null;
   messages = [];
   busy = false;
-  showMoreOpts = false;
   setHint("");
 
   if (!slug) {
@@ -181,21 +181,29 @@ async function showLibrary(tab = "videos") {
   selecting = false;
   selectedSlugs.clear();
   selectedMedia.clear();
-  $("libSelect").hidden = false;
+  $("libSelect").hidden = tab === "trash";
+  $("trashEmpty").hidden = true;
+  $("libSelectBar").hidden = true;
   document.querySelectorAll("[data-libtab]").forEach((b) => {
     b.classList.toggle("on", b.dataset.libtab === tab);
     b.setAttribute("aria-selected", String(b.dataset.libtab === tab));
   });
   $("grid").hidden = tab !== "videos";
   $("mediaGrid").hidden = tab !== "media";
+  $("trashGrid").hidden = tab !== "trash";
   $("libFilter").hidden = tab !== "media";
-  $("search").placeholder = tab === "media" ? "Tìm tài nguyên…" : "Tìm video…";
+  $("search").placeholder = { media: "Tìm tài nguyên…", trash: "Tìm trong thùng rác…" }[tab] ?? "Tìm video…";
   $("libSelect").textContent = tab === "media" ? "☑️ Chọn để dọn" : "☑️ Chọn để xoá";
 
-  const target = tab === "media" ? $("mediaGrid") : $("grid");
+  const target = { media: $("mediaGrid"), trash: $("trashGrid") }[tab] ?? $("grid");
   target.innerHTML = `<p class="empty-lib">Đang tải…</p>`;
+  // Số mục trong thùng rác hiện trên tab — cập nhật mỗi lần mở Thư viện.
+  if (tab !== "trash") loadTrash().catch(() => {});
   try {
-    if (tab === "media") {
+    if (tab === "trash") {
+      await loadTrash();
+      renderTrash();
+    } else if (tab === "media") {
       mediaItems = (await api("/api/library/media")).items;
       renderMedia();
     } else {
@@ -443,7 +451,118 @@ const MEDIA_GROUPS = [
   ["voices", "🎙 Giọng đọc"],
 ];
 
-const renderCurrentLib = () => (libTab === "media" ? renderMedia() : renderLibrary());
+const renderCurrentLib = () => (libTab === "media" ? renderMedia() : libTab === "trash" ? renderTrash() : renderLibrary());
+
+// ---------- thư viện: tab 🗑 Thùng rác ----------
+let trashItems = [];   // /api/trash
+let trashDays = 30;
+
+async function loadTrash() {
+  const data = await api("/api/trash");
+  trashItems = data.items;
+  trashDays = data.days;
+  $("trashCount").textContent = trashItems.length ? String(trashItems.length) : "";
+}
+
+function trashCard(t) {
+  const icon = t.kind === "video" ? "🎬" : { image: "🖼", video: "🎞", audio: "🎵" }[t.mediaKind] ?? "📄";
+  let cover = "";
+  if (t.preview?.video) cover = `<video src="${escapeHtml(t.preview.url)}#t=1" muted playsinline preload="metadata"></video>`;
+  else if (t.preview) cover = `<img src="${escapeHtml(t.preview.url)}" alt="" loading="lazy" />`;
+  const daysLeft = Math.max(0, Math.ceil((t.expiresAt - Date.now()) / 86_400_000));
+  return `
+    <div class="card trash-card" data-trash="${escapeHtml(t.id)}">
+      <div class="thumb">
+        <div class="none">${icon}</div>
+        ${cover}
+        <span class="badge">${t.kind === "video" ? "🎬 Video" : `${icon} Tài nguyên`}</span>
+        <span class="badge days${daysLeft <= 3 ? " soon" : ""}" title="Tự xoá sau ${trashDays} ngày">còn ${daysLeft} ngày</span>
+      </div>
+      <div class="meta">
+        <div class="t" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
+        <div class="m"><span>Xoá ${new Date(t.deletedAt).toLocaleDateString("vi-VN")} · ${fmtBytes(t.bytes)}</span></div>
+        ${t.conflict ? `<span class="m warn" title="Chỗ cũ đã có file khác — khôi phục sẽ bị bỏ qua để không ghi đè">⚠️ Đã có mục cùng tên</span>` : ""}
+        <div class="trash-actions">
+          <button type="button" class="btn primary" data-restore="${escapeHtml(t.id)}">↩ Khôi phục</button>
+          <button type="button" class="btn danger" data-forever="${escapeHtml(t.id)}" title="Xoá vĩnh viễn" aria-label="Xoá vĩnh viễn ${escapeHtml(t.title)}">🗑</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderTrash() {
+  const q = fold($("search").value.trim());
+  const items = trashItems.filter((t) => !q || fold(t.title).includes(q));
+  $("trashEmpty").hidden = trashItems.length === 0;
+  const total = fmtBytes(trashItems.reduce((sum, t) => sum + t.bytes, 0));
+  $("trashGrid").innerHTML = trashItems.length === 0
+    ? `<p class="empty-lib">🗑 Thùng rác trống.<br>Video và tài nguyên bạn xoá sẽ nằm ở đây ${trashDays} ngày, khôi phục được bất cứ lúc nào.</p>`
+    : `<p class="trash-note">${trashItems.length} mục · ${total}. Mục ở đây tự xoá sau ${trashDays} ngày — bấm <b>↩ Khôi phục</b> để trả về chỗ cũ.</p>` +
+      (items.length ? items.map(trashCard).join("") : `<p class="empty-lib">Không có mục nào khớp.</p>`);
+  // Ảnh bìa đã bị xoá theo cách khác: bỏ ảnh hỏng, để lộ biểu tượng bên dưới.
+  $("trashGrid").querySelectorAll("img").forEach((img) => img.addEventListener("error", () => img.remove(), { once: true }));
+}
+
+/** Thêm/bớt mục trong thùng rác: cập nhật số đếm, lịch sử và tab Thư viện đang mở. */
+async function refreshAfterTrashChange() {
+  try { await loadTrash(); } catch { /* giữ số cũ */ }
+  loadHistory();
+  if ($("view-library").hidden) {
+    if (!current && !$("view-chat").hidden) loadRecent();
+    return;
+  }
+  try {
+    if (libTab === "trash") renderTrash();
+    else if (libTab === "media") { mediaItems = (await api("/api/library/media")).items; renderMedia(); }
+    else { libraryItems = (await api("/api/projects")).projects; renderLibrary(); }
+  } catch { /* giữ danh sách cũ */ }
+}
+
+async function restoreTrash(ids) {
+  try {
+    const result = await postJson("/api/trash/restore", { ids });
+    const reasons = [...new Set(result.skipped.map((s) => s.reason))].slice(0, 2).join("; ");
+    const skipped = result.skipped.length ? ` · bỏ qua ${result.skipped.length} (${reasons})` : "";
+    const one = result.restored.length === 1 ? `“${result.restored[0].title}”` : `${result.restored.length} mục`;
+    flashNote(result.restored.length ? `Đã khôi phục ${one}${skipped}.` : `Không khôi phục được${skipped}.`, result.restored.length === 0);
+    await refreshAfterTrashChange();
+  } catch (e) {
+    flashNote(`Không khôi phục được: ${e.message}`, true);
+  }
+}
+
+/** ids = "all" để dọn sạch. */
+async function deleteTrashForever(ids) {
+  const picked = ids === "all" ? trashItems : trashItems.filter((t) => ids.includes(t.id));
+  if (picked.length === 0) return;
+  const bytes = picked.reduce((sum, t) => sum + t.bytes, 0);
+  const ok = await confirmDialog({
+    title: ids === "all" ? `Dọn sạch thùng rác (${picked.length} mục)?` : `Xoá vĩnh viễn ${picked.length === 1 ? "mục này" : `${picked.length} mục`}?`,
+    message: `${fmtBytes(bytes)} sẽ bị xoá khỏi app, không khôi phục trong Thư viện được nữa. ` +
+      "File được chuyển sang Thùng rác của máy — dọn Thùng rác của máy mới thật sự giải phóng dung lượng.",
+    items: picked.slice(0, 8).map((t) => t.title).concat(picked.length > 8 ? [`…và ${picked.length - 8} mục khác`] : []),
+    okText: ids === "all" ? "🧹 Dọn sạch" : "🗑 Xoá vĩnh viễn",
+  });
+  if (!ok) return;
+  try {
+    const result = await postJson("/api/trash/delete", ids === "all" ? { all: true } : { ids });
+    const skipped = result.skipped.length ? ` · bỏ qua ${result.skipped.length}` : "";
+    flashNote(`Đã xoá vĩnh viễn ${result.deleted.length} mục (${fmtBytes(result.freedBytes)})${skipped}.`, result.deleted.length === 0);
+    await refreshAfterTrashChange();
+  } catch (e) {
+    flashNote(`Không xoá được: ${e.message}`, true);
+  }
+}
+
+function bindTrash() {
+  $("trashEmpty").addEventListener("click", () => deleteTrashForever("all"));
+  $("trashGrid").addEventListener("click", (ev) => {
+    const restore = ev.target.closest("[data-restore]");
+    if (restore) { restore.disabled = true; restoreTrash([restore.dataset.restore]); return; }
+    const forever = ev.target.closest("[data-forever]");
+    if (forever) deleteTrashForever([forever.dataset.forever]);
+  });
+}
 
 function visibleMedia() {
   const q = fold($("search").value.trim());
@@ -538,8 +657,7 @@ async function deleteMedia(paths) {
     : "";
   const ok = await confirmDialog({
     title: `Chuyển ${picked.length} tài nguyên vào Thùng rác?`,
-    message: `${fmtBytes(bytes)} sẽ vào Thùng rác của máy — lấy lại được cho tới khi bạn dọn Thùng rác ` +
-      `(dọn xong mới giải phóng dung lượng).${warning}`,
+    message: `${fmtBytes(bytes)} sẽ vào Thư viện › Thùng rác — khôi phục được trong ${trashDays} ngày.${warning}`,
     items: picked.slice(0, 8).map((m) => `${m.usedBy.length ? "⚠️ " : ""}${m.path}`)
       .concat(picked.length > 8 ? [`…và ${picked.length - 8} file khác`] : []),
     okText: inUse.length ? `🗑 Vẫn chuyển ${picked.length} tài nguyên` : `🗑 Chuyển vào Thùng rác`,
@@ -553,7 +671,9 @@ async function deleteMedia(paths) {
     renderMedia();
     const reasons = [...new Set(result.skipped.map((s) => s.reason))].slice(0, 2).join("; ");
     const skipped = result.skipped.length ? ` · giữ lại ${result.skipped.length} (${reasons})` : "";
-    flashNote(`Đã chuyển ${result.deleted.length} tài nguyên (${fmtBytes(result.freedBytes)}) vào Thùng rác${skipped}.`, result.deleted.length === 0);
+    flashNote(`Đã chuyển ${result.deleted.length} tài nguyên vào Thùng rác${skipped}.`, result.deleted.length === 0,
+      result.trashIds?.length ? { label: "↩ Hoàn tác", onClick: () => restoreTrash(result.trashIds) } : null);
+    loadTrash().catch(() => {});
     return result.deleted.length > 0;
   } catch (e) {
     flashNote(`Không xoá được: ${e.message}`, true);
@@ -568,7 +688,8 @@ const fmtBytes = (n) => {
   return `${(n / 1024 ** 3).toFixed(1)} GB`;
 };
 
-function flashNote(text, isError = false) {
+/** Thông báo nhỏ ở đáy màn hình; `action` = { label, onClick } thêm một nút (vd "↩ Hoàn tác"). */
+function flashNote(text, isError = false, action = null) {
   let el = $("flashNote");
   if (!el) {
     el = document.createElement("div");
@@ -577,11 +698,22 @@ function flashNote(text, isError = false) {
     el.setAttribute("role", "status");
     document.body.appendChild(el);
   }
-  el.textContent = text;
+  const message = document.createElement("span");
+  message.textContent = text;
+  el.replaceChildren(message);
+  if (action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn";
+    button.textContent = action.label;
+    button.addEventListener("click", () => { el.hidden = true; action.onClick(); }, { once: true });
+    el.append(button);
+  }
   el.classList.toggle("err", isError);
   el.hidden = false;
   clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.hidden = true; }, 3500);
+  // Có nút thì để lâu hơn cho kịp bấm.
+  el._timer = setTimeout(() => { el.hidden = true; }, action ? 8000 : 3500);
 }
 
 function setSelecting(on) {
@@ -600,7 +732,7 @@ function renderSelectBar() {
     const chosen = mediaItems.filter((m) => selectedMedia.has(m.path));
     const size = chosen.reduce((sum, m) => sum + m.bytes, 0);
     $("libSelectCount").textContent = chosen.length
-      ? `Đã chọn ${chosen.length} tài nguyên · giải phóng ${fmtBytes(size)}`
+      ? `Đã chọn ${chosen.length} tài nguyên · ${fmtBytes(size)}`
       : "Bấm vào tài nguyên để chọn, hoặc chọn nhanh (chỉ lấy file chưa dùng):";
     $("libDelete").disabled = chosen.length === 0;
     $("libDelete").textContent = chosen.length ? `🗑 Xoá ${chosen.length} tài nguyên` : "🗑 Xoá";
@@ -609,7 +741,7 @@ function renderSelectBar() {
   const picked = libraryItems.filter((p) => selectedSlugs.has(p.slug));
   const bytes = picked.reduce((sum, p) => sum + (p.bytes || 0), 0);
   $("libSelectCount").textContent = picked.length
-    ? `Đã chọn ${picked.length} video · giải phóng ${fmtBytes(bytes)}`
+    ? `Đã chọn ${picked.length} video · ${fmtBytes(bytes)}`
     : "Bấm vào video để chọn, hoặc chọn nhanh:";
   $("libDelete").disabled = picked.length === 0;
   $("libDelete").textContent = picked.length ? `🗑 Xoá ${picked.length} video` : "🗑 Xoá";
@@ -640,6 +772,7 @@ function selectOlderThan(days) {
 }
 
 function bindLibrarySelect() {
+  bindTrash();
   $("libSelect").addEventListener("click", () => setSelecting(true));
   $("libSelectDone").addEventListener("click", () => setSelecting(false));
   $("libSelectBar").querySelectorAll("[data-older]").forEach((b) =>
@@ -652,7 +785,9 @@ function bindLibrarySelect() {
     if (done) setSelecting(false);
   });
   document.querySelectorAll("[data-libtab]").forEach((b) =>
-    b.addEventListener("click", () => { location.hash = b.dataset.libtab === "media" ? "#/library/media" : "#/library"; }));
+    b.addEventListener("click", () => {
+      location.hash = { media: "#/library/media", trash: "#/library/trash" }[b.dataset.libtab] ?? "#/library";
+    }));
   $("libFilter").querySelectorAll("[data-mfilter]").forEach((b) =>
     b.addEventListener("click", () => { mediaFilter = b.dataset.mfilter; renderMedia(); }));
   // Tab Tài nguyên, chế độ chọn: bấm thẻ là chọn/bỏ chọn. File đang dùng vẫn chọn được —
@@ -694,8 +829,8 @@ async function deleteProjects(slugs) {
   const bytes = info.reduce((sum, p) => sum + (p.bytes || 0), 0);
   const ok = await confirmDialog({
     title: `Chuyển ${info.length === 1 ? "video này" : `${info.length} video`} vào Thùng rác?`,
-    message: `Bản render, ảnh cảnh, giọng đọc và lịch sử chat (${fmtBytes(bytes)}) sẽ vào Thùng rác của máy — ` +
-      "lấy lại được cho tới khi bạn dọn Thùng rác. File bạn tải lên vẫn giữ trong thư viện.",
+    message: `Bản render, ảnh cảnh, giọng đọc và lịch sử chat (${fmtBytes(bytes)}) sẽ vào Thư viện › Thùng rác — ` +
+      `khôi phục được trong ${trashDays} ngày. File bạn tải lên vẫn giữ trong thư viện.`,
     items: info.slice(0, 8).map((p) => p.title).concat(info.length > 8 ? [`…và ${info.length - 8} video khác`] : []),
     okText: info.length === 1 ? "🗑 Chuyển vào Thùng rác" : `🗑 Chuyển ${info.length} video vào Thùng rác`,
   });
@@ -708,7 +843,9 @@ async function deleteProjects(slugs) {
     renderHistory();
     renderLibrary();
     const skipped = result.skipped.length ? ` · bỏ qua ${result.skipped.length} (${result.skipped.map((s) => s.reason).join(", ")})` : "";
-    flashNote(`Đã chuyển ${result.deleted.length} video (${fmtBytes(result.freedBytes)}) vào Thùng rác${skipped}.`, result.deleted.length === 0);
+    flashNote(`Đã chuyển ${result.deleted.length} video vào Thùng rác${skipped}.`, result.deleted.length === 0,
+      result.trashIds?.length ? { label: "↩ Hoàn tác", onClick: () => restoreTrash(result.trashIds) } : null);
+    loadTrash().catch(() => {});
     if (current && gone.has(current)) location.hash = "#/";
     else if (!current && $("view-library").hidden) loadRecent();
     return result.deleted.length > 0;
@@ -974,39 +1111,31 @@ function setOpt(key, value) {
   renderProjectBar();
 }
 
-/** Đã bấm "Thêm tuỳ chọn" — hiện các chip ít dùng. */
-let showMoreOpts = false;
-
 function renderComposer() {
   const style = styleMeta(opts.style);
   const voice = state.voices.catalog.find((v) => v.key === opts.voice);
   const music = state.audio.music.find((m) => m.path === opts.music);
   const textMode = opts.mode === "text";
-  // [khoá, nhãn, giá trị đang chọn, tooltip] — chỉ những tuỳ chọn hay đổi.
-  const chips = [
+  // [khoá, nhãn, giá trị đang chọn, tooltip] — mọi tuỳ chọn hiện sẵn, không giấu sau nút nào.
+  const chips = [];
+  // Video mới chọn cách lấy lời bằng thẻ "Bắt đầu từ"; đang mở video cũ thì không có thẻ nên đặt ở đây.
+  if (current) chips.push(["mode", "Lời", textMode ? "📝 Có sẵn" : "💡 AI viết", "Lời video lấy từ đâu"]);
+  chips.push(
+    ["kind", "Tạo ra", opts.kind === "image" ? "🖼 Bộ ảnh" : "🎬 Video", "Làm video hay bộ ảnh"],
     ["style", "Phong cách", `${style.emoji} ${style.label}`, "Kiểu hình ảnh và chữ của video"],
     ["aspect", "Khung", `▭ ${opts.aspect}`, "Tỉ lệ khung hình — 9:16 cho TikTok, Reels, Shorts"],
-  ];
-  // Ảnh tĩnh không có tiếng — ẩn giọng và nhạc cho đỡ rối.
+  );
+  // Ảnh tĩnh không có tiếng — ẩn hình cảnh động, giọng và nhạc.
   if (opts.kind === "video") {
+    chips.push(["video", "Hình cảnh", videoChipLabel(), "Dùng ảnh có sẵn hay để AI tạo clip"]);
     chips.push(["voice", "Giọng", voice ? `🎙 ${voice.key}` : "🔇 Không giọng", "Giọng đọc"]);
     chips.push(["music", "Nhạc", music ? `♪ ${music.name.replace(/\.\w+$/, "")}` : "♪ Không nhạc", "Nhạc nền"]);
   }
-  // Ít dùng — gom sau nút "Thêm tuỳ chọn". Đang mở video cũ thì không có thẻ bắt đầu,
-  // nên cách lấy lời cũng nằm ở đây.
-  const more = [["kind", "Tạo ra", opts.kind === "image" ? "🖼 Bộ ảnh" : "🎬 Video", "Làm video hay bộ ảnh"]];
-  if (opts.kind === "video") more.push(["video", "Hình cảnh", videoChipLabel(), "Dùng ảnh có sẵn hay để AI tạo clip"]);
-  if (current) more.unshift(["mode", "Lời", textMode ? "📝 Có sẵn" : "💡 AI viết", "Lời video lấy từ đâu"]);
-  const showMore = showMoreOpts || opts.kind !== "video" || Boolean(opts.video);
-  const chip = ([key, name, label, title]) =>
+  $("chips").innerHTML = chips.map(([key, name, label, title]) =>
     `<button type="button" class="chip" data-chip="${key}" title="${title}" aria-haspopup="listbox" aria-expanded="false">` +
-    `<span class="chip-k">${name}:</span><span class="chip-v">${escapeHtml(label)}</span>${CARET}</button>`;
-  $("chips").innerHTML = chips.map(chip).join("") + (showMore
-    ? more.map(chip).join("")
-    : `<button type="button" class="chip more" id="moreOpts" title="Làm bộ ảnh, dùng video AI…">＋ Thêm tuỳ chọn</button>`);
+    `<span class="chip-k">${name}:</span><span class="chip-v">${escapeHtml(label)}</span>${CARET}</button>`).join("");
   $("chips").querySelectorAll("[data-chip]").forEach((b) =>
     b.addEventListener("click", () => openMenu(b, menuFor(b.dataset.chip))));
-  $("moreOpts")?.addEventListener("click", () => { showMoreOpts = true; renderComposer(); });
 
   document.querySelectorAll("[data-start]").forEach((b) => {
     const on = b.dataset.start === opts.mode;

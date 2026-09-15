@@ -35,10 +35,12 @@ import {
 } from "./chat";
 import { getEditorAssets } from "./editor-build";
 import { deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
+import { deleteTrash, listTrash, restoreTrash, trashFilesDir } from "./app-trash";
 import { keyStatus, loadKeys, saveKeys } from "./keys";
 import { isStyleId, STYLE_IDS, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
 import { providerLabel, scriptProvider } from "../scripts/generate-script";
+import { TRANSLATE_LANGUAGES, translateEngines } from "../scripts/translate";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
 import { watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
@@ -205,6 +207,11 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    /** Model dịch phụ đề dùng được — hỏi thật Ollama, nên gọi lại khi người dùng bấm "Kiểm tra lại". */
+    if (route === "/api/translate/engines") {
+      return send(res, 200, { engines: await translateEngines(), languages: TRANSLATE_LANGUAGES, platform: process.platform });
+    }
+
     // ---- cài đặt API key ----
     if (route === "/api/keys") {
       if (req.method === "POST") {
@@ -285,6 +292,34 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
       }
+    }
+
+    // ---- thư viện: tab 🗑 Thùng rác ----
+    if (route === "/api/trash") {
+      return send(res, 200, listTrash());
+    }
+    if (route === "/api/trash/restore" && req.method === "POST") {
+      try {
+        const body = await readJson<{ ids?: unknown }>(req);
+        return send(res, 200, restoreTrash(body?.ids));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    if (route === "/api/trash/delete" && req.method === "POST") {
+      try {
+        const body = await readJson<{ ids?: unknown; all?: unknown }>(req);
+        return send(res, 200, deleteTrash(body?.all === true ? "all" : body?.ids));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    // Ảnh/video xem trước của mục trong thùng rác: /api/trash/file/<id>/<tên file>
+    if (route.startsWith("/api/trash/file/") && req.method === "GET") {
+      const [id, ...rest] = route.slice("/api/trash/file/".length).split("/");
+      const dir = trashFilesDir(id);
+      if (!dir || rest.length !== 1) return send(res, 404, { error: "not found" });
+      return serveFile(res, dir, `/${rest[0]}`);
     }
 
     if (route === "/api/media/extract-audio" && req.method === "POST") {
