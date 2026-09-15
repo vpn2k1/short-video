@@ -36,7 +36,7 @@
   "main": "desktop/main.cjs",
   "productName": "AI Video Studio",
   "build": {
-    "appId": "net.rabiloo.ai-video-studio",
+    "appId": "nam.vp.rabiloo.ai-video-studio",
     "productName": "AI Video Studio",
     "asar": false,
     "npmRebuild": false,
@@ -80,6 +80,17 @@
       ],
       "signAndEditExecutable": false
     },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "AudioVideo"
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -88,7 +99,9 @@
   },
   "scripts": {
     "desktop": "electron .",
-    "dist:mac": "electron-builder --mac",
+    "dist:all": "npm run dist:mac && npm run dist:win && npm run dist:linux",
+    "dist:linux": "bash desktop/build-linux.sh",
+    "dist:mac": "bash desktop/build-mac.sh",
     "dist:win": "bash desktop/build-win.sh",
     "audio-assets": "bash scripts/make-audio-assets.sh",
     "audio-to-video": "tsx scripts/audio-to-video.ts",
