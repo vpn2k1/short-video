@@ -95,7 +95,7 @@
   .thread { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 
   .hero { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center;
-          padding: clamp(28px, 10vh, 110px) 16px 32px; text-align: center; }
+          padding: clamp(24px, 7vh, 72px) 16px 32px; text-align: center; }
   .hero h1 { font-size: clamp(26px, 4vw, 38px); margin: 0 0 8px; font-weight: 650; letter-spacing: -.5px; }
   .hero > p { color: var(--muted); margin: 0 0 22px; max-width: 560px; }
   .hero .dock { width: 100%; text-align: left; }
@@ -155,19 +155,29 @@
 
   /* ---------- ô nhập ---------- */
   .dock { padding: 10px 16px 18px; }
-  .notice { max-width: 780px; margin: 0 auto 10px; display: flex; align-items: center; gap: 12px;
+  .notice { max-width: 820px; margin: 0 auto 10px; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap;
             background: rgba(255,122,26,.08); border: 1px solid rgba(255,122,26,.35);
             border-radius: 14px; padding: 10px 12px 10px 14px; font-size: 14px; text-align: left; }
-  .notice span { flex: 1; }
-  .composer { max-width: 780px; margin: 0 auto; background: var(--panel);
-              border: 1px solid var(--line); border-radius: 22px; padding: 10px;
-              transition: border-color .15s; }
-  .composer:focus-within { border-color: var(--line-2); }
+  .notice span { flex: 1; min-width: 220px; }
+  /* Ô nhập: chữ ở trên, tuỳ chọn dạng nút tròn, hàng nút hành động ở dưới */
+  .composer { max-width: 820px; margin: 0 auto; background: var(--panel);
+              border: 1px solid var(--line); border-radius: 18px; padding: 14px;
+              display: flex; flex-direction: column; gap: 10px;
+              transition: border-color .15s, box-shadow .15s; }
+  .composer:focus-within { border-color: var(--line-2); box-shadow: 0 0 0 4px rgba(255,122,26,.07); }
   .composer.drag { border-color: var(--accent); background: rgba(255,122,26,.05); }
-  .input-row { display: flex; align-items: flex-end; gap: 8px; }
-  .composer textarea { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; resize: none;
-                       min-height: 38px; max-height: 45vh; padding: 8px 4px; line-height: 1.45; }
-  .pending { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 8px 4px; }
+  .composer textarea { width: 100%; min-width: 0; background: transparent; border: 0; outline: 0; resize: none;
+                       min-height: 92px; max-height: 45vh; padding: 2px 4px; font-size: 16px; line-height: 1.5; }
+  #bottomDock .composer textarea { min-height: 48px; }
+  .composer-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                   border-top: 1px solid var(--line); padding-top: 10px; }
+  .composer-foot .spacer { flex: 1; }
+  .tool-btn { height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
+              background: transparent; color: var(--muted); font-size: 13.5px; white-space: nowrap;
+              display: inline-flex; align-items: center; gap: 6px; }
+  .tool-btn:hover { color: var(--text); border-color: var(--line-2); background: var(--panel-2); }
+  .kbd-hint { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .pending { display: flex; gap: 8px; flex-wrap: wrap; }
   .pending:empty { display: none; }
   .chip-file { position: relative; width: 64px; height: 64px; border-radius: 10px; overflow: hidden;
                background: #000; border: 1px solid var(--line); }
@@ -181,17 +191,43 @@
               background: transparent; display: grid; place-items: center; color: var(--muted); padding: 0;
               text-decoration: none; }
   .icon-btn:hover { color: var(--text); border-color: var(--line-2); }
-  .send { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 50%; border: 0; background: var(--accent);
-          color: var(--accent-ink); display: grid; place-items: center; padding: 0; }
+  .send { height: 42px; flex: 0 0 auto; border-radius: 999px; border: 0; background: var(--accent);
+          color: var(--accent-ink); display: inline-flex; align-items: center; gap: 8px; padding: 0 20px;
+          font-size: 15px; font-weight: 650; white-space: nowrap; }
+  .send:hover:not(:disabled) { filter: brightness(1.08); }
   .send:disabled { background: var(--line); color: var(--muted); }
 
-  .chips { display: flex; gap: 6px; margin: 8px 0 0 46px; overflow-x: auto; scrollbar-width: none; }
-  .chips::-webkit-scrollbar { display: none; }
-  .chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-          background: transparent; border: 1px solid var(--line); border-radius: 999px;
-          padding: 5px 9px 5px 11px; font-size: 13px; color: var(--muted); }
-  .chip svg { opacity: .6; }
-  .chip:hover, .chip[aria-expanded="true"] { color: var(--text); border-color: var(--line-2); background: var(--panel-2); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; background: var(--panel-2);
+          border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px 6px 12px;
+          font-size: 13px; color: var(--text); }
+  .chip-k { color: var(--muted); white-space: nowrap; }
+  .chip-v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; font-weight: 500; }
+  .chip svg { opacity: .6; flex: 0 0 auto; }
+  .chip:hover, .chip[aria-expanded="true"] { border-color: var(--accent); }
+  .chip.more { background: transparent; border-style: dashed; color: var(--muted); }
+  .chip.more:hover { color: var(--text); }
+
+  /* ---------- thẻ chọn cách bắt đầu ---------- */
+  .starts { width: 100%; max-width: 820px; display: grid; gap: 10px; margin: 0 0 14px;
+            grid-template-columns: repeat(4, minmax(0, 1fr)); text-align: left; }
+  .start { position: relative; display: flex; flex-direction: column; gap: 2px; text-align: left;
+           background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 13px;
+           color: var(--text); text-decoration: none; transition: border-color .15s, background .15s; }
+  .start i { font-style: normal; font-size: 22px; line-height: 1; margin-bottom: 8px; }
+  .start b { font-size: 14.5px; font-weight: 600; }
+  .start span { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  .start:hover { border-color: var(--line-2); background: var(--panel-2); }
+  .start.on { border-color: var(--accent); background: rgba(255,122,26,.09); box-shadow: inset 0 0 0 1px var(--accent); }
+  .start.on::after { content: "✓"; position: absolute; top: 9px; right: 11px; width: 20px; height: 20px; border-radius: 50%;
+                     background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700;
+                     display: grid; place-items: center; }
+  .start.link::after { content: "→"; position: absolute; top: 10px; right: 13px; color: var(--muted); }
+  .start.link:hover::after { color: var(--text); }
+  .start small { font-size: 11px; color: var(--accent); margin-top: 4px; }
+  .step-label { width: 100%; max-width: 820px; text-align: left; font-size: 12px; color: var(--muted);
+                text-transform: uppercase; letter-spacing: .7px; font-weight: 600; margin: 0 0 8px; }
+  .result-tip { font-size: 13px; color: var(--muted); margin-top: 12px; }
   .composer.text-mode textarea { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; }
   .text-preview { max-width: 780px; margin: 8px auto 0; font-size: 13px; color: var(--muted); text-align: left; padding: 0 6px; }
   .text-preview.ok b { color: var(--ok); font-weight: 600; }
@@ -219,6 +255,7 @@
   .opt { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 10px;
          padding: 8px 10px; color: var(--text); display: flex; flex-direction: column; gap: 1px; }
   .menu.grid .opt { background: var(--bg); border-color: var(--line); padding: 10px 11px; gap: 3px; }
+  .opt-hint { font-size: 11px; color: var(--muted); font-style: italic; opacity: .85; margin-top: 2px; }
   .opt:hover:not(:disabled), .opt:focus-visible { background: var(--panel-2); outline: none; }
   .opt.on { border-color: var(--accent); }
   .menu.list .opt.on { background: rgba(255,122,26,.08); }
@@ -287,6 +324,29 @@
            border: 2px solid #fff; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center;
            font-size: 14px; font-weight: 700; }
   .card.picked .check { background: #ff5a5a; border-color: #ff5a5a; }
+
+  /* ---------- thư viện: tab Video / Tài nguyên ---------- */
+  .lib-tabs { max-width: 1200px; margin: 0 auto 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .lib-tabs > button, .lib-filter button { border: 1px solid var(--line); background: transparent; color: var(--muted);
+                  border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+  .lib-tabs > button.on, .lib-filter button.on { color: var(--text); border-color: var(--accent); background: rgba(255,122,26,.08); }
+  .lib-filter { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+  .lib-filter button { padding: 4px 11px; font-size: 13px; }
+  .media-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .media-grid .thumb { aspect-ratio: 1 / 1; }
+  .media-grid .thumb .none.audio { font-size: 44px; }
+  .media-group { grid-column: 1 / -1; font-size: 15px; font-weight: 600; margin: 12px 0 -2px; display: flex;
+                 align-items: baseline; gap: 10px; }
+  .media-group:first-child { margin-top: 0; }
+  .media-group span { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .media-card .thumb-link { display: block; color: inherit; }
+  .media-card audio { display: block; width: 100%; height: 32px; }
+  .badge.used { background: rgba(34,150,90,.9); }
+  .badge.unused { background: rgba(0,0,0,.65); }
+  .badge.builtin { background: rgba(90,110,160,.9); }
+  .media-card .used-by { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; margin-top: 2px; }
+  .confirm-list { max-height: 40vh; overflow-y: auto; margin: 10px 0 0; padding-left: 20px; font-size: 14px; }
+  .confirm-list li { margin: 2px 0; overflow-wrap: anywhere; }
   .flash-note { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
                 background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 14px;
                 font-size: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
@@ -318,6 +378,15 @@
   .field.removing input { text-decoration: line-through; opacity: .5; }
   .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   .dlg .hint { text-align: left; margin: 12px 0 0; }
+  kbd { font: 11.5px ui-monospace, Menlo, monospace; background: var(--panel-2); border: 1px solid var(--line-2);
+        border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--text); }
+  .keys-dlg { width: min(680px, calc(100vw - 32px)); }
+  .keys-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 24px; }
+  .keys-grid h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 16px 0 6px; font-weight: 600; }
+  .keys-grid ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+  .keys-grid li { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: center; }
+  .keys-grid li span { display: flex; gap: 3px; flex-wrap: wrap; }
+  .keys-dlg > form > .muted { margin: 16px 0 0; }
 
   @media (max-width: 720px) {
     .recent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -326,7 +395,12 @@
     .nav { padding: 8px 12px; }
     .brand { margin-right: 6px; }
     .brand span, .nav-link .label { display: none; }
-    .chips { margin-left: 0; }
+    .composer { padding: 12px; }
+    .chip-k { display: none; }
+    .kbd-hint { display: none; }
+    .send { flex: 1 1 100%; justify-content: center; }
+    .starts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .start span { display: none; }
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .library { padding: 18px 16px; }
     .lib-head input { width: 100%; order: 3; }
@@ -335,7 +409,7 @@
   }
 
   /* ---------- video nhiều cảnh ---------- */
-  .multi { flex: 1; overflow-y: auto; padding: 28px 20px 40px; }
+  .multi { flex: 1; overflow-y: auto; padding: 28px 20px 0; }
   .ms-wrap { max-width: 900px; margin: 0 auto; }
   .ms-wrap .lib-head { margin-bottom: 4px; }
   .ms-wrap > .muted { margin: 0; }
@@ -358,10 +432,25 @@
   .ms-media-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .ms-thumb { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #000; flex: 0 0 64px; }
   .ms-thumb img, .ms-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .ms-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .ms-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px;
+             position: sticky; bottom: 0; padding: 12px 0 14px; background: var(--bg);
+             border-top: 1px solid var(--line); z-index: 3; }
+  .ms-foot .btn.primary { padding: 9px 20px; font-size: 14.5px; }
+  .ms-back { margin-bottom: 10px; }
+  .ms-card-head b { font-size: 15px; }
+  .ms-src { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ms-src button { flex: 1 1 180px; text-align: left; background: var(--bg); border: 1px solid var(--line);
+                   border-radius: 12px; padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; }
+  .ms-src button b { font-size: 14px; font-weight: 600; }
+  .ms-src button span { font-size: 12px; color: var(--muted); }
+  .ms-src button:hover { border-color: var(--line-2); }
+  .ms-src button.on { border-color: var(--accent); background: rgba(255,122,26,.08); box-shadow: inset 0 0 0 1px var(--accent); }
+  .ms-drop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px dashed var(--line-2);
+             border-radius: 12px; padding: 10px; }
+  .ms-drop .muted { flex: 1; min-width: 160px; }
   .ms-wrap .hint { text-align: left; margin: 10px 0 0; max-width: none; white-space: pre-line; }
   @media (max-width: 640px) {
-    .multi { padding: 18px 16px 32px; }
+    .multi { padding: 18px 16px 0; }
     .ms-settings, .ms-grid { grid-template-columns: minmax(0, 1fr); }
   }
 </style>
@@ -374,12 +463,11 @@
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
   </button>
   <a class="brand" href="#/"><i></i><span>AI Video Studio</span></a>
-  <a class="nav-link" id="nav-new" href="#/">Tạo mới</a>
-  <a class="nav-link" id="nav-multi" href="#/multi" title="Mỗi cảnh một prompt, chọn model riêng cho từng cảnh">🎬 <span class="label">Nhiều cảnh</span></a>
-  <a class="nav-link" id="nav-lib" href="#/library">Thư viện</a>
-  <a class="nav-link" href="/editor.html#new" title="Tải video lên và chỉnh sửa trên timeline — không cần AI">✂️ <span class="label">Edit video</span></a>
+  <a class="nav-link" id="nav-new" href="#/">✨ <span class="label">Tạo video</span></a>
+  <a class="nav-link" id="nav-lib" href="#/library">📁 <span class="label">Thư viện</span></a>
   <span class="spacer"></span>
-  <button type="button" class="nav-link" id="openSettings" title="Cài đặt API key">
+  <button type="button" class="nav-link" id="openShortcuts" title="Phím tắt (? hoặc Ctrl/⌘+/)" aria-label="Phím tắt">⌨</button>
+  <button type="button" class="nav-link" id="openSettings" title="Cài đặt API key (Ctrl/⌘+,)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     <span class="label">Cài đặt</span>
     <i class="warn-dot" id="settingsWarn" title="Chưa có API key" hidden></i>
@@ -408,15 +496,30 @@
       <div class="pb-title"><b id="projectTitle"></b><span id="projectMeta"></span></div>
       <a class="btn" id="projectMulti" href="#" hidden title="Mở lại danh sách cảnh để sửa prompt, model, lời đọc">🎬 <span class="label">Sửa cảnh</span></a>
       <a class="btn" id="projectEdit" href="#" hidden title="Mở trình chỉnh sửa timeline">✂️ <span class="label">Chỉnh sửa</span></a>
-      <button type="button" class="btn" id="projectDownload" hidden>⬇ <span class="label">Tải video</span></button>
-      <button type="button" class="btn" id="projectDelete" hidden title="Xoá video này">🗑 <span class="label">Xoá</span></button>
-      <a class="btn" href="#/">＋ <span class="label">Tạo mới</span></a>
+      <button type="button" class="btn primary" id="projectDownload" hidden>⬇ <span class="label">Tải video</span></button>
+      <button type="button" class="icon-btn" id="projectDelete" hidden title="Xoá video này" aria-label="Xoá video này">🗑</button>
     </div>
   </header>
 
   <div class="hero" id="hero">
-    <h1>Bạn muốn tạo gì hôm nay?</h1>
-    <p>Mô tả ý tưởng, đính kèm ảnh hoặc video nếu có. Có kết quả rồi thì cứ nhắn tiếp để sửa.</p>
+    <h1>Hôm nay làm video gì?</h1>
+    <p>Chọn cách bắt đầu, gõ nội dung rồi bấm <b>Tạo video</b>. Có kết quả rồi cứ nhắn tiếp để sửa.</p>
+    <div class="step-label">1 · Bắt đầu từ</div>
+    <div class="starts" id="starts">
+      <button type="button" class="start" data-start="ai" aria-pressed="false">
+        <i>💡</i><b>Một ý tưởng</b><span>Gõ 1 câu, AI viết lời và dựng video giúp bạn</span><small id="startAiKey" hidden>Cần thêm API key</small>
+      </button>
+      <button type="button" class="start" data-start="text" aria-pressed="false">
+        <i>📝</i><b>Lời có sẵn</b><span>Dán kịch bản của bạn, dựng đúng từng câu</span>
+      </button>
+      <a class="start link" href="#/multi">
+        <i>🎬</i><b>Từng cảnh một</b><span>Tự sắp từng cảnh: hình, lời đọc, độ dài</span>
+      </a>
+      <a class="start link" href="/editor.html#new">
+        <i>✂️</i><b>Sửa video có sẵn</b><span>Tải clip lên, cắt ghép, thêm chữ và nhạc</span>
+      </a>
+    </div>
+    <div class="step-label" id="step2Label">2 · Nội dung</div>
     <div class="dock" id="heroDock"></div>
     <div class="ideas" id="ideas"></div>
     <div class="recent" id="recentWrap" hidden>
@@ -434,27 +537,29 @@
   <!-- Ô nhập duy nhất — JS chuyển nó giữa hero và đáy màn hình -->
   <div id="composerWrap">
     <div class="notice" id="keyNotice" hidden>
-      <span>🔑 Cần một API key để AI viết kịch bản — Gemini, Groq, OpenRouter có gói miễn phí.</span>
-      <button type="button" class="btn primary" id="noticeSettings">Mở cài đặt</button>
+      <span>🔑 Để AI viết lời, cần thêm 1 API key (Gemini, Groq, OpenRouter có gói miễn phí). Chưa có key thì dùng <b>Lời có sẵn</b> — làm được ngay.</span>
+      <button type="button" class="btn" id="noticeText">📝 Dùng lời có sẵn</button>
+      <button type="button" class="btn primary" id="noticeSettings">🔑 Thêm key</button>
     </div>
     <form class="composer" id="composer" autocomplete="off">
       <div class="pending" id="pending"></div>
-      <div class="input-row">
-        <button type="button" class="icon-btn" id="attachBtn" title="Thêm ảnh hoặc video" aria-label="Thêm ảnh hoặc video">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
-        <textarea id="input" rows="1" aria-label="Mô tả video"></textarea>
-        <button type="submit" class="send" id="send" title="Gửi (Enter)" aria-label="Gửi">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      <textarea id="input" rows="3" aria-label="Nội dung video"></textarea>
+      <div class="chips" id="chips" aria-label="Tuỳ chọn"></div>
+      <div class="composer-foot">
+        <button type="button" class="tool-btn" id="attachBtn" title="Thêm ảnh hoặc video — hoặc kéo thả / dán vào ô trên">📎 Thêm ảnh/video</button>
+        <button type="button" class="tool-btn" id="exampleBtn">✨ Điền ví dụ</button>
+        <span class="spacer"></span>
+        <span class="kbd-hint" id="kbdHint"></span>
+        <button type="submit" class="send" id="send">Tạo video
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </button>
       </div>
-      <div class="chips" id="chips" aria-label="Tuỳ chọn"></div>
       <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden />
     </form>
     <p class="text-preview" id="textPreview" hidden></p>
     <p class="hint" id="hint"></p>
     <details class="syntax" id="syntaxHelp" hidden>
-      <summary>Cách viết kịch bản để dán (không cần API key)</summary>
+      <summary>📖 Xem cách viết lời (có mẫu)</summary>
       <div class="syntax-body">
         <pre id="syntaxExample"># Pin iPhone tụt nhanh?
 &gt; 5 mẹo chỉnh được ngay
@@ -484,9 +589,20 @@ Lưu lại để làm theo nhé!</pre>
   <div class="lib-head">
     <h1>Thư viện</h1>
     <input id="search" type="search" placeholder="Tìm video…" />
-    <button type="button" class="btn" id="libSelect">🗑 Xoá bản cũ</button>
-    <a class="btn" href="/editor.html#new">✂️ Edit video mới</a>
-    <a class="btn primary" href="#/">＋ Tạo mới</a>
+    <button type="button" class="btn" id="libSelect">☑️ Chọn để xoá</button>
+    <a class="btn primary" href="#/">＋ Tạo video</a>
+  </div>
+  <div class="lib-tabs" role="tablist">
+    <button type="button" role="tab" data-libtab="videos" class="on">🎬 Video</button>
+    <button type="button" role="tab" data-libtab="media">🗂 Tài nguyên</button>
+    <div class="lib-filter" id="libFilter" hidden>
+      <button type="button" data-mfilter="all" class="on">Tất cả</button>
+      <button type="button" data-mfilter="image">Ảnh</button>
+      <button type="button" data-mfilter="video">Video</button>
+      <button type="button" data-mfilter="audio">Âm thanh</button>
+      <button type="button" data-mfilter="voices">Giọng đọc</button>
+      <button type="button" data-mfilter="unused">Chưa dùng</button>
+    </div>
   </div>
   <div class="lib-select" id="libSelectBar" hidden>
     <span id="libSelectCount"></span>
@@ -500,14 +616,16 @@ Lưu lại để làm theo nhé!</pre>
     </div>
   </div>
   <div class="grid" id="grid"></div>
+  <div class="grid media-grid" id="mediaGrid" hidden></div>
 </section>
 
 <!-- ===== Video nhiều cảnh ===== -->
 <section class="multi" id="view-multi" hidden>
   <div class="ms-wrap">
-    <div class="lib-head"><h1 id="multiHeading">Tạo video nhiều cảnh</h1></div>
-    <p class="muted">Mỗi cảnh một prompt và một model video AI riêng — hoặc 🚫 không dùng model và dùng ảnh/video của bạn.
-      Lời đọc tuỳ chọn: cảnh dài theo số giây đã chọn, hoặc dài hơn nếu lời đọc dài hơn.</p>
+    <a class="btn ms-back" href="#/">← Quay lại</a>
+    <div class="lib-head"><h1 id="multiHeading">Tạo video từng cảnh</h1></div>
+    <p class="muted">Mỗi cảnh: viết lời đọc, chọn hình (ảnh/video của bạn hoặc để AI tạo clip), chọn độ dài.
+      Xong bấm <b>Tạo video</b> ở cuối trang.</p>
     <div class="ms-settings">
       <label class="ms-field ms-wide"><span>Tên video</span>
         <input id="multiTitle" type="text" maxlength="60" placeholder="Một ngày ở Hạ Long" /></label>
@@ -533,6 +651,30 @@ Lưu lại để làm theo nhé!</pre>
 <div class="menu" id="menu" role="listbox" hidden></div>
 
 <!-- ===== Cài đặt API key ===== -->
+<!-- Hộp xác nhận vẽ trong app — thay window.confirm (trình duyệt nhúng hay chặn im lặng) -->
+<dialog class="dlg" id="confirmDlg">
+  <form method="dialog">
+    <div class="dlg-head"><h2 id="confirmTitle">Xác nhận</h2></div>
+    <p class="muted" id="confirmMessage"></p>
+    <ul class="confirm-list" id="confirmList"></ul>
+    <div class="dlg-foot">
+      <button type="submit" class="btn" value="cancel">Huỷ</button>
+      <button type="submit" class="btn danger" value="ok" id="confirmOk">Xoá</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg keys-dlg" id="keysDlg">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2>⌨ Phím tắt</h2>
+      <button type="submit" class="icon-btn" aria-label="Đóng">✕</button>
+    </div>
+    <div class="keys-grid" id="keysList"></div>
+    <p class="muted">Phím một chữ cái không chạy khi đang gõ trong ô nhập. Trong trình chỉnh sửa video bấm <kbd>?</kbd> để xem phím riêng.</p>
+  </form>
+</dialog>
+
 <dialog class="dlg" id="settingsDlg">
   <form id="settingsForm" autocomplete="off">
     <div class="dlg-head">

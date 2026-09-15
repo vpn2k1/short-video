@@ -76,7 +76,7 @@ export const Scenes: React.FC<Props> = ({ scenes }) => {
               <Sequence from={start}>
                 <ClipVideo
                   src={scene.image}
-                  trimStartMs={scene.trimStartMs}
+                  trimStartMs={scene.trimStartMs} speed={scene.speed}
                   volume={scene.volume}
                   crop={scene.crop}
                 />

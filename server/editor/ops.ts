@@ -4,7 +4,8 @@
  *
  * Mọi mốc thời gian là ms tuyệt đối trên timeline, giống props.json.
  */
-import type { AudioClip, Caption, Scene, ShortProps, TextOverlay } from "../../src/compositions/Short/schema";
+import type { AudioClip, Caption, CaptionLook, Scene, ShortProps, TextOverlay } from "../../src/compositions/Short/schema";
+import { textPatch } from "../../src/components/captionLook";
 import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../../src/aspects";
 import { FPS, msToFrames, OUTRO_FRAMES, TITLE_FRAMES } from "../../src/constants";
 
@@ -84,14 +85,23 @@ export const sceneIndexAt = (p: ShortProps, ms: number) => {
 
 // ---------- phụ đề ----------
 
-export const moveCaption = (p: ShortProps, i: number, deltaMs: number): ShortProps => {
+/** Dời câu theo thời gian; `track` có thì đổi luôn hàng phụ đề (kéo lên/xuống trên timeline). */
+export const moveCaption = (p: ShortProps, i: number, deltaMs: number, track?: number): ShortProps => {
   const c = p.captions[i];
   const d = Math.max(-c.startMs, deltaMs);
+  const nextTrack = track === undefined ? c.track : Math.max(0, Math.round(track));
   return {
     ...p,
-    captions: p.captions.map((x, k) => (k === i ? { ...x, startMs: r(x.startMs + d), endMs: r(x.endMs + d) } : x)),
+    captions: p.captions.map((x, k) =>
+      k === i ? { ...x, startMs: r(x.startMs + d), endMs: r(x.endMs + d), track: nextTrack ? nextTrack : undefined } : x),
   };
 };
+
+/** Số hàng phụ đề đang có (ít nhất 1). */
+export const captionTrackCount = (p: ShortProps) => p.captions.reduce((max, c) => Math.max(max, (c.track ?? 0) + 1), 1);
+
+/** Hàng cho câu mới tạo bằng nút: chưa có câu nào thì hàng 1, có rồi thì thêm một hàng mới. */
+const newCaptionTrack = (p: ShortProps) => (p.captions.length === 0 ? 0 : captionTrackCount(p));
 
 export const resizeCaption = (p: ShortProps, i: number, edge: "l" | "r", deltaMs: number): ShortProps => {
   const c = p.captions[i];
@@ -107,9 +117,119 @@ export const updateCaption = (p: ShortProps, i: number, patch: Partial<Caption>)
   captions: p.captions.map((x, k) => (k === i ? { ...x, ...patch } : x)),
 });
 
-export const addCaption = (p: ShortProps, atMs: number): Result => ({
-  props: { ...p, captions: [...p.captions, { text: "Chữ mới", startMs: r(atMs), endMs: r(atMs + 2000), audio: null }] },
-  selection: { type: "caption", index: p.captions.length },
+/** Nút "＋ Phụ đề": câu mới tại đầu phát, ở một hàng phụ đề mới (Phụ đề 2, 3…). */
+export const addCaption = (p: ShortProps, atMs: number): Result => {
+  const track = newCaptionTrack(p);
+  return {
+    props: {
+      ...p,
+      captions: [...p.captions, { text: "Chữ mới", startMs: r(atMs), endMs: r(atMs + 2000), audio: null, track: track || undefined }],
+    },
+    selection: { type: "caption", index: p.captions.length },
+    message: `Đã thêm câu ở hàng Phụ đề ${track + 1}.`,
+  };
+};
+
+/** Độ dài mặc định của một câu gõ tay: đủ đọc (~15 ký tự/giây), trong khoảng 1,2–6 giây. */
+const readingMs = (text: string) => Math.min(6000, Math.max(1200, [...text].length * 65));
+
+/** Xếp phụ đề theo thời gian và trả về vị trí mới của một câu (theo tham chiếu). */
+const sortedWith = (captions: Caption[], target: Caption) => {
+  const sorted = [...captions].sort((a, b) => a.startMs - b.startMs);
+  return { captions: sorted, index: sorted.indexOf(target) };
+};
+
+/**
+ * Thêm một câu trống. `index` có (Enter trong danh sách): ngay sau câu đó, CÙNG hàng — bắt đầu đúng lúc câu
+ * trước kết thúc, dài 2 giây nhưng không lấn sang câu kế tiếp của hàng đó nếu còn chỗ.
+ * `index` null (nút ＋ Thêm phụ đề): tại đầu phát, ở một hàng phụ đề MỚI.
+ */
+export const insertCaptionAfter = (p: ShortProps, index: number | null, atMs: number): Result => {
+  const previous = index !== null ? p.captions[index] : null;
+  const track = previous ? previous.track ?? 0 : newCaptionTrack(p);
+  const startMs = r(previous ? previous.endMs : atMs);
+  const nextStart = p.captions
+    .filter((c) => c !== previous && (c.track ?? 0) === track && c.startMs >= startMs)
+    .reduce((min, c) => Math.min(min, c.startMs), Number.POSITIVE_INFINITY);
+  const room = nextStart - startMs;
+  // Còn khe tới câu kế tiếp thì vừa khe (tối đa 2s) để không đè; hết chỗ hẳn thì 2s — kéo lại trên timeline.
+  const endMs = r(startMs + (room >= MIN_MS ? Math.min(2000, room) : 2000));
+  const created: Caption = { text: "", startMs, endMs, audio: null, style: previous?.style ?? null, track: track || undefined };
+  const { captions, index: at } = sortedWith([...p.captions, created], created);
+  return { props: { ...p, captions }, selection: { type: "caption", index: at } };
+};
+
+/**
+ * Dán nhiều dòng: mỗi dòng thành một câu phụ đề, nối tiếp nhau từ đầu phát trên một hàng phụ đề mới,
+ * độ dài mỗi câu ước theo số chữ. Chỉnh lại thời gian trên timeline sau.
+ */
+export const addCaptionLines = (p: ShortProps, lines: string[], atMs: number): Result => {
+  const texts = lines.map((line) => line.trim()).filter(Boolean);
+  if (texts.length === 0) return { props: p, message: "Chưa có dòng nào để thêm." };
+  const track = newCaptionTrack(p);
+  let cursor = r(atMs);
+  const created: Caption[] = texts.map((text) => {
+    const caption: Caption = { text, startMs: cursor, endMs: r(cursor + readingMs(text)), audio: null, track: track || undefined };
+    cursor = caption.endMs;
+    return caption;
+  });
+  const { captions, index } = sortedWith([...p.captions, ...created], created[created.length - 1]);
+  return {
+    props: { ...p, captions },
+    selection: { type: "caption", index },
+    message: `Đã thêm ${created.length} câu ở hàng Phụ đề ${track + 1} — kéo trên timeline để chỉnh thời gian.`,
+  };
+};
+
+/** Xoá một câu phụ đề. */
+export const deleteCaption = (p: ShortProps, index: number): Result => ({
+  props: { ...p, captions: p.captions.filter((_, k) => k !== index) },
+  selection: null,
+});
+
+/** Gỡ các khoá cho trước khỏi kiểu riêng của một câu; hết khoá thì về null (theo kiểu chung). */
+const withoutLookKeys = (style: Caption["style"], keys: string[]): Caption["style"] => {
+  if (!style) return null;
+  const rest = Object.fromEntries(Object.entries(style).filter(([key]) => !keys.includes(key)));
+  return Object.keys(rest).length > 0 ? (rest as Caption["style"]) : null;
+};
+
+/**
+ * Đổi kiểu phụ đề (kiểu CapCut). `indices` null = tất cả: ghi vào kiểu chung của video và gỡ đúng các
+ * khoá đó khỏi kiểu riêng từng câu, để câu nào cũng theo giá trị mới. Có danh sách = chỉ ghi đè các câu đó.
+ */
+export const applyCaptionLook = (p: ShortProps, indices: number[] | null, patch: Partial<CaptionLook>): ShortProps => {
+  if (indices === null) {
+    const keys = Object.keys(patch);
+    return {
+      ...p,
+      captionLook: { ...(p.captionLook ?? {}), ...patch },
+      captions: p.captions.map((c) => ({ ...c, style: withoutLookKeys(c.style, keys) })),
+    };
+  }
+  const chosen = new Set(indices);
+  return {
+    ...p,
+    captions: p.captions.map((c, k) => (chosen.has(k) ? { ...c, style: { ...(c.style ?? {}), ...patch } } : c)),
+  };
+};
+
+/**
+ * Đổi kiểu văn bản tự do bằng cùng bảng chỉnh với phụ đề. `indices` null = tất cả văn bản; khi áp cho tất
+ * cả thì bỏ vị trí (x/y) khỏi patch — dời mọi văn bản về cùng một chỗ là chồng chúng lên nhau.
+ */
+export const applyTextLook = (p: ShortProps, indices: number[] | null, patch: Partial<CaptionLook>): ShortProps => {
+  const { x, y, ...rest } = patch;
+  const change = textPatch(indices === null ? rest : { ...rest, ...(x !== undefined ? { x } : {}), ...(y !== undefined ? { y } : {}) });
+  const chosen = indices === null ? null : new Set(indices);
+  return { ...p, texts: p.texts.map((t, k) => (chosen === null || chosen.has(k) ? { ...t, ...change } : t)) };
+};
+
+/** Bỏ mọi kiểu tuỳ chỉnh — phụ đề về lại kiểu của phong cách. */
+export const clearCaptionLooks = (p: ShortProps): ShortProps => ({
+  ...p,
+  captionLook: null,
+  captions: p.captions.map((c) => ({ ...c, style: null })),
 });
 
 // ---------- cảnh ----------
@@ -190,7 +310,7 @@ export const updateScene = (p: ShortProps, i: number, patch: Partial<Scene>): Sh
 });
 
 export const setSceneMedia = (p: ShortProps, i: number, src: string | null): ShortProps =>
-  updateScene(p, i, { image: src, trimStartMs: 0 });
+  updateScene(p, i, { image: src, trimStartMs: 0, speed: undefined });
 
 /**
  * Đặt độ dài cảnh (lấy đoạn clip). Dài ra: mọi thứ phía sau lùi theo. Ngắn đi: cắt bỏ
@@ -238,13 +358,15 @@ export const detachAudio = (p: ShortProps, i: number, audioSrc: string, sourceMs
   const s = p.scenes[i];
   if (!s || !isVideo(s.image)) return { props: p, message: "Chọn một cảnh là video để tách âm thanh." };
   const sceneLength = s.endMs - s.startMs;
-  const available = sourceMs > 0 ? Math.max(MIN_MS, sourceMs - s.trimStartMs) : sceneLength;
+  // Phần file còn lại sau điểm cắt, quy ra thời gian trên timeline theo tốc độ của cảnh.
+  const available = sourceMs > 0 ? Math.max(MIN_MS, (sourceMs - s.trimStartMs) / clipSpeed(s)) : sceneLength;
   const clip: AudioClip = {
     src: audioSrc,
     startMs: s.startMs,
     trimStartMs: s.trimStartMs,
     durationMs: r(Math.min(sceneLength, available)),
     volume: s.volume > 0 ? s.volume : 1,
+    speed: s.speed,
     label: `Âm thanh cảnh ${i + 1}`,
   };
   const muted = updateScene(p, i, { volume: 0 });
@@ -271,11 +393,13 @@ export const moveClip = (p: ShortProps, i: number, deltaMs: number): ShortProps 
 export const resizeClip = (p: ShortProps, i: number, edge: "l" | "r", deltaMs: number): ShortProps => {
   const c = p.audioClips[i];
   if (edge === "l") {
-    const d = Math.min(c.durationMs - MIN_MS, Math.max(deltaMs, -c.trimStartMs, -c.startMs));
+    // d tính trên timeline; phần cắt đầu tính theo file gốc nên nhân tốc độ.
+    const speed = clipSpeed(c);
+    const d = Math.min(c.durationMs - MIN_MS, Math.max(deltaMs, -c.trimStartMs / speed, -c.startMs));
     return withClip(p, i, {
       ...c,
       startMs: r(c.startMs + d),
-      trimStartMs: r(c.trimStartMs + d),
+      trimStartMs: r(c.trimStartMs + d * speed),
       durationMs: r(c.durationMs - d),
     });
   }
@@ -284,6 +408,40 @@ export const resizeClip = (p: ShortProps, i: number, edge: "l" | "r", deltaMs: n
 
 export const updateClip = (p: ShortProps, i: number, patch: Partial<AudioClip>): ShortProps =>
   withClip(p, i, { ...p.audioClips[i], ...patch });
+
+// ---------- tốc độ ----------
+
+export const SPEED_MIN = 0.25;
+export const SPEED_MAX = 4;
+
+/** Tốc độ phát của cảnh video / đoạn âm thanh; không có = 1. */
+export const clipSpeed = (item: { speed?: number }) => item.speed ?? 1;
+
+const clampSpeed = (speed: number) => Math.round(Math.min(SPEED_MAX, Math.max(SPEED_MIN, speed)) * 100) / 100;
+
+/**
+ * Đổi tốc độ cảnh video kiểu CapCut: giữ nguyên đoạn clip đang dùng, độ dài cảnh trên timeline đổi theo
+ * (2x → ngắn một nửa) và các cảnh sau dời theo. Tốc độ 1 thì bỏ trường cho gọn props.json.
+ */
+export const setSceneSpeed = (p: ShortProps, i: number, speed: number): ShortProps => {
+  const s = p.scenes[i];
+  if (!s) return p;
+  const next = clampSpeed(speed);
+  const lengthMs = Math.max(MIN_MS, ((s.endMs - s.startMs) * clipSpeed(s)) / next);
+  return setSceneLength(updateScene(p, i, { speed: next === 1 ? undefined : next }), i, lengthMs);
+};
+
+/** Đổi tốc độ đoạn âm thanh: giữ nguyên đoạn file đang dùng, độ dài trên timeline đổi theo. */
+export const setClipSpeed = (p: ShortProps, i: number, speed: number): ShortProps => {
+  const c = p.audioClips[i];
+  if (!c) return p;
+  const next = clampSpeed(speed);
+  return withClip(p, i, {
+    ...c,
+    speed: next === 1 ? undefined : next,
+    durationMs: r(Math.max(MIN_MS, (c.durationMs * clipSpeed(c)) / next)),
+  });
+};
 
 export const addClip = (p: ShortProps, src: string, atMs: number, durationMs: number, label: string | null): Result => ({
   props: {
@@ -446,7 +604,8 @@ export const splitAt = (p: ShortProps, atMs: number, sel: Selection): Result => 
     const ratio = (t - c.startMs) / (c.endMs - c.startMs);
     const k = Math.min(words.length - 1, Math.max(1, Math.round(words.length * ratio)));
     const first: Caption = { ...c, text: words.slice(0, k).join(" "), endMs: t };
-    const second: Caption = { text: words.slice(k).join(" "), startMs: t, endMs: c.endMs, audio: null };
+    // Nửa sau giữ kiểu chữ riêng của câu gốc, nhưng không mang giọng đọc.
+    const second: Caption = { text: words.slice(k).join(" "), startMs: t, endMs: c.endMs, audio: null, style: c.style ?? null, track: c.track };
     const captions = [...p.captions];
     captions.splice(sel.index, 1, first, second);
     return {
@@ -469,7 +628,7 @@ export const splitAt = (p: ShortProps, atMs: number, sel: Selection): Result => 
     if (!c || tooClose(c.startMs, c.startMs + c.durationMs)) return { props: p, message: "Đưa đầu phát vào giữa đoạn âm thanh." };
     const offset = t - c.startMs;
     const first: AudioClip = { ...c, durationMs: offset };
-    const second: AudioClip = { ...c, startMs: t, trimStartMs: c.trimStartMs + offset, durationMs: c.durationMs - offset };
+    const second: AudioClip = { ...c, startMs: t, trimStartMs: r(c.trimStartMs + offset * clipSpeed(c)), durationMs: c.durationMs - offset };
     const audioClips = [...p.audioClips];
     audioClips.splice(sel.index, 1, first, second);
     return { props: { ...p, audioClips }, selection: { type: "clip", index: sel.index + 1 }, message: "Đã tách âm thanh." };
@@ -482,7 +641,7 @@ export const splitAt = (p: ShortProps, atMs: number, sel: Selection): Result => 
   const second: Scene = clampPunch({
     ...s,
     startMs: t,
-    trimStartMs: isVideo(s.image) ? s.trimStartMs + (t - s.startMs) : s.trimStartMs,
+    trimStartMs: isVideo(s.image) ? r(s.trimStartMs + (t - s.startMs) * clipSpeed(s)) : s.trimStartMs,
     punch: s.punch && s.punch.atMs >= t ? s.punch : null,
   });
   const scenes = [...p.scenes];
@@ -545,7 +704,7 @@ export const rippleDelete = (p: ShortProps, from: number, to: number): Result =>
       ...s,
       startMs,
       endMs,
-      trimStartMs: headCut && isVideo(s.image) ? s.trimStartMs + (b - s.startMs) : s.trimStartMs,
+      trimStartMs: headCut && isVideo(s.image) ? r(s.trimStartMs + (b - s.startMs) * clipSpeed(s)) : s.trimStartMs,
       punch,
     }];
   });
@@ -560,7 +719,7 @@ export const rippleDelete = (p: ShortProps, from: number, to: number): Result =>
     const newEnd = map(end);
     if (newEnd - startMs < 100) return [];
     const headCut = c.startMs >= a && c.startMs < b;
-    return [{ ...c, startMs, durationMs: newEnd - startMs, trimStartMs: headCut ? c.trimStartMs + (b - c.startMs) : c.trimStartMs }];
+    return [{ ...c, startMs, durationMs: newEnd - startMs, trimStartMs: headCut ? r(c.trimStartMs + (b - c.startMs) * clipSpeed(c)) : c.trimStartMs }];
   });
 
   const texts = p.texts.flatMap((t) => {

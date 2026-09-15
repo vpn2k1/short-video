@@ -9,7 +9,12 @@
  */
 import fs from "fs";
 import path from "path";
-import { COMPAT_PROVIDERS, DEFAULT_OPENAI_MODEL } from "../scripts/generate-script";
+import {
+  COMPAT_PROVIDERS,
+  DEFAULT_OLLAMA_HOST,
+  DEFAULT_OLLAMA_MODEL,
+  DEFAULT_OPENAI_MODEL,
+} from "../scripts/generate-script";
 import { PROVIDERS, VIDEO_MODELS } from "../scripts/ai-video";
 import { WATERMARK_MAX_LENGTH } from "../scripts/watermark";
 
@@ -35,7 +40,7 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "SCRIPT_PROVIDER",
     label: "AI viết kịch bản",
-    help: "Chỉ cần MỘT key. Tự động: Claude → ChatGPT → Gemini → Groq → OpenRouter, lấy cái đầu tiên có key. Gemini, Groq, OpenRouter có gói miễn phí.",
+    help: "Chỉ cần MỘT key. Tự động: Claude → ChatGPT → Gemini → Groq → OpenRouter → Ollama, lấy cái đầu tiên có key. Gemini, Groq, OpenRouter có gói miễn phí. Ollama chạy ngay trên máy: không key, không cần mạng.",
     group: "Viết kịch bản",
     type: "select",
     options: [
@@ -45,7 +50,25 @@ export const KEY_FIELDS: Field[] = [
       { value: "gemini", label: "Gemini (Google) — miễn phí" },
       { value: "groq", label: "Groq — miễn phí" },
       { value: "openrouter", label: "OpenRouter — model miễn phí" },
+      { value: "ollama", label: "Ollama — chạy trên máy, không cần mạng" },
     ],
+  },
+  {
+    name: "OLLAMA_MODEL",
+    label: "Model Ollama (trên máy)",
+    help: `Cài Ollama (ollama.com/download — có bản Windows, macOS, Linux), mở Terminal hoặc PowerShell chạy "ollama pull ${DEFAULT_OLLAMA_MODEL}". Điền tên model là bật Ollama; bỏ trống mà chọn Ollama ở trên thì dùng ${DEFAULT_OLLAMA_MODEL}. Mặc định nhẹ (~1 GB, máy 8 GB RAM chạy được). Máy khoẻ hơn điền qwen2.5:3b (~1,9 GB) để viết tiếng Việt tốt hơn.`,
+    group: "Viết kịch bản",
+    type: "text",
+    url: "https://ollama.com/download",
+    placeholder: DEFAULT_OLLAMA_MODEL,
+  },
+  {
+    name: "OLLAMA_HOST",
+    label: "Địa chỉ Ollama",
+    help: `Bỏ trống để dùng ${DEFAULT_OLLAMA_HOST} (Ollama trên chính máy này).`,
+    group: "Viết kịch bản",
+    type: "text",
+    placeholder: DEFAULT_OLLAMA_HOST,
   },
   {
     name: "ANTHROPIC_API_KEY",
@@ -114,10 +137,26 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "ELEVENLABS_API_KEY",
     label: "ElevenLabs",
-    help: "Tuỳ chọn — giọng đọc AI. Không có thì dùng giọng macOS miễn phí.",
+    help: "Tuỳ chọn — giọng đọc AI. Không có thì dùng giọng miễn phí có sẵn trong máy (macOS: giọng Linh; Windows: giọng nói của Windows, cần cài gói tiếng Việt).",
     group: "Giọng đọc & hình ảnh",
     type: "secret",
     url: "https://elevenlabs.io/app/settings/api-keys",
+  },
+  {
+    name: "EVERAI_API_KEY",
+    label: "EverAI",
+    help: "Tuỳ chọn — giọng đọc AI tiếng Việt bản xứ (Kiều Nhi, Thuỳ Trang, Lê Hoàng). Tính theo credit/ký tự.",
+    group: "Giọng đọc & hình ảnh",
+    type: "secret",
+    url: "https://everai.vn/api",
+  },
+  {
+    name: "EVERAI_MODEL_ID",
+    label: "Model EverAI",
+    help: "Bỏ trống để dùng everai-v1.6. Khác: everai-v1.5, everai-v1.5-turbo, everai-v1.",
+    group: "Giọng đọc & hình ảnh",
+    type: "text",
+    placeholder: "everai-v1.6",
   },
   {
     name: "PEXELS_API_KEY",
@@ -130,7 +169,7 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "GEMINI_API_KEY",
     label: "Google Gemini",
-    help: "Tuỳ chọn — viết kịch bản miễn phí (Gemini Flash), sinh ảnh nền bằng AI, và video Veo (Veo không có gói miễn phí — cần bật thanh toán).",
+    help: "Tuỳ chọn — viết kịch bản miễn phí (Gemini Flash). Sinh ảnh AI và video Veo KHÔNG có gói miễn phí (giới hạn free = 0) — cần bật thanh toán cho dự án Google của key.",
     group: "Giọng đọc & hình ảnh",
     type: "secret",
     url: "https://aistudio.google.com/apikey",

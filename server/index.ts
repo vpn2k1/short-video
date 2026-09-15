@@ -34,11 +34,11 @@ import {
   startVoiceChange,
 } from "./chat";
 import { getEditorAssets } from "./editor-build";
-import { extractAudio, listMedia } from "./media";
+import { deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
 import { keyStatus, loadKeys, saveKeys } from "./keys";
 import { isStyleId, STYLE_IDS, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
-import { COMPAT_PROVIDERS, scriptProvider } from "../scripts/generate-script";
+import { providerLabel, scriptProvider } from "../scripts/generate-script";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
 import { watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
@@ -191,7 +191,7 @@ const server = http.createServer(async (req, res) => {
         keys: {
           /** Có key của một nhà cung cấp viết kịch bản nào đó (kể cả gói miễn phí). */
           script: Boolean(scriptProvider()),
-          scriptLabel: ((p) => (!p ? null : p === "anthropic" ? "Claude" : COMPAT_PROVIDERS[p].label))(scriptProvider()),
+          scriptLabel: ((p) => (p ? providerLabel(p) : null))(scriptProvider()),
           anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
           openai: Boolean(process.env.OPENAI_API_KEY),
           groq: Boolean(process.env.GROQ_API_KEY),
@@ -243,8 +243,12 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { projects: listProjects() });
     }
     if (route === "/api/projects/delete" && req.method === "POST") {
-      const body = (await readJson(req)) as { slugs?: unknown } | null;
-      return send(res, 200, deleteProjects(body?.slugs));
+      try {
+        const body = (await readJson(req)) as { slugs?: unknown } | null;
+        return send(res, 200, deleteProjects(body?.slugs));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     if (route.startsWith("/api/chat/") && req.method === "GET") {
@@ -268,6 +272,19 @@ const server = http.createServer(async (req, res) => {
     // ---- trình chỉnh sửa ----
     if (route === "/api/media") {
       return send(res, 200, listMedia());
+    }
+
+    // ---- thư viện: tab 🗂 Tài nguyên ----
+    if (route === "/api/library/media") {
+      return send(res, 200, listLibraryMedia());
+    }
+    if (route === "/api/media/delete" && req.method === "POST") {
+      try {
+        const body = await readJson<{ paths?: unknown; force?: unknown }>(req);
+        return send(res, 200, deleteLibraryMedia(body?.paths, body?.force === true));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     if (route === "/api/media/extract-audio" && req.method === "POST") {

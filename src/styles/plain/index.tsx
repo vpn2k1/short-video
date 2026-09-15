@@ -38,7 +38,7 @@ export const PlainStyle: React.FC<ShortProps> = ({
             {!scene.image ? (
               <AbsoluteFill style={{ backgroundColor: background }} />
             ) : VIDEO_EXT.test(scene.image) ? (
-              <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} volume={scene.volume} crop={scene.crop} objectFit="contain" />
+              <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} speed={scene.speed} volume={scene.volume} crop={scene.crop} objectFit="contain" />
             ) : (
               <CropBox crop={scene.crop}>
                 <Img src={staticFile(scene.image)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />

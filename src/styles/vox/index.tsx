@@ -142,7 +142,7 @@ const SceneLayer: React.FC<{
             sceneIndex={index}
             sceneStart={start}
             title={title}
-            trimStartMs={scene.trimStartMs}
+            trimStartMs={scene.trimStartMs} speed={scene.speed}
             volume={scene.volume}
             crop={scene.crop}
           />

@@ -36,7 +36,7 @@ const Texture: React.FC<{ scene: Scene; swatch: Swatch }> = ({ scene, swatch }) 
     >
       {VIDEO_EXT.test(scene.image) ? (
         <Sequence from={start}>
-          <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} volume={scene.volume} crop={scene.crop} style={media} />
+          <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} speed={scene.speed} volume={scene.volume} crop={scene.crop} style={media} />
         </Sequence>
       ) : (
         <Img src={staticFile(scene.image)} style={media} />

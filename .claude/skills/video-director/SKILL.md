@@ -17,7 +17,8 @@ Claude Code
  ├── macOS say        giọng Việt Linh  — FREE, offline, KHÔNG giới hạn
  ├── whisper.cpp      phụ đề từ audio  — FREE, offline
  ├── Canva MCP        minh hoạ vector  — FREE, đã xác thực
- └── Gemini           ảnh AI           — key hiện 403, chưa dùng được
+ ├── Gemini Flash     viết kịch bản    — FREE (gói miễn phí), hay 503 quá tải → tự lùi về Flash-Lite
+ └── Gemini ảnh/Veo   ảnh AI, video AI — KHÔNG free (quota free = 0), cần bật billing
 ```
 
 Nguyên tắc: **ưu tiên thứ miễn phí và chạy offline**. Chỉ chạm dịch vụ trả phí khi thứ
@@ -69,6 +70,14 @@ Danh sách ở `src/styles/meta.ts`, bản vẽ ở `src/styles/<id>/`, luật t
 | `chat` | `style-chat` | kể chuyện bằng tin nhắn, drama, hội thoại |
 | `news` | `style-news` | tin tức, cập nhật, sự kiện vừa xảy ra |
 | `retro` | `style-retro` | hoài niệm, chuyện ngày xưa, meme |
+| `cinematic` | `style-cinematic` | kể chuyện cảm xúc, trailer, du lịch, thương hiệu |
+| `comic` | `style-comic` | chuyện hài phóng đại, siêu anh hùng, trẻ em |
+| `social` | `style-social` | Reddit story, tâm sự ẩn danh, drama ngôi thứ nhất |
+| `quiz` | `style-quiz` | đố vui, trắc nghiệm, kêu gọi bình luận |
+| `ranking` | `style-ranking` | top list, xếp hạng, đếm ngược |
+
+Mỗi phong cách có `examplePrompt` trong `meta.ts` — hiện trong menu chọn phong cách của web
+và được điền sẵn vào ô chat khi chọn phong cách cho video mới.
 
 Đoạn `<!-- ai-guide -->` trong mỗi skill được server đưa thẳng vào prompt viết kịch bản
 (`scripts/style-guides.ts`) — sửa skill là AI viết khác theo. Thêm phong cách mới: id trong

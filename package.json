@@ -68,11 +68,28 @@
       ],
       "category": "public.app-category.video",
       "identity": null
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
     }
   },
   "scripts": {
     "desktop": "electron .",
     "dist:mac": "electron-builder --mac",
+    "dist:win": "bash desktop/build-win.sh",
     "audio-assets": "bash scripts/make-audio-assets.sh",
     "audio-to-video": "tsx scripts/audio-to-video.ts",
     "build": "remotion bundle",

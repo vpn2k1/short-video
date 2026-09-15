@@ -70,7 +70,7 @@ export const SceneCard: React.FC<Props> = ({ scene, index, total, accent, start,
               <Sequence from={start}>
                 <ClipVideo
                   src={scene.image}
-                  trimStartMs={scene.trimStartMs}
+                  trimStartMs={scene.trimStartMs} speed={scene.speed}
                   volume={scene.volume}
                   crop={scene.crop}
                 />

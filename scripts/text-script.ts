@@ -85,6 +85,11 @@ const guessStyle = (all: string, scenes: ScriptScene[]): StyleId => {
     return Boolean(m && !LABEL.test(m[1]));
   }).length;
   if (lines.length >= 3 && spoken / lines.length >= 0.6) return "chat";
+  if (/đố vui|câu đố|trắc nghiệm|đáp án là|bạn có đoán|câu hỏi\s*\d/i.test(all)) return "quiz";
+  if (/\btop\s*\d+\b|xếp hạng|đếm ngược|(^|\s)#\d\b/i.test(all)) return "ranking";
+  if (/reddit|ẩn danh|bài đăng|tâm sự|thú nhận|confession/i.test(all)) return "social";
+  if (/truyện tranh|siêu anh hùng|comic|manga/i.test(all)) return "comic";
+  if (/trailer|điện ảnh|thước phim/i.test(all)) return "cinematic";
   if (/tin nóng|bản tin|vừa xảy ra|mới nhất|cập nhật|chính thức|công bố|thông báo khẩn/i.test(all)) return "news";
   if (/ngày xưa|thập niên|thời thơ ấu|tuổi thơ|hoài niệm|thế hệ 8x|thế hệ 9x|\b(19[89]\d)s?\b/i.test(all)) return "retro";
   if (/\b(bước|step)\s*\d/i.test(all) || /hướng dẫn|công thức|cách làm/i.test(all)) return "whiteboard";

@@ -91,18 +91,36 @@ export const NewProject: React.FC = () => {
     <div className="np">
       <div className="np-card">
         <header className="np-head">
-          <a className="ed-btn ghost" href="/">← Trang chủ</a>
-          <h1>✂️ Edit video mới</h1>
+          <a className="ed-btn ghost" href="/">‹ Trang chủ</a>
+          <h1>✂️ Dự án chỉnh sửa mới</h1>
         </header>
-        <p className="muted">Tải video hoặc ảnh lên, sắp thứ tự, rồi chỉnh sửa trên timeline — thêm chữ, âm thanh, cắt ghép, tách âm thanh. Không cần kịch bản hay API key.</p>
+        <p className="muted">Thêm video hoặc ảnh, rồi cắt ghép, thêm chữ, nhạc trên timeline. Không cần API key.</p>
 
-        <label className="np-field">
-          <span>Tên dự án</span>
-          <input value={title} maxLength={60} placeholder="Video mới" onChange={(e) => setTitle(e.target.value)} />
-        </label>
+        <div
+          className={`np-drop ${dragOver ? "drag" : ""}`}
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); upload([...e.dataTransfer.files]); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileRef.current?.click(); }}
+        >
+          <i>{uploading ? "…" : "＋"}</i>
+          <b>{uploading ? "Đang tải lên…" : "Nhập video / ảnh"}</b>
+          <span>Bấm để chọn file hoặc kéo thả vào đây · mp4, mov, webm, jpg, png, webp</span>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            hidden
+            accept="video/*,image/*"
+            onChange={(e) => { upload([...(e.target.files ?? [])]); e.target.value = ""; }}
+          />
+        </div>
 
         <div className="np-field">
-          <span>Tỉ lệ khung hình</span>
+          <span>Khung hình</span>
           <div className="np-aspects">
             {ASPECT_IDS.map((id) => {
               const a = ASPECTS[id];
@@ -118,27 +136,10 @@ export const NewProject: React.FC = () => {
           </div>
         </div>
 
-        <div
-          className={`np-drop ${dragOver ? "drag" : ""}`}
-          onClick={() => fileRef.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); upload([...e.dataTransfer.files]); }}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileRef.current?.click(); }}
-        >
-          <b>{uploading ? "Đang tải lên…" : "⬆ Kéo thả video / ảnh vào đây"}</b>
-          <span>hoặc bấm để chọn file · mp4, mov, webm, jpg, png, webp</span>
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            hidden
-            accept="video/*,image/*"
-            onChange={(e) => { upload([...(e.target.files ?? [])]); e.target.value = ""; }}
-          />
-        </div>
+        <label className="np-field">
+          <span>Tên dự án</span>
+          <input value={title} maxLength={60} placeholder="Video mới" onChange={(e) => setTitle(e.target.value)} />
+        </label>
 
         {picked.length > 0 ? (
           <div className="np-field">
@@ -180,7 +181,7 @@ export const NewProject: React.FC = () => {
 
         <div className="np-actions">
           <button className="ed-btn primary" onClick={create} disabled={creating || uploading}>
-            {creating ? "Đang tạo…" : picked.length ? `Mở trình chỉnh sửa với ${picked.length} cảnh →` : "Tạo dự án trống →"}
+            {creating ? "Đang tạo…" : picked.length ? `Bắt đầu chỉnh sửa (${picked.length} cảnh) →` : "Bắt đầu với dự án trống →"}
           </button>
         </div>
       </div>

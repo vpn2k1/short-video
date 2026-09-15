@@ -14,9 +14,10 @@ import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { generateAiVideo, isVideoModelChoice, videoModelCatalog } from "../scripts/ai-video";
 import { TITLE_FRAMES } from "../src/constants";
 import { editScript, generateScript, scriptProvider, type StyleChoice } from "../scripts/generate-script";
+import { moveToTrash } from "../scripts/trash";
 import { isStyleId, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
-import { generateVoiceover } from "../scripts/tts";
+import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
 import { findVoice } from "../scripts/voices";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist } from "../scripts/images";
@@ -26,8 +27,8 @@ import { runRenderStage } from "./pipeline";
 import { applyVoice } from "./editor/ops";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { transcribeFile } from "../scripts/transcribe";
-import { groupIntoLines } from "../scripts/group-captions";
+import { transcribeSentences } from "../scripts/transcribe";
+import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import type { Caption } from "../src/compositions/Short/schema";
 
 export type ChatSettings = {
@@ -211,28 +212,29 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
   const { props } = readEditorProps(slug);
   const videoFile = (src: string | null) => Boolean(src && /\.(mp4|mov|webm)$/i.test(src));
 
-  type Segment = { src: string; startMs: number; trimStartMs: number; durationMs: number; label: string };
+  // speed: tốc độ phát — đoạn file dùng dài durationMs × speed; thời gian phụ đề ÷ speed để khớp timeline.
+  type Segment = { src: string; startMs: number; trimStartMs: number; durationMs: number; speed: number; label: string };
   const segments: Segment[] = [];
   if (opts.source === "scene") {
     const i = Number(opts.index);
     const s = props.scenes[i];
     if (!s || !videoFile(s.image)) throw new Error("Chọn một cảnh là video để tạo phụ đề.");
-    segments.push({ src: s.image as string, startMs: s.startMs, trimStartMs: s.trimStartMs, durationMs: s.endMs - s.startMs, label: `cảnh ${i + 1}` });
+    segments.push({ src: s.image as string, startMs: s.startMs, trimStartMs: s.trimStartMs, durationMs: s.endMs - s.startMs, speed: s.speed ?? 1, label: `cảnh ${i + 1}` });
   } else if (opts.source === "clip") {
     const i = Number(opts.index);
     const c = props.audioClips[i];
     if (!c) throw new Error("Đoạn âm thanh không tồn tại.");
-    segments.push({ src: c.src, startMs: c.startMs, trimStartMs: c.trimStartMs, durationMs: c.durationMs, label: c.label ?? "âm thanh" });
+    segments.push({ src: c.src, startMs: c.startMs, trimStartMs: c.trimStartMs, durationMs: c.durationMs, speed: c.speed ?? 1, label: c.label ?? "âm thanh" });
   } else {
     // Cả video: cảnh video còn tiếng gốc + âm thanh thêm tay (trừ nhạc nền và hiệu ứng).
     props.scenes.forEach((s, i) => {
       if (videoFile(s.image) && s.volume > 0) {
-        segments.push({ src: s.image as string, startMs: s.startMs, trimStartMs: s.trimStartMs, durationMs: s.endMs - s.startMs, label: `cảnh ${i + 1}` });
+        segments.push({ src: s.image as string, startMs: s.startMs, trimStartMs: s.trimStartMs, durationMs: s.endMs - s.startMs, speed: s.speed ?? 1, label: `cảnh ${i + 1}` });
       }
     });
     props.audioClips.forEach((c) => {
       if (!/^(music|sfx)\//.test(c.src)) {
-        segments.push({ src: c.src, startMs: c.startMs, trimStartMs: c.trimStartMs, durationMs: c.durationMs, label: c.label ?? "âm thanh" });
+        segments.push({ src: c.src, startMs: c.startMs, trimStartMs: c.trimStartMs, durationMs: c.durationMs, speed: c.speed ?? 1, label: c.label ?? "âm thanh" });
       }
     });
   }
@@ -251,7 +253,7 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
         // Video không có luồng âm thanh làm ffmpeg báo lỗi — coi như không có tiếng.
         await runFile("ffmpeg", [
           "-y", "-v", "error",
-          "-ss", (seg.trimStartMs / 1000).toFixed(3), "-t", (seg.durationMs / 1000).toFixed(3),
+          "-ss", (seg.trimStartMs / 1000).toFixed(3), "-t", ((seg.durationMs * seg.speed) / 1000).toFixed(3),
           "-i", path.join(process.cwd(), "public", seg.src),
           "-vn", "-ac", "1", "-ar", "16000", wav,
         ], { maxBuffer: 16 * 1024 * 1024 }).catch(() => undefined);
@@ -262,12 +264,16 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
           continue;
         }
         try {
-          const tokens = await transcribeFile({ audioPath: wav, model, language });
-          const shifted = tokens.map((t) => ({ ...t, startMs: t.startMs + seg.startMs, endMs: t.endMs + seg.startMs }));
-          const segEnd = seg.startMs + seg.durationMs;
-          const lines = groupIntoLines(shifted)
-            .filter((line) => line.text.trim() && line.startMs < segEnd)
-            .map((line) => ({ ...line, endMs: Math.min(line.endMs, segEnd) }));
+          // Chữ theo câu từ whisper, mép phụ đề theo khoảng lặng thật của chính đoạn âm thanh này —
+          // phụ đề hiện khi bắt đầu nói, tắt khi ngừng. Xem scripts/subtitle-align.ts.
+          const sentences = await transcribeSentences({ audioPath: wav, model, language });
+          const silences = await detectSilences(wav);
+          const lines = alignCaptions(sentences, silences, seg.durationMs * seg.speed)
+            .map((line) => ({
+              ...line,
+              startMs: Math.round(seg.startMs + line.startMs / seg.speed),
+              endMs: Math.round(seg.startMs + line.endMs / seg.speed),
+            }));
           created.push(...lines);
           log(`  ${seg.label}: ${lines.length} câu`);
         } finally {
@@ -279,10 +285,22 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
       const keep = replace
         ? latest.captions.filter((c) => !segments.some((seg) => c.startMs < seg.startMs + seg.durationMs && c.endMs > seg.startMs))
         : latest.captions;
-      const next = shortSchema.parse({ ...latest, captions: [...keep, ...created].sort((a, b) => a.startMs - b.startMs) });
+      // Phụ đề vừa tạo nằm ở một hàng phụ đề riêng (Phụ đề 2, 3…), không trộn vào hàng đang có.
+      // Dồn số các hàng còn lại cho liền nhau trước (lỡ "thay phụ đề cũ" xoá hết một hàng) để timeline không hở hàng.
+      const usedTracks = [...new Set(keep.map((c) => c.track ?? 0))].sort((a, b) => a - b);
+      const compacted = keep.map((c) => {
+        const track = usedTracks.indexOf(c.track ?? 0);
+        return { ...c, track: track > 0 ? track : undefined };
+      });
+      const track = usedTracks.length;
+      const next = shortSchema.parse({
+        ...latest,
+        captions: [...compacted, ...created.map((c) => ({ ...c, track: track > 0 ? track : undefined }))]
+          .sort((a, b) => a.startMs - b.startMs),
+      });
       fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(next, null, 2));
-      log(`Xong: ${created.length} câu phụ đề.`);
-      return { props: next, count: created.length };
+      log(`Xong: ${created.length} câu phụ đề ở hàng Phụ đề ${track + 1}.`);
+      return { props: next, count: created.length, track };
     } finally {
       running.delete(slug);
     }
@@ -342,8 +360,8 @@ export const startVoiceChange = (slug: string, body: unknown) => {
   if (!chosen) {
     throw new Error("Chọn một giọng đọc hợp lệ.");
   }
-  if (chosen.engine === "elevenlabs" && !process.env.ELEVENLABS_API_KEY) {
-    throw new Error("Giọng này cần API key ElevenLabs — điền trong Cài đặt, hoặc chọn giọng macOS miễn phí.");
+  if (missingEngineKey(chosen.engine)) {
+    throw new Error(`Giọng này cần API key ${ENGINE_LABELS[chosen.engine]} — điền trong Cài đặt, hoặc chọn giọng miễn phí có sẵn trong máy.`);
   }
   if (running.has(slug)) {
     throw new Error("Video này đang được xử lý — đợi xong đã.");
@@ -454,11 +472,20 @@ export const deleteProjects = (value: unknown) => {
       skipped.push({ slug, reason: "không tồn tại" });
       continue;
     }
+    // Chuyển vào Thùng rác (lấy lại được), không xoá hẳn. Một file bị khoá (Windows: video vừa được
+    // phát trong thư viện) không được làm hỏng cả lượt: ghi lý do, chuyển tiếp phần còn lại.
+    const failed: string[] = [];
     for (const file of files) {
-      freedBytes += dirBytes(file);
-      fs.rmSync(file, { recursive: true, force: true });
+      const bytes = dirBytes(file);
+      try {
+        moveToTrash(file);
+        freedBytes += bytes;
+      } catch (error) {
+        failed.push((error as NodeJS.ErrnoException).code ?? (error as Error).message);
+      }
     }
-    deleted.push(slug);
+    if (failed.length === 0) deleted.push(slug);
+    else skipped.push({ slug, reason: `không xoá hết file (${[...new Set(failed)].join(", ")})` });
   }
   return { deleted, skipped, freedBytes };
 };
@@ -593,7 +620,7 @@ export const startTurn = (input: TurnInput) => {
   }
   if (settings.mode === "ai" && !scriptProvider()) {
     throw new Error(
-      "Chưa có API key viết kịch bản. Điền trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí), hoặc chọn 📝 Dùng nguyên văn để dán kịch bản — không cần key.",
+      "Chưa có AI viết kịch bản. Điền key trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí), chọn Ollama để chạy AI ngay trên máy không cần key, hoặc chọn 📝 Dùng nguyên văn để dán kịch bản.",
     );
   }
   if (settings.mode === "text") {

@@ -2,8 +2,27 @@ import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import type { VoiceoverClip } from "../src/compositions/Short/script";
+import { VOICES } from "./voices";
 
-export type TtsEngine = "elevenlabs" | "say";
+export type TtsEngine = "elevenlabs" | "everai" | "say";
+
+/** Tên hiển thị của từng nguồn giọng — dùng chung cho CLI, API, giao diện. */
+export const ENGINE_LABELS: Record<TtsEngine, string> = {
+  elevenlabs: "ElevenLabs",
+  everai: "EverAI",
+  say: "miễn phí",
+};
+
+const ENGINE_KEYS: Partial<Record<TtsEngine, string>> = {
+  elevenlabs: "ELEVENLABS_API_KEY",
+  everai: "EVERAI_API_KEY",
+};
+
+/** Tên biến key còn thiếu cho engine này, hoặc null nếu dùng được ngay. */
+export const missingEngineKey = (engine: TtsEngine) => {
+  const name = ENGINE_KEYS[engine];
+  return name && !process.env[name] ? name : null;
+};
 
 /** Public dir is where Remotion's staticFile() resolves from. */
 const publicDir = () => path.resolve(process.cwd(), "public");
@@ -32,7 +51,39 @@ const toMp3 = (input: string, output: string) => {
   ]);
 };
 
+/**
+ * Windows không có `say` — dùng SAPI sẵn trong máy qua PowerShell. Tìm giọng theo tên,
+ * không có thì lấy giọng đầu tiên cùng ngôn ngữ (giọng Việt cần cài gói giọng nói vi-VN).
+ * Chữ và đường dẫn đi qua biến môi trường để khỏi phải escape trong lệnh PowerShell.
+ */
+const windowsSpeak = (text: string, wav: string, voice: string) => {
+  const lang = VOICES.find((v) => v.engine === "say" && v.id === voice)?.lang ?? "vi";
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "Add-Type -AssemblyName System.Speech",
+    "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer",
+    "$all = $s.GetInstalledVoices() | Where-Object { $_.Enabled }",
+    "$v = $all | Where-Object { $_.VoiceInfo.Name -like \"*$env:TTS_VOICE*\" } | Select-Object -First 1",
+    "if (-not $v) { $v = $all | Where-Object { $_.VoiceInfo.Culture.Name -like \"$env:TTS_LANG*\" } | Select-Object -First 1 }",
+    "if (-not $v) { throw \"Windows chua co giong doc ngon ngu $env:TTS_LANG. Cai goi giong noi trong Settings > Time & Language > Speech, hoac dung giong ElevenLabs.\" }",
+    "$s.SelectVoice($v.VoiceInfo.Name)",
+    "$s.SetOutputToWaveFile($env:TTS_OUT)",
+    "$s.Speak($env:TTS_TEXT)",
+    "$s.Dispose()",
+  ].join("\n");
+  execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+    env: { ...process.env, TTS_TEXT: text, TTS_OUT: wav, TTS_VOICE: voice, TTS_LANG: lang },
+  });
+};
+
 const sayToFile = (text: string, output: string, voice: string) => {
+  if (process.platform === "win32") {
+    const wav = `${output}.wav`;
+    windowsSpeak(text, wav, voice);
+    toMp3(wav, output);
+    fs.unlinkSync(wav);
+    return;
+  }
   const aiff = `${output}.aiff`;
   execFileSync("say", ["-v", voice, "-o", aiff, text]);
   toMp3(aiff, output);
@@ -75,6 +126,84 @@ const elevenLabsToFile = async (
 
   const raw = `${output}.raw.mp3`;
   fs.writeFileSync(raw, Buffer.from(await response.arrayBuffer()));
+  toMp3(raw, output);
+  fs.unlinkSync(raw);
+};
+
+const EVERAI_API = "https://www.everai.vn/api/v1/tts";
+const EVERAI_POLL_MS = 1000;
+const EVERAI_TIMEOUT_MS = 180_000;
+
+type EverAiResponse = {
+  status: number;
+  error_code?: string | number;
+  error_message?: string;
+  result?: { request_id: string; status: string; audio_link?: string; audio_expired?: boolean };
+};
+
+const everAiCall = async (url: string, init?: RequestInit) => {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${process.env.EVERAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+  });
+  const text = await response.text();
+  let body: EverAiResponse | undefined;
+  try {
+    body = JSON.parse(text) as EverAiResponse;
+  } catch {
+    // body lỗi dạng HTML/chữ thường — báo nguyên văn bên dưới.
+  }
+  if (!response.ok || !body || body.status !== 1 || !body.result) {
+    const detail = body?.error_message ?? text.slice(0, 200);
+    throw new Error(`EverAI trả về ${response.status}: ${detail}`);
+  }
+  return body.result;
+};
+
+/**
+ * EverAI xử lý bất đồng bộ: POST tạo yêu cầu, rồi hỏi lại theo request_id tới khi
+ * "done" mới có audio_link. Không dùng callback_url vì server chạy local.
+ */
+const everAiToFile = async (text: string, output: string, voiceCode: string) => {
+  const created = await everAiCall(EVERAI_API, {
+    method: "POST",
+    body: JSON.stringify({
+      response_type: "indirect",
+      input_text: text,
+      voice_code: voiceCode,
+      model_id: process.env.EVERAI_MODEL_ID || "everai-v1.6",
+      audio_type: "mp3",
+      bitrate: 128,
+      speed_rate: 1.0,
+      pitch_rate: 1.0,
+    }),
+  });
+
+  const deadline = Date.now() + EVERAI_TIMEOUT_MS;
+  let job = created;
+  while (job.status !== "done") {
+    if (/fail|error/i.test(job.status)) {
+      throw new Error(`EverAI không đọc được câu này (trạng thái ${job.status}).`);
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`EverAI xử lý quá ${EVERAI_TIMEOUT_MS / 1000}s — thử lại sau.`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, EVERAI_POLL_MS));
+    job = await everAiCall(`${EVERAI_API}/${created.request_id}`);
+  }
+  if (!job.audio_link || job.audio_expired) {
+    throw new Error("EverAI báo xong nhưng không có file audio.");
+  }
+
+  const audio = await fetch(job.audio_link);
+  if (!audio.ok) {
+    throw new Error(`Không tải được audio EverAI: ${audio.status}`);
+  }
+  const raw = `${output}.raw.mp3`;
+  fs.writeFileSync(raw, Buffer.from(await audio.arrayBuffer()));
   toMp3(raw, output);
   fs.unlinkSync(raw);
 };
@@ -123,10 +252,14 @@ export const generateVoiceover = async (
   const absDir = path.join(publicDir(), relDir);
   fs.mkdirSync(absDir, { recursive: true });
 
-  if (engine === "elevenlabs" && !process.env.ELEVENLABS_API_KEY) {
+  const missing = missingEngineKey(engine);
+  if (missing) {
     throw new Error(
-      "Thiếu ELEVENLABS_API_KEY. Đặt biến môi trường, hoặc chạy với --tts say để dùng giọng macOS.",
+      `Thiếu ${missing}. Điền trong Cài đặt, hoặc chạy với --tts say để dùng giọng macOS.`,
     );
+  }
+  if (engine === "everai" && !voiceOverride) {
+    throw new Error("Giọng EverAI cần voice_code — chọn một giọng EverAI trong danh sách.");
   }
 
   const voiceId =
@@ -146,6 +279,8 @@ export const generateVoiceover = async (
 
     if (engine === "say") {
       sayToFile(lines[i], abs, sayVoice);
+    } else if (engine === "everai") {
+      await everAiToFile(lines[i], abs, voiceOverride as string);
     } else {
       await elevenLabsToFile(lines[i], abs, voiceId, modelId);
     }

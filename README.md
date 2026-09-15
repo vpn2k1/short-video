@@ -27,19 +27,40 @@ thứ miễn phí không làm được việc đó.
 
 ## 1. Yêu cầu
 
+> **Dùng app desktop** (bộ cài `.dmg` cho macOS, `.exe` cho Windows): không cần cài gì thêm —
+> app đã kèm Node, ffmpeg và Chrome dựng video. Phần dưới dành cho chạy từ mã nguồn.
+
 | | Bản đã kiểm chứng | Bắt buộc |
 |---|---|---|
 | Node.js | v20.19.6 | ✅ (cần ≥ 20.12 cho `process.loadEnvFile`) |
 | ffmpeg + ffprobe | 9.0.1 | ✅ — dùng cho mọi khâu audio và ảnh |
-| macOS | Darwin 25.6 | Chỉ để dùng giọng `say`; Linux/Windows vẫn chạy phần còn lại |
+| Hệ điều hành | macOS 26 (Darwin 25.6) | macOS, Windows, Linux đều chạy được — khác nhau ở giọng đọc miễn phí (bảng dưới) |
 
-Kiểm tra nhanh:
+Giọng đọc miễn phí, offline theo hệ điều hành:
+
+| Hệ điều hành | Giọng miễn phí | Ghi chú |
+|---|---|---|
+| macOS | `say` — giọng Việt `Linh` | Có sẵn |
+| Windows | Giọng nói Windows (SAPI) | Cần cài gói giọng tiếng Việt: Settings → Time & Language → Speech |
+| Linux | Chưa hỗ trợ | Dùng ElevenLabs/EverAI hoặc audio thu sẵn |
+
+Kiểm tra nhanh (macOS/Linux dùng Terminal, Windows dùng PowerShell):
 
 ```bash
-node -v && ffmpeg -version | head -1 && ffprobe -version | head -1
+node -v
 ```
 
-Chưa có ffmpeg trên macOS: `brew install ffmpeg`.
+```bash
+ffmpeg -version
+```
+
+Chưa có ffmpeg:
+
+| Hệ điều hành | Lệnh cài |
+|---|---|
+| macOS | `brew install ffmpeg` |
+| Windows | `winget install Gyan.FFmpeg` (mở lại PowerShell sau khi cài) |
+| Ubuntu/Debian | `sudo apt install ffmpeg` |
 
 ---
 
@@ -121,11 +142,15 @@ cp .env.example .env
 | Biến | Dùng cho | Thiếu thì sao | Lấy ở đâu |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | Sinh kịch bản từ prompt | Tự viết `script.json` | [console.anthropic.com](https://console.anthropic.com) |
-| `ELEVENLABS_API_KEY` | Giọng đọc, nhạc/sfx AI | Dùng `--voice linh` (macOS) | [elevenlabs.io](https://elevenlabs.io) |
+| `ELEVENLABS_API_KEY` | Giọng đọc, nhạc/sfx AI | Dùng giọng miễn phí của máy (`--voice linh` trên macOS) | [elevenlabs.io](https://elevenlabs.io) |
 | `PEXELS_API_KEY` | Ảnh chụp thật | Dùng `visual` hoặc tự bỏ ảnh vào | [pexels.com/api](https://www.pexels.com/api/) — free 25k req/tháng |
 | `GEMINI_API_KEY` | Sinh ảnh AI | Dùng Pexels | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — **sinh ảnh cần bật billing** |
 
 Biến tuỳ chọn: `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL_ID`, `SAY_VOICE`, `PORT`.
+
+**Không có key nào vẫn viết kịch bản bằng AI được:** cài Ollama và chọn "Ollama" trong ⚙️ Cài đặt —
+model chạy ngay trên máy, không cần mạng. Cách cài, chọn model và kết quả đo thật:
+[docs/ai-tren-may.md](docs/ai-tren-may.md).
 
 > `.env` đã nằm trong `.gitignore`. Đừng commit nó.
 
@@ -504,6 +529,7 @@ npx remotion upgrade         # nâng Remotion + skill Remotion cùng lúc
 ```
 
 Tài liệu chi tiết hơn về pipeline: [docs/prompt-to-video.md](docs/prompt-to-video.md).
+AI viết kịch bản chạy trên máy (Ollama): [docs/ai-tren-may.md](docs/ai-tren-may.md).
 
 ---
 

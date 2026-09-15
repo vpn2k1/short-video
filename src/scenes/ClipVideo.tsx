@@ -10,6 +10,11 @@ type Props = {
   trimStartMs?: number;
   /** Tiếng gốc của clip, 0 = tắt. */
   volume?: number;
+  /**
+   * Tốc độ phát (không có = 1). trimStartMs vẫn tính theo thời gian clip gốc — @remotion/media lấy
+   * thời điểm trong file = thời gian phát × playbackRate + trimBefore.
+   */
+  speed?: number;
   /** Chỉ lấy một vùng khung hình của clip. */
   crop?: SceneCrop | null;
   objectFit?: "cover" | "contain";
@@ -25,6 +30,7 @@ export const ClipVideo: React.FC<Props> = ({
   src,
   trimStartMs = 0,
   volume = 0,
+  speed = 1,
   crop = null,
   objectFit = "cover",
   style,
@@ -35,6 +41,7 @@ export const ClipVideo: React.FC<Props> = ({
       loop
       muted={volume <= 0}
       volume={() => Math.max(0, volume)}
+      playbackRate={speed}
       trimBefore={trimStartMs > 0 ? msToFrames(trimStartMs) : undefined}
       objectFit={objectFit}
       style={{ width: "100%", height: "100%", ...style }}

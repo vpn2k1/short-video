@@ -27,6 +27,17 @@ const CODE = ["package.json", "tsconfig.json", "remotion.config.ts", "src", "ser
 const SEED = ["public/images", "public/music", "public/sfx"];
 const DATA_DIRS = ["videos", "out", "data", "public/uploads", "public/voices", "public/videos"];
 
+/** Tên gói @remotion/compositor-* (chứa ffprobe) theo nền tảng. */
+const COMPOSITOR = {
+  "darwin-arm64": "darwin-arm64",
+  "darwin-x64": "darwin-x64",
+  "win32-x64": "win32-x64-msvc",
+  "linux-x64": "linux-x64-gnu",
+  "linux-arm64": "linux-arm64-gnu",
+};
+/** App mở từ Finder chỉ có PATH tối thiểu. */
+const MAC_BIN_DIRS = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+
 let serverProcess = null;
 let quitting = false;
 
@@ -63,7 +74,8 @@ const prepareWorkspace = () => {
   try { existing = fs.readlinkSync(link); } catch { /* chưa có */ }
   if (existing !== wanted) {
     fs.rmSync(link, { recursive: true, force: true });
-    fs.symlinkSync(wanted, link, "dir");
+    // Junction trên Windows không cần quyền admin như symlink.
+    fs.symlinkSync(wanted, link, process.platform === "win32" ? "junction" : "dir");
   }
 };
 
@@ -86,16 +98,23 @@ const startServer = (port) => {
   // ffmpeg: bản đầy đủ từ ffmpeg-static — bản Remotion kèm sẵn bị rút gọn, không đọc
   // được AIFF của `say` hay ảnh tải về không có đuôi. ffprobe: bản Remotion là đủ.
   const ffmpegStatic = path.join(appRoot, "node_modules", "ffmpeg-static");
-  const compositor = path.join(appRoot, "node_modules", "@remotion", `compositor-${process.platform}-${process.arch}`);
-  const PATH = [ffmpegStatic, compositor, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin", process.env.PATH]
+  const compositor = path.join(appRoot, "node_modules", "@remotion", `compositor-${COMPOSITOR[`${process.platform}-${process.arch}`]}`);
+
+  const env = { ...process.env, ELECTRON_RUN_AS_NODE: "1", PORT: String(port) };
+  // Windows gọi biến là "Path" — gom mọi biến thể về một khoá PATH duy nhất.
+  const inheritedPath = Object.entries(env).find(([key]) => key.toUpperCase() === "PATH")?.[1];
+  for (const key of Object.keys(env)) if (key.toUpperCase() === "PATH") delete env[key];
+  env.PATH = [ffmpegStatic, compositor, ...(process.platform === "darwin" ? MAC_BIN_DIRS : []), inheritedPath]
     .filter(Boolean)
     .join(path.delimiter);
+  // ffmpeg của Remotion link libav*.dylib theo tên trần — cần chỉ chỗ cho dyld.
+  // Trên Windows, DLL nằm cạnh .exe nên tự tìm được.
+  if (process.platform === "darwin") env.DYLD_LIBRARY_PATH = compositor;
 
   const tsxLoader = pathToFileURL(path.join(appRoot, "node_modules", "tsx", "dist", "loader.mjs")).href;
   serverProcess = spawn(process.execPath, ["--import", tsxLoader, path.join("server", "index.ts")], {
     cwd: workspace,
-    // ffmpeg của Remotion link libav*.dylib theo tên trần — cần chỉ chỗ cho dyld.
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", PORT: String(port), PATH, DYLD_LIBRARY_PATH: compositor },
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   for (const stream of [serverProcess.stdout, serverProcess.stderr]) {
@@ -182,6 +201,20 @@ const buildMenu = () => {
         { label: "Mở thư mục dữ liệu", click: () => shell.openPath(workspace) },
         { label: "Mở video đã render", click: () => shell.openPath(path.join(workspace, "out")) },
         { label: "Mở log server", click: () => shell.openPath(logPath) },
+      ],
+    },
+    {
+      role: "help",
+      label: "Trợ giúp",
+      submenu: [
+        {
+          // Không gắn accelerator: phím ⌘/ do trang tự bắt (chạy giống nhau trên web và app),
+          // gắn vào menu nữa thì một lần bấm sẽ mở rồi đóng hộp ngay.
+          label: `Phím tắt (${process.platform === "darwin" ? "⌘" : "Ctrl"}+/)`,
+          click: (_item, win) => {
+            win?.webContents.executeJavaScript('window.dispatchEvent(new Event("app:shortcuts"))').catch(() => {});
+          },
+        },
       ],
     },
   ];

@@ -83,9 +83,11 @@ export const Polaroid: React.FC<{
   seed: string;
   /** Clip video: cắt đầu và tiếng gốc chỉnh trong trình chỉnh sửa. */
   trimStartMs?: number;
+  /** Tốc độ phát của cảnh video. */
+  speed?: number;
   volume?: number;
   crop?: SceneCrop | null;
-}> = ({ src, photoW, cx, cy, unit, appear, frame, seed, trimStartMs, volume, crop }) => {
+}> = ({ src, photoW, cx, cy, unit, appear, frame, seed, trimStartMs, speed, volume, crop }) => {
   const photoH = photoW * 0.78;
   const s = photoW / 600;
   const pad = 22 * s;
@@ -136,7 +138,7 @@ export const Polaroid: React.FC<{
         {VIDEO_EXT.test(src) ? (
           // Clip người dùng tải lên: phát từ lúc ảnh xuất hiện, tắt tiếng, lặp nếu ngắn.
           <Sequence from={appear} layout="none">
-            <ClipVideo src={src} trimStartMs={trimStartMs} volume={volume} crop={crop} />
+            <ClipVideo src={src} trimStartMs={trimStartMs} speed={speed} volume={volume} crop={crop} />
           </Sequence>
         ) : (
           <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "cover", scale: String(zoom) }} />

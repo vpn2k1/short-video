@@ -11,6 +11,11 @@ import { BoldStyle } from "./bold";
 import { ChatStyle } from "./chat";
 import { NewsStyle } from "./news";
 import { RetroStyle } from "./retro";
+import { CinematicStyle } from "./cinematic";
+import { ComicStyle } from "./comic";
+import { SocialStyle } from "./social";
+import { QuizStyle } from "./quiz";
+import { RankingStyle } from "./ranking";
 
 /** Phong cách → component vẽ. Thêm phong cách mới: thêm id vào meta.ts và một dòng ở đây. */
 export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
@@ -25,4 +30,9 @@ export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
   chat: ChatStyle,
   news: NewsStyle,
   retro: RetroStyle,
+  cinematic: CinematicStyle,
+  comic: ComicStyle,
+  social: SocialStyle,
+  quiz: QuizStyle,
+  ranking: RankingStyle,
 };
