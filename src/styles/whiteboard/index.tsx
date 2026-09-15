@@ -249,7 +249,7 @@ const Page: React.FC<{
       {scene.image ? (
         <Polaroid
           src={scene.image}
-          trimStartMs={scene.trimStartMs}
+          trimStartMs={scene.trimStartMs} speed={scene.speed}
           volume={scene.volume}
           crop={scene.crop}
           photoW={photoW}

@@ -3,12 +3,48 @@ import { z } from "zod";
 import { ASPECT_IDS, DEFAULT_ASPECT } from "../../aspects";
 import { DEFAULT_STYLE, STYLE_IDS } from "../../styles/meta";
 
+/** Font phụ đề — khoá của FONTS trong src/styles/shared.tsx (đã kiểm có dấu tiếng Việt). */
+export const CAPTION_FONTS = ["sans", "rounded", "serif", "mono", "condensed"] as const;
+/** Kiểu chữ có sẵn cho phụ đề, giống các mẫu chữ của CapCut. */
+export const CAPTION_PRESETS = ["plain", "shadow", "outline", "box", "highlight", "neon", "pop3d"] as const;
+
+/**
+ * Kiểu phụ đề chỉnh trong trình chỉnh sửa. Dùng dạng partial ở hai chỗ: `captionLook` của video
+ * (chung mọi câu) và `style` của từng câu (ghi đè riêng). Xem src/components/captionLook.ts.
+ */
+export const captionLookSchema = z.object({
+  font: z.enum(CAPTION_FONTS),
+  /** Cỡ chữ tính ở cạnh ngắn 1080px — tự co theo tỉ lệ khung hình. */
+  size: z.number().min(16).max(240),
+  weight: z.number().min(100).max(900),
+  color: z.string(),
+  /** Màu phụ của preset: viền, khối nền, ánh neon, bóng 3D. */
+  accent: z.string(),
+  preset: z.enum(CAPTION_PRESETS),
+  /** Tâm khối chữ, % theo chiều ngang / dọc khung hình. */
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  uppercase: z.boolean(),
+  italic: z.boolean(),
+  /** Bề rộng khung bọc chữ, % khung hình — chữ dài hơn thì tự xuống dòng. */
+  width: z.number().min(10).max(100),
+  /** Căn các dòng trong khung chữ. */
+  align: z.enum(["left", "center", "right"]),
+});
+
 export const captionSchema = z.object({
   text: z.string(),
   startMs: z.number().min(0),
   endMs: z.number().min(0),
   /** staticFile() path of this line's voiceover, if one was generated. */
   audio: z.string().nullable().default(null),
+  /** Kiểu chữ riêng của câu này, ghi đè `captionLook` của video. Không có = theo kiểu chung. */
+  style: captionLookSchema.partial().nullish(),
+  /**
+   * Hàng phụ đề trong trình chỉnh sửa (0 = Phụ đề 1). Nhiều hàng hiện cùng lúc, hàng sau đặt cao hơn.
+   * Không có = hàng đầu tiên.
+   */
+  track: z.number().int().min(0).optional(),
 });
 
 /**
@@ -40,6 +76,11 @@ export const audioClipSchema = z.object({
   /** Thời lượng phát (sau khi cắt đầu). */
   durationMs: z.number().min(1),
   volume: z.number().min(0).max(2).default(1),
+  /**
+   * Tốc độ phát (0.25–4, không có = 1). Thời lượng trên timeline = đoạn file dùng ÷ tốc độ; trimStartMs
+   * tính theo thời gian của file gốc. Xem clipSpeed trong server/editor/ops.ts.
+   */
+  speed: z.number().min(0.25).max(4).optional(),
   label: z.string().nullable().default(null),
 });
 
@@ -65,6 +106,15 @@ export const textOverlaySchema = z.object({
   /** Bề rộng tối đa, % khung hình — chữ dài tự xuống dòng. */
   maxWidth: z.number().min(10).max(100).default(80),
   shadow: z.boolean().default(true),
+  /**
+   * Kiểu chữ giống phụ đề tuỳ chỉnh (font, preset, màu phụ, in hoa, nghiêng). Văn bản tạo trước khi có các
+   * trường này để trống — vẽ như cũ theo `background`/`shadow`. Xem textLook trong captionLook.ts.
+   */
+  font: z.enum(CAPTION_FONTS).nullish(),
+  preset: z.enum(CAPTION_PRESETS).nullish(),
+  accent: z.string().nullish(),
+  italic: z.boolean().nullish(),
+  uppercase: z.boolean().nullish(),
   animation: z.enum(["none", "fade", "pop", "slide", "typewriter"]).default("pop"),
   /** Hàng trên timeline của trình chỉnh sửa — không ảnh hưởng hình. */
   track: z.number().int().min(0).default(0),
@@ -114,6 +164,11 @@ export const sceneSchema = z.object({
   trimStartMs: z.number().min(0).default(0),
   /** Âm lượng tiếng gốc của clip video, 0 = tắt tiếng (mặc định — giọng đọc là chính). */
   volume: z.number().min(0).max(1).default(0),
+  /**
+   * Cảnh là video: tốc độ phát (0.25–4, không có = 1). Độ dài cảnh trên timeline = đoạn clip dùng ÷ tốc độ;
+   * trimStartMs tính theo thời gian của clip gốc.
+   */
+  speed: z.number().min(0.25).max(4).optional(),
   /** Chỉ lấy một vùng của ảnh/video — chỉnh trong khung crop của trình chỉnh sửa. */
   crop: z.union([mediaCropSchema, legacyCropSchema]).nullable().default(null),
   startMs: z.number().min(0),
@@ -145,6 +200,11 @@ export const shortSchema = z.object({
   /** Vị trí phụ đề: đáy màn hình hay chính giữa. */
   captionPosition: z.enum(["bottom", "center"]).default("bottom"),
   /**
+   * Kiểu phụ đề tuỳ chỉnh chung cho mọi câu (font, màu, preset, vị trí). Có giá trị — hoặc có câu mang
+   * `style` riêng — thì composition tự vẽ phụ đề thay cho phụ đề của phong cách. Không có = theo phong cách.
+   */
+  captionLook: captionLookSchema.partial().nullish(),
+  /**
    * Hiện title card ở đầu video. Tắt khi audio có sẵn bắt đầu nói ngay từ giây 0 —
    * lúc đó title card sẽ đè lên chính câu đầu tiên.
    */
@@ -174,6 +234,7 @@ export const shortSchema = z.object({
 });
 
 export type Caption = z.infer<typeof captionSchema>;
+export type CaptionLook = z.infer<typeof captionLookSchema>;
 export type Scene = z.infer<typeof sceneSchema>;
 export type SceneVisual = z.infer<typeof sceneVisualSchema>;
 export type ScenePunch = z.infer<typeof scenePunchSchema>;

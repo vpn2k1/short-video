@@ -73,3 +73,49 @@ export const transcribeFile = async ({
     >[0]["whisperCppOutput"],
   }).captions;
 };
+
+/**
+ * Phiên âm theo CÂU cho phụ đề tự động: whisper tự cắt đoạn ở ranh giới từ (--split-on-word), trần
+ * --max-len rộng để câu thường không bị cắt đôi (trần tính theo byte — chữ Việt có dấu 2–3 byte).
+ * Chữ đúng câu, không vỡ dấu; thời gian thì thô — khớp lại bằng alignCaptions (subtitle-align.ts).
+ * Đã đo: whisper 1.5.5 medium, clip tiếng Việt 21,6s → 5 đoạn trong 7,4s, không có ký tự U+FFFD.
+ */
+export const transcribeSentences = async ({
+  audioPath,
+  model,
+  language,
+}: {
+  audioPath: string;
+  model: WhisperModel;
+  language: Language;
+}) => {
+  const to = whisperDir();
+  await installWhisperCpp({ to, version: WHISPER_VERSION });
+  await downloadWhisperModel({ model, folder: to });
+
+  const wav = path.join(
+    path.dirname(audioPath),
+    `${path.basename(audioPath, path.extname(audioPath))}.16k.wav`,
+  );
+  toWhisperWav(audioPath, wav);
+  try {
+    const output = await transcribe({
+      model,
+      whisperPath: to,
+      whisperCppVersion: WHISPER_VERSION,
+      inputPath: wav,
+      tokenLevelTimestamps: false,
+      language,
+      printOutput: false,
+      // Truyền thẳng cờ: tuỳ chọn splitOnWord của thư viện gắn thêm chữ "true" sau cờ.
+      additionalArgs: ["--max-len", "160", "--split-on-word"],
+    });
+    return toCaptions({
+      whisperCppOutput: output as unknown as Parameters<typeof toCaptions>[0]["whisperCppOutput"],
+    }).captions
+      .map((c) => ({ text: c.text.trim(), startMs: c.startMs, endMs: c.endMs }))
+      .filter((c) => c.text);
+  } finally {
+    fs.rmSync(wav, { force: true });
+  }
+};

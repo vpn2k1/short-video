@@ -71,11 +71,13 @@ type Props = {
   title: string;
   /** Clip video: cắt đầu và tiếng gốc chỉnh trong trình chỉnh sửa. */
   trimStartMs?: number;
+  /** Tốc độ phát của cảnh video. */
+  speed?: number;
   volume?: number;
   crop?: SceneCrop | null;
 };
 
-export const Hero: React.FC<Props> = ({ image, kind, w, h, unit, sceneIndex, sceneStart, title, trimStartMs, volume, crop }) => {
+export const Hero: React.FC<Props> = ({ image, kind, w, h, unit, sceneIndex, sceneStart, title, trimStartMs, speed, volume, crop }) => {
   const key = `vox-hero-${sceneIndex}`;
 
   if (kind === "cutout" && image) {
@@ -186,7 +188,7 @@ export const Hero: React.FC<Props> = ({ image, kind, w, h, unit, sceneIndex, sce
       <div style={{ width: "100%", height: "100%", overflow: "hidden", backgroundColor: "#ddd" }}>
         {kind === "video" && image ? (
           <Sequence from={sceneStart} layout="none">
-            <ClipVideo src={image} trimStartMs={trimStartMs} volume={volume} crop={crop} />
+            <ClipVideo src={image} trimStartMs={trimStartMs} speed={speed} volume={volume} crop={crop} />
           </Sequence>
         ) : image ? (
           <Img src={staticFile(image)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />

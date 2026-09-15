@@ -75,7 +75,8 @@ export const Soundtrack: React.FC<Props> = ({
             </Sequence>
           ))}
 
-      {/* Âm thanh thêm tay: Sequence giới hạn thời lượng, trimBefore cắt đầu file. */}
+      {/* Âm thanh thêm tay: Sequence giới hạn thời lượng trên timeline, trimBefore cắt đầu file (thời gian
+          gốc), playbackRate là tốc độ — đoạn file dùng = durationMs × tốc độ. */}
       {audioClips.map((clip, index) => (
         <Sequence
           key={`clip-${index}`}
@@ -86,6 +87,7 @@ export const Soundtrack: React.FC<Props> = ({
           <Audio
             src={staticFile(clip.src)}
             trimBefore={clip.trimStartMs > 0 ? msToFrames(clip.trimStartMs) : undefined}
+            playbackRate={clip.speed ?? 1}
             volume={() => clip.volume}
           />
         </Sequence>

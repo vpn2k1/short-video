@@ -21,7 +21,9 @@ export type SubtitleOptions = {
 export type VoiceOption = {
   key: string;
   label: string;
-  engine: "say" | "elevenlabs";
+  engine: "say" | "elevenlabs" | "everai";
+  /** "miễn phí" / "ElevenLabs" / "EverAI". */
+  engineLabel: string;
   lang: "vi" | "en";
   paidPlan: boolean;
 };

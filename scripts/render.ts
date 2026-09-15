@@ -1,6 +1,7 @@
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { enableTailwind } from "@remotion/tailwind-v4";
+import fs from "fs";
 import path from "path";
 import type { ShortProps } from "../src/compositions/Short/schema";
 import { watermarkFromSettings } from "./watermark";
@@ -8,13 +9,46 @@ import { watermarkFromSettings } from "./watermark";
 export const COMPOSITION_ID = "Short";
 
 let cachedBundle: Promise<string> | null = null;
+let cachedStamp = "";
 
-/** Bundling is the slow part — reuse it across renders in the same process. */
+/** Số file + mtime mới nhất trong public/ — đổi là bản chép trong bundle đã cũ. */
+const publicStamp = () => {
+  let count = 0;
+  let latest = 0;
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(abs);
+      else {
+        count++;
+        latest = Math.max(latest, fs.statSync(abs).mtimeMs);
+      }
+    }
+  };
+  walk(path.resolve(process.cwd(), "public"));
+  return `${count}:${latest}`;
+};
+
+/**
+ * Bundling is the slow part — reuse it across renders in the same process.
+ *
+ * Mặc định bundle() CHÉP public/ tại thời điểm bundle. Server chạy lâu mà giọng đọc được
+ * tạo lại với cùng tên (voices/<slug>/line-01.mp3) thì render vẫn phát bản chép cũ —
+ * phụ đề đúng kịch bản mới nhưng tiếng là kịch bản trước. Nên symlink public/ vào bundle.
+ * Windows không symlink được: bundle lại khi public/ có thay đổi.
+ */
 const getBundle = () => {
+  const symlink = process.platform !== "win32";
+  if (!symlink) {
+    const stamp = publicStamp();
+    if (stamp !== cachedStamp) cachedBundle = null;
+    cachedStamp = stamp;
+  }
   if (!cachedBundle) {
     cachedBundle = bundle({
       entryPoint: path.resolve(process.cwd(), "src/index.ts"),
       webpackOverride: enableTailwind,
+      symlinkPublicDir: symlink,
       onProgress: (percent) => {
         if (percent === 100) {
           process.stdout.write("  bundle xong\n");

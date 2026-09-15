@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import type { TextOverlay } from "../../src/compositions/Short/schema";
-import { api, followJob, postJson, type MediaItem } from "./api";
+import type { Caption, TextOverlay } from "../../src/compositions/Short/schema";
+import { api, fmt, followJob, postJson, type MediaItem } from "./api";
 import type * as ops from "./ops";
+import { MEDIA_DRAG_TYPE } from "./Timeline";
 
-type Section = "visual" | "ai" | "audio" | "text";
+/** Kéo một file từ thư viện — timeline nhận kiểu dữ liệu riêng, không nhầm với kéo file từ máy. */
+const dragMedia = (path: string) => (e: React.DragEvent) => {
+  e.dataTransfer.setData(MEDIA_DRAG_TYPE, path);
+  e.dataTransfer.effectAllowed = "copy";
+};
+
+type Section = "visual" | "ai" | "audio" | "text" | "captions";
+export type LibrarySection = Section;
 
 type Props = {
+  /** Phím Alt+1…5 yêu cầu chuyển tab — `at` đổi mỗi lần bấm để bấm lại cùng tab vẫn chạy. */
+  sectionRequest: { section: Section; at: number } | null;
   media: MediaItem[];
   /** Tỉ lệ khung của video — clip AI được tạo theo tỉ lệ gần nhất model hỗ trợ. */
   aspect: string;
@@ -22,6 +32,20 @@ type Props = {
   onAppendScene: (item: MediaItem) => void;
   /** Tách âm thanh của video thành file mp3 trong thư viện. */
   onExtractAudio: (item: MediaItem) => void;
+  /** Cảnh đang chọn là video → chỉ số cảnh; không thì null. Hiện nút tách âm thanh ngay trong mục Ảnh & video. */
+  selectedVideoScene: number | null;
+  /** Tách âm thanh của cảnh ra track riêng (tắt tiếng gốc của cảnh). */
+  onDetachSceneAudio: (index: number) => void;
+  /** Mục 💬 Phụ đề: danh sách câu, mỗi câu một dòng sửa được. */
+  captions: Caption[];
+  timeMs: number;
+  selectedCaption: number | null;
+  onSelectCaption: (index: number) => void;
+  onCaptionText: (index: number, text: string) => void;
+  /** index null = thêm sau câu cuối. */
+  onInsertCaption: (index: number | null) => void;
+  onDeleteCaption: (index: number) => void;
+  onAddCaptionLines: (lines: string[]) => void;
 };
 
 const TEXT_PRESETS: { label: string; preview: React.CSSProperties; patch: Partial<TextOverlay> }[] = [
@@ -44,7 +68,9 @@ const AUDIO_GROUPS: { key: string; title: string }[] = [
  * Đặt bên trái hoặc bên phải trình chỉnh sửa (nút ⇄ trên thanh trên cùng).
  */
 export const MediaPanel: React.FC<Props> = ({
-  media, aspect, selection, uploading, currentMusic, onUse, onUpload, onAddText, onSetMusic, onAppendScene, onExtractAudio, onAiVideo,
+  sectionRequest, media, aspect, selection, uploading, currentMusic, onUse, onUpload, onAddText, onSetMusic, onAppendScene, onExtractAudio, onAiVideo,
+  selectedVideoScene, onDetachSceneAudio,
+  captions, timeMs, selectedCaption, onSelectCaption, onCaptionText, onInsertCaption, onDeleteCaption, onAddCaptionLines,
 }) => {
   const [section, setSection] = useState<Section>("visual");
   const [filter, setFilter] = useState<"all" | "image" | "video">("all");
@@ -53,6 +79,10 @@ export const MediaPanel: React.FC<Props> = ({
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    if (sectionRequest) setSection(sectionRequest.section);
+  }, [sectionRequest]);
 
   const q = query.trim().toLowerCase();
   const matches = (m: MediaItem) => !q || m.path.toLowerCase().includes(q);
@@ -74,17 +104,15 @@ export const MediaPanel: React.FC<Props> = ({
 
   const target = selection?.type === "scene" ? `Cảnh ${selection.index + 1}` : "cảnh tại đầu phát";
   const rail: { id: Section; icon: string; label: string }[] = [
-    { id: "visual", icon: "🖼", label: "Ảnh" },
-    { id: "ai", icon: "✨", label: "AI" },
-    { id: "audio", icon: "🔊", label: "Âm thanh" },
-    { id: "text", icon: "🅣", label: "Văn bản" },
+    { id: "visual", icon: "🖼", label: "Ảnh/Video" },
+    { id: "audio", icon: "🎵", label: "Âm thanh" },
+    { id: "text", icon: "T", label: "Văn bản" },
+    { id: "captions", icon: "💬", label: "Phụ đề" },
+    { id: "ai", icon: "✨", label: "Video AI" },
   ];
 
   const uploadButton = section === "visual" || section === "audio" ? (
     <>
-      <button className="md-upload" onClick={() => fileRef.current?.click()} disabled={uploading}>
-        {uploading ? "Đang tải…" : "⬆ Tải lên"}
-      </button>
       <input
         ref={fileRef}
         type="file"
@@ -102,17 +130,23 @@ export const MediaPanel: React.FC<Props> = ({
   return (
     <aside
       className={`md ${dragOver ? "drag" : ""}`}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragOver={(e) => {
+        // Chỉ nhận file kéo từ máy — kéo ô trong thư viện xuống timeline không phải tải lên.
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDragOver(true);
+      }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();
         setDragOver(false);
         onUpload([...e.dataTransfer.files]);
       }}
     >
       <nav className="md-rail" aria-label="Thư viện">
-        {rail.map((r) => (
-          <button key={r.id} className={section === r.id ? "on" : ""} onClick={() => setSection(r.id)} aria-pressed={section === r.id}>
+        {rail.map((r, k) => (
+          <button key={r.id} className={section === r.id ? "on" : ""} onClick={() => setSection(r.id)} aria-pressed={section === r.id} title={`${r.label} (Alt+${k + 1})`}>
             <span>{r.icon}</span>
             {r.label}
           </button>
@@ -120,10 +154,8 @@ export const MediaPanel: React.FC<Props> = ({
       </nav>
 
       <div className="md-body">
-        <div className="md-head">
-          <b>{{ visual: "Ảnh & video", ai: "Tạo video bằng AI", audio: "Âm thanh", text: "Văn bản" }[section]}</b>
-          {uploadButton}
-        </div>
+        {uploadButton}
+        {dragOver ? <div className="md-dropzone">Thả file vào đây để tải lên</div> : null}
 
         {section === "ai" ? <AiVideoForm aspect={aspect} target={target} onDone={onAiVideo} /> : null}
 
@@ -142,33 +174,53 @@ export const MediaPanel: React.FC<Props> = ({
                 </button>
               ))}
             </div>
-            <p className="md-hint">Bấm để gán cho {target} · ＋ thêm thành cảnh mới ở cuối · 🎵 tách âm thanh của video.</p>
+            {selectedVideoScene !== null ? (
+              <div className="md-scene-action">
+                <span>🎞 Cảnh {selectedVideoScene + 1} là video</span>
+                <button
+                  onClick={() => onDetachSceneAudio(selectedVideoScene)}
+                  title="Âm thanh của cảnh thành một đoạn riêng trên track Âm thanh — cắt, dời, chỉnh độc lập với hình; video tắt tiếng gốc"
+                >
+                  🎵 Tách âm thanh cảnh
+                </button>
+              </div>
+            ) : null}
+            <p className="md-hint">Kéo xuống timeline · bấm ảnh để thay {target} · <b>＋</b> thêm vào cuối video.</p>
             <div className="md-grid">
+              <button className="md-import" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                <b>{uploading ? "…" : "＋"}</b>
+                <span>{uploading ? "Đang tải lên…" : "Nhập ảnh/video"}</span>
+                <small>hoặc kéo thả file vào</small>
+              </button>
               {visual.map((m) => (
-                <div key={m.path} className="md-tile" title={m.path}>
-                  <button className="md-tile-main" onClick={() => onUse(m)} aria-label={`Gán ${m.name} cho ${target}`}>
+                <div key={m.path} className="md-tile" title={m.path} draggable onDragStart={dragMedia(m.path)}>
+                  <button className="md-tile-main" onClick={() => onUse(m)} aria-label={`Thay ${target} bằng ${m.name}`}>
                     {m.kind === "video"
                       ? <video src={`/public/${m.path}#t=0.5`} muted playsInline preload="metadata" />
-                      : <img src={`/public/${m.path}`} alt="" loading="lazy" />}
+                      : <img src={`/public/${m.path}`} alt="" loading="lazy" draggable={false} />}
                     {m.kind === "video" ? <i>🎬</i> : null}
                     <span>{m.name}</span>
                   </button>
-                  <div className="md-tile-actions">
-                    <button onClick={() => onAppendScene(m)} title="Thêm thành cảnh mới ở cuối video">＋</button>
-                    {m.kind === "video" ? (
+                  <button className="md-tile-add" onClick={() => onAppendScene(m)} title="Thêm thành cảnh mới ở cuối video" aria-label={`Thêm ${m.name} vào cuối video`}>＋</button>
+                  {m.kind === "video" ? (
+                    <div className="md-tile-actions">
                       <button onClick={() => onExtractAudio(m)} title="Tách âm thanh của video thành file riêng">🎵</button>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
-              {visual.length === 0 ? <p className="md-empty">Chưa có file phù hợp. Tải lên để bắt đầu.</p> : null}
+              {visual.length === 0 && q ? <p className="md-empty">Không có file khớp “{query}”.</p> : null}
             </div>
           </>
         ) : null}
 
         {section === "audio" ? (
           <div className="md-list">
-            <p className="md-hint">▶ nghe thử · ＋ thêm vào timeline tại đầu phát · ♪ đặt làm nhạc nền.</p>
+            <button className="md-import row" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              <b>{uploading ? "…" : "＋"}</b>
+              <span>{uploading ? "Đang tải lên…" : "Nhập nhạc / âm thanh"}</span>
+            </button>
+            <p className="md-hint">▶ nghe thử · kéo xuống timeline hoặc <b>＋</b> thêm tại đầu phát · ♪ đặt làm nhạc nền.</p>
             {AUDIO_GROUPS.map((group) => {
               const items = audio.filter((m) => m.path.split("/")[0] === group.key);
               if (items.length === 0) return null;
@@ -176,7 +228,7 @@ export const MediaPanel: React.FC<Props> = ({
                 <div key={group.key} className="md-group">
                   <h4>{group.title}</h4>
                   {items.map((m) => (
-                    <div key={m.path} className={`md-row ${currentMusic === m.path ? "current" : ""}`} title={m.path}>
+                    <div key={m.path} className={`md-row ${currentMusic === m.path ? "current" : ""}`} title={m.path} draggable onDragStart={dragMedia(m.path)}>
                       <button className="md-play" onClick={() => togglePreview(m.path)} aria-label="Nghe thử">{playing === m.path ? "⏸" : "▶"}</button>
                       <span><b>{m.name.replace(/\.\w+$/, "")}</b><small>{currentMusic === m.path ? "đang là nhạc nền" : m.path.split("/")[0]}</small></span>
                       <button className="md-bg" onClick={() => onSetMusic(m.path)} title="Đặt làm nhạc nền">♪</button>
@@ -186,13 +238,30 @@ export const MediaPanel: React.FC<Props> = ({
                 </div>
               );
             })}
-            {audio.length === 0 ? <p className="md-empty">Chưa có file âm thanh. Tải lên mp3/wav/m4a.</p> : null}
+            {audio.length === 0 ? <p className="md-empty">{q ? `Không có file khớp “${query}”.` : "Chưa có file âm thanh — nhập mp3, wav hoặc m4a."}</p> : null}
           </div>
+        ) : null}
+
+        {section === "captions" ? (
+          <CaptionList
+            captions={captions}
+            timeMs={timeMs}
+            selected={selectedCaption}
+            onSelect={onSelectCaption}
+            onText={onCaptionText}
+            onInsert={onInsertCaption}
+            onDelete={onDeleteCaption}
+            onAddLines={onAddCaptionLines}
+          />
         ) : null}
 
         {section === "text" ? (
           <div className="md-list">
-            <p className="md-hint">Bấm một mẫu để thêm tại đầu phát, rồi kéo trên khung xem trước để đặt vị trí.</p>
+            <button className="md-import row" onClick={() => onAddText({}, "Văn bản")}>
+              <b>＋</b>
+              <span>Thêm văn bản</span>
+            </button>
+            <p className="md-hint">Hoặc bấm một mẫu bên dưới. Thêm xong kéo chữ trên khung xem để đặt vị trí.</p>
             <div className="tx-presets">
               {TEXT_PRESETS.map((preset) => (
                 <button key={preset.label} className="tx-preset" onClick={() => onAddText(preset.patch, preset.label)}>
@@ -206,6 +275,110 @@ export const MediaPanel: React.FC<Props> = ({
       </div>
       <audio ref={previewRef} onEnded={() => setPlaying(null)} hidden />
     </aside>
+  );
+};
+
+/**
+ * Danh sách phụ đề kiểu CapCut: mỗi câu một dòng — bấm giờ để tua tới, gõ thẳng vào ô để sửa, Enter thêm câu
+ * mới ngay bên dưới, ô trống bấm Backspace/Delete để xoá. "Dán nhiều dòng" biến mỗi dòng thành một câu.
+ */
+const CaptionList: React.FC<{
+  captions: Caption[];
+  timeMs: number;
+  selected: number | null;
+  onSelect: (index: number) => void;
+  onText: (index: number, text: string) => void;
+  onInsert: (index: number | null) => void;
+  onDelete: (index: number) => void;
+  onAddLines: (lines: string[]) => void;
+}> = ({ captions, timeMs, selected, onSelect, onText, onInsert, onDelete, onAddLines }) => {
+  const listRef = useRef<HTMLDivElement>(null);
+  /** Vừa thêm câu bằng Enter / nút ＋ — chờ danh sách vẽ lại rồi đưa con trỏ vào câu mới. */
+  const focusNew = useRef(false);
+  const [pasting, setPasting] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const pasteLines = pasteText.split("\n").map((line) => line.trim()).filter(Boolean);
+
+  useEffect(() => {
+    if (selected === null) return;
+    const input = listRef.current?.querySelector<HTMLInputElement>(`input[data-caption="${selected}"]`);
+    if (!input) return;
+    input.scrollIntoView({ block: "nearest" });
+    if (focusNew.current) {
+      focusNew.current = false;
+      input.focus();
+    }
+  }, [selected, captions.length]);
+
+  const insert = (index: number | null) => {
+    focusNew.current = true;
+    onInsert(index);
+  };
+
+  return (
+    <div className="cl">
+      <div className="cl-bar">
+        <button className="cl-add" onClick={() => insert(null)} title="Thêm câu tại đầu phát, ở một hàng phụ đề mới">＋ Thêm phụ đề</button>
+        <button className={pasting ? "on" : ""} onClick={() => setPasting(!pasting)}>📋 Dán nhiều dòng</button>
+      </div>
+
+      {pasting ? (
+        <div className="cl-paste">
+          <textarea
+            rows={5}
+            value={pasteText}
+            placeholder={"Mỗi dòng là một câu phụ đề\nDòng thứ hai\nDòng thứ ba"}
+            onChange={(e) => setPasteText(e.target.value)}
+          />
+          <button
+            disabled={pasteLines.length === 0}
+            onClick={() => {
+              onAddLines(pasteLines);
+              setPasteText("");
+              setPasting(false);
+            }}
+          >
+            Thêm {pasteLines.length} câu
+          </button>
+        </div>
+      ) : null}
+
+      <p className="md-hint">＋ Thêm phụ đề: tạo hàng phụ đề mới · Enter: câu tiếp theo cùng hàng · ô trống + Backspace: xoá câu · bấm giờ để tua tới.</p>
+
+      <div className="cl-list" ref={listRef}>
+        {captions.map((c, k) => {
+          const playing = timeMs >= c.startMs && timeMs < c.endMs;
+          return (
+            <div key={k} className={`cl-row ${selected === k ? "on" : ""} ${playing ? "playing" : ""}`}>
+              <button className="cl-time" onClick={() => onSelect(k)} title={`${fmt(c.startMs)} → ${fmt(c.endMs)} · bấm để tua tới`}>
+                {fmt(c.startMs)}
+              </button>
+              <span className="cl-track" title={`Hàng Phụ đề ${(c.track ?? 0) + 1}`}>P{(c.track ?? 0) + 1}</span>
+              <input
+                data-caption={k}
+                className="cl-text"
+                value={c.text}
+                placeholder="Nhập phụ đề…"
+                onFocus={() => { if (selected !== k) onSelect(k); }}
+                onChange={(e) => onText(k, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return; // đang gõ bộ gõ tiếng Việt (IME) — để yên
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    insert(k);
+                  } else if ((e.key === "Backspace" || e.key === "Delete") && c.text === "") {
+                    e.preventDefault();
+                    onDelete(k);
+                  }
+                }}
+              />
+              <button className="cl-del" onClick={() => onDelete(k)} title="Xoá câu này" aria-label={`Xoá phụ đề ${k + 1}`}>✕</button>
+            </div>
+          );
+        })}
+        {captions.length === 0 ? <p className="md-empty">Chưa có phụ đề. Bấm “＋ Thêm phụ đề” hoặc dán nhiều dòng.</p> : null}
+      </div>
+    </div>
   );
 };
 

@@ -4,6 +4,8 @@ import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../../aspects";
 import type { ShortProps } from "./schema";
 import { Soundtrack } from "../../audio/Soundtrack";
 import { TextOverlays } from "../../components/TextOverlays";
+import { CustomCaptions } from "../../components/CustomCaptions";
+import { usesCustomCaptions } from "../../components/captionLook";
 import { WatermarkOverlay } from "../../components/WatermarkOverlay";
 import { STYLE_COMPONENTS } from "../../styles/registry";
 import { CaptionStyle } from "../../styles/caption";
@@ -42,9 +44,13 @@ export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
  */
 export const Short: React.FC<ShortProps> = (props) => {
   const Style = STYLE_COMPONENTS[props.style as StyleId] ?? CaptionStyle;
+  // Phụ đề tuỳ chỉnh: phong cách vẽ hình như thường nhưng không vẽ phụ đề của nó; lớp chung vẽ thay.
+  // Âm thanh và độ dài video vẫn theo props.captions đầy đủ.
+  const custom = usesCustomCaptions(props);
   return (
     <AbsoluteFill style={{ fontFamily: FONTS.sans }}>
-      <Style {...props} />
+      <Style {...(custom ? { ...props, captions: [] } : props)} />
+      {custom ? <CustomCaptions props={props} /> : null}
       <TextOverlays texts={props.texts ?? []} />
       {props.watermark ? <WatermarkOverlay watermark={props.watermark} /> : null}
       <Soundtrack

@@ -5,7 +5,7 @@ import { allLines, parseScript, scriptToProps } from "../src/compositions/Short/
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { TITLE_FRAMES } from "../src/constants";
 import { generateScript } from "../scripts/generate-script";
-import { generateVoiceover, type TtsEngine } from "../scripts/tts";
+import { ENGINE_LABELS, generateVoiceover, type TtsEngine } from "../scripts/tts";
 import { fetchAccountVoices, findVoice, VOICES } from "../scripts/voices";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist, listAllImages } from "../scripts/images";
@@ -96,6 +96,7 @@ export const voiceCatalog = async (live: boolean) => {
     key: voice.key,
     label: `${voice.key} — ${voice.gender}, ${voice.lang}`,
     engine: voice.engine,
+    engineLabel: ENGINE_LABELS[voice.engine],
     lang: voice.lang,
     paidPlan: Boolean(voice.paidPlan),
   }));

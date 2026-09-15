@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
+import { moveToTrash } from "../scripts/trash";
 
 const run = promisify(execFile);
 
@@ -51,6 +52,155 @@ export const listMedia = () => {
   // Giọng đọc sinh tự động (public/voices) cố ý không liệt kê — không phải thứ để kéo vào timeline.
   items.sort((a, b) => b.at - a.at);
   return { items };
+};
+
+/** Thư mục tài nguyên hiện trong tab 🗂 Tài nguyên của Thư viện — thêm giọng đọc so với trình chỉnh sửa. */
+export const LIBRARY_ROOTS = ["uploads", "images", "videos", "music", "sfx", "voices"] as const;
+
+/**
+ * Nhạc nền và hiệu ứng có sẵn của app (sinh bởi scripts/make-audio-assets.sh, có trong git) — khoá trong
+ * Thư viện: không chọn, không xoá được. Mất chúng thì chip Nhạc nền và tiếng chuyển cảnh hỏng.
+ */
+export const BUILTIN_MEDIA = new Set([
+  "music/calm.mp3", "music/dramatic.mp3", "music/placeholder.mp3", "music/tense.mp3", "music/upbeat.mp3",
+  "music/warm.mp3", "sfx/ding.mp3", "sfx/pop.mp3", "sfx/riser.mp3", "sfx/thud.mp3", "sfx/whoosh.mp3",
+]);
+
+export type LibraryMediaItem = MediaItem & {
+  /** Tài nguyên mặc định của app — khoá, không xoá được. */
+  builtIn: boolean;
+  /** Thư mục gốc: uploads | images | videos | music | sfx | voices. */
+  root: (typeof LIBRARY_ROOTS)[number];
+  /** Thư mục chứa file, tính từ public/ (vd "images/shared", "voices/pin-iphone"). */
+  folder: string;
+  /** Video đang dùng file này — xoá file sẽ làm hỏng các video đó. */
+  usedBy: { slug: string; title: string }[];
+};
+
+/**
+ * Đường dẫn tài nguyên → video đang dùng. Quét chữ thô của props/script/multi/ai-clips của mọi
+ * video: file nào xuất hiện nguyên văn trong đó là đang dùng. Không tính chat.json — đó là lịch sử,
+ * video hiện tại không còn đọc nó.
+ */
+const mediaUsage = () => {
+  const videosDir = path.join(process.cwd(), "videos");
+  const usage = new Map<string, { slug: string; title: string }[]>();
+  if (!fs.existsSync(videosDir)) return usage;
+  for (const entry of fs.readdirSync(videosDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const slug = entry.name;
+    let text = "";
+    let title = slug;
+    for (const file of ["props.json", "script.json", "multi.json", "ai-clips.json"]) {
+      const abs = path.join(videosDir, slug, file);
+      if (!fs.existsSync(abs)) continue;
+      const raw = fs.readFileSync(abs, "utf8");
+      text += raw;
+      if (file !== "ai-clips.json") {
+        try {
+          title = (JSON.parse(raw) as { title?: string }).title || title;
+        } catch {
+          // file hỏng — vẫn tính tham chiếu theo chữ thô
+        }
+      }
+    }
+    for (const match of text.matchAll(/"((?:uploads|images|videos|music|sfx|voices)\/[^"]+)"/g)) {
+      const list = usage.get(match[1]) ?? [];
+      if (!list.some((v) => v.slug === slug)) list.push({ slug, title });
+      usage.set(match[1], list);
+    }
+  }
+  return usage;
+};
+
+/** Mọi tài nguyên cho Thư viện, kèm video đang dùng từng file. Mới nhất trước. */
+export const listLibraryMedia = () => {
+  const publicDir = path.join(process.cwd(), "public");
+  const usage = mediaUsage();
+  const items: LibraryMediaItem[] = [];
+
+  const walk = (root: LibraryMediaItem["root"], rel: string, depth: number) => {
+    const abs = path.join(publicDir, rel);
+    if (!fs.existsSync(abs) || depth > 3) return;
+    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) continue;
+      const childRel = path.posix.join(rel, entry.name);
+      if (entry.isDirectory()) {
+        walk(root, childRel, depth + 1);
+        continue;
+      }
+      const kind = KIND.find(([re]) => re.test(entry.name))?.[1];
+      if (!kind) continue;
+      const stat = fs.statSync(path.join(publicDir, childRel));
+      items.push({
+        path: childRel, name: entry.name, kind, bytes: stat.size, at: stat.mtimeMs,
+        root, folder: rel, usedBy: usage.get(childRel) ?? [], builtIn: BUILTIN_MEDIA.has(childRel),
+      });
+    }
+  };
+
+  for (const root of LIBRARY_ROOTS) walk(root, root, 0);
+  items.sort((a, b) => b.at - a.at);
+  return { items };
+};
+
+const LIBRARY_PATH = new RegExp(`^(${LIBRARY_ROOTS.join("|")})/[^\\0]+$`);
+
+/**
+ * Chuyển tài nguyên đã chọn vào Thùng rác (không xoá hẳn). Tài nguyên mặc định của app luôn bị từ chối.
+ * Mặc định bỏ qua file đang được video dùng; `force` (người dùng đã xác nhận cảnh báo) thì chuyển cả
+ * những file đó — video dùng chúng sẽ thiếu hình/tiếng khi dựng lại.
+ * Thư mục con rỗng sau đó được dọn luôn (không đụng thư mục gốc).
+ */
+export const deleteLibraryMedia = (value: unknown, force = false) => {
+  const paths = Array.isArray(value) ? [...new Set(value)] : [];
+  if (paths.length === 0 || paths.length > 1000) {
+    throw new Error("Danh sách tài nguyên cần xoá không hợp lệ.");
+  }
+  const publicDir = path.join(process.cwd(), "public");
+  const usage = mediaUsage();
+  const deleted: string[] = [];
+  const skipped: { path: string; reason: string }[] = [];
+  let freedBytes = 0;
+
+  for (const rel of paths) {
+    if (typeof rel !== "string" || !LIBRARY_PATH.test(rel) || rel.split("/").includes("..")) {
+      skipped.push({ path: String(rel), reason: "đường dẫn không hợp lệ" });
+      continue;
+    }
+    const root = path.join(publicDir, rel.split("/")[0]);
+    const abs = path.resolve(publicDir, rel);
+    if (!abs.startsWith(root + path.sep)) {
+      skipped.push({ path: rel, reason: "đường dẫn không hợp lệ" });
+      continue;
+    }
+    if (BUILTIN_MEDIA.has(rel)) {
+      skipped.push({ path: rel, reason: "tài nguyên mặc định của app" });
+      continue;
+    }
+    const users = usage.get(rel) ?? [];
+    if (users.length > 0 && !force) {
+      skipped.push({ path: rel, reason: `đang dùng trong "${users[0].title}"${users.length > 1 ? ` và ${users.length - 1} video khác` : ""}` });
+      continue;
+    }
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+      skipped.push({ path: rel, reason: "không tồn tại" });
+      continue;
+    }
+    try {
+      const bytes = fs.statSync(abs).size;
+      moveToTrash(abs);
+      freedBytes += bytes;
+      deleted.push(rel);
+      for (let dir = path.dirname(abs); dir.startsWith(root + path.sep); dir = path.dirname(dir)) {
+        if (fs.readdirSync(dir).length > 0) break;
+        fs.rmdirSync(dir);
+      }
+    } catch (error) {
+      skipped.push({ path: rel, reason: `lỗi: ${(error as NodeJS.ErrnoException).code ?? (error as Error).message}` });
+    }
+  }
+  return { deleted, skipped, freedBytes };
 };
 
 const VIDEO_PATH = /^(uploads|videos|images)\/[\w./-]+\.(mp4|mov|webm)$/i;

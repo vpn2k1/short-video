@@ -4,18 +4,18 @@
  *   npx tsx scripts/audio-to-video.ts giong.mp3 --name bai-noi
  *   npx tsx scripts/audio-to-video.ts giong.mp3 --name x --title "Hook" --sub center
  *
- * Phiên âm bằng whisper.cpp chạy local (offline, không API key), lấy timestamp
- * từng từ rồi gom thành dòng phụ đề khớp đúng lời nói.
+ * Phiên âm bằng whisper.cpp chạy local (offline, không API key) theo câu, rồi khớp mép phụ đề
+ * với khoảng lặng thật của file (scripts/subtitle-align.ts) — phụ đề hiện khi nói, tắt khi ngừng.
  */
 import type { WhisperModel } from "@remotion/install-whisper-cpp";
 import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { groupIntoLines } from "./group-captions";
 import { assertImagesExist } from "./images";
 import { renderShort } from "./render";
 import { slugify } from "./slug";
-import { transcribeFile } from "./transcribe";
+import { alignCaptions, detectSilences } from "./subtitle-align";
+import { transcribeSentences } from "./transcribe";
 import { OUTRO_FRAMES, FPS } from "../src/constants";
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 
@@ -104,14 +104,14 @@ const audioDurationMs = (file: string) =>
 
 const main = async () => {
   console.log(`\n1/4  Phiên âm ${path.basename(audioInput)} (model ${model})`);
-  const tokens = await transcribeFile({
+  const sentences = await transcribeSentences({
     audioPath: path.resolve(audioInput),
     model,
     language: language as never,
   });
-
-  const captions = groupIntoLines(tokens);
-  console.log(`     ${tokens.length} token → ${captions.length} dòng phụ đề`);
+  const silences = await detectSilences(path.resolve(audioInput));
+  const captions = alignCaptions(sentences, silences, audioDurationMs(path.resolve(audioInput)));
+  console.log(`     ${sentences.length} câu → ${captions.length} dòng phụ đề (khớp ${silences.length} khoảng lặng)`);
 
   console.log("2/4  Chép audio vào public/");
   fs.mkdirSync(path.dirname(trackAbs), { recursive: true });

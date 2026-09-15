@@ -5,6 +5,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { videoScriptSchema, type VideoScript } from "../src/compositions/Short/script";
 import { DEFAULT_STYLE, isStyleId, type StyleId } from "../src/styles/meta";
 import { styleSection } from "./style-guides";
+import { textToScript } from "./text-script";
 
 /** Người dùng chọn một phong cách cụ thể, hoặc để AI tự chọn theo nội dung. */
 export type StyleChoice = StyleId | "auto";
@@ -44,11 +45,37 @@ const EDIT_RULES = `
 
 Bạn đang SỬA một kịch bản có sẵn theo yêu cầu của người dùng.
 - Chỉ đổi những gì người dùng yêu cầu; phần còn lại giữ nguyên từng chữ.
+- Cách người dùng gọi tên: "câu" là MỘT phần tử trong scenes[].lines (lời đọc), đánh số liên tục
+  qua mọi cảnh — "câu đầu" là scenes[0].lines[0], "câu cuối" là câu cuối của cảnh cuối.
+  "cảnh 2" là scenes[1]. "tiêu đề" là "title", "phụ đề phụ"/"dòng mô tả" là "subtitle".
+  Người dùng không nhắc tới tiêu đề thì KHÔNG đổi "title" và "subtitle".
 - Nếu người dùng tải file lên kèm yêu cầu, hiểu là họ muốn dùng file đó ở cảnh phù hợp.`;
 
-export type ScriptProvider = "anthropic" | "openai" | "gemini" | "groq" | "openrouter";
+export type ScriptProvider = "anthropic" | "openai" | "gemini" | "groq" | "openrouter" | "ollama";
 
-type CompatProvider = Exclude<ScriptProvider, "anthropic">;
+type CompatProvider = Exclude<ScriptProvider, "anthropic" | "ollama">;
+
+/**
+ * Ollama: model chạy ngay trên máy — không cần key, không cần mạng. Bật khi chọn "Ollama"
+ * trong Cài đặt hoặc điền tên model.
+ *
+ * Mặc định qwen2.5:1.5b (~1 GB, ngữ cảnh 32K): chạy được trên máy 8 GB RAM, không có chế độ
+ * "suy nghĩ" nên trả lời nhanh và bám JSON schema; đủ cho kịch bản ngắn và sửa đơn giản.
+ * Máy khoẻ hơn: qwen2.5:3b (~1,9 GB) viết tiếng Việt tốt hơn rõ.
+ * Tránh qwen3/qwen3.5 cho việc này: bật suy nghĩ mặc định, chậm hơn nhiều với cùng kết quả.
+ */
+export const OLLAMA_LABEL = "Ollama (trên máy)";
+export const DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b";
+export const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
+/** Model nhỏ trên CPU/GPU máy cá nhân chậm hơn API nhiều — cho đủ thời gian. */
+const OLLAMA_TIMEOUT_MS = 10 * 60_000;
+/**
+ * Mặc định Ollama chỉ giữ ~4K token ngữ cảnh và cắt âm thầm phần thừa. Prompt sửa kịch bản
+ * (luật + hướng dẫn phong cách + kịch bản JSON) dài hơn thế, bị cắt là model quên luật.
+ */
+const OLLAMA_CONTEXT = 16_384;
+/** Kịch bản JSON thật chỉ ~600–1.500 token; vượt mức này là model đang lặp lại chính nó. */
+const OLLAMA_MAX_TOKENS = 4_096;
 
 /** Model OpenAI mặc định khi người dùng không điền — cần hỗ trợ structured output. */
 export const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
@@ -63,6 +90,8 @@ export const COMPAT_PROVIDERS: Record<CompatProvider, {
   keyEnv: string;
   modelEnv: string;
   defaultModel: string;
+  /** Model dự phòng khi model mặc định quá tải — chỉ dùng khi người dùng không tự điền model. */
+  fallbackModels?: string[];
 }> = {
   openai: {
     label: "ChatGPT", baseUrl: "https://api.openai.com/v1",
@@ -72,6 +101,8 @@ export const COMPAT_PROVIDERS: Record<CompatProvider, {
     // Bí danh luôn trỏ bản Flash mới nhất — dòng Flash nằm trong gói miễn phí.
     label: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     keyEnv: "GEMINI_API_KEY", modelEnv: "GEMINI_SCRIPT_MODEL", defaultModel: "gemini-flash-latest",
+    // Flash hay báo 503 "high demand" từng lúc; bản Lite nhẹ hơn, cũng nằm trong gói miễn phí.
+    fallbackModels: ["gemini-flash-lite-latest"],
   },
   groq: {
     label: "Groq", baseUrl: "https://api.groq.com/openai/v1",
@@ -84,11 +115,19 @@ export const COMPAT_PROVIDERS: Record<CompatProvider, {
   },
 };
 
-/** Thứ tự khi "Tự động": trả phí trước (viết tốt hơn), miễn phí sau. */
-const PROVIDER_ORDER: ScriptProvider[] = ["anthropic", "openai", "gemini", "groq", "openrouter"];
+/** Thứ tự khi "Tự động": trả phí trước (viết tốt hơn), miễn phí sau, máy mình cuối cùng. */
+const PROVIDER_ORDER: ScriptProvider[] = ["anthropic", "openai", "gemini", "groq", "openrouter", "ollama"];
 
-const hasScriptKey = (provider: ScriptProvider) =>
-  Boolean(process.env[provider === "anthropic" ? "ANTHROPIC_API_KEY" : COMPAT_PROVIDERS[provider].keyEnv]);
+const hasScriptKey = (provider: ScriptProvider) => {
+  if (provider === "ollama") {
+    return Boolean(process.env.OLLAMA_MODEL) || process.env.SCRIPT_PROVIDER === "ollama";
+  }
+  return Boolean(process.env[provider === "anthropic" ? "ANTHROPIC_API_KEY" : COMPAT_PROVIDERS[provider].keyEnv]);
+};
+
+/** Tên hiển thị của nhà cung cấp viết kịch bản. */
+export const providerLabel = (provider: ScriptProvider) =>
+  provider === "anthropic" ? "Claude" : provider === "ollama" ? OLLAMA_LABEL : COMPAT_PROVIDERS[provider].label;
 
 /**
  * Nhà cung cấp dùng để viết kịch bản. SCRIPT_PROVIDER cụ thể thì chỉ dùng đúng nó
@@ -114,7 +153,9 @@ class ProviderUnavailable extends Error {}
 
 const unavailable = (status: number | undefined, message: string) =>
   status === 429 || status === 402 || status === 401 || status === 403 ||
-  /credit|quota|billing|insufficient|exceeded|rate.?limit|denied|permission/i.test(message);
+  // Quá tải tạm thời (Gemini hay trả 503 "high demand") — nhà cung cấp khác vẫn có thể chạy.
+  status === 500 || status === 502 || status === 503 ||
+  /credit|quota|billing|insufficient|exceeded|rate.?limit|denied|permission|high demand|overloaded|unavailable/i.test(message);
 
 /** Danh sách ảnh/video model được phép gán vào "image". File tải lên xếp đầu. */
 const mediaSection = (images: string[], uploads: string[]) => {
@@ -145,9 +186,14 @@ export const generateScript = async (
   style: StyleChoice = "auto",
 ): Promise<VideoScript> => {
   const images = [...uploads, ...listImagesFor(slug)];
+  // Model nhỏ trên máy: kèm hướng dẫn của cả 16 phong cách là vượt ngữ cảnh và làm model rối.
+  // Đoán phong cách bằng từ khoá trước (như chế độ Nguyên văn), chỉ gửi hướng dẫn phong cách đó.
+  const chosen = style === "auto" && scriptProvider() === "ollama"
+    ? textToScript(prompt, { style: "auto" }).script.style
+    : style;
   return callModel(
-    SYSTEM + styleSection(style) + mediaSection(images, uploads),
-    prompt, model, images, style,
+    SYSTEM + styleSection(chosen) + mediaSection(images, uploads),
+    prompt, model, images, chosen,
   );
 };
 
@@ -197,7 +243,9 @@ const callModel = async (
     try {
       raw = provider === "anthropic"
         ? await callClaude(system, content, claudeModel)
-        : await callCompatible(provider, system, content);
+        : provider === "ollama"
+          ? await callOllama(system, content)
+          : await callCompatible(provider, system, content);
       break;
     } catch (error) {
       // Hết lượt/hết tiền và còn nhà cung cấp khác có key → thử tiếp; lỗi khác thì báo ngay.
@@ -285,9 +333,10 @@ const openAISchema = () => {
 /** ChatGPT, Gemini, Groq, OpenRouter — cùng API chat completions kiểu OpenAI. */
 const callCompatible = async (provider: CompatProvider, system: string, content: string): Promise<unknown> => {
   const config = COMPAT_PROVIDERS[provider];
-  const model = process.env[config.modelEnv] || config.defaultModel;
+  const custom = process.env[config.modelEnv];
+  const models = custom ? [custom] : [config.defaultModel, ...(config.fallbackModels ?? [])];
   const schema = openAISchema();
-  const send = (responseFormat: Record<string, unknown>, systemText: string) =>
+  const send = (model: string, responseFormat: Record<string, unknown>, systemText: string) =>
     fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -304,18 +353,27 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
       }),
     });
 
-  let response = await send(
-    { type: "json_schema", json_schema: { name: "video_script", strict: true, schema } },
-    system,
-  );
-  // Model không nhận json_schema (hay gặp ở model miễn phí): thử lại chế độ JSON thường,
-  // đưa schema vào prompt. tidyScript + zod vẫn kiểm lại kết quả như mọi nhà cung cấp.
-  if (response.status === 400 && /response_format|json_schema|schema|structured/i.test(await response.clone().text())) {
+  let model = models[0];
+  let response: Response | undefined;
+  for (model of models) {
     response = await send(
-      { type: "json_object" },
-      `${system}\n\nChỉ trả về MỘT object JSON đúng JSON Schema sau, không kèm chữ nào khác:\n${JSON.stringify(schema)}`,
+      model,
+      { type: "json_schema", json_schema: { name: "video_script", strict: true, schema } },
+      system,
     );
+    // Model không nhận json_schema (hay gặp ở model miễn phí): thử lại chế độ JSON thường,
+    // đưa schema vào prompt. tidyScript + zod vẫn kiểm lại kết quả như mọi nhà cung cấp.
+    if (response.status === 400 && /response_format|json_schema|schema|structured/i.test(await response.clone().text())) {
+      response = await send(
+        model,
+        { type: "json_object" },
+        `${system}\n\nChỉ trả về MỘT object JSON đúng JSON Schema sau, không kèm chữ nào khác:\n${JSON.stringify(schema)}`,
+      );
+    }
+    // Quá tải tạm thời → thử model dự phòng của cùng nhà cung cấp; lỗi khác thì dừng ở đây.
+    if (response.status < 500) break;
   }
+  if (!response) throw new Error(`${config.label}: chưa có model nào để gọi.`);
 
   if (!response.ok) {
     const detail = await response.text();
@@ -328,9 +386,11 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
     }
     const text = `${config.label} (${model}) báo lỗi ${response.status}: ${message}`;
     if (unavailable(response.status, message)) {
-      const reason = response.status === 401 || response.status === 403 || /denied|permission/i.test(message)
-        ? "key sai hoặc tài khoản bị từ chối quyền — kiểm tra key, hoặc tạo key ở tài khoản khác"
-        : "hết lượt hoặc hết tiền trong tài khoản. Gói miễn phí giới hạn theo phút/ngày: đợi một lúc, hoặc thêm key nhà cung cấp khác";
+      const reason = response.status >= 500 || /high demand|overloaded|unavailable/i.test(message)
+        ? "máy chủ đang quá tải tạm thời — thử lại sau ít phút"
+        : response.status === 401 || response.status === 403 || /denied|permission/i.test(message)
+          ? "key sai hoặc tài khoản bị từ chối quyền — kiểm tra key, hoặc tạo key ở tài khoản khác"
+          : "hết lượt hoặc hết tiền trong tài khoản. Gói miễn phí giới hạn theo phút/ngày: đợi một lúc, hoặc thêm key nhà cung cấp khác";
       throw new ProviderUnavailable(`${text} — ${reason}.`);
     }
     throw new Error(text);
@@ -353,6 +413,105 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
 };
 
 /**
+ * Ollama trên máy. Dùng API gốc /api/chat thay vì lối tương thích OpenAI, vì chỉ API gốc
+ * đặt được num_ctx; `format` nhận JSON Schema để model trả đúng cấu trúc kịch bản.
+ */
+const callOllama = async (system: string, content: string): Promise<unknown> => {
+  const model = process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
+  const host = (process.env.OLLAMA_HOST || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
+  /**
+   * Quá giờ phải nói là quá giờ. fetch() chỉ ném lỗi khác (TypeError "fetch failed") khi chưa tới
+   * được server — lúc đó mới báo "chưa mở Ollama"; lỗi giữa chừng khi đọc thì giữ nguyên.
+   */
+  const failure = (error: unknown, connecting: boolean) => {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return new Error(`Ollama (${model}) chạy quá ${OLLAMA_TIMEOUT_MS / 60_000} phút — thử lại với yêu cầu ngắn hơn.`);
+    }
+    if (connecting) {
+      return new ProviderUnavailable(
+        `Không kết nối được Ollama ở ${host} — mở app Ollama (hoặc chạy "ollama serve") rồi thử lại.`,
+      );
+    }
+    return error instanceof Error ? error : new Error(String(error));
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(`${host}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(OLLAMA_TIMEOUT_MS),
+      body: JSON.stringify({
+        model,
+        // Stream để Ollama gửi header ngay. Không stream mà sinh lâu quá 5 phút thì fetch của
+        // Node (undici headersTimeout) tự cắt, trông y như mất kết nối.
+        stream: true,
+        format: openAISchema(),
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content },
+        ],
+        options: { num_ctx: OLLAMA_CONTEXT, num_predict: OLLAMA_MAX_TOKENS, temperature: 0.4 },
+      }),
+    });
+  } catch (error) {
+    throw failure(error, true);
+  }
+
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 300);
+    let message = detail;
+    try {
+      message = (JSON.parse(detail) as { error?: string }).error ?? detail;
+    } catch {
+      // không phải JSON — giữ nguyên text
+    }
+    if (response.status === 404 || /not found/i.test(message)) {
+      throw new Error(`Máy chưa có model ${model} — chạy "ollama pull ${model}" rồi thử lại.`);
+    }
+    throw new Error(`Ollama (${model}) báo lỗi ${response.status}: ${message}`);
+  }
+
+  // Mỗi dòng là một mẩu JSON { message: { content }, done, done_reason } — ghép phần chữ lại.
+  type Chunk = { message?: { content?: string }; done?: boolean; done_reason?: string; error?: string };
+  let output = "";
+  let last: Chunk | null = null;
+  try {
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const { value, done } = reader ? await reader.read() : { value: undefined, done: true };
+      if (value) buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = done ? "" : (lines.pop() ?? "");
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const chunk = JSON.parse(line) as Chunk;
+        if (chunk.error) throw new Error(`Ollama (${model}) báo lỗi: ${chunk.error}`);
+        output += chunk.message?.content ?? "";
+        if (chunk.done) last = chunk;
+      }
+      if (done) break;
+    }
+  } catch (error) {
+    throw failure(error, false);
+  }
+
+  if (last?.done_reason === "length") {
+    throw new Error(
+      `Ollama (${model}) viết quá dài và bị cắt — model nhỏ đang lặp lại. Gửi lại, rút gọn yêu cầu, hoặc dùng model lớn hơn (qwen2.5:3b).`,
+    );
+  }
+  const text = output.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Ollama (${model}) không trả về JSON hợp lệ. Thử lại, hoặc dùng model lớn hơn (qwen2.5:3b).`);
+  }
+};
+
+/**
  * Áp lại giới hạn của schema lên kết quả model và bỏ tên ảnh bịa. Model hay vượt
  * vài ký tự hoặc chế tên file — sửa nhẹ còn hơn làm hỏng cả lượt tạo video.
  */
@@ -368,12 +527,29 @@ const tidyScript = (raw: unknown, allowedImages: string[]): VideoScript => {
     const space = cut.lastIndexOf(" ");
     return (space > 0 ? cut.slice(0, space) : text.slice(0, max)).trim();
   };
+  /** Model nhỏ hay trả "#FFF", "#ff2e63ff" hay "red" — sai một ô màu không đáng bỏ cả kịch bản. */
+  const hexColor = (value: unknown, fallback: string) => {
+    const text = typeof value === "string" ? value.trim() : "";
+    if (/^#[0-9a-f]{6}$/i.test(text)) return text;
+    const short = text.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i);
+    if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`;
+    const withAlpha = text.match(/^#([0-9a-f]{6})[0-9a-f]{2}$/i);
+    return withAlpha ? `#${withAlpha[1]}` : fallback;
+  };
   const r = (raw ?? {}) as Record<string, unknown>;
-  const scenes = Array.isArray(r.scenes) ? r.scenes.slice(0, 12) : r.scenes;
+  // Model nhỏ hay lặp nguyên một cảnh nhiều lần — bỏ cảnh trùng hệt lời với cảnh đã có.
+  const scenes = Array.isArray(r.scenes)
+    ? r.scenes
+        .filter((scene, i, all) =>
+          all.findIndex((other) => JSON.stringify(other?.lines) === JSON.stringify(scene?.lines)) === i)
+        .slice(0, 12)
+    : r.scenes;
 
   const tidy = {
     ...r,
     style: isStyleId(r.style) ? r.style : DEFAULT_STYLE,
+    accent: hexColor(r.accent, "#ff2e63"),
+    background: hexColor(r.background, "#0b0b12"),
     title: clip(r.title, 60),
     subtitle: clip(r.subtitle, 90),
     handle: clip(r.handle, 30),

@@ -93,7 +93,7 @@ export const Footage: React.FC<{ scenes: Scene[]; background: string }> = ({ sce
               <AbsoluteFill style={{ transform: `scale(${1 + (scale - 1) * 0.5})`, filter: GRADE }}>
                 <ClipVideo
                   src={scene.image}
-                  trimStartMs={scene.trimStartMs}
+                  trimStartMs={scene.trimStartMs} speed={scene.speed}
                   volume={scene.volume}
                   crop={scene.crop}
                 />

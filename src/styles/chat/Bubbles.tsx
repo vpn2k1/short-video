@@ -202,7 +202,7 @@ export const MediaBubble: React.FC<Common & { item: MediaItem }> = ({ frame, fps
     >
       {VIDEO_EXT.test(src) ? (
         <Sequence from={item.sceneStart}>
-          <ClipVideo src={src} trimStartMs={item.scene.trimStartMs} volume={item.scene.volume} crop={item.scene.crop} />
+          <ClipVideo src={src} trimStartMs={item.scene.trimStartMs} speed={item.scene.speed} volume={item.scene.volume} crop={item.scene.crop} />
         </Sequence>
       ) : (
         <CropBox crop={item.scene.crop}>

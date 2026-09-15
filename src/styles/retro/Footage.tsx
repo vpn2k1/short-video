@@ -93,7 +93,7 @@ export const Footage: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
         </svg>
         <AbsoluteFill style={{ ...frameStyle, filter: `url(#${filterId}) ${grade}` }}>
           <Sequence from={start}>
-            <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} volume={scene.volume} crop={scene.crop} />
+            <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} speed={scene.speed} volume={scene.volume} crop={scene.crop} />
           </Sequence>
         </AbsoluteFill>
       </AbsoluteFill>

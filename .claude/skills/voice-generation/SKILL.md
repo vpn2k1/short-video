@@ -1,6 +1,6 @@
 ---
 name: voice-generation
-description: Giọng đọc cho video — TTS ElevenLabs, giọng macOS miễn phí, và phiên âm audio có sẵn bằng whisper.cpp. Dùng khi cần voiceover, chọn giọng, hoặc làm video từ file thu sẵn.
+description: Giọng đọc cho video — TTS ElevenLabs, EverAI, giọng macOS miễn phí, và phiên âm audio có sẵn bằng whisper.cpp. Dùng khi cần voiceover, chọn giọng, hoặc làm video từ file thu sẵn.
 ---
 
 # Voice Generation
@@ -13,11 +13,21 @@ Hai chiều ngược nhau: **chữ → giọng** (TTS) và **giọng → chữ**
 npm run prompt-to-video -- --name x --voice linh     # tiếng Việt, macOS, miễn phí
 npm run prompt-to-video -- --name x --voice laura    # ElevenLabs
 npm run prompt-to-video -- --name x --voice <voice_id>   # bất kỳ giọng ElevenLabs nào
+npm run prompt-to-video -- --name x --voice kieu-nhi     # EverAI, tiếng Việt bản xứ
+npm run prompt-to-video -- --name x --voice vi_female_kieunhi_mn   # bất kỳ voice_code EverAI nào
 npm run prompt-to-video -- --list-voices             # catalog tĩnh
 npm run prompt-to-video -- --list-voices --live      # đọc /v1/voices — nguồn chính xác
 ```
 
 Giọng quyết định luôn engine, không phải khai báo cả `--tts` lẫn voice id.
+
+## EverAI (tiếng Việt bản xứ)
+
+Key `EVERAI_API_KEY` (tạo ở https://everai.vn/api), model `EVERAI_MODEL_ID` (mặc định
+`everai-v1.6`). API bất đồng bộ: `POST /api/v1/tts` → hỏi `GET /api/v1/tts/{request_id}`
+mỗi giây tới `status: "done"` → tải `audio_link`. Giọng trong catalog: `kieu-nhi`,
+`thuy-trang`, `le-hoang` (vi, ~1000 credit/1k ký tự), `ever-nova`, `ever-echo` (en).
+Code ở `scripts/tts.ts` (`everAiToFile`) — **chưa chạy thử với key thật**.
 
 ## Giới hạn tài khoản ElevenLabs (đo thật)
 
