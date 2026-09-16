@@ -13,6 +13,7 @@ mkdir -p "$STAGE/.claude/skills" "$STAGE/public" "$CACHE"
 cp -R package.json package-lock.json tsconfig.json remotion.config.ts desktop src server scripts "$STAGE/"
 cp -R .claude/skills/style-* "$STAGE/.claude/skills/"
 cp -R public/images public/music public/sfx "$STAGE/public/"
+bash desktop/fetch-local-ai.sh linux-x64 "$STAGE"
 
 echo "→ Cài node_modules cho linux-x64"
 (cd "$STAGE" && npm ci --omit=dev --os=linux --cpu=x64 --ignore-scripts --no-audit --no-fund)

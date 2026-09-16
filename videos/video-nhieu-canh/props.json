@@ -1,0 +1,140 @@
+{
+  "title": "Video nhiều cảnh",
+  "subtitle": "",
+  "handle": "@kenh",
+  "accent": "#ff6b2c",
+  "background": "#000000",
+  "captions": [],
+  "aspect": "9:16",
+  "style": "bold",
+  "scenes": [
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 13000
+    }
+  ],
+  "overlays": [
+    {
+      "src": "uploads/1789526662624-video-moi.mp4",
+      "startMs": 0,
+      "endMs": 13000,
+      "trimStartMs": 0,
+      "volume": 1,
+      "track": 0,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "aspect": 0.563,
+      "rotate": 0,
+      "opacity": 1,
+      "radius": 0,
+      "fit": "contain",
+      "crop": null,
+      "fadeMs": 0,
+      "keyframes": [
+        {
+          "atMs": 0,
+          "x": 50,
+          "y": 50,
+          "width": 100,
+          "rotate": 0,
+          "opacity": 1
+        },
+        {
+          "atMs": 3667,
+          "x": 50,
+          "y": 50,
+          "width": 100,
+          "rotate": 0,
+          "opacity": 1
+        }
+      ]
+    },
+    {
+      "src": "uploads/1789526659195-second-vertical-video-promp-1.mp4",
+      "startMs": 0,
+      "endMs": 5000,
+      "trimStartMs": 0,
+      "volume": 1,
+      "track": 1,
+      "x": 50,
+      "y": 50,
+      "width": 45.4,
+      "aspect": 0.563,
+      "rotate": 0,
+      "opacity": 1,
+      "radius": 0,
+      "fit": "contain",
+      "crop": null,
+      "fadeMs": 0,
+      "keyframes": []
+    },
+    {
+      "src": "uploads/1789528113745-1789526659195-second-vertical-video-prom-frame-1800.jpg",
+      "startMs": 0,
+      "endMs": 6000,
+      "trimStartMs": 0,
+      "volume": 0,
+      "track": 2,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "aspect": 0.563,
+      "rotate": 0,
+      "opacity": 1,
+      "radius": 0,
+      "fit": "contain",
+      "crop": null,
+      "fadeMs": 0,
+      "keyframes": [
+        {
+          "atMs": 167,
+          "x": 50,
+          "y": 50,
+          "width": 100,
+          "rotate": 0,
+          "opacity": 1
+        },
+        {
+          "atMs": 1167,
+          "x": 50,
+          "y": 50,
+          "width": 189.5,
+          "rotate": 0,
+          "opacity": 1
+        },
+        {
+          "atMs": 3667,
+          "x": 108.3,
+          "y": 87.7,
+          "width": 189.5,
+          "rotate": 0,
+          "opacity": 1
+        }
+      ]
+    }
+  ],
+  "captionPosition": "bottom",
+  "showTitle": false,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

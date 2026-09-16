@@ -166,16 +166,48 @@
               transition: border-color .15s, box-shadow .15s; }
   .composer:focus-within { border-color: var(--line-2); box-shadow: 0 0 0 4px rgba(255,122,26,.07); }
   .composer.drag { border-color: var(--accent); background: rgba(255,122,26,.05); }
-  .composer textarea { width: 100%; min-width: 0; background: transparent; border: 0; outline: 0; resize: none;
-                       min-height: 92px; max-height: 45vh; padding: 2px 4px; font-size: 16px; line-height: 1.5; }
-  #bottomDock .composer textarea { min-height: 48px; }
-  .composer-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-                   border-top: 1px solid var(--line); padding-top: 10px; }
+  .composer textarea { flex: 1; width: 100%; min-width: 0; background: transparent; border: 0; outline: 0; resize: none;
+                       min-height: 84px; max-height: 45vh; padding: 8px 4px; font-size: 16px; line-height: 1.5; }
+  #bottomDock .composer textarea { min-height: 44px; }
+  .composer-main { display: flex; align-items: flex-end; gap: 10px; }
+  .composer-top { display: flex; align-items: center; gap: 8px; }
+  .composer-top .spacer { flex: 1; }
+  .composer-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .composer-foot { border-top: 1px solid var(--line); padding-top: 10px; }
   .composer-foot .spacer { flex: 1; }
+  .composer .notice { margin: 0; max-width: none; }
+
+  /* Chọn nguồn lời: hai nút liền nhau */
+  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; }
+  .seg button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 6px 14px; font-size: 13.5px; }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-checked="true"] { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); font-weight: 600; }
+
+  .composer-opts { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .opt-row { display: flex; gap: 10px; align-items: flex-start; }
+  .opt-label { flex: 0 0 76px; font-size: 12px; color: var(--muted); padding-top: 7px; }
+  .opt-row > div { flex: 1; min-width: 0; }
+
+  /* Thu gọn: chỉ ô chữ + nút gửi tròn */
+  #composerWrap.collapsed .expand-only { display: none !important; }
+  #composerWrap.collapsed .composer { padding: 8px 8px 8px 16px; cursor: text; }
+  #composerWrap.collapsed .composer textarea { min-height: 0; height: 44px !important; max-height: 44px;
+                                               padding: 10px 4px; overflow: hidden; }
+  #composerWrap.collapsed .send { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  #composerWrap.collapsed #sendLabel { display: none; }
+  #composerWrap:not(.collapsed) .expand-only { animation: optsIn .18s ease both; }
+  @keyframes optsIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+  .other-ways { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; align-items: center;
+                margin-top: 22px; font-size: 13.5px; color: var(--muted); }
+  .other-ways a { text-decoration: none; color: var(--text); opacity: .8; padding: 4px 2px; border-bottom: 1px dashed var(--line-2); }
+  .other-ways a:hover { opacity: 1; border-bottom-color: var(--accent); }
   .tool-btn { height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
               background: transparent; color: var(--muted); font-size: 13.5px; white-space: nowrap;
               display: inline-flex; align-items: center; gap: 6px; }
-  .tool-btn:hover { color: var(--text); border-color: var(--line-2); background: var(--panel-2); }
+  .tool-btn:hover:not(:disabled) { color: var(--text); border-color: var(--line-2); background: var(--panel-2); }
+  .tool-btn:disabled { opacity: .45; }
+  .tool-btn.working { color: var(--text); border-color: var(--line-2); cursor: progress; }
   .kbd-hint { font-size: 12px; color: var(--muted); white-space: nowrap; }
   .pending { display: flex; gap: 8px; flex-wrap: wrap; }
   .pending:empty { display: none; }
@@ -196,6 +228,21 @@
           font-size: 15px; font-weight: 650; white-space: nowrap; }
   .send:hover:not(:disabled) { filter: brightness(1.08); }
   .send:disabled { background: var(--line); color: var(--muted); }
+  /* Đang gửi: giữ màu nhấn nhưng mờ đi, để thấy rõ là đã nhận lệnh — khỏi bấm lại. */
+  .send.sending:disabled { background: var(--accent); color: var(--accent-ink); opacity: .6; cursor: progress; }
+  .send.sending svg { animation: pulse .7s ease-in-out infinite alternate; }
+
+  /* 3 nút làm nhanh: một cú bấm đặt sẵn hình, giọng, nhạc — vẫn sửa lại được bên dưới */
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .preset { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--line);
+            border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--text); }
+  .preset small { color: var(--muted); font-size: 12px; }
+  .preset:hover:not(:disabled) { border-color: var(--line-2); background: var(--panel-2); }
+  .preset.on { border-color: var(--accent); background: rgba(255,122,26,.1); }
+  .preset:disabled { opacity: .45; }
+  .plan { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .plan b { color: var(--text); font-weight: 600; }
+  .plan .warn { color: #f5b454; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; background: var(--panel-2);
@@ -392,6 +439,19 @@
   .field .help a { color: var(--accent); }
   .field.removing input { text-decoration: line-through; opacity: .5; }
   .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .pc-dlg { width: min(580px, calc(100vw - 32px)); }
+  .pc-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 14px; }
+  .pc-tabs button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .pc-tabs button[aria-selected="true"] { background: var(--panel-2); border-color: var(--line-2); color: var(--text); font-weight: 600; }
+  .pc-field { margin-top: 12px; }
+  .pc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; }
+  .pc-top .btn { padding: 3px 10px; font-size: 12px; font-weight: 400; }
+  .pc-text { margin-top: 6px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+             font-size: 14px; user-select: text; overflow-wrap: anywhere; }
+  .pc-text.pc-multi { white-space: pre-wrap; }
+  .pc-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .pc-dlg .hint { text-align: left; }
+  .post-copy-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
   .dlg .hint { text-align: left; margin: 12px 0 0; }
   kbd { font: 11.5px ui-monospace, Menlo, monospace; background: var(--panel-2); border: 1px solid var(--line-2);
         border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--text); }
@@ -413,7 +473,9 @@
     .composer { padding: 12px; }
     .chip-k { display: none; }
     .kbd-hint { display: none; }
-    .send { flex: 1 1 100%; justify-content: center; }
+    .opt-row { flex-direction: column; gap: 6px; }
+    .opt-label { flex: none; padding-top: 0; }
+    .seg button { padding: 6px 11px; }
     .starts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .start span { display: none; }
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -423,12 +485,16 @@
     .project-bar .btn .label { display: none; }
   }
 
+  .page-head { margin: 0 0 18px; }
+  .page-head h1 { font-size: 22px; margin: 0 0 4px; font-weight: 650; }
+  .page-head p { margin: 0; }
   /* ---------- video nhiều cảnh ---------- */
   .multi { flex: 1; overflow-y: auto; padding: 28px 20px 0; }
   .ms-wrap { max-width: 900px; margin: 0 auto; }
   .ms-wrap .lib-head { margin-bottom: 4px; }
   .ms-wrap > .muted { margin: 0; }
-  .ms-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 16px 0 18px; }
+  .ms-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 0 0 18px;
+                 background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 14px; }
   .ms-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px 12px; }
   .ms-wide { grid-column: 1 / -1; }
   .ms-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -453,6 +519,11 @@
   .ms-foot .btn.primary { padding: 9px 20px; font-size: 14.5px; }
   .ms-back { margin-bottom: 10px; }
   .ms-card-head b { font-size: 15px; }
+  .ms-src-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ms-src-row .muted { font-size: 12px; }
+  .ms-field > span i { font-style: normal; }
+  .back-link { display: inline-block; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: 10px; }
+  .back-link:hover { color: var(--text); }
   .ms-src { display: flex; gap: 6px; flex-wrap: wrap; }
   .ms-src button { flex: 1 1 180px; text-align: left; background: var(--bg); border: 1px solid var(--line);
                    border-radius: 12px; padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; }
@@ -468,6 +539,244 @@
     .multi { padding: 18px 16px 0; }
     .ms-settings, .ms-grid { grid-template-columns: minmax(0, 1fr); }
   }
+
+  /* ===== Thêm phụ đề cho nhiều video ===== */
+  .sb-wrap { max-width: 1120px; }
+  .sb-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+  .sb-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .sb-block { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .sb-block h2 { font-size: 14.5px; margin: 0 0 10px; font-weight: 600; }
+  .sb-block h2 i, .sb-field > span i { font-style: normal; font-weight: 400; font-size: 12.5px; }
+  .sb-block .bt-files { margin-top: 10px; }
+  .sb-block .bt-drop { width: 100%; min-height: 110px; }
+  .sb-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-size: 13px; }
+  .sb-field > span { color: var(--muted); }
+  .sb-field select { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; outline: 0; }
+  .sb-look { position: sticky; top: 12px; }
+  .sb-adv { margin-top: 0; }
+  .sb-adv-body { padding: 0 14px 14px; }
+  .sb-check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+  .bt-files li .sb-file-meta { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+  @media (max-width: 860px) {
+    .sb-grid { grid-template-columns: minmax(0, 1fr); }
+    .sb-look { position: static; }
+  }
+
+  /* Trình chỉnh kiểu phụ đề: khung xem trước kéo thả + các nút chỉnh */
+  .lk { display: flex; flex-direction: column; gap: 12px; }
+  .lk-stage-wrap { display: grid; place-items: center; background: #050608; border-radius: 12px; padding: 10px; }
+  .lk-stage { position: relative; height: min(52vh, 460px); max-width: 100%; aspect-ratio: var(--ar, 9 / 16);
+              background: linear-gradient(160deg, #2a3140, #10131a); border-radius: 6px; overflow: hidden;
+              touch-action: none; user-select: none; }
+  .lk-stage.wide { height: auto; width: 100%; }
+  .lk-stage video, .lk-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .lk-cap { position: absolute; transform: translate(-50%, -50%); width: max-content; white-space: pre-wrap;
+            overflow-wrap: break-word; cursor: grab; outline: 1px dashed rgba(62,230,255,.0); outline-offset: 5px; }
+  .lk-stage:hover .lk-cap { outline-color: rgba(62,230,255,.8); }
+  .lk-cap.drag { cursor: grabbing; outline-color: #3ee6ff; }
+  .lk-guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #3ee6ff; opacity: 0; pointer-events: none; }
+  .lk-guide.on { opacity: .8; }
+  .lk-tip { font-size: 12px; color: var(--muted); text-align: center; margin: 6px 0 0; }
+  .lk-templates { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lk-templates button { background: #2b303a; border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px;
+                         font-size: 13px; font-weight: 700; line-height: 1.3; }
+  .lk-templates button:hover { border-color: var(--line-2); }
+  .lk-templates button.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .lk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+  .lk-f { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+  .lk-f.wide { grid-column: 1 / -1; }
+  .lk-f select { background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; outline: 0; color: var(--text); }
+  .lk-f input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .lk-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--text); }
+  .lk-inline input[type="color"] { width: 36px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: none; }
+  .lk-inline b { font-weight: 500; font-variant-numeric: tabular-nums; min-width: 34px; }
+  .lk-dlg { width: min(860px, calc(100vw - 32px)); }
+  .lk-dlg .lk { flex-direction: row; align-items: flex-start; margin-top: 12px; }
+  .lk-dlg .lk-stage-wrap { flex: 0 0 auto; max-width: 48%; }
+  .lk-dlg .lk-panel { flex: 1; min-width: 0; }
+  @media (max-width: 720px) {
+    .lk-dlg .lk { flex-direction: column; }
+    .lk-dlg .lk-stage-wrap { max-width: 100%; }
+  }
+
+  /* ===== Làm nhiều video một lượt ===== */
+  .batch { flex: 1; overflow-y: auto; }
+  .bt-wrap { max-width: 920px; margin: 0 auto; padding: 22px 20px 60px; }
+  .bt-wrap .step-label { max-width: none; margin-top: 22px; }
+  .seg-wide { flex-wrap: wrap; border-radius: 16px; }
+  .seg button.on, .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--text);
+                                                     box-shadow: inset 0 0 0 1px var(--line-2); font-weight: 600; }
+  .bt-source-desc { margin: 8px 2px 14px; }
+  .bt-settings { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  .bt-settings > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline;
+                           gap: 4px 10px; padding: 11px 14px; font-size: 14px; font-weight: 600; }
+  .bt-settings > summary::-webkit-details-marker { display: none; }
+  .bt-settings > summary::after { content: "Sửa ▾"; margin-left: auto; font-size: 12.5px; font-weight: 400; color: var(--muted); }
+  .bt-settings[open] > summary::after { content: "Thu gọn ▴"; }
+  .bt-settings > summary:hover::after { color: var(--text); }
+  .bt-settings > summary .muted { font-weight: 400; font-size: 12.5px; }
+  .bt-settings .bt-fields { padding: 0 14px 14px; margin: 0; }
+  .bt-plan { margin: 10px 2px 0; }
+
+  /* Mỗi ô là MỘT cài đặt — bấm vào mở đúng menu của cài đặt đó. */
+  .bt-fields { display: grid; gap: 10px; margin-bottom: 12px;
+               grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); }
+  .bt-field { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--panel);
+              border: 1px solid var(--line); border-radius: 13px; padding: 9px 12px 10px; color: var(--text); }
+  .bt-field > span { font-size: 11px; color: var(--muted); text-transform: uppercase;
+                     letter-spacing: .6px; font-weight: 600; }
+  .bt-field > b { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .bt-field > b > i { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bt-field svg { margin-left: auto; opacity: .55; flex: 0 0 auto; }
+  .bt-field:hover, .bt-field[aria-expanded="true"] { border-color: var(--accent); }
+  .bt-field.on { border-color: var(--accent); background: rgba(255,122,26,.08); }
+
+  /* Ô nhập nội dung: dùng lại .composer của màn tạo video, chỉ rộng hơn. */
+  .bt-composer { max-width: none; }
+  .bt-composer textarea { min-height: 190px; font-size: 15px; line-height: 1.7; }
+  .bt-gen { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+            border-top: 1px solid var(--line); padding-top: 10px; }
+  .bt-gen input[type="text"] { flex: 1; min-width: 160px; }
+  .bt-gen input[type="number"] { width: 68px; }
+  .bt-gen input { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line);
+                  border-radius: 9px; padding: 7px 10px; }
+  /* Mỗi video một ô chữ nhật — bấm ô ＋ ở cuối để thêm. */
+  .bt-cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); }
+  .bt-card { display: flex; flex-direction: column; gap: 8px; background: var(--bg);
+             border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px 12px; }
+  .bt-card:focus-within { border-color: var(--line-2); }
+  .bt-card-head { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted);
+                  text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+  .bt-card-head .spacer { flex: 1; }
+  .bt-card-head .icon-btn { width: 26px; height: 26px; border-color: transparent; }
+  .bt-card textarea { width: 100%; min-height: 92px; max-height: 40vh; resize: vertical; background: transparent;
+                      border: 0; outline: 0; font: inherit; line-height: 1.6; padding: 0 2px; }
+  .bt-card .chips { gap: 5px; }
+  .bt-card .chip { font-size: 12px; padding: 4px 8px 4px 10px; background: transparent; }
+  .bt-card .chip.own { border-color: var(--accent); background: rgba(255,122,26,.1); }
+  .bt-card.closed { cursor: pointer; min-height: 112px; }
+  .bt-card.closed:hover { border-color: var(--accent); }
+  .bt-card-preview { margin: 0; font-size: 14px; line-height: 1.5; }
+  .bt-card-preview.empty { color: var(--muted); }
+  .bt-card-own { margin: 0; font-size: 12px; color: var(--accent); }
+  .bt-card .chip-v { max-width: 120px; }
+  .bt-add-card { display: grid; place-items: center; align-content: center; gap: 2px; min-height: 150px;
+                 border: 1px dashed var(--line-2); border-radius: 14px; background: transparent;
+                 color: var(--muted); font-size: 13.5px; }
+  .bt-add-card b { font-size: 26px; font-weight: 300; line-height: 1; }
+  .bt-add-card:hover { border-color: var(--accent); color: var(--text); }
+  .bt-drop { display: flex; flex-direction: column; gap: 3px; align-items: center; justify-content: center;
+             min-height: 130px; border: 1px dashed var(--line-2); border-radius: 14px; background: var(--bg);
+             color: var(--text); padding: 18px; text-align: center; }
+  .bt-drop b { font-size: 15px; font-weight: 600; }
+  .bt-drop span { font-size: 12.5px; color: var(--muted); }
+  .bt-drop:hover, .bt-drop.drag { border-color: var(--accent); background: rgba(255,122,26,.06); }
+  .bt-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .bt-files:empty { display: none; }
+  .bt-files li { display: flex; gap: 8px; align-items: center; font-size: 13px; background: var(--bg);
+                 border: 1px solid var(--line); border-radius: 10px; padding: 6px 6px 6px 12px; }
+  .bt-files li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bt-files .icon-btn { width: 30px; height: 30px; }
+  .bt-group + .bt-group { border-top: 1px solid var(--line); padding-top: 12px; }
+  .bt-group-head { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .bt-group-head span { font-weight: 400; font-size: 12.5px; }
+  .bt-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bt-pick { font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+             background: transparent; color: var(--text); }
+  .bt-pick:hover { border-color: var(--line-2); background: var(--panel-2); }
+  .bt-pick.on { border-color: var(--accent); background: rgba(255,122,26,.12); }
+  .bt-run { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px;
+            position: sticky; bottom: 0; z-index: 5; padding: 12px 0;
+            background: linear-gradient(to top, var(--bg) 62%, transparent); }
+  .bt-run .spacer { flex: 1; }
+  .bt-run input { flex: 1; min-width: 180px; font: inherit; color: inherit; background: var(--panel);
+                  border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+
+  /* Bảng theo dõi một loạt — dùng lại chính kiểu ô của màn soạn */
+  .bt-sticky { position: sticky; top: 0; z-index: 6; background: var(--bg);
+               padding: 2px 0 12px; margin-bottom: 4px; }
+  .bt-sticky::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+                      height: 1px; background: var(--line); }
+  .bt-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .bt-head h1 { margin: 0; font-size: 20px; font-weight: 650; }
+  .bt-head .spacer { flex: 1; }
+  .bt-head .icon-btn { font-size: 16px; }
+  .bt-progress { height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
+  .bt-progress i { display: block; height: 100%; width: 0;
+                   background: linear-gradient(90deg, var(--accent), #ffb56b);
+                   transition: width .4s ease; }
+  .bt-runinfo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 9px; font-size: 13px; }
+  .bt-runinfo .spacer { flex: 1; }
+  .bt-runmeta { margin: 6px 0 0; font-size: 12.5px; }
+  .bt-stats { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .bt-stat { border-radius: 999px; padding: 3px 11px; font-size: 12.5px; font-weight: 500;
+             background: var(--panel-2); color: var(--muted); }
+  .bt-stat b { font-variant-numeric: tabular-nums; color: var(--text); }
+  .bt-stat.done { background: rgba(63,185,80,.13); color: var(--ok); }
+  .bt-stat.done b { color: var(--ok); }
+  .bt-stat.run { background: rgba(255,122,26,.14); color: var(--accent); }
+  .bt-stat.run b { color: var(--accent); }
+  .bt-stat.review { background: rgba(245,180,84,.14); color: #f5b454; }
+  .bt-stat.review b { color: #f5b454; }
+  .bt-stat.err { background: rgba(255,107,107,.13); color: var(--err); }
+  .bt-stat.err b { color: var(--err); }
+
+  .bt-card.tile { background: var(--panel); animation: tileIn .25s ease both; }
+  @keyframes tileIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .bt-card.tile[data-item-open] { cursor: pointer; }
+  .bt-card.tile[data-item-open]:hover { border-color: var(--accent); }
+  .bt-card.on { border-color: var(--accent); }
+  .bt-card.err { border-color: var(--err); }
+  .bt-card.editing { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255,122,26,.07); }
+  /* Huy hiệu trạng thái ở góc ô */
+  .bt-state { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+              text-transform: none; letter-spacing: 0; background: var(--panel-2); color: var(--muted); }
+  .bt-state.done { background: rgba(63,185,80,.14); color: var(--ok); }
+  .bt-state.err { background: rgba(255,107,107,.14); color: var(--err); }
+  .bt-state.review { background: rgba(245,180,84,.14); color: #f5b454; }
+  .bt-state.run { background: rgba(255,122,26,.16); color: var(--accent); }
+  .bt-state.run::before { content: "● "; animation: pulse 1s infinite alternate; }
+
+  /* Khung video đúng tỉ lệ — không có viền đen thừa, và lưới không nhảy khi video hiện ra. */
+  .bt-frame { position: relative; width: min(100%, calc(268px * var(--arn, 1))); margin: 0 auto;
+              background: #000; border-radius: 10px; overflow: hidden; display: grid; place-items: center; }
+  .bt-frame video, .bt-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .bt-frame[data-play] { cursor: pointer; }
+  .bt-play { position: absolute; width: 46px; height: 46px; border-radius: 50%; display: grid;
+             place-items: center; background: rgba(0,0,0,.55); color: #fff; font-size: 17px;
+             padding-left: 3px; backdrop-filter: blur(2px); transition: transform .15s, background .15s; }
+  .bt-frame[data-play]:hover .bt-play { background: var(--accent); color: var(--accent-ink); transform: scale(1.08); }
+  /* Tên class phải riêng: ".pending" là của ô soạn chat, có luật :empty ẩn sạch phần tử rỗng. */
+  .bt-frame.bt-lazy::after { content: "▶"; color: rgba(255,255,255,.35); font-size: 26px; }
+  .bt-frame.blank { background: linear-gradient(100deg, var(--panel-2) 30%, var(--line) 50%, var(--panel-2) 70%);
+                    background-size: 300% 100%; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+  .bt-log { margin: 0; font-size: 12.5px; color: var(--muted); overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+  .bt-bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .bt-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+  .bt-lines { padding: 10px 12px; background: var(--bg); border-radius: 10px;
+              font-size: 13px; line-height: 1.7; max-height: 170px; overflow: auto; }
+  .bt-lines p { margin: 0; }
+  .bt-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bt-actions .btn { padding: 6px 12px; font-size: 13px; }
+  .bt-err { color: var(--err); font-size: 12.5px; margin: 0; word-break: break-word; }
+  .bt-list { display: grid; gap: 8px; margin-top: 10px; }
+  .bt-list a { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px;
+               border: 1px solid var(--line); background: var(--panel); color: inherit;
+               text-decoration: none; font-size: 13px; }
+  .bt-list a:hover { border-color: var(--accent); }
+  .bt-list a { flex-direction: column; align-items: stretch; gap: 6px; }
+  .bt-list a b { font-size: 14px; }
+  .bt-list .row { display: flex; gap: 10px; align-items: baseline; }
+  .bt-list .row .spacer { flex: 1; }
+  .bt-list .mini { height: 4px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
+  .bt-list .mini i { display: block; height: 100%; background: var(--accent); }
+  @media (max-width: 640px) {
+    .bt-wrap { padding: 16px 14px 48px; }
+    .bt-cards { grid-template-columns: minmax(0, 1fr); }
+    .bt-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 </style>
 </head>
 <body>
@@ -479,6 +788,8 @@
   </button>
   <a class="brand" href="#/"><i></i><span>AI Video Studio</span></a>
   <a class="nav-link" id="nav-new" href="#/">✨ <span class="label">Tạo video</span></a>
+  <a class="nav-link" id="nav-batch" href="#/batch">🏭 <span class="label">Hàng loạt</span></a>
+  <a class="nav-link" id="nav-subs" href="#/subs">🔤 <span class="label">Phụ đề</span></a>
   <a class="nav-link" id="nav-lib" href="#/library">📁 <span class="label">Thư viện</span></a>
   <span class="spacer"></span>
   <button type="button" class="nav-link" id="openShortcuts" title="Phím tắt (? hoặc Ctrl/⌘+/)" aria-label="Phím tắt">⌨</button>
@@ -511,6 +822,7 @@
       <div class="pb-title"><b id="projectTitle"></b><span id="projectMeta"></span></div>
       <a class="btn" id="projectMulti" href="#" hidden title="Mở lại danh sách cảnh để sửa prompt, model, lời đọc">🎬 <span class="label">Sửa cảnh</span></a>
       <a class="btn" id="projectEdit" href="#" hidden title="Mở trình chỉnh sửa timeline">✂️ <span class="label">Chỉnh sửa</span></a>
+      <button type="button" class="btn" id="projectPostCopy" hidden title="AI gợi ý tiêu đề, caption, hashtag để đăng video">✍️ <span class="label">Bài đăng</span></button>
       <button type="button" class="btn primary" id="projectDownload" hidden>⬇ <span class="label">Tải video</span></button>
       <button type="button" class="icon-btn" id="projectDelete" hidden title="Xoá video này" aria-label="Xoá video này">🗑</button>
     </div>
@@ -518,25 +830,16 @@
 
   <div class="hero" id="hero">
     <h1>Hôm nay làm video gì?</h1>
-    <p>Chọn cách bắt đầu, gõ nội dung rồi bấm <b>Tạo video</b>. Có kết quả rồi cứ nhắn tiếp để sửa.</p>
-    <div class="step-label">1 · Bắt đầu từ</div>
-    <div class="starts" id="starts">
-      <button type="button" class="start" data-start="ai" aria-pressed="false">
-        <i>💡</i><b>Một ý tưởng</b><span>Gõ 1 câu, AI viết lời và dựng video giúp bạn</span><small id="startAiKey" hidden>Cần thêm API key</small>
-      </button>
-      <button type="button" class="start" data-start="text" aria-pressed="false">
-        <i>📝</i><b>Lời có sẵn</b><span>Dán kịch bản của bạn, dựng đúng từng câu</span>
-      </button>
-      <a class="start link" href="#/multi">
-        <i>🎬</i><b>Từng cảnh một</b><span>Tự sắp từng cảnh: hình, lời đọc, độ dài</span>
-      </a>
-      <a class="start link" href="/editor.html#new">
-        <i>✂️</i><b>Sửa video có sẵn</b><span>Tải clip lên, cắt ghép, thêm chữ và nhạc</span>
-      </a>
-    </div>
-    <div class="step-label" id="step2Label">2 · Nội dung</div>
+    <p>Gõ ý tưởng hoặc dán lời có sẵn. Bấm vào ô để chọn phong cách, giọng, nhạc.</p>
     <div class="dock" id="heroDock"></div>
     <div class="ideas" id="ideas"></div>
+    <div class="other-ways" aria-label="Cách làm khác">
+      <span>Hoặc</span>
+      <a href="#/multi" title="Tự sắp từng cảnh: hình, lời đọc, độ dài">🎬 Dựng từng cảnh</a>
+      <a href="/editor.html#new" title="Tải clip lên, cắt ghép, thêm chữ và nhạc">✂️ Sửa video có sẵn</a>
+      <a href="#/batch" title="Làm nhiều video một lượt">🏭 Làm hàng loạt</a>
+      <a href="#/subs" title="Gắn phụ đề cho nhiều video có sẵn, nhiều ngôn ngữ">🔤 Thêm phụ đề cho video</a>
+    </div>
     <div class="recent" id="recentWrap" hidden>
       <div class="recent-head"><h2>Gần đây</h2><a href="#/library">Xem tất cả →</a></div>
       <div class="recent-grid" id="recent"></div>
@@ -550,30 +853,52 @@
   <div class="dock" id="bottomDock" hidden></div>
 
   <!-- Ô nhập duy nhất — JS chuyển nó giữa hero và đáy màn hình -->
-  <div id="composerWrap">
-    <div class="notice" id="keyNotice" hidden>
-      <span>🔑 Để AI viết lời, cần thêm 1 API key (Gemini, Groq, OpenRouter có gói miễn phí). Chưa có key thì dùng <b>Lời có sẵn</b> — làm được ngay.</span>
-      <button type="button" class="btn" id="noticeText">📝 Dùng lời có sẵn</button>
-      <button type="button" class="btn primary" id="noticeSettings">🔑 Thêm key</button>
-    </div>
+  <!-- collapsed: chưa bấm vào thì chỉ hiện ô chữ + nút gửi; focus vào mới mở hết tuỳ chọn -->
+  <div id="composerWrap" class="collapsed">
     <form class="composer" id="composer" autocomplete="off">
-      <div class="pending" id="pending"></div>
-      <textarea id="input" rows="3" aria-label="Nội dung video"></textarea>
-      <div class="chips" id="chips" aria-label="Tuỳ chọn"></div>
-      <div class="composer-foot">
-        <button type="button" class="tool-btn" id="attachBtn" title="Thêm ảnh hoặc video — hoặc kéo thả / dán vào ô trên">📎 Thêm ảnh/video</button>
-        <button type="button" class="tool-btn" id="exampleBtn">✨ Điền ví dụ</button>
+      <div class="composer-top expand-only">
+        <div class="seg" role="radiogroup" aria-label="Lời video lấy từ đâu">
+          <button type="button" role="radio" data-start="ai" aria-checked="false" title="Gõ 1 câu, AI viết lời và dựng video">🤖 AI viết lời</button>
+          <button type="button" role="radio" data-start="text" aria-checked="false" title="Dán kịch bản của bạn, dựng đúng từng câu">📝 Lời có sẵn</button>
+        </div>
         <span class="spacer"></span>
         <span class="kbd-hint" id="kbdHint"></span>
-        <button type="submit" class="send" id="send">Tạo video
+      </div>
+      <div class="notice expand-only" id="keyNotice" hidden>
+        <span>🔑 AI viết lời cần 1 API key (Gemini, Groq, OpenRouter có gói miễn phí). Chưa có thì dùng <b>Lời có sẵn</b>.</span>
+        <button type="button" class="btn" id="noticeText">📝 Dùng lời có sẵn</button>
+        <button type="button" class="btn primary" id="noticeSettings">🔑 Thêm key</button>
+      </div>
+      <div class="pending" id="pending"></div>
+      <div class="composer-main" id="composerMain">
+        <textarea id="input" rows="1" aria-label="Nội dung video"></textarea>
+        <button type="submit" class="send" id="send"><span id="sendLabel">Tạo video</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </button>
       </div>
+      <div class="composer-opts expand-only">
+        <div class="opt-row">
+          <span class="opt-label">Làm nhanh</span>
+          <div class="presets" id="presets" aria-label="Cách làm nhanh"></div>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">Tuỳ chỉnh</span>
+          <div class="chips" id="chips" aria-label="Tuỳ chọn"></div>
+        </div>
+        <p class="plan" id="plan"></p>
+      </div>
+      <div class="composer-foot expand-only" id="composerFoot">
+        <button type="button" class="tool-btn" id="attachBtn" title="Thêm ảnh hoặc video — hoặc kéo thả / dán vào ô trên">📎 Thêm ảnh/video</button>
+        <button type="button" class="tool-btn" id="exampleBtn">✨ Điền ví dụ</button>
+        <button type="button" class="tool-btn" id="normalizeBtn" hidden>🪄 Chuẩn hoá lời</button>
+        <button type="button" class="tool-btn" id="undoNormalize" hidden title="Trả lại đoạn trước khi chuẩn hoá">↩︎ Hoàn tác</button>
+        <span class="spacer"></span>
+      </div>
       <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden />
     </form>
-    <p class="text-preview" id="textPreview" hidden></p>
+    <p class="text-preview expand-only" id="textPreview" hidden></p>
     <p class="hint" id="hint"></p>
-    <details class="syntax" id="syntaxHelp" hidden>
+    <details class="syntax expand-only" id="syntaxHelp" hidden>
       <summary>📖 Xem cách viết lời (có mẫu)</summary>
       <div class="syntax-body">
         <pre id="syntaxExample"># Pin iPhone tụt nhanh?
@@ -592,6 +917,7 @@ Lưu lại để làm theo nhé!</pre>
           <li><code># …</code> tiêu đề · <code>&gt; …</code> dòng phụ · <code>[…]</code> nhãn của cảnh.</li>
           <li><code>**…**</code> cụm được nhấn nổi bật · <code>! 80% | chú thích</code> con số lớn.</li>
           <li>Không có cú pháp cũng được: dán đoạn văn, câu dài tự tách. Ảnh đính kèm gán lần lượt cho từng cảnh.</li>
+          <li><b>🪄 Chuẩn hoá lời</b>: dán đoạn văn thô rồi bấm nút — AI sửa lại đúng mẫu trên (đặt tiêu đề, chia cảnh, cắt câu dài, đánh dấu câu nhấn) mà không thêm ý mới. Cần 1 API key viết lời trong ⚙ Cài đặt — Gemini, Groq, OpenRouter có gói miễn phí; hoặc chọn Ollama chạy ngay trên máy. Không ưng thì bấm <b>↩︎ Hoàn tác</b>.</li>
         </ul>
         <button type="button" class="btn" id="useExample">Dùng mẫu này</button>
       </div>
@@ -640,10 +966,11 @@ Lưu lại để làm theo nhé!</pre>
 <!-- ===== Video nhiều cảnh ===== -->
 <section class="multi" id="view-multi" hidden>
   <div class="ms-wrap">
-    <a class="btn ms-back" href="#/">← Quay lại</a>
-    <div class="lib-head"><h1 id="multiHeading">Tạo video từng cảnh</h1></div>
-    <p class="muted">Mỗi cảnh: viết lời đọc, chọn hình (ảnh/video của bạn hoặc để AI tạo clip), chọn độ dài.
-      Xong bấm <b>Tạo video</b> ở cuối trang.</p>
+    <a class="back-link" href="#/">← Tạo video</a>
+    <div class="page-head">
+      <h1 id="multiHeading">Tạo video từng cảnh</h1>
+      <p class="muted">Mỗi cảnh một khối: lời đọc, hình, độ dài. Xong bấm <b>Tạo video</b> ở cuối trang.</p>
+    </div>
     <div class="ms-settings">
       <label class="ms-field ms-wide"><span>Tên video</span>
         <input id="multiTitle" type="text" maxlength="60" placeholder="Một ngày ở Hạ Long" /></label>
@@ -662,6 +989,200 @@ Lưu lại để làm theo nhé!</pre>
     <input type="file" id="multiFile" accept="image/*,video/*" hidden />
   </div>
 </section>
+
+<!-- ===== Thêm phụ đề cho nhiều video ===== -->
+<section class="batch" id="view-subs" hidden>
+  <div class="bt-wrap sb-wrap">
+    <div class="page-head">
+      <h1>🔤 Thêm phụ đề cho nhiều video</h1>
+      <p class="muted">Thả video vào, chọn ngôn ngữ phụ đề, chỉnh kiểu chữ một lần cho tất cả. Xong tải cả loạt một lượt, kèm file .srt.</p>
+    </div>
+
+    <div class="sb-grid">
+      <div class="sb-col">
+        <div class="sb-block">
+          <h2>Video</h2>
+          <button type="button" class="bt-drop" id="subsDrop">
+            <b>⬆ Kéo thả video vào đây</b>
+            <span>hoặc bấm để chọn nhiều file · mp4, mov, webm (mp3, wav, m4a cũng được)</span>
+          </button>
+          <ul class="bt-files" id="subsFiles"></ul>
+        </div>
+
+        <div class="sb-block">
+          <h2>Ngôn ngữ</h2>
+          <label class="sb-field"><span>Video đang nói tiếng</span><select id="subsSpoken"></select></label>
+          <div class="sb-field"><span>Phụ đề muốn có <i class="muted">— chọn nhiều thì mỗi ngôn ngữ ra một video riêng</i></span>
+            <div class="bt-picks" id="subsLangs"></div>
+          </div>
+          <p class="plan" id="subsLangNote"></p>
+        </div>
+
+        <details class="bt-settings sb-adv">
+          <summary><span>Nâng cao</span><span class="muted" id="subsAdvSum"></span></summary>
+          <div class="sb-adv-body">
+            <div class="sb-field"><span>Độ chính xác nghe lời</span>
+              <div class="seg" id="subsModel">
+                <button type="button" data-model="medium" title="Đúng hơn, nhất là tên riêng và tiếng Việt">🎯 Chuẩn</button>
+                <button type="button" data-model="small" title="Nhanh hơn nhiều, sai nhiều hơn">⚡ Nhanh</button>
+              </div>
+            </div>
+            <label class="sb-check"><input type="checkbox" id="subsReview" />
+              Dừng cho tôi đọc lại phụ đề trước khi dựng video</label>
+          </div>
+        </details>
+      </div>
+
+      <div class="sb-col sb-look">
+        <div class="sb-block">
+          <h2>Kiểu phụ đề <i class="muted">— áp dụng cho tất cả video</i></h2>
+          <div id="subsLookEditor"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bt-run">
+      <input type="text" id="subsName" placeholder="Tên loạt (để trống thì tự đặt)" />
+      <span class="muted" id="subsSummary"></span>
+      <span class="spacer"></span>
+      <button type="button" class="send" id="subsStart">🔤 Thêm phụ đề</button>
+    </div>
+    <p class="hint" id="subsHint"></p>
+
+    <div id="subsRecent" hidden>
+      <div class="recent-head" style="margin-top:28px"><h2>Loạt phụ đề gần đây</h2></div>
+      <div class="bt-list" id="subsRecentList"></div>
+    </div>
+    <input type="file" id="subsFileInput" accept="video/*,audio/*" multiple hidden />
+  </div>
+</section>
+
+<!-- ===== Làm nhiều video một lượt ===== -->
+<section class="batch" id="view-batch" hidden>
+  <!-- Màn tạo loạt mới -->
+  <div class="bt-wrap" id="batchNew">
+    <div class="page-head">
+      <h1>🏭 Làm nhiều video một lượt</h1>
+      <p class="muted">Đưa vào một danh sách, máy dựng lần lượt từng video. Xong nằm trong Thư viện.</p>
+    </div>
+
+    <div class="seg seg-wide" id="batchSources" role="radiogroup" aria-label="Làm hàng loạt từ">
+      <button type="button" data-source="ideas" aria-pressed="false">💡 Danh sách ý tưởng</button>
+      <button type="button" data-source="custom" aria-pressed="false">🧩 Mỗi video một ô</button>
+      <button type="button" data-source="media" aria-pressed="false">🎙 File thu sẵn</button>
+      <button type="button" data-source="variants" aria-pressed="false">🔁 Biến thể của 1 video</button>
+    </div>
+    <p class="muted bt-source-desc" id="batchSourceDesc"></p>
+
+    <!-- nguồn: ý tưởng — ô nhập to nhất, nằm dưới cùng -->
+    <div class="composer bt-composer" id="batchIdeasBox">
+      <textarea id="batchText" spellcheck="false" aria-label="Danh sách ý tưởng"></textarea>
+      <div class="bt-gen" id="batchIdeaGen" hidden>
+        <span class="muted">✨ Chủ đề</span>
+        <input type="text" id="batchTopic" placeholder="ví dụ: mẹo tiết kiệm điện trong nhà" />
+        <input type="number" id="batchTopicCount" min="1" max="50" value="10" aria-label="Số ý tưởng" />
+        <button type="button" class="btn" id="batchTopicGo">Nghĩ ý tưởng</button>
+      </div>
+      <div class="composer-foot">
+        <button type="button" class="tool-btn" id="batchImport">📄 Tải .txt / .csv</button>
+        <button type="button" class="tool-btn" id="batchTopicToggle">✨ AI nghĩ ý tưởng</button>
+        <span class="spacer"></span>
+        <span class="kbd-hint" id="batchCount"></span>
+      </div>
+    </div>
+
+    <!-- nguồn: mỗi video một ô -->
+    <div class="composer bt-composer" id="batchCustomBox" hidden>
+      <div class="bt-cards" id="batchCards"></div>
+      <div class="composer-foot">
+        <span class="muted">Ô trống thì bỏ qua. Ô nào đặt riêng thì dùng cài đặt của ô đó.</span>
+        <span class="spacer"></span>
+        <span class="kbd-hint" id="batchCardsCount"></span>
+      </div>
+    </div>
+
+    <!-- nguồn: file thu sẵn -->
+    <div class="composer bt-composer" id="batchMediaBox" hidden>
+      <button type="button" class="bt-drop" id="batchDrop">
+        <b>⬆ Kéo thả file audio / video vào đây</b>
+        <span>hoặc bấm để chọn file · mp3, wav, m4a, mp4, mov, webm</span>
+      </button>
+      <ul class="bt-files" id="batchMediaList"></ul>
+      <div class="composer-foot">
+        <span class="muted">Phiên âm bằng whisper.cpp chạy trên máy — không cần key, file không gửi đi đâu.</span>
+        <span class="spacer"></span>
+        <span class="kbd-hint" id="batchMediaCount"></span>
+      </div>
+    </div>
+
+    <!-- nguồn: biến thể -->
+    <div class="composer bt-composer" id="batchVariantBox" hidden>
+      <div class="bt-group">
+        <div class="bt-group-head">Tỉ lệ khung hình <span class="muted">— không chọn thì dùng khung trong ⚙ Cài đặt cho cả loạt</span></div>
+        <div class="bt-picks" id="batchVariantAspects"></div>
+      </div>
+      <div class="bt-group">
+        <div class="bt-group-head">Giọng đọc <span class="muted">— không chọn thì dùng giọng trong ⚙ Cài đặt cho cả loạt</span></div>
+        <div class="bt-picks" id="batchVariantVoices"></div>
+      </div>
+      <div class="bt-group">
+        <div class="bt-group-head">Ngôn ngữ <span class="muted">— dịch lại toàn bộ lời, cần model dịch</span></div>
+        <div class="bt-picks" id="batchVariantLangs"></div>
+      </div>
+      <div class="composer-foot">
+        <span class="spacer"></span>
+        <span class="kbd-hint" id="batchVariantCount"></span>
+      </div>
+    </div>
+
+    <details class="bt-settings" id="batchSettings">
+      <summary><span>⚙ Cài đặt cho cả loạt</span><span class="muted" id="batchSettingsSum"></span></summary>
+      <div class="bt-fields" id="batchFields"></div>
+    </details>
+    <p class="plan bt-plan" id="batchPlan"></p>
+
+    <div class="bt-run">
+      <input type="text" id="batchName" placeholder="Tên loạt (để trống thì tự đặt)" />
+      <span class="spacer"></span>
+      <button type="button" class="send" id="batchStart">🚀 Chạy loạt</button>
+    </div>
+    <p class="hint" id="batchHint"></p>
+
+    <div id="batchRecent" hidden>
+      <div class="recent-head" style="margin-top:28px"><h2>Loạt gần đây</h2></div>
+      <div class="bt-list" id="batchRecentList"></div>
+    </div>
+    <input type="file" id="batchFile" accept=".txt,.csv" hidden />
+    <input type="file" id="batchMediaFile" accept="audio/*,video/*" multiple hidden />
+  </div>
+
+  <!-- Màn theo dõi một loạt -->
+  <div class="bt-wrap" id="batchRun" hidden>
+    <div class="bt-sticky">
+      <div class="bt-head">
+        <a class="icon-btn" href="#/batch" title="Loạt khác" aria-label="Loạt khác">←</a>
+        <h1 id="batchRunName"></h1>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="batchSubsLook" hidden title="Đổi font, màu, vị trí phụ đề cho tất cả video trong loạt">🔤 Kiểu phụ đề</button>
+        <button type="button" class="btn" id="batchPause"></button>
+        <button type="button" class="btn primary" id="batchApproveAll" hidden>✓ Duyệt tất cả</button>
+        <button type="button" class="btn" id="batchRetryAll" hidden>⟳ Chạy lại lỗi</button>
+        <a class="btn" id="batchZip" hidden download>⬇ Tải tất cả</a>
+        <a class="btn" id="batchCsv" hidden download title="Bảng theo dõi để đăng bài (mở bằng Excel, Google Sheets)">📄 CSV</a>
+        <button type="button" class="icon-btn" id="batchDelete" title="Xoá loạt này">🗑</button>
+      </div>
+      <div class="bt-progress"><i id="batchProgressBar"></i></div>
+      <div class="bt-runinfo">
+        <span class="bt-stats" id="batchStats"></span>
+        <span class="spacer"></span>
+        <span class="muted" id="batchEta"></span>
+      </div>
+      <p class="muted bt-runmeta" id="batchRunMeta"></p>
+    </div>
+    <div class="bt-cards" id="batchItems"></div>
+    <p class="hint" id="batchRunHint"></p>
+  </div>
+</section>
 </div>
 </div>
 
@@ -678,6 +1199,22 @@ Lưu lại để làm theo nhé!</pre>
     <div class="dlg-foot">
       <button type="submit" class="btn" value="cancel">Huỷ</button>
       <button type="submit" class="btn danger" value="ok" id="confirmOk">Xoá</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg lk-dlg" id="subsLookDlg">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2>🔤 Kiểu phụ đề cho cả loạt</h2>
+      <button type="submit" class="icon-btn" value="cancel" aria-label="Đóng">✕</button>
+    </div>
+    <p class="muted">Chỉnh một lần — mọi video trong loạt đổi theo. Video đã xong sẽ được dựng lại.</p>
+    <div id="subsLookDlgBody"></div>
+    <p class="hint" id="subsLookDlgHint"></p>
+    <div class="dlg-foot">
+      <button type="submit" class="btn" value="cancel">Huỷ</button>
+      <button type="button" class="btn primary" id="subsLookApply">Áp dụng cho tất cả</button>
     </div>
   </form>
 </dialog>
@@ -710,6 +1247,24 @@ Lưu lại để làm theo nhé!</pre>
   </form>
 </dialog>
 
+<dialog class="dlg pc-dlg" id="postCopyDlg">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2>✍️ Gợi ý bài đăng</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng">✕</button>
+    </div>
+    <p class="muted">AI đọc lời trong video và viết sẵn tiêu đề, caption, hashtag cho từng nền tảng. Đọc lại trước khi đăng.</p>
+    <div id="postCopyBody"></div>
+    <p class="hint" id="postCopyHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="postCopyRegen" hidden>↻ Viết lại</button>
+      <button type="button" class="btn" data-close>Đóng</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="/app.js"></script>
+<script src="/subs.js"></script>
+<script src="/post-copy.js"></script>
 </body>
 </html>

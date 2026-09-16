@@ -3,6 +3,7 @@ import { FPS, msToFrames, OUTRO_FRAMES, TITLE_FRAMES } from "../../constants";
 import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../../aspects";
 import type { ShortProps } from "./schema";
 import { Soundtrack } from "../../audio/Soundtrack";
+import { MediaOverlays } from "../../components/MediaOverlays";
 import { TextOverlays } from "../../components/TextOverlays";
 import { CustomCaptions } from "../../components/CustomCaptions";
 import { usesCustomCaptions } from "../../components/captionLook";
@@ -24,6 +25,8 @@ export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
     // Âm thanh thêm tay kéo dài quá câu cuối thì video dài theo.
     (props.audioClips ?? []).reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0),
     (props.texts ?? []).reduce((max, text) => Math.max(max, text.endMs), 0),
+    // Lớp video chồng kéo dài quá cảnh cuối thì video dài theo.
+    (props.overlays ?? []).reduce((max, overlay) => Math.max(max, overlay.endMs), 0),
   );
 
   return {
@@ -50,6 +53,7 @@ export const Short: React.FC<ShortProps> = (props) => {
   return (
     <AbsoluteFill style={{ fontFamily: FONTS.sans }}>
       <Style {...(custom ? { ...props, captions: [] } : props)} />
+      <MediaOverlays overlays={props.overlays ?? []} />
       {custom ? <CustomCaptions props={props} /> : null}
       <TextOverlays texts={props.texts ?? []} />
       {props.watermark ? <WatermarkOverlay watermark={props.watermark} /> : null}

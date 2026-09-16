@@ -138,6 +138,8 @@ export const fetchSceneImages = async (
   fs.mkdirSync(dir, { recursive: true });
   const credits: string[] = [];
   const files: string[] = [];
+  /** Một ô cho mỗi truy vấn, đúng thứ tự — null = không lấy được. Người gọi gán ảnh theo cảnh. */
+  const perQuery: (string | null)[] = [];
 
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
@@ -157,6 +159,7 @@ export const fetchSceneImages = async (
           const result = await downloadPhoto(photos[0], path.join(dir, `${base}.jpg`));
           credits.push(result.credit);
           files.push(`images/${slug}/${base}.jpg`);
+          perQuery[i] = `images/${slug}/${base}.jpg`;
           log(`[pexels] ${base}.jpg — ${result.credit}`);
         } else {
           await generateImage(
@@ -166,6 +169,7 @@ export const fetchSceneImages = async (
             path.join(dir, `${base}.png`),
           );
           files.push(`images/${slug}/${base}.png`);
+          perQuery[i] = `images/${slug}/${base}.png`;
           log(`[gemini] ${base}.png`);
         }
         done = true;
@@ -175,12 +179,13 @@ export const fetchSceneImages = async (
     }
 
     if (!done) {
+      perQuery[i] = null;
       log(`KHÔNG lấy được ảnh cho "${query}": ${errors.join(" | ")}`);
     }
   }
 
   writeCredits(dir, credits);
-  return { files, images: listAllImages() };
+  return { files, perQuery, images: listAllImages() };
 };
 
 export const buildAndRender = async (

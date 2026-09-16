@@ -38,6 +38,7 @@
   "build": {
     "appId": "nam.vp.rabiloo.ai-video-studio",
     "productName": "AI Video Studio",
+    "icon": "desktop/icon.png",
     "asar": false,
     "npmRebuild": false,
     "directories": {
@@ -54,7 +55,9 @@
       ".claude/skills/style-*/**",
       "public/images/**",
       "public/music/**",
-      "public/sfx/**"
+      "public/sfx/**",
+      "vendor/llama/${os}-${arch}/**",
+      "vendor/models/**"
     ],
     "afterPack": "desktop/after-pack.cjs",
     "mac": {

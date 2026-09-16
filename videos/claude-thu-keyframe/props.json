@@ -1,0 +1,96 @@
+{
+  "title": "Claude thu keyframe",
+  "subtitle": "",
+  "handle": "@kenh",
+  "accent": "#ff6b2c",
+  "background": "#000000",
+  "captions": [],
+  "aspect": "9:16",
+  "style": "plain",
+  "scenes": [
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 0,
+      "endMs": 8000
+    }
+  ],
+  "overlays": [
+    {
+      "src": "uploads/1789526662624-video-moi.mp4",
+      "startMs": 0,
+      "endMs": 8000,
+      "trimStartMs": 0,
+      "volume": 0,
+      "track": 0,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "aspect": 0.563,
+      "rotate": 0,
+      "opacity": 1,
+      "radius": 0,
+      "fit": "cover",
+      "fadeMs": 0,
+      "keyframes": []
+    },
+    {
+      "src": "uploads/1789526662624-video-moi.mp4",
+      "startMs": 0,
+      "endMs": 6000,
+      "trimStartMs": 0,
+      "volume": 0,
+      "track": 2,
+      "x": 50,
+      "y": 50,
+      "width": 40,
+      "aspect": 0.5625,
+      "rotate": 0,
+      "opacity": 1,
+      "radius": 0,
+      "fit": "contain",
+      "fadeMs": 0,
+      "keyframes": [
+        {
+          "atMs": 0,
+          "x": 25,
+          "y": 30,
+          "width": 40,
+          "rotate": 0,
+          "opacity": 1
+        },
+        {
+          "atMs": 867,
+          "x": 47.3,
+          "y": 61.4,
+          "width": 36.4,
+          "rotate": 180,
+          "opacity": 1
+        },
+        {
+          "atMs": 3000,
+          "x": 83.9,
+          "y": 52.1,
+          "width": 40,
+          "rotate": 0,
+          "opacity": 1
+        }
+      ]
+    }
+  ],
+  "captionPosition": "bottom",
+  "showTitle": false,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

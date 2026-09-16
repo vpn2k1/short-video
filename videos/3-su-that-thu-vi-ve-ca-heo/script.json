@@ -1,0 +1,54 @@
+{
+  "style": "caption",
+  "title": "3 sự thật về cá heo",
+  "subtitle": "Khám phá điều kỳ diệu của loài biển thông minh",
+  "handle": "@dolphinfacts",
+  "accent": "#00FFFF",
+  "background": "#0A0A0A",
+  "scenes": [
+    {
+      "lines": [
+        "Bạn đã biết cá heo có gì đặc biệt?",
+        "Cùng khám phá 3 sự thật bất ngờ"
+      ],
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/01-did-you-know-what-s-special-abou.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "3",
+        "caption": "sự thật"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Cá heo nói chuyện bằng tiếng còi",
+        "Âm thanh truyền qua nước lên tới 30 km"
+      ],
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/02-dolphins-communicate-with-whistl.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Chúng có trí nhớ xã hội mạnh mẽ",
+        "Nhớ khu vực ăn cá suốt 10 năm"
+      ],
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/03-they-have-strong-social-memory-r.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Những con cá heo giúp người đánh cá",
+        "Theo dõi để biết thêm điều kỳ diệu!"
+      ],
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/04-dolphins-help-fishermen-follow-f.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

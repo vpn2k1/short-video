@@ -5,6 +5,8 @@
  *  - Trên mạng, dùng lại key đã điền trong Cài đặt: Gemini, Groq, OpenRouter (có gói miễn phí), ChatGPT, Claude.
  *    Gửi cả khối câu kèm số thứ tự, nhận lại JSON — model hiểu ngữ cảnh cả đoạn và giữ đúng số câu, nên thời
  *    gian phụ đề giữ nguyên.
+ *  - AI có sẵn trong app (llama-server + Qwen2.5 1.5B kèm bộ cài): không cần cài gì, dịch theo khối JSON.
+ *    Model nhỏ — dịch được câu đơn giản, kém hơn model trên mạng và TranslateGemma.
  *  - Trên máy: Ollama, mặc định TranslateGemma 4B (Google, dựng trên Gemma 3, chuyên dịch 55 ngôn ngữ).
  *    TranslateGemma chỉ nhận đúng một mẫu prompt và trả chữ thuần — dịch từng câu. Model Ollama khác thì dịch
  *    theo khối JSON như model trên mạng.
@@ -15,6 +17,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { COMPAT_PROVIDERS, DEFAULT_OLLAMA_HOST } from "./generate-script";
+import { LOCAL_AI_LABEL, LOCAL_MODEL_NAME, localAiAvailable, localChat } from "./local-ai";
 
 export const TRANSLATE_LANGUAGES = [
   { code: "vi", label: "Tiếng Việt", name: "Vietnamese" },
@@ -30,9 +33,10 @@ export const TRANSLATE_LANGUAGES = [
 ] as const;
 
 export type TranslateLanguage = (typeof TRANSLATE_LANGUAGES)[number]["code"];
-export type TranslateEngine = "gemini" | "groq" | "openrouter" | "openai" | "anthropic" | "ollama";
+export type TranslateEngine = "gemini" | "groq" | "openrouter" | "openai" | "anthropic" | "local" | "ollama";
 
-export const TRANSLATE_ENGINES: TranslateEngine[] = ["gemini", "groq", "openrouter", "openai", "anthropic", "ollama"];
+/** Thứ tự cũng là thứ tự chọn sẵn: model trên mạng có key trước, AI có sẵn trong app sau. */
+export const TRANSLATE_ENGINES: TranslateEngine[] = ["gemini", "groq", "openrouter", "openai", "anthropic", "local", "ollama"];
 
 export const isTranslateLanguage = (value: unknown): value is TranslateLanguage =>
   TRANSLATE_LANGUAGES.some((l) => l.code === value);
@@ -55,21 +59,22 @@ const ENGINE_LABELS: Record<TranslateEngine, string> = {
   openrouter: "OpenRouter — model miễn phí",
   openai: "ChatGPT (OpenAI)",
   anthropic: "Claude (Anthropic)",
+  local: `${LOCAL_AI_LABEL} (${LOCAL_MODEL_NAME}) — không cần mạng`,
   ollama: "Ollama — trên máy, không cần mạng",
 };
 
 const ollamaHost = () => (process.env.OLLAMA_HOST || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
 export const translateOllamaModel = () => process.env.TRANSLATE_OLLAMA_MODEL || DEFAULT_TRANSLATE_OLLAMA_MODEL;
 
-const keyOf = (engine: Exclude<TranslateEngine, "ollama">) =>
+const keyOf = (engine: Exclude<TranslateEngine, "ollama" | "local">) =>
   engine === "anthropic" ? "ANTHROPIC_API_KEY" : COMPAT_PROVIDERS[engine].keyEnv;
 
 export const translateEngineLabel = (engine: TranslateEngine) => ENGINE_LABELS[engine];
 export const translateLanguageLabel = (code: TranslateLanguage) => TRANSLATE_LANGUAGES.find((l) => l.code === code)?.label ?? code;
 
-/** Tên biến key còn thiếu của model dịch trên mạng; null nếu dùng được (Ollama kiểm lúc chạy). */
+/** Tên biến key còn thiếu của model dịch trên mạng; null nếu dùng được (model trên máy kiểm lúc chạy). */
 export const missingTranslateKey = (engine: TranslateEngine) =>
-  engine === "ollama" || process.env[keyOf(engine)] ? null : keyOf(engine);
+  engine === "ollama" || engine === "local" || process.env[keyOf(engine)] ? null : keyOf(engine);
 
 /** Tên model trên Ollama so khớp cả khi không ghi tag (translategemma = translategemma:latest). */
 const sameOllamaModel = (installed: string, wanted: string) =>
@@ -109,6 +114,7 @@ export const translateEngines = async (): Promise<TranslateEngineInfo[]> => {
     if (id === "ollama") {
       return { id, label: ENGINE_LABELS[id], ready: status === "ready", ollama: { status, host, model, installed: installed ?? [] } };
     }
+    if (id === "local") return { id, label: ENGINE_LABELS[id], ready: localAiAvailable() };
     const env = keyOf(id);
     const ready = Boolean(process.env[env]);
     return { id, label: ENGINE_LABELS[id], ready, ...(ready ? {} : { missingKey: env }) };
@@ -242,6 +248,15 @@ const ollamaChat = async (model: string, messages: { role: string; content: stri
   return body.message?.content ?? "";
 };
 
+/** Cấu trúc {"lines":[{i,text}]} cho model trên máy — schema buộc model nhỏ trả đúng khuôn. */
+const LINES_SCHEMA = {
+  type: "object",
+  properties: {
+    lines: { type: "array", items: { type: "object", properties: { i: { type: "integer" }, text: { type: "string" } }, required: ["i", "text"] } },
+  },
+  required: ["lines"],
+};
+
 /** Mẫu prompt chính thức của TranslateGemma — hai dòng trống trước đoạn cần dịch. */
 const translateGemmaPrompt = (text: string, to: TranslateLanguage, from: string) => {
   const source = `${languageName(from)} (${from})`;
@@ -272,18 +287,22 @@ const translateOllama = async (
     }
     return out;
   }
-  const schema = {
-    type: "object",
-    properties: {
-      lines: { type: "array", items: { type: "object", properties: { i: { type: "integer" }, text: { type: "string" } }, required: ["i", "text"] } },
-    },
-    required: ["lines"],
-  };
   const raw = await ollamaChat(model, [
     { role: "system", content: batchPrompt(to, from) },
     { role: "user", content: JSON.stringify(items.map((text, i) => ({ i, text }))) },
-  ], schema);
+  ], LINES_SCHEMA);
   return readLines(raw, items.length, `Ollama (${model})`);
+};
+
+/** AI có sẵn trong app — dịch theo khối JSON, schema ép đúng cấu trúc {"lines":[{i,text}]}. */
+const translateLocal = async (items: string[], to: TranslateLanguage, from: string | undefined) => {
+  const { text } = await localChat({
+    system: batchPrompt(to, from),
+    user: JSON.stringify(items.map((text, i) => ({ i, text }))),
+    schema: LINES_SCHEMA,
+    temperature: 0.2,
+  });
+  return readLines(text, items.length, LOCAL_AI_LABEL);
 };
 
 /**
@@ -305,9 +324,11 @@ export const translateLines = async (
     const run = () =>
       engine === "ollama"
         ? translateOllama(chunk, to, from, log, start, texts.length)
-        : engine === "anthropic"
-          ? translateClaude(chunk, to, from)
-          : translateCompatible(engine, chunk, to, from);
+        : engine === "local"
+          ? translateLocal(chunk, to, from)
+          : engine === "anthropic"
+            ? translateClaude(chunk, to, from)
+            : translateCompatible(engine, chunk, to, from);
     let result: string[];
     try {
       result = await run();

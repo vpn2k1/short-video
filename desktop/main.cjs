@@ -10,7 +10,7 @@
  * mỗi khi đổi phiên bản, node_modules là symlink về app, dữ liệu người dùng giữ nguyên.
  */
 const { app, BrowserWindow, Menu, dialog, shell } = require("electron");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const http = require("http");
 const net = require("net");
@@ -100,7 +100,8 @@ const startServer = (port) => {
   const ffmpegStatic = path.join(appRoot, "node_modules", "ffmpeg-static");
   const compositor = path.join(appRoot, "node_modules", "@remotion", `compositor-${COMPOSITOR[`${process.platform}-${process.arch}`]}`);
 
-  const env = { ...process.env, ELECTRON_RUN_AS_NODE: "1", PORT: String(port) };
+  // AI có sẵn (llama-server + model ~1 GB) đọc thẳng trong app — không chép sang workspace.
+  const env = { ...process.env, ELECTRON_RUN_AS_NODE: "1", PORT: String(port), LOCAL_AI_DIR: path.join(appRoot, "vendor") };
   // Windows gọi biến là "Path" — gom mọi biến thể về một khoá PATH duy nhất.
   const inheritedPath = Object.entries(env).find(([key]) => key.toUpperCase() === "PATH")?.[1];
   for (const key of Object.keys(env)) if (key.toUpperCase() === "PATH") delete env[key];
@@ -158,6 +159,7 @@ const createWindow = async () => {
     minWidth: 900,
     minHeight: 600,
     title: "AI Video Studio",
+    icon: path.join(__dirname, "icon.png"),
     backgroundColor: "#111111",
   });
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(LOADING_HTML)}`);
@@ -240,6 +242,8 @@ if (!app.requestSingleInstanceLock()) {
       app.quit();
       return;
     }
+    // Bản đóng gói lấy icon từ .icns; khi chạy dev Dock vẫn là icon Electron nên đặt tay.
+    if (!app.isPackaged && process.platform === "darwin") app.dock.setIcon(path.join(__dirname, "icon.png"));
     buildMenu();
     createWindow();
   });
@@ -248,6 +252,12 @@ if (!app.requestSingleInstanceLock()) {
   app.on("window-all-closed", () => app.quit());
   app.on("before-quit", () => {
     quitting = true;
-    serverProcess?.kill();
+    if (serverProcess && process.platform === "win32") {
+      // Windows không có SIGTERM: kill() cắt ngang server, để llama-server (AI có sẵn) mồ côi giữ RAM.
+      // Tắt cả cây tiến trình.
+      spawnSync("taskkill", ["/pid", String(serverProcess.pid), "/T", "/F"], { windowsHide: true });
+    } else {
+      serverProcess?.kill();
+    }
   });
 }

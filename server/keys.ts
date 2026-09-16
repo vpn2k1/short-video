@@ -41,7 +41,7 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "SCRIPT_PROVIDER",
     label: "AI viết kịch bản",
-    help: "Chỉ cần MỘT key. Tự động: Claude → ChatGPT → Gemini → Groq → OpenRouter → Ollama, lấy cái đầu tiên có key. Gemini, Groq, OpenRouter có gói miễn phí. Ollama chạy ngay trên máy: không key, không cần mạng.",
+    help: "Không bắt buộc key: app có sẵn một AI nhỏ chạy trên máy (không cần mạng) — viết được video đơn giản, sửa kịch bản chưa chính xác. Muốn viết/sửa tốt hơn thì điền MỘT key. Tự động: Claude → ChatGPT → Gemini → Groq → OpenRouter → Ollama → AI có sẵn, lấy cái đầu tiên dùng được. Gemini, Groq, OpenRouter có gói miễn phí.",
     group: "Viết kịch bản",
     type: "select",
     options: [
@@ -52,6 +52,7 @@ export const KEY_FIELDS: Field[] = [
       { value: "groq", label: "Groq — miễn phí" },
       { value: "openrouter", label: "OpenRouter — model miễn phí" },
       { value: "ollama", label: "Ollama — chạy trên máy, không cần mạng" },
+      { value: "local", label: "AI có sẵn trong app — trên máy, không cần key" },
     ],
   },
   {

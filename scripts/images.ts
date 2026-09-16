@@ -43,20 +43,30 @@ export const listAllImages = () => {
   return [...listIn("images"), ...dirs.flatMap(listIn)].sort();
 };
 
-/** Ảnh nào được cảnh nào dùng. Trả về cả những ảnh không tìm thấy file. */
-export const imageUsage = (props: ShortProps) =>
-  props.scenes
+/**
+ * Ảnh/video nào đang được dùng ở đâu: các cảnh của phong cách và các video trên timeline.
+ * Trả về cả những file không tìm thấy.
+ */
+export const imageUsage = (props: ShortProps) => {
+  const exists = (file: string) => fs.existsSync(path.join(publicDir(), file));
+  const scenes = props.scenes
     .map((scene, index) => ({
-      scene: index + 1,
+      scene: `cảnh ${index + 1}`,
       image: scene.image,
-      exists:
-        !scene.image
-          ? true
-          : fs.existsSync(path.join(publicDir(), scene.image)),
+      exists: !scene.image ? true : exists(scene.image),
       startMs: scene.startMs,
       endMs: scene.endMs,
     }))
     .filter((row) => Boolean(row.image));
+  const overlays = (props.overlays ?? []).map((o) => ({
+    scene: `Video ${o.track + 1}`,
+    image: o.src as string | null,
+    exists: exists(o.src),
+    startMs: o.startMs,
+    endMs: o.endMs,
+  }));
+  return [...scenes, ...overlays];
+};
 
 /**
  * Ném lỗi nếu có ảnh được tham chiếu mà không có file. Gọi TRƯỚC khi bundle —
@@ -67,7 +77,7 @@ export const assertImagesExist = (props: ShortProps) => {
   if (missing.length === 0) {
     return;
   }
-  const lines = missing.map((row) => `  cảnh ${row.scene}: ${row.image}`);
+  const lines = missing.map((row) => `  ${row.scene}: ${row.image}`);
   throw new Error(
     `Thiếu ${missing.length} ảnh (đường dẫn tính từ public/):\n${lines.join("\n")}\n` +
       `Ảnh đang có:\n${listAllImages().map((i) => `  ${i}`).join("\n") || "  (chưa có ảnh nào)"}`,

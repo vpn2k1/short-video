@@ -1,12 +1,13 @@
 import { Children, isValidElement, useCallback, useEffect, useState } from "react";
-import { CAPTION_FONTS, CAPTION_PRESETS, type CaptionLook, type ShortProps } from "../../src/compositions/Short/schema";
+import { CAPTION_FONTS, CAPTION_PRESETS, type CaptionLook, type MediaOverlay, type Scene, type ShortProps } from "../../src/compositions/Short/schema";
+import { overlayTransformAt } from "../../src/compositions/Short/overlayMotion";
 import { ASPECT_IDS, ASPECTS } from "../../src/aspects";
 import { STYLE_IDS, STYLES } from "../../src/styles/meta";
 import {
   CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, canCustomizeCaptions, resolveCaptionLook, textLook, usesCustomCaptions,
 } from "../../src/components/captionLook";
 import { captionTextStyle } from "../../src/components/CustomCaptions";
-import { api, type MediaItem, type SubtitleOptions, type TranslateCatalog, type TranslateEngine, type TranslateEngineInfo, type VoiceOption } from "./api";
+import { api, fmt, type MediaItem, type SubtitleOptions, type TranslateCatalog, type TranslateEngine, type TranslateEngineInfo, type VoiceOption } from "./api";
 import * as ops from "./ops";
 
 type Props = {
@@ -24,9 +25,16 @@ type Props = {
   onRemoveAllVoice: () => void;
   /** Tách âm thanh của cảnh video ra track riêng. */
   onDetachAudio: (sceneIndex: number) => void;
-  /** Mở khung chọn vùng crop trên khung xem trước. */
-  onStartCrop: (sceneIndex: number) => void;
+  /** Mở khung chọn vùng crop trên khung xem trước — cho cảnh hoặc video trên timeline. */
+  onStartCrop: (sel: ops.MotionSel) => void;
+  /** Tách hình của cảnh thành một video riêng trên timeline. */
+  onLiftScene: (sceneIndex: number) => void;
   onAutoSubtitles: (options: SubtitleOptions) => void;
+  /** Đầu phát hiện tại — mốc chuyển động (keyframe) ghim theo mốc này. */
+  timeMs: number;
+  onSeek: (ms: number) => void;
+  /** Chạy một thao tác ops (giữ nguyên thông báo và lựa chọn nó trả về). */
+  onRun: (result: ops.Result) => void;
 };
 
 const Field: React.FC<{ label: string; children: React.ReactNode; hint?: string }> = ({ label, children, hint }) => (
@@ -197,7 +205,8 @@ const TranslateSettings: React.FC<{
   onChange: (next: TranslateChoice) => void;
   onRefresh: () => void;
 }> = ({ choice, engine, catalog, checking, onChange, onRefresh }) => {
-  const cloud = catalog?.engines.filter((e) => e.id !== "ollama") ?? [];
+  const cloud = catalog?.engines.filter((e) => e.id !== "ollama" && e.id !== "local") ?? [];
+  const builtIn = catalog?.engines.find((e) => e.id === "local");
   const local = catalog?.engines.find((e) => e.id === "ollama");
   const localNote = !local?.ollama
     ? ""
@@ -220,9 +229,12 @@ const TranslateSettings: React.FC<{
                     <option key={e.id} value={e.id} disabled={!e.ready}>{e.label}{e.ready ? "" : " (chưa có key)"}</option>
                   ))}
                 </optgroup>
-                {local ? (
+                {builtIn || local ? (
                   <optgroup label="Trên máy">
-                    <option value="ollama">{local.label}{localNote}</option>
+                    {builtIn ? (
+                      <option value="local" disabled={!builtIn.ready}>{builtIn.label}{builtIn.ready ? "" : " (bản cài không kèm)"}</option>
+                    ) : null}
+                    {local ? <option value="ollama">{local.label}{localNote}</option> : null}
                   </optgroup>
                 ) : null}
               </select>
@@ -580,7 +592,8 @@ const Panel: React.FC<{ icon: string; title: string; onClose?: () => void; child
 /** Bảng thuộc tính bên phải — nội dung đổi theo mục đang chọn trên timeline. */
 export const Inspector: React.FC<Props> = ({
   props, selection, media, voices, onChange, onSelect, onDelete, onSplit, onDuplicateText, onVoice, onRemoveAllVoice, onDetachAudio,
-  onStartCrop, onAutoSubtitles,
+  timeMs, onSeek, onRun,
+  onStartCrop, onLiftScene, onAutoSubtitles,
 }) => {
   const [voice, setVoice] = useState("linh");
   const [subLanguage, setSubLanguage] = useState<SubtitleOptions["language"]>("vi");
@@ -605,7 +618,8 @@ export const Inspector: React.FC<Props> = ({
       // không lưu được — chỉ mất lựa chọn khi tải lại trang
     }
   };
-  // Model đã chọn còn dùng được thì giữ; không thì lấy model đầu tiên có key; chưa có key nào → Ollama (hiện hướng dẫn cài).
+  // Model đã chọn còn dùng được thì giữ; không thì lấy model đầu tiên dùng được (key trên mạng, rồi AI có sẵn
+  // trong app); không có gì → Ollama (hiện hướng dẫn cài).
   const translateEngine: TranslateEngine = (() => {
     const engines = translateCatalog?.engines ?? [];
     const saved = engines.find((e) => e.id === translateChoice.engine);
@@ -779,11 +793,166 @@ export const Inspector: React.FC<Props> = ({
     );
   }
 
+  // ---------- chuyển động: dùng chung cho cảnh và mọi video trên timeline ----------
+
+  /**
+   * Mục "Vị trí & thu phóng". Các ô ghi qua ops.transformItem nên khi đã có mốc chuyển động thì sửa
+   * đúng mốc tại đầu phát (chưa có thì tạo), y như kéo trên khung xem trước.
+   */
+  const motionFrameSection = (sel: ops.MotionSel, item: Scene | MediaOverlay, tab: string) => {
+    const at = overlayTransformAt(item, timeMs);
+    const keys = ops.overlayKeyframesOf(item);
+    const key = (name: string) => `motion-${sel.type}-${sel.index}-${name}`;
+    const move = (patch: Partial<typeof at>, name: string) =>
+      onChange(ops.transformItem(props, sel, patch, timeMs), key(name));
+    const overlay = sel.type === "overlay" ? (item as MediaOverlay) : null;
+    const setOverlay = (patch: Partial<MediaOverlay>, name?: string) =>
+      onChange(ops.updateOverlay(props, sel.index, patch), name ? key(name) : undefined);
+    const frameAspect = ops.videoMeta(props).width / ops.videoMeta(props).height;
+
+    return (
+      <section className="in-sec" data-tab={tab}>
+        <h3>🔍 Vị trí & thu phóng</h3>
+        <small className="in-hint">
+          Kéo thẳng trên khung xem trước cũng được: kéo thân để dời, tay nắm góc để thu phóng, tay nắm trên để xoay.
+          {sel.type === "scene" ? " Khung của cảnh hiện khi cảnh đang được chọn." : ""}
+        </small>
+        {keys.length > 0 ? (
+          <p className="in-note">◆ Đang có {keys.length} mốc chuyển động — sửa các ô dưới đây sẽ ghi vào mốc tại đầu phát.</p>
+        ) : null}
+        <Field label={sel.type === "scene" ? "Thu phóng" : "Bề rộng khối"} hint="% chiều rộng khung hình (100% = đúng khung)">
+          <Slider value={at.width} min={3} max={300} step={0.5} format={(v) => `${Math.round(v)}%`} onChange={(v) => move({ width: v }, "w")} />
+        </Field>
+        <div className="in-2">
+          <Field label="Ngang (%)">
+            <Slider value={at.x} min={-50} max={150} step={0.5} format={(v) => `${Math.round(v)}%`} onChange={(v) => move({ x: v }, "x")} />
+          </Field>
+          <Field label="Dọc (%)">
+            <Slider value={at.y} min={-50} max={150} step={0.5} format={(v) => `${Math.round(v)}%`} onChange={(v) => move({ y: v }, "y")} />
+          </Field>
+        </div>
+        <Field label="Xoay">
+          <Slider value={at.rotate} min={-180} max={180} step={1} format={(v) => `${Math.round(v)}°`} onChange={(v) => move({ rotate: v }, "rot")} />
+        </Field>
+        <Field label="Độ mờ">
+          <Slider value={at.opacity} max={1} onChange={(v) => move({ opacity: v }, "op")} />
+        </Field>
+        {overlay ? (
+          <>
+            <Field label="Bo góc" hint="% cạnh ngắn của khối">
+              <Slider value={overlay.radius} max={50} step={1} format={(v) => `${Math.round(v)}%`} onChange={(v) => setOverlay({ radius: v }, "rad")} />
+            </Field>
+            <Field label="Hiện dần / mất dần" hint="Mỗi đầu">
+              <Slider value={overlay.fadeMs} max={2000} step={50} format={(v) => `${(v / 1000).toFixed(2)}s`} onChange={(v) => setOverlay({ fadeMs: v }, "fade")} />
+            </Field>
+            <Field label="Hình trong khối">
+              <div className="in-seg">
+                <button className={overlay.fit === "cover" ? "on" : ""} onClick={() => setOverlay({ fit: "cover" })}>Lấp đầy</button>
+                <button className={overlay.fit === "contain" ? "on" : ""} onClick={() => setOverlay({ fit: "contain" })}>Vừa khối</button>
+              </div>
+            </Field>
+          </>
+        ) : null}
+        <div className="in-actions">
+          {overlay ? (
+            <button
+              title="Phủ kín khung hình — như một cảnh thường"
+              onClick={() => setOverlay({ x: 50, y: 50, width: 100, rotate: 0, aspect: Math.round(frameAspect * 1000) / 1000, fit: "cover", keyframes: [] })}
+            >
+              ⛶ Phủ kín khung
+            </button>
+          ) : null}
+          <button onClick={() => move({ x: 50, y: 50 }, "center")}>⊕ Về giữa khung</button>
+          <button disabled={at.rotate === 0} onClick={() => move({ rotate: 0 }, "rot0")}>↺ Bỏ xoay</button>
+          <button onClick={() => onRun(ops.resetMotion(props, sel))}>↺ Về đúng khung</button>
+        </div>
+      </section>
+    );
+  };
+
+  /** Mục "Crop khung hình" — dùng chung cho cảnh và video trên timeline. */
+  const cropSection = (sel: ops.MotionSel, item: Scene | MediaOverlay, tab: string) => {
+    const crop = item.crop;
+    const clear = () =>
+      onChange(sel.type === "scene"
+        ? ops.updateScene(props, sel.index, { crop: null })
+        : ops.updateOverlay(props, sel.index, { crop: null }));
+    return (
+      <section className="in-sec" data-tab={tab}>
+        <h3>🔲 Crop khung hình</h3>
+        <p className="in-note">
+          {!crop
+            ? "Chưa crop — đang dùng toàn bộ ảnh/video."
+            : "w" in crop
+              ? `Lấy ${Math.round(crop.w * 100)}% × ${Math.round(crop.h * 100)}% ảnh gốc · ${crop.fit === "cover" ? "lấp đầy" : "vừa khung"}` +
+                `${crop.rotate ? ` · xoay ${crop.rotate}°` : ""}${crop.flipH ? " · lật ngang" : ""}${crop.flipV ? " · lật dọc" : ""}.`
+              : `Crop kiểu cũ: lấy ${Math.round(crop.size * 100)}% khung. Mở khung crop để chỉnh theo kiểu mới.`}
+        </p>
+        <div className="in-actions">
+          <button onClick={() => onStartCrop(sel)}>🔲 Mở khung crop</button>
+          {crop ? <button onClick={clear}>Bỏ crop</button> : null}
+        </div>
+        <small className="in-hint">Giống CapCut: chọn tỉ lệ, kéo 8 điểm, xoay, lật, lấp đầy hoặc vừa khung.</small>
+      </section>
+    );
+  };
+
+  /** Mục "Chuyển động (keyframe)" — dùng chung cho cảnh và lớp. */
+  const motionKeySection = (sel: ops.MotionSel, item: Scene | MediaOverlay) => {
+    const keys = ops.overlayKeyframesOf(item);
+    const what = sel.type === "scene" ? "Cảnh" : "Video";
+    return (
+      <section className="in-sec" data-tab="Chuyển động">
+        <h3>◆ Chuyển động (keyframe)</h3>
+        {keys.length === 0 ? (
+          <p className="in-note">
+            {what} đang đứng yên. Cách làm: dời đầu phát tới chỗ bắt đầu → bấm <b>Ghim mốc</b> (hoặc nút ◆ trên thanh
+            timeline) → dời đầu phát tới chỗ khác → kéo/thu phóng trên khung xem trước → ghim mốc nữa.
+            Hình sẽ tự chạy mượt giữa các mốc.
+          </p>
+        ) : (
+          <p className="in-note">
+            {keys.length} mốc. Kéo trên khung xem trước sẽ sửa mốc tại đầu phát (chỗ đó chưa có mốc thì tạo mốc mới).
+            Trước mốc đầu và sau mốc cuối, hình đứng yên.
+          </p>
+        )}
+        <div className="in-actions">
+          <button onClick={() => onRun(ops.setKeyframe(props, sel, timeMs))}>◆ Ghim mốc tại đầu phát</button>
+          {keys.length > 0 ? (
+            <>
+              <button onClick={() => onRun(ops.deleteKeyframe(props, sel, timeMs))}>Xoá mốc ở đây</button>
+              <button className="danger" onClick={() => onRun(ops.clearKeyframes(props, sel, timeMs))}>Bỏ chuyển động</button>
+            </>
+          ) : null}
+        </div>
+        {keys.length > 0 ? (
+          <div className="kf-list">
+            {keys.map((k) => (
+              <button
+                key={k.atMs}
+                className={`kf-row ${Math.abs(k.atMs - timeMs) <= ops.KEYFRAME_SNAP_MS ? "on" : ""}`}
+                onClick={() => onSeek(k.atMs)}
+                title="Bấm để tua tới mốc này"
+              >
+                <b>◆ {fmt(k.atMs)}</b>
+                <span>
+                  {Math.round(k.x)}% · {Math.round(k.y)}% · rộng {Math.round(k.width)}%
+                  {k.rotate ? ` · ${Math.round(k.rotate)}°` : ""}{k.opacity < 1 ? ` · mờ ${Math.round(k.opacity * 100)}%` : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    );
+  };
+
   // ---------- cảnh ----------
   if (selection?.type === "scene") {
     const s = props.scenes[selection.index];
     if (!s) return null;
     const i = selection.index;
+    const sceneSel: ops.MotionSel = { type: "scene", index: i };
     const video = ops.isVideo(s.image);
     return (
       <Panel key="scene" icon={video ? "🎬" : "🖼"} title={`Cảnh ${i + 1}`} onClose={() => onSelect(null)}>
@@ -801,6 +970,12 @@ export const Inspector: React.FC<Props> = ({
           </p>
           {s.image ? (
             <div className="in-actions">
+              <button
+                onClick={() => onLiftScene(i)}
+                title="Hình của cảnh thành một video riêng trên timeline — kéo, thu phóng, xoay và đè lên video khác được; chỗ cũ trên hàng Cảnh để trống"
+              >
+                ⬆ Tách thành video riêng
+              </button>
               <button onClick={() => onChange(ops.setSceneMedia(props, i, null))}>Bỏ ảnh</button>
             </div>
           ) : null}
@@ -836,24 +1011,10 @@ export const Inspector: React.FC<Props> = ({
           </section>
         ) : null}
 
-        {s.image ? (
-          <section className="in-sec" data-tab="Cơ bản">
-            <h3>🔲 Crop khung hình</h3>
-            <p className="in-note">
-              {!s.crop
-                ? "Chưa crop — đang dùng toàn bộ ảnh/video."
-                : "w" in s.crop
-                  ? `Lấy ${Math.round(s.crop.w * 100)}% × ${Math.round(s.crop.h * 100)}% ảnh gốc · ${s.crop.fit === "cover" ? "lấp đầy" : "vừa khung"}` +
-                    `${s.crop.rotate ? ` · xoay ${s.crop.rotate}°` : ""}${s.crop.flipH ? " · lật ngang" : ""}${s.crop.flipV ? " · lật dọc" : ""}.`
-                  : `Crop kiểu cũ: lấy ${Math.round(s.crop.size * 100)}% khung. Mở khung crop để chỉnh theo kiểu mới.`}
-            </p>
-            <div className="in-actions">
-              <button onClick={() => onStartCrop(i)}>🔲 Mở khung crop</button>
-              {s.crop ? <button onClick={() => onChange(ops.updateScene(props, i, { crop: null }))}>Bỏ crop</button> : null}
-            </div>
-            <small className="in-hint">Giống CapCut: chọn tỉ lệ, kéo 8 điểm, xoay, lật, lấp đầy hoặc vừa khung.</small>
-          </section>
-        ) : null}
+        {s.image ? motionFrameSection(sceneSel, s, "Khung hình") : null}
+        {s.image ? motionKeySection(sceneSel, s) : null}
+
+        {s.image ? cropSection(sceneSel, s, "Khung hình") : null}
 
         {video ? (
           <section className="in-sec" data-tab="Phụ đề AI">
@@ -938,6 +1099,75 @@ export const Inspector: React.FC<Props> = ({
     );
   }
 
+  // ---------- một video trên timeline ----------
+  if (selection?.type === "overlay") {
+    const overlays = ops.overlaysOf(props);
+    const o = overlays[selection.index];
+    if (!o) return null;
+    const i = selection.index;
+    const video = ops.isVideo(o.src);
+    const set = (patch: Parameters<typeof ops.updateOverlay>[2], key?: string) => onChange(ops.updateOverlay(props, i, patch), key);
+    const overlaySel: ops.MotionSel = { type: "overlay", index: i };
+    return (
+      <Panel key="overlay" icon={video ? "🎬" : "🖼"} title={ops.overlayName(o)} onClose={() => onSelect(null)}>
+        <section className="in-sec" data-tab="Cơ bản">
+          <h3>{video ? "🎬" : "🖼"} {ops.overlayName(o)} trên timeline</h3>
+          <div className="in-media">
+            {video
+              ? <video src={`/public/${o.src}`} muted playsInline preload="metadata" />
+              : <img src={`/public/${o.src}`} alt="" />}
+          </div>
+          <p className="in-note">
+            {o.src} · {((o.endMs - o.startMs) / 1000).toFixed(1)}s · hàng {ops.overlayName(o)}
+          </p>
+          <div className="in-2">
+            <Field label="Bắt đầu (giây)">
+              <Seconds value={o.startMs} onChange={(ms) => set({ startMs: ms, endMs: ms + (o.endMs - o.startMs) }, `overlay-start-${i}`)} />
+            </Field>
+            <Field label="Độ dài (giây)">
+              <Seconds value={o.endMs - o.startMs} min={ops.MIN_MS} onChange={(ms) => set({ endMs: o.startMs + ms }, `overlay-len-${i}`)} />
+            </Field>
+          </div>
+          <div className="in-actions">
+            <button onClick={() => set({ track: o.track + 1 })} title="Hàng cao hơn vẽ trên khi hai video đè nhau">▲ Lên hàng Video {o.track + 2}</button>
+            <button disabled={o.track === 0} onClick={() => set({ track: o.track - 1 })}>▼ Xuống hàng Video {o.track}</button>
+          </div>
+          <small className="in-hint">Kéo khối lên/xuống trên timeline cũng đổi hàng. Hàng cao vẽ trên hàng thấp.</small>
+        </section>
+
+        {motionKeySection(overlaySel, o)}
+
+        {motionFrameSection(overlaySel, o, "Khung hình")}
+
+        {cropSection(overlaySel, o, "Khung hình")}
+
+        {video ? (
+          <section className="in-sec" data-tab="Âm thanh & tốc độ">
+            <h3>✂️ Clip video</h3>
+            <Field label="Lấy từ giây" hint="Mốc trong clip gốc">
+              <Seconds value={o.trimStartMs} onChange={(ms) => set({ trimStartMs: ms }, `overlay-trim-${i}`)} />
+            </Field>
+            <Field label="Tiếng gốc của clip" hint="0% = tắt tiếng">
+              <Slider value={o.volume} max={1} onChange={(v) => set({ volume: v }, `overlay-vol-${i}`)} />
+            </Field>
+            <SpeedControl
+              speed={ops.clipSpeed(o)}
+              lengthMs={o.endMs - o.startMs}
+              onChange={(v, key) => onChange(ops.setOverlaySpeed(props, i, v), key ? `overlay-speed-${i}` : undefined)}
+            />
+          </section>
+        ) : null}
+
+        <section className="in-sec in-foot">
+          <div className="in-actions">
+            <button onClick={onSplit}>✂️ Tách tại đầu phát</button>
+            <button className="danger" onClick={onDelete}>🗑 Xoá video này</button>
+          </div>
+        </section>
+      </Panel>
+    );
+  }
+
   // ---------- âm thanh thêm tay ----------
   if (selection?.type === "clip") {
     const c = props.audioClips[selection.index];
@@ -1004,6 +1234,25 @@ export const Inspector: React.FC<Props> = ({
       <p className="in-tip" data-tab="Dự án">
         👆 Bấm một khối trên timeline để sửa riêng khối đó. Kéo ảnh, video, nhạc từ thư viện thả xuống timeline.
       </p>
+      {ops.hasSceneMedia(props) ? (
+        <section className="in-sec" data-tab="Dự án">
+          <h3>🎞 Hàng Cảnh</h3>
+          <p className="in-note">
+            Dự án này còn {props.scenes.filter((s) => s.image).length} cảnh do phong cách vẽ (hàng <b>Cảnh</b>).
+            Gộp thành video để mọi clip trên timeline là một loại: dời, thu nhỏ, đè lên nhau và chỉnh y như nhau.
+          </p>
+          <div className="in-actions">
+            <button onClick={() => onRun(ops.unifyScenes(props))}>⬆ Gộp cảnh thành video trên timeline</button>
+          </div>
+          {props.style !== "plain" ? (
+            <small className="in-hint">
+              Phong cách “{STYLES[props.style as keyof typeof STYLES].label}” đang lồng ảnh vào khung riêng của nó
+              (ô truyện tranh, ảnh polaroid, phóng chậm…) — gộp xong sẽ mất phần khung đó, đổi lại clip nào cũng chỉnh như nhau.
+            </small>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="in-sec">
         <h3>🎬 Video</h3>
         <Field label="Tiêu đề">

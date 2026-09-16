@@ -1,0 +1,44 @@
+{
+  "style": "vox",
+  "title": "Vietnam: Bậc Thứ Hai Cà Phê",
+  "subtitle": "Khám phá lý do xuất khẩu café bùng nổ",
+  "handle": "@cafevietnam",
+  "accent": "#CFA13D",
+  "background": "#111111",
+  "scenes": [
+    {
+      "lines": [
+        "Nông dân chuyển sang trồng robusta",
+        "Giá thành thấp, năng suất cao"
+      ],
+      "image": "images/vi-sao-viet-nam-tro-thanh-nuoc-xuat-khau/01-vietnam-the-second-coffee-tier-f.jpg",
+      "visual": null,
+      "tag": "Robusta",
+      "punch": "Giá thành thấp, năng suất cao"
+    },
+    {
+      "lines": [
+        "Chính sách ưu đãi thuế xuất khẩu",
+        "Hỗ trợ tài chính cho nông dân"
+      ],
+      "image": "images/vi-sao-viet-nam-tro-thanh-nuoc-xuat-khau/02-vietnam-the-second-coffee-tier-e.jpg",
+      "visual": null,
+      "tag": "Chính sách",
+      "punch": "Chính sách ưu đãi thuế xuất khẩu"
+    },
+    {
+      "lines": [
+        "Thị trường toàn cầu ưa thích robusta",
+        "Việt Nam cung cấp 30% thị phần"
+      ],
+      "image": "images/vi-sao-viet-nam-tro-thanh-nuoc-xuat-khau/03-vietnam-the-second-coffee-tier-g.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "30%",
+        "caption": "thị phần robusta"
+      },
+      "tag": "30%",
+      "punch": "Việt Nam cung cấp 30% thị phần"
+    }
+  ]
+}

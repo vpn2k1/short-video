@@ -13,7 +13,8 @@ import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { generateAiVideo, isVideoModelChoice, videoModelCatalog } from "../scripts/ai-video";
 import { TITLE_FRAMES } from "../src/constants";
-import { editScript, generateScript, scriptProvider, type StyleChoice } from "../scripts/generate-script";
+import { editScript, generateScript, isScriptProvider, providerLabel, scriptProvider, type ProviderChoice, type StyleChoice } from "../scripts/generate-script";
+import { isLengthChoice, type LengthChoice } from "../scripts/video-length";
 import { moveToAppTrash } from "./app-trash";
 import { isStyleId, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
@@ -32,7 +33,9 @@ import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import type { Caption } from "../src/compositions/Short/schema";
 import {
   isTranslateEngine, isTranslateLanguage, missingTranslateKey, translateEngineLabel, translateLanguageLabel, translateLines,
+  TRANSLATE_ENGINES, type TranslateEngine,
 } from "../scripts/translate";
+import { fetchSceneImages } from "./api";
 
 export type ChatSettings = {
   /** Tạo video (có giọng + nhạc) hay bộ ảnh tĩnh, mỗi cảnh một ảnh. */
@@ -47,7 +50,25 @@ export type ChatSettings = {
   music: string | null;
   /** Hình của cảnh: "" = ảnh như cũ; "auto" hoặc key model = tạo clip AI cho từng cảnh. */
   video: string;
+  /** AI viết kịch bản cho video này: "auto" = theo Cài đặt, hoặc một nhà cung cấp cụ thể. */
+  provider: ProviderChoice;
+  /** Hình cho cảnh chưa có ảnh: không hình / thư viện / tìm Pexels / AI vẽ. */
+  images: ImageSource;
+  /** Độ dài AI viết: "auto" = đọc từ prompt (không nêu thì video ngắn), "free" = không giới hạn, còn lại là số giây. */
+  length: LengthChoice;
 };
+
+/**
+ * Nguồn hình của cảnh:
+ *  - "none": không hình — video chỉ có chữ trên nền màu.
+ *  - "library": ảnh trong thư viện hoặc file bạn tải lên (AI chọn trong danh sách).
+ *  - "pexels": tìm ảnh thật trên Pexels (cần PEXELS_API_KEY).
+ *  - "ai": Gemini vẽ ảnh cho từng cảnh (cần GEMINI_API_KEY, tính tiền theo ảnh).
+ */
+export type ImageSource = "none" | "library" | "pexels" | "ai";
+
+const isImageSource = (value: unknown): value is ImageSource =>
+  value === "none" || value === "library" || value === "pexels" || value === "ai";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -64,7 +85,7 @@ export type ChatMessage = {
 
 type Chat = { messages: ChatMessage[]; settings: ChatSettings };
 
-const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "" };
+export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", length: "auto" };
 
 /** Ảnh đã dựng của một video: out/scenes/<slug>-<cảnh>.png, theo thứ tự cảnh. */
 const sceneImages = (slug: string) => {
@@ -93,6 +114,27 @@ const chatPath = (slug: string) => path.join(videoDir(slug), "chat.json");
 /** slug → jobId của lượt đang chạy. Một video chỉ chạy một lượt một lúc. */
 const running = new Map<string, string>();
 
+/**
+ * Chặn tạo trùng khi bấm Gửi nhiều lần: video đã có slug thì `running` lo,
+ * nhưng video mới mỗi lần bấm lại sinh slug mới. Nhớ lượt vừa mở trong ít giây,
+ * cùng nội dung + file đính kèm thì trả lại đúng video đó thay vì tạo cái nữa.
+ */
+const NEW_TURN_WINDOW_MS = 15_000;
+const recentNew = new Map<string, { slug: string; jobId: string; at: number }>();
+
+const newTurnKey = (prompt: string, attachments: string[]) =>
+  `${prompt}\n\u0000${attachments.join("\u0000")}`;
+
+const recentNewTurn = (key: string) => {
+  const hit = recentNew.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > NEW_TURN_WINDOW_MS || running.get(hit.slug) !== hit.jobId) {
+    recentNew.delete(key);
+    return null;
+  }
+  return hit;
+};
+
 export const readChat = (slug: string): Chat & { slug: string; jobId: string | null } => {
   let chat: Chat = { messages: [], settings: { ...DEFAULT_SETTINGS } };
   if (fs.existsSync(chatPath(slug))) {
@@ -119,7 +161,7 @@ export const readChat = (slug: string): Chat & { slug: string; jobId: string | n
   return { slug, ...chat, jobId: running.get(slug) ?? null };
 };
 
-const writeChat = (slug: string, chat: Chat) => {
+export const writeChat = (slug: string, chat: Chat) => {
   fs.mkdirSync(videoDir(slug), { recursive: true });
   fs.writeFileSync(chatPath(slug), JSON.stringify(chat, null, 2));
 };
@@ -128,7 +170,7 @@ const readJson = (file: string) =>
   fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
 
 /** Slug chưa dùng, suy từ prompt: "pin-iphone", "pin-iphone-2"… */
-const freshSlug = (prompt: string) => {
+export const freshSlug = (prompt: string) => {
   const base = slugify(prompt, 40);
   let slug = base;
   for (let n = 2; fs.existsSync(videoDir(slug)); n++) {
@@ -150,8 +192,12 @@ export const createEditorProject = (body: unknown) => {
     throw new Error("Tối đa 50 file mỗi lần.");
   }
 
+  const frameAspect = ASPECTS[aspectId as AspectId].width / ASPECTS[aspectId as AspectId].height;
+
+  // Mỗi file là MỘT VIDEO trên timeline, nối tiếp nhau ở hàng Video 1. Không có "track chính":
+  // video nào cũng dời/thu nhỏ/đè lên nhau được, thu nhỏ hết thì thấy nền đen của khung đã chọn.
   let cursor = 0;
-  const scenes = items.map((item) => {
+  const overlays = items.map((item) => {
     const file = (item as { path?: unknown })?.path;
     if (typeof file !== "string" || !MEDIA_RE.test(file) || file.includes("..")) {
       throw new Error(`File không hợp lệ: ${String(file)}`);
@@ -162,21 +208,31 @@ export const createEditorProject = (body: unknown) => {
     const raw = Number((item as { durationMs?: unknown }).durationMs);
     const duration = Math.round(Math.min(3_600_000, Math.max(500, Number.isFinite(raw) ? raw : 3000)));
     const video = /\.(mp4|mov|webm)$/i.test(file);
-    const scene = {
-      image: file, visual: null, tag: null, punch: null,
-      trimStartMs: 0, volume: video ? 1 : 0,
-      startMs: cursor, endMs: cursor + duration,
+    const overlay = {
+      src: file,
+      startMs: cursor,
+      endMs: cursor + duration,
+      trimStartMs: 0,
+      volume: video ? 1 : 0,
+      track: 0,
+      // Phủ kín khung, không cắt hình — thấy trọn clip, chỗ trống là nền đen.
+      x: 50, y: 50, width: 100, aspect: Math.round(frameAspect * 1000) / 1000,
+      rotate: 0, opacity: 1, radius: 0, fit: "contain" as const,
+      crop: null, fadeMs: 0, keyframes: [],
     };
     cursor += duration;
-    return scene;
+    return overlay;
   });
-  if (scenes.length === 0) {
-    scenes.push({ image: null as unknown as string, visual: null, tag: null, punch: null, trimStartMs: 0, volume: 0, startMs: 0, endMs: 5000 });
-  }
+
+  // Một cảnh rỗng trải dài cả video: nền đen phía sau mọi video (hàng Cảnh không hiện trong timeline).
+  const scenes = [{
+    image: null as string | null, visual: null, tag: null, punch: null,
+    trimStartMs: 0, volume: 0, startMs: 0, endMs: Math.max(5000, cursor),
+  }];
 
   const props = shortSchema.parse({
     title: name, subtitle: "", handle: "@kenh", accent: "#ff6b2c", background: "#000000",
-    captions: [], aspect: aspectId, style: "plain", scenes,
+    captions: [], aspect: aspectId, style: "plain", scenes, overlays,
     captionPosition: "bottom", showTitle: false, voiceoverTrack: null, music: null, sfx: false,
   });
 
@@ -244,6 +300,11 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
     props.scenes.forEach((s, i) => {
       if (videoFile(s.image) && s.volume > 0) {
         segments.push({ src: s.image as string, startMs: s.startMs, trimStartMs: s.trimStartMs, durationMs: s.endMs - s.startMs, speed: s.speed ?? 1, label: `cảnh ${i + 1}` });
+      }
+    });
+    (props.overlays ?? []).forEach((o, i) => {
+      if (videoFile(o.src) && o.volume > 0) {
+        segments.push({ src: o.src, startMs: o.startMs, trimStartMs: o.trimStartMs, durationMs: o.endMs - o.startMs, speed: o.speed ?? 1, label: `lớp video ${i + 1}` });
       }
     });
     props.audioClips.forEach((c) => {
@@ -580,6 +641,8 @@ export const listProjects = () => {
         status,
         /** Có props.json — mở được trình chỉnh sửa. */
         editable: Boolean(props),
+        /** Có script.json — nhân được biến thể (đổi tỉ lệ, giọng, ngôn ngữ) trong chế độ hàng loạt. */
+        scripted: Boolean(script),
         /** Tạo từ tab 🎬 Nhiều cảnh — mở lại được danh sách cảnh. */
         multi: fs.existsSync(multiPath(slug)),
         /** Số lần người dùng nhắn (tạo + sửa). */
@@ -590,6 +653,62 @@ export const listProjects = () => {
       };
     })
     .sort((a, b) => b.updated - a.updated);
+};
+
+/**
+ * Lọc cài đặt người dùng gửi lên: giá trị nào không hợp lệ thì giữ của `base`.
+ * Dùng chung cho chat và cho chế độ hàng loạt để hai nơi không lệch luật nhau.
+ */
+export const normalizeSettings = (
+  patch: Partial<ChatSettings> | undefined,
+  base: ChatSettings = DEFAULT_SETTINGS,
+): ChatSettings => {
+  const s = patch ?? {};
+  return {
+    kind: s.kind === "image" || s.kind === "video" ? s.kind : base.kind,
+    style: s.style === "auto" || isStyleId(s.style) ? s.style : base.style,
+    mode: s.mode === "ai" || s.mode === "text" ? s.mode : base.mode,
+    aspect: typeof s.aspect === "string" && ASPECT_IDS.includes(s.aspect as never)
+      ? s.aspect : base.aspect,
+    voice: typeof s.voice === "string" && (s.voice === "" || findVoice(s.voice))
+      ? s.voice : base.voice,
+    music: typeof s.music === "string" && /^music\/[\w.-]+$/.test(s.music)
+      ? s.music : s.music === null ? null : base.music,
+    video: typeof s.video === "string" && (s.video === "" || isVideoModelChoice(s.video))
+      ? s.video : base.video,
+    provider: s.provider === "auto" || isScriptProvider(s.provider) ? s.provider : base.provider,
+    images: isImageSource(s.images) ? s.images : base.images,
+    // Cuộc chat cũ lưu trước khi có ô độ dài thì không có trường này.
+    length: isLengthChoice(s.length) ? s.length : base.length ?? "auto",
+  };
+};
+
+/** Thiếu key cho lựa chọn đang bật thì báo ngay, trước khi chạy nền. */
+export const assertSettingsUsable = (settings: ChatSettings) => {
+  if (settings.kind === "video" && settings.video && !videoModelCatalog().defaultModel) {
+    throw new Error(
+      "Chọn hình Video AI nhưng chưa có key tạo video. Thêm key Gemini, fal.ai hoặc Replicate trong Cài đặt, hoặc đổi chip Hình về 🖼 Ảnh.",
+    );
+  }
+  if (settings.images === "pexels" && !process.env.PEXELS_API_KEY) {
+    throw new Error(
+      "Chọn tìm ảnh trên Pexels nhưng chưa có key Pexels. Lấy key miễn phí ở pexels.com/api rồi điền vào ⚙ Cài đặt, " +
+        "hoặc đổi nút Hình ảnh sang 🖼 Ảnh của tôi / 🚫 Không hình.",
+    );
+  }
+  if (settings.images === "ai" && !process.env.GEMINI_API_KEY) {
+    throw new Error(
+      "Chọn AI vẽ ảnh nhưng chưa có key Gemini. Điền GEMINI_API_KEY trong ⚙ Cài đặt, hoặc đổi nút Hình ảnh sang " +
+        "🔍 Tìm ảnh Pexels / 🖼 Ảnh của tôi.",
+    );
+  }
+  if (settings.mode === "ai" && !scriptProvider(settings.provider)) {
+    throw new Error(
+      settings.provider !== "auto"
+        ? `Chưa có key cho ${providerLabel(settings.provider)} — điền trong Cài đặt, hoặc chọn AI khác ở ô tuỳ chọn.`
+        : "Chưa có AI viết kịch bản. Điền key trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí), chọn Ollama để chạy AI ngay trên máy không cần key, hoặc chọn 📝 Lời có sẵn để dán kịch bản.",
+    );
+  }
 };
 
 export type TurnInput = {
@@ -618,7 +737,12 @@ export const startTurn = (input: TurnInput) => {
   }
 
   let slug: string;
+  let dedupeKey: string | null = null;
   if (input.slug === undefined || input.slug === null || input.slug === "") {
+    dedupeKey = newTurnKey(prompt, attachments as string[]);
+    const recent = recentNewTurn(dedupeKey);
+    if (recent) return { slug: recent.slug, jobId: recent.jobId };
+
     // Dán cả kịch bản: đặt tên theo tiêu đề, không phải theo cả khối văn bản.
     let nameSource = prompt;
     if (input.settings?.mode === "text") {
@@ -639,31 +763,8 @@ export const startTurn = (input: TurnInput) => {
   }
 
   const chat = readChat(slug);
-  const s = input.settings ?? {};
-  const settings: ChatSettings = {
-    kind: s.kind === "image" || s.kind === "video" ? s.kind : chat.settings.kind,
-    style: s.style === "auto" || isStyleId(s.style) ? s.style : chat.settings.style,
-    mode: s.mode === "ai" || s.mode === "text" ? s.mode : chat.settings.mode,
-    aspect: typeof s.aspect === "string" && ASPECT_IDS.includes(s.aspect as never)
-      ? s.aspect : chat.settings.aspect,
-    voice: typeof s.voice === "string" && (s.voice === "" || findVoice(s.voice))
-      ? s.voice : chat.settings.voice,
-    music: typeof s.music === "string" && /^music\/[\w.-]+$/.test(s.music)
-      ? s.music : s.music === null ? null : chat.settings.music,
-    video: typeof s.video === "string" && (s.video === "" || isVideoModelChoice(s.video))
-      ? s.video : chat.settings.video,
-  };
-
-  if (settings.kind === "video" && settings.video && !videoModelCatalog().defaultModel) {
-    throw new Error(
-      "Chọn hình Video AI nhưng chưa có key tạo video. Thêm key Gemini, fal.ai hoặc Replicate trong Cài đặt, hoặc đổi chip Hình về 🖼 Ảnh.",
-    );
-  }
-  if (settings.mode === "ai" && !scriptProvider()) {
-    throw new Error(
-      "Chưa có AI viết kịch bản. Điền key trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí), chọn Ollama để chạy AI ngay trên máy không cần key, hoặc chọn 📝 Dùng nguyên văn để dán kịch bản.",
-    );
-  }
+  const settings = normalizeSettings(input.settings, chat.settings);
+  assertSettingsUsable(settings);
   if (settings.mode === "text") {
     // Báo lỗi cú pháp ngay, trước khi ghi tin nhắn và chạy nền.
     textToScript(prompt, { style: settings.style, uploads: attachments as string[] });
@@ -691,16 +792,22 @@ export const startTurn = (input: TurnInput) => {
     }
   });
   running.set(slug, job.id);
+  if (dedupeKey) recentNew.set(dedupeKey, { slug, jobId: job.id, at: Date.now() });
   return { slug, jobId: job.id };
 };
 
-const runPipeline = async (
+/**
+ * Bước 1 — kịch bản: viết mới, sửa kịch bản cũ, hoặc dựng từ lời dán vào. Ghi script.json
+ * rồi dừng. Tách riêng khỏi bước dựng để chế độ hàng loạt duyệt được kịch bản trước khi render:
+ * kịch bản mất vài giây và gần như miễn phí, render mất cả phút cho mỗi video.
+ */
+export const prepareScript = async (
   slug: string,
   prompt: string,
   uploads: string[],
   settings: ChatSettings,
   log: (line: string) => void,
-) => {
+): Promise<{ script: VideoScript; existed: boolean }> => {
   const scriptPath = path.join(videoDir(slug), "script.json");
   const existing = readJson(scriptPath);
   if (!existing && fs.existsSync(path.join(videoDir(slug), "props.json"))) {
@@ -724,16 +831,31 @@ const runPipeline = async (
     script = parsed.script;
     for (const note of parsed.notes) log(note);
   } else if (existing) {
-    log("Đang sửa kịch bản theo yêu cầu…");
-    script = await editScript(parseScript(existing), prompt, slug, uploads, undefined, settings.style);
+    log(`Đang sửa kịch bản theo yêu cầu (${providerLabel(scriptProvider(settings.provider) ?? "gemini")} viết)…`);
+    script = await editScript(parseScript(existing), prompt, slug, uploads, undefined, settings.style, settings.provider,
+      { length: settings.length, log });
   } else {
-    log("Đang viết kịch bản…");
-    script = await generateScript(prompt, slug, undefined, uploads, settings.style);
+    log(`Đang viết kịch bản bằng ${providerLabel(scriptProvider(settings.provider) ?? "gemini")}…`);
+    script = await generateScript(prompt, slug, undefined, uploads, settings.style, settings.provider,
+      { length: settings.length, log });
   }
   fs.mkdirSync(videoDir(slug), { recursive: true });
   fs.writeFileSync(scriptPath, JSON.stringify(script, null, 2));
   log(`Kịch bản: ${script.scenes.length} cảnh, ${allLines(script).length} câu`);
+  return { script, existed: Boolean(existing) };
+};
 
+/**
+ * Bước 2 — dựng: giọng đọc → hình → render, đọc kịch bản đã có nên chạy lại không gọi AI viết lời.
+ */
+export const buildFromScript = async (
+  slug: string,
+  script: VideoScript,
+  settings: ChatSettings,
+  log: (line: string) => void,
+  /** Kịch bản đã có từ trước hay vừa viết — chỉ đổi chữ "Đã sửa" / "Đã tạo" trong câu trả lời. */
+  existed = false,
+) => {
   const sceneSummary = script.scenes.map((sc) => ({ lines: sc.lines, image: sc.image }));
   const styleMeta = STYLES[script.style] ?? STYLES.caption;
   const styleLabel = `${styleMeta.emoji} ${styleMeta.label}`;
@@ -745,6 +867,7 @@ const runPipeline = async (
     const props = shortSchema.parse(
       scriptToProps(script, { startAtFrame: TITLE_FRAMES, aspect: settings.aspect }),
     );
+    await addSceneImages(slug, script, props, settings, log);
     assertImagesExist(props);
 
     log("__STEP__ render");
@@ -762,7 +885,7 @@ const runPipeline = async (
       log(`__PROGRESS__ ${Math.round(((i + 1) / total) * 100)}`);
     }
     return {
-      text: `${existing ? "Đã sửa" : "Đã tạo"} ${total} ảnh "${script.title}" · ${styleLabel}`,
+      text: `${existed ? "Đã sửa" : "Đã tạo"} ${total} ảnh "${script.title}" · ${styleLabel}`,
       style: script.style,
       images: sceneImages(slug),
       aspect: settings.aspect,
@@ -790,7 +913,9 @@ const runPipeline = async (
       aspect: settings.aspect,
     }),
   );
-  const aiNote = settings.video ? await addAiClips(slug, script, props, settings, log) : "";
+  const aiNote = settings.video
+    ? await addAiClips(slug, script, props, settings, log)
+    : await addSceneImages(slug, script, props, settings, log);
   fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(props, null, 2));
   assertImagesExist(props);
 
@@ -803,12 +928,103 @@ const runPipeline = async (
 
   const seconds = (durationInFrames / 30).toFixed(1);
   return {
-    text: `${existing ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s${aiNote ? `\n${aiNote}` : ""}`,
+    text: `${existed ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s${aiNote ? `\n${aiNote}` : ""}`,
     style: script.style,
     mp4: `/out/${slug}.mp4?t=${Date.now()}`,
     aspect: settings.aspect,
     scenes: sceneSummary,
   };
+};
+
+/** Một lượt chat = kịch bản rồi dựng luôn, không dừng giữa chừng. */
+const runPipeline = async (
+  slug: string,
+  prompt: string,
+  uploads: string[],
+  settings: ChatSettings,
+  log: (line: string) => void,
+) => {
+  const { script, existed } = await prepareScript(slug, prompt, uploads, settings, log);
+  return buildFromScript(slug, script, settings, log, existed);
+};
+
+/** Model dịch truy vấn ảnh: ưu tiên AI người dùng chọn viết lời, sau đó engine nào có key. */
+const pickTranslateEngine = (provider: ProviderChoice): TranslateEngine | null => {
+  const order = [...(isTranslateEngine(provider) ? [provider] : []), ...TRANSLATE_ENGINES];
+  return order.find((engine) => !missingTranslateKey(engine)) ?? null;
+};
+
+/**
+ * Truy vấn ảnh cho từng cảnh cần hình. Gemini vẽ ảnh thì giữ tiếng Việt (model hiểu được);
+ * Pexels là tìm theo từ khoá nên phải dịch sang tiếng Anh, không dịch được thì vẫn tìm bằng nguyên văn.
+ */
+const sceneImageQueries = async (
+  script: VideoScript,
+  indexes: number[],
+  settings: ChatSettings,
+  log: (line: string) => void,
+) => {
+  const text = indexes.map((i) => script.scenes[i].lines.join(" ").slice(0, 120));
+  if (settings.images === "ai") return text.map((line) => `${script.title}. ${line}`);
+  const engine = pickTranslateEngine(settings.provider);
+  if (!engine) {
+    log("Không có model dịch — tìm Pexels bằng nguyên văn, kết quả có thể kém.");
+    return text;
+  }
+  try {
+    // Dịch kèm tiêu đề: Pexels tìm theo từ khoá nên câu như "chúng ghi nhớ rất lâu" mất chủ thể
+    // và trả về ảnh sai hẳn chủ đề. Ghép tiêu đề vào để giữ chủ thể ("cá heo") trong truy vấn.
+    const [title, ...lines] = await translateLines([script.title, ...text], { to: "en", from: "vi", engine }, () => {});
+    return lines.map((query, k) => [title.trim(), (query ?? "").trim() || text[k]].filter(Boolean).join(", "));
+  } catch (error) {
+    log(`Không dịch được truy vấn (${error instanceof Error ? error.message : error}) — tìm bằng nguyên văn.`);
+    return text;
+  }
+};
+
+/**
+ * Hình cho những cảnh chưa có ảnh, theo nút Hình ảnh. Không tự đổi nguồn: chọn AI vẽ mà lỗi thì
+ * báo lỗi chứ không âm thầm lấy Pexels, và ngược lại.
+ */
+const addSceneImages = async (
+  slug: string,
+  script: VideoScript,
+  props: ShortProps,
+  settings: ChatSettings,
+  log: (line: string) => void,
+) => {
+  if (settings.images === "none") {
+    const had = props.scenes.filter((scene) => scene.image).length;
+    props.scenes.forEach((scene) => { scene.image = null; });
+    log("Không dùng hình — video chỉ có chữ.");
+    return had > 0 ? "🚫 Không dùng hình — video chỉ có chữ." : "";
+  }
+  if (settings.images === "library") return "";
+
+  const need = props.scenes.map((scene, i) => ({ scene, i })).filter(({ scene }) => !scene.image);
+  if (need.length === 0) return "";
+
+  const ai = settings.images === "ai";
+  const label = ai ? "AI vẽ" : "Pexels";
+  log(ai ? `Đang để Gemini vẽ ${need.length} ảnh…` : `Đang tìm ${need.length} ảnh trên Pexels…`);
+  const queries = await sceneImageQueries(script, need.map(({ i }) => i), settings, log);
+  const { perQuery } = await fetchSceneImages(slug, queries, [ai ? "gemini" : "pexels"], log);
+
+  let filled = 0;
+  need.forEach(({ scene, i }, k) => {
+    const file = perQuery[k];
+    if (!file) return;
+    scene.image = file;
+    script.scenes[i].image = file;
+    filled += 1;
+  });
+  if (filled > 0) fs.writeFileSync(path.join(videoDir(slug), "script.json"), JSON.stringify(script, null, 2));
+
+  const missing = need.length - filled;
+  if (filled === 0) return `⚠ Không lấy được ảnh nào từ ${label} — các cảnh dùng nền trơn.`;
+  return `🖼 ${filled}/${need.length} cảnh có ảnh từ ${label}` +
+    (missing ? ` · ${missing} cảnh không có ảnh` : "") +
+    (ai ? "" : ` · ghi công tác giả trong public/images/${slug}/CREDITS.txt`);
 };
 
 /** Mô tả cho model video, suy từ lời đọc của cảnh — không gọi thêm AI viết prompt. */
@@ -912,7 +1128,8 @@ const multiPath = (slug: string) => path.join(videoDir(slug), "multi.json");
 /** Thông tin đã nhập của một video nhiều cảnh — để mở lại và dựng tiếp. */
 export const readMulti = (slug: string) => readJson(multiPath(slug)) as MultiInput | null;
 
-const MAX_MULTI_SCENES = 20;
+/** Trần an toàn, không phải mục tiêu: 100 cảnh × 15s ≈ 25 phút. */
+const MAX_MULTI_SCENES = 100;
 
 const parseMulti = (body: unknown): MultiInput & { slug?: string } => {
   const b = (body ?? {}) as Record<string, unknown>;

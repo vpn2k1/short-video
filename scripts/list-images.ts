@@ -36,7 +36,7 @@ for (const slug of slugs) {
     used.add(row.image as string);
     const time = `${(row.startMs / 1000).toFixed(1)}s–${(row.endMs / 1000).toFixed(1)}s`;
     console.log(
-      `  cảnh ${row.scene}  ${time.padEnd(14)} ${row.image}${row.exists ? "" : "   ← THIẾU FILE"}`,
+      `  ${row.scene.padEnd(9)} ${time.padEnd(14)} ${row.image}${row.exists ? "" : "   ← THIẾU FILE"}`,
     );
   }
 }

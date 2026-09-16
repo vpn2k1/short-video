@@ -9,6 +9,7 @@
  *   npx tsx scripts/prompt-to-video.ts "..." --voice linh    # giọng Việt
  *   npx tsx scripts/prompt-to-video.ts --list-voices         # xem tất cả giọng
  *   npx tsx scripts/prompt-to-video.ts --name x --sub center # phụ đề giữa màn hình
+ *   npx tsx scripts/prompt-to-video.ts "..." --length 300    # video 5 phút (15|30|60|180|300|600|free)
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -26,6 +27,7 @@ import {
   isElevenLabsVoiceId,
 } from "./voices";
 import { generateVoiceover, type TtsEngine } from "./tts";
+import { isLengthChoice, LENGTH_CHOICES, type LengthChoice } from "./video-length";
 
 // .env là tuỳ chọn: có thì nạp key từ đó, không có thì dùng biến môi trường sẵn có.
 try {
@@ -78,6 +80,7 @@ let voiceLabel = "";
 let music: string | null = "music/placeholder.mp3";
 let captionPosition: "bottom" | "center" = "bottom";
 let sfx = true;
+let length: LengthChoice = "auto";
 
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
@@ -94,7 +97,8 @@ for (let i = 0; i < args.length; i++) {
     arg === "--music" ||
     arg === "--name" ||
     arg === "--voice" ||
-    arg === "--sub"
+    arg === "--sub" ||
+    arg === "--length"
   ) {
     i += 1;
     const value = args[i];
@@ -102,7 +106,13 @@ for (let i = 0; i < args.length; i++) {
       console.error(`${arg} cần một giá trị đi kèm.`);
       process.exit(1);
     }
-    if (arg === "--sub") {
+    if (arg === "--length") {
+      if (!isLengthChoice(value)) {
+        console.error(`--length chỉ nhận: ${LENGTH_CHOICES.join(" | ")}`);
+        process.exit(1);
+      }
+      length = value;
+    } else if (arg === "--sub") {
       if (value !== "bottom" && value !== "center") {
         console.error("--sub chỉ nhận: bottom | center");
         process.exit(1);
@@ -210,7 +220,10 @@ const main = async () => {
 
   const script = useExisting
     ? parseScript(JSON.parse(fs.readFileSync(scriptPath, "utf8")))
-    : await generateScript(prompt, slug);
+    : await generateScript(prompt, slug, undefined, [], "auto", "auto", {
+        length,
+        log: (line) => console.log(`     ${line}`),
+      });
   const lines = allLines(script);
   console.log(
     `     "${script.title}" — ${script.scenes.length} cảnh, ${lines.length} câu phụ đề`,

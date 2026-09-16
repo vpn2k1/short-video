@@ -1,8 +1,71 @@
-# AI viết kịch bản chạy trên máy (Ollama)
+# AI viết kịch bản chạy trên máy
 
 Viết và sửa kịch bản bằng một model AI chạy ngay trên máy — không cần API key, không gửi dữ liệu
 ra ngoài, không cần mạng khi chạy. Tài liệu này ghi lại cách nó hoạt động, cách cài, và **kết quả đo
 thật** để biết nên kỳ vọng tới đâu.
+
+Có hai cách:
+
+- **AI có sẵn trong app** — bộ cài desktop kèm luôn runtime và model, cài xong dùng được ngay. Xem
+  [mục 0](#0-ai-có-sẵn-trong-app).
+- **Ollama** — người dùng tự cài, chọn được model lớn hơn. Các mục 1–10 bên dưới.
+
+---
+
+## 0. AI có sẵn trong app
+
+| | |
+|---|---|
+| Runtime | `llama-server` của [llama.cpp](https://github.com/ggml-org/llama.cpp), bản `b10995` (MIT) — macOS dùng Metal, Windows/Linux dùng Vulkan, không có GPU thì chạy CPU |
+| Model | `qwen2.5-1.5b-instruct-q4_k_m.gguf` (Qwen2.5 1.5B, Apache 2.0) — cùng model mặc định của Ollama ở dưới, nên chất lượng như số đo mục 7 |
+| Bộ cài nặng thêm | ~1,1 GB (model ~1,07 GB + runtime 25 MB trên macOS, ~80 MB trên Windows/Linux) |
+| RAM khi chạy | ~1,5 GB; tự tắt sau 5 phút không dùng để nhường RAM cho lúc render |
+| Dùng cho | Viết/sửa kịch bản, 🪄 Chuẩn hoá lời, nghĩ ý tưởng hàng loạt, dịch phụ đề (trình chỉnh sửa → Model dịch → "Trên máy") |
+
+### Cách dùng
+
+Không cần làm gì. Chưa điền key nào thì "Tự động" tự dùng AI có sẵn (nó đứng cuối hàng thử, sau mọi
+key và Ollama). Muốn chỉ dùng nó: **⚙️ Cài đặt → AI viết kịch bản → AI có sẵn trong app**, hoặc chọn ở
+chip 🤖 của từng video.
+
+### Đóng gói
+
+`npm run dist:mac` / `dist:win` / `dist:linux` tự gọi `desktop/fetch-local-ai.sh <nền tảng>`:
+
+1. Tải bản llama.cpp đã ghim vào `release/cache`, chỉ giữ `llama-server` và thư viện nó cần.
+2. Tải model một lần vào `vendor/models` (kiểm SHA-256), bản Windows/Linux chép sang thư mục stage.
+3. electron-builder đưa `vendor/llama/<os>-<arch>` và `vendor/models` vào app.
+
+Chạy từ mã nguồn (`npm start`) thì tải trước một lần:
+
+```bash
+bash desktop/fetch-local-ai.sh mac-arm64
+```
+
+Thư mục `vendor/` nằm trong `.gitignore`. Code: `scripts/local-ai.ts`.
+
+### Cách chạy
+
+- App đóng gói truyền `LOCAL_AI_DIR` trỏ vào `vendor` bên trong app — model không bị chép sang thư
+  mục dữ liệu người dùng.
+- Lần gọi đầu tiên bật `llama-server` ở một cổng trống của `127.0.0.1` (`--ctx-size 16384 --parallel 1`),
+  chờ `/health` báo sẵn sàng (nạp model ~1–2 giây trên Apple M2), rồi gọi `/v1/chat/completions` có
+  `response_format: json_schema` để ép đúng cấu trúc kịch bản.
+- Tắt server Node (đóng app) thì `llama-server` tắt theo. Windows: app tắt cả cây tiến trình bằng
+  `taskkill /T`.
+
+### Số đo (16/09/2026, Apple M2 16 GB, trong app)
+
+| Bài thử | Thời gian | Kết quả |
+|---|---|---|
+| Tạo "5 mẹo ngủ ngon", Phụ đề nổi bật | 5,6 s (gồm bật model) | ⚠️ Hợp lệ, nội dung nhạt; lọt chữ "Call-to-action:" vào câu cuối |
+| Sửa "thêm câu cuối kêu gọi bình luận" | 4,3 s | ✅ Giữ nguyên câu cũ, thêm đúng câu mới |
+| Sửa "đổi câu đầu thành câu hỏi" | 3,2 s | ❌ Thêm dấu "?" vào cả 5 câu |
+| Dịch 3 câu Việt → Anh | 2,7 s | ✅ Đúng nghĩa, tự nhiên |
+| 🪄 Chuẩn hoá lời (4 câu) | 2,2 s | ✅ Giữ nguyên lời |
+
+Kết luận giống mục 8: đủ để làm video đơn giản và dịch câu ngắn khi không có mạng; **sửa kịch bản
+theo câu lệnh vẫn chưa tin cậy** — cần chính xác thì dùng key miễn phí (Gemini, Groq).
 
 > Ollama có bản cho **Windows, macOS và Linux** — hướng dẫn dưới đây ghi cách làm cho cả ba.
 > Số liệu đo ngày 15/09/2026 trên một máy Apple M2, 16 GB RAM, Ollama 0.34.0; máy khác sẽ nhanh/chậm hơn
@@ -359,6 +422,6 @@ câu chữ vẫn không hay bằng model lớn. Cần ~6–10 GB ổ đĩa trố
 
 ### 10.3. Kèm model trong app desktop
 
-Hiện mỗi máy phải tự cài Ollama và tải model. Muốn app desktop (Electron) chạy được ngay không cần
-cài thêm, có thể nhúng runtime (ví dụ `node-llama-cpp`) và tải file GGUF lần đầu mở app — là một việc
-riêng, lớn hơn.
+Đã làm — xem [mục 0](#0-ai-có-sẵn-trong-app). Bước tiếp: cho chọn model lớn hơn (ví dụ Qwen3 4B
+Instruct 2507, Apache 2.0, ~2,5 GB) tải thêm lúc cần, vì kèm sẵn sẽ làm bộ cài Windows vượt giới hạn
+~2 GB của NSIS.

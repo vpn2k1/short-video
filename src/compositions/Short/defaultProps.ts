@@ -1,4 +1,4 @@
-import type { ShortProps } from "./schema";
+import { noMotion, type ShortProps } from "./schema";
 
 // Captions start after the intro title card (70 frames ≈ 2.33s).
 export const defaultShortProps: ShortProps = {
@@ -11,11 +11,12 @@ export const defaultShortProps: ShortProps = {
   style: "caption",
   captionPosition: "bottom",
   showTitle: true,
-  scenes: [{ image: null, visual: null, tag: null, punch: null, trimStartMs: 0, volume: 0, crop: null, startMs: 0, endMs: 15400 }],
+  scenes: [{ image: null, visual: null, tag: null, punch: null, trimStartMs: 0, volume: 0, crop: null, ...noMotion(), startMs: 0, endMs: 15400 }],
   musicVolume: 0.5,
   voiceVolume: 1,
   audioClips: [],
   texts: [],
+  overlays: [],
   watermark: null,
   voiceoverTrack: null,
   music: "music/placeholder.mp3",

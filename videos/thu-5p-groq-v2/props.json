@@ -1,0 +1,1061 @@
+{
+  "title": "Bí ẩn Hệ Mặt Trời",
+  "subtitle": "Khám phá hành tinh, sao và bí mật",
+  "handle": "@hemtattrong",
+  "accent": "#FFCC00",
+  "background": "#0A0A0A",
+  "captions": [
+    {
+      "text": "Mặt Trời, ngọn lửa trung tâm",
+      "startMs": 2483,
+      "endMs": 4601,
+      "audio": "voices/thu-5p-groq-v2/line-01.mp3"
+    },
+    {
+      "text": "Cung cấp năng lượng cho mọi sinh vật",
+      "startMs": 4751,
+      "endMs": 6792,
+      "audio": "voices/thu-5p-groq-v2/line-02.mp3"
+    },
+    {
+      "text": "Ánh sáng chiếu xuyên khắp hành tinh",
+      "startMs": 6942,
+      "endMs": 9148,
+      "audio": "voices/thu-5p-groq-v2/line-03.mp3"
+    },
+    {
+      "text": "Không có nó, sự sống chấm dứt",
+      "startMs": 9298,
+      "endMs": 11748,
+      "audio": "voices/thu-5p-groq-v2/line-04.mp3"
+    },
+    {
+      "text": "Khối lượng Sun gấp 99,8% hệ",
+      "startMs": 11898,
+      "endMs": 15367,
+      "audio": "voices/thu-5p-groq-v2/line-05.mp3"
+    },
+    {
+      "text": "Nhiệt độ bề mặt lên tới 5.500°C",
+      "startMs": 15517,
+      "endMs": 18809,
+      "audio": "voices/thu-5p-groq-v2/line-06.mp3"
+    },
+    {
+      "text": "Lõi chứa hydro, heli, liên tục phản ứng",
+      "startMs": 18959,
+      "endMs": 22593,
+      "audio": "voices/thu-5p-groq-v2/line-07.mp3"
+    },
+    {
+      "text": "Sự nổ hạt nhân tạo ra ánh sáng",
+      "startMs": 22743,
+      "endMs": 25196,
+      "audio": "voices/thu-5p-groq-v2/line-08.mp3"
+    },
+    {
+      "text": "Ánh sáng duy trì nhiệt độ hành tinh",
+      "startMs": 25346,
+      "endMs": 27726,
+      "audio": "voices/thu-5p-groq-v2/line-09.mp3"
+    },
+    {
+      "text": "Gió mặt trời bảo vệ không gian",
+      "startMs": 27876,
+      "endMs": 29984,
+      "audio": "voices/thu-5p-groq-v2/line-10.mp3"
+    },
+    {
+      "text": "Các bức xạ ảnh hưởng khí quyển",
+      "startMs": 30134,
+      "endMs": 32280,
+      "audio": "voices/thu-5p-groq-v2/line-11.mp3"
+    },
+    {
+      "text": "Biến đổi thời tiết và khí hậu",
+      "startMs": 32430,
+      "endMs": 34456,
+      "audio": "voices/thu-5p-groq-v2/line-12.mp3"
+    },
+    {
+      "text": "Chu kỳ 11 năm tạo bãi đen",
+      "startMs": 34606,
+      "endMs": 36806,
+      "audio": "voices/thu-5p-groq-v2/line-13.mp3"
+    },
+    {
+      "text": "Sóng năng lượng tăng, giảm theo",
+      "startMs": 36956,
+      "endMs": 39152,
+      "audio": "voices/thu-5p-groq-v2/line-14.mp3"
+    },
+    {
+      "text": "Cực đoan gây bão mặt trời",
+      "startMs": 39302,
+      "endMs": 41062,
+      "audio": "voices/thu-5p-groq-v2/line-15.mp3"
+    },
+    {
+      "text": "Ảnh hưởng truyền thông và vệ tinh",
+      "startMs": 41212,
+      "endMs": 43371,
+      "audio": "voices/thu-5p-groq-v2/line-16.mp3"
+    },
+    {
+      "text": "Hiểu Sun, mở khóa bí mật vũ trụ",
+      "startMs": 43521,
+      "endMs": 46116,
+      "audio": "voices/thu-5p-groq-v2/line-17.mp3"
+    },
+    {
+      "text": "Tiếp theo, hành tinh nội sao sẽ bật mí",
+      "startMs": 46266,
+      "endMs": 49180,
+      "audio": "voices/thu-5p-groq-v2/line-18.mp3"
+    },
+    {
+      "text": "Khám phá sao Kim, sao Thủy đầy thú vị",
+      "startMs": 49330,
+      "endMs": 52255,
+      "audio": "voices/thu-5p-groq-v2/line-19.mp3"
+    },
+    {
+      "text": "Nhấn theo dõi, hành trình chưa kết thúc",
+      "startMs": 52405,
+      "endMs": 54988,
+      "audio": "voices/thu-5p-groq-v2/line-20.mp3"
+    },
+    {
+      "text": "Hai hành tinh nội sao, sao Kim và sao Thủy",
+      "startMs": 55138,
+      "endMs": 58523,
+      "audio": "voices/thu-5p-groq-v2/line-21.mp3"
+    },
+    {
+      "text": "Sao Kim, hành tinh nóng nhất hệ",
+      "startMs": 58673,
+      "endMs": 61008,
+      "audio": "voices/thu-5p-groq-v2/line-22.mp3"
+    },
+    {
+      "text": "Nhiệt độ bề mặt lên tới 460°C",
+      "startMs": 61158,
+      "endMs": 64508,
+      "audio": "voices/thu-5p-groq-v2/line-23.mp3"
+    },
+    {
+      "text": "Bầu khí quyển dày đặc, chứa CO2",
+      "startMs": 64658,
+      "endMs": 67323,
+      "audio": "voices/thu-5p-groq-v2/line-24.mp3"
+    },
+    {
+      "text": "Áp suất gấp 90 lần Trái Đất",
+      "startMs": 67473,
+      "endMs": 69610,
+      "audio": "voices/thu-5p-groq-v2/line-25.mp3"
+    },
+    {
+      "text": "Mây axit rơi như mưa kim loại",
+      "startMs": 69760,
+      "endMs": 71937,
+      "audio": "voices/thu-5p-groq-v2/line-26.mp3"
+    },
+    {
+      "text": "Hiệu ứng nhà kính làm nhiệt tăng",
+      "startMs": 72087,
+      "endMs": 74125,
+      "audio": "voices/thu-5p-groq-v2/line-27.mp3"
+    },
+    {
+      "text": "Không thể nhìn thấy bề mặt bằng mắt",
+      "startMs": 74275,
+      "endMs": 76527,
+      "audio": "voices/thu-5p-groq-v2/line-28.mp3"
+    },
+    {
+      "text": "Sao Thủy, hành tinh gần Mặt Trời nhất",
+      "startMs": 76677,
+      "endMs": 79211,
+      "audio": "voices/thu-5p-groq-v2/line-29.mp3"
+    },
+    {
+      "text": "Nhiệt độ dao động từ -180°C tới 430°C",
+      "startMs": 79361,
+      "endMs": 84475,
+      "audio": "voices/thu-5p-groq-v2/line-30.mp3"
+    },
+    {
+      "text": "Không có bầu khí quyển bảo vệ",
+      "startMs": 84625,
+      "endMs": 86656,
+      "audio": "voices/thu-5p-groq-v2/line-31.mp3"
+    },
+    {
+      "text": "Bề mặt phủ đầy hố va chạm",
+      "startMs": 86806,
+      "endMs": 88716,
+      "audio": "voices/thu-5p-groq-v2/line-32.mp3"
+    },
+    {
+      "text": "Hai hành tinh không có nước lỏng",
+      "startMs": 88866,
+      "endMs": 90939,
+      "audio": "voices/thu-5p-groq-v2/line-33.mp3"
+    },
+    {
+      "text": "Sao Kim khô cứng, không có băng",
+      "startMs": 91089,
+      "endMs": 93459,
+      "audio": "voices/thu-5p-groq-v2/line-34.mp3"
+    },
+    {
+      "text": "Sao Thủy thiếu từ trường, bức xạ mạnh",
+      "startMs": 93609,
+      "endMs": 96213,
+      "audio": "voices/thu-5p-groq-v2/line-35.mp3"
+    },
+    {
+      "text": "Cả hai đều khó sống cho con người",
+      "startMs": 96363,
+      "endMs": 98819,
+      "audio": "voices/thu-5p-groq-v2/line-36.mp3"
+    },
+    {
+      "text": "Nhưng bí mật của chúng vẫn còn nhiều",
+      "startMs": 98969,
+      "endMs": 101285,
+      "audio": "voices/thu-5p-groq-v2/line-37.mp3"
+    },
+    {
+      "text": "Nghiên cứu sẽ mở ra khám phá mới",
+      "startMs": 101435,
+      "endMs": 103893,
+      "audio": "voices/thu-5p-groq-v2/line-38.mp3"
+    },
+    {
+      "text": "Tiếp theo, chúng ta sẽ tới sao Hỏa",
+      "startMs": 104043,
+      "endMs": 106679,
+      "audio": "voices/thu-5p-groq-v2/line-39.mp3"
+    },
+    {
+      "text": "Hãy chuẩn bị cho hành trình tới sao Hỏa",
+      "startMs": 106829,
+      "endMs": 109459,
+      "audio": "voices/thu-5p-groq-v2/line-40.mp3"
+    },
+    {
+      "text": "Mars, hành tinh đỏ, có băng dưới bề mặt",
+      "startMs": 109609,
+      "endMs": 112738,
+      "audio": "voices/thu-5p-groq-v2/line-41.mp3"
+    },
+    {
+      "text": "Nhiệt độ trung bình chỉ -60 độ C",
+      "startMs": 112888,
+      "endMs": 115704,
+      "audio": "voices/thu-5p-groq-v2/line-42.mp3"
+    },
+    {
+      "text": "Áp suất không khí chỉ 1% Trái Đất",
+      "startMs": 115854,
+      "endMs": 118629,
+      "audio": "voices/thu-5p-groq-v2/line-43.mp3"
+    },
+    {
+      "text": "Những điều kiện này tạo ra gió khô khắc nghiệt",
+      "startMs": 118779,
+      "endMs": 121595,
+      "audio": "voices/thu-5p-groq-v2/line-44.mp3"
+    },
+    {
+      "text": "Băng nước hiện diện tại cực Bắc và Nam",
+      "startMs": 121745,
+      "endMs": 124317,
+      "audio": "voices/thu-5p-groq-v2/line-45.mp3"
+    },
+    {
+      "text": "Khi băng tan, cung cấp hơi nước cho mây",
+      "startMs": 124467,
+      "endMs": 127276,
+      "audio": "voices/thu-5p-groq-v2/line-46.mp3"
+    },
+    {
+      "text": "Mây tạo ra những cơn bão mạnh",
+      "startMs": 127426,
+      "endMs": 129336,
+      "audio": "voices/thu-5p-groq-v2/line-47.mp3"
+    },
+    {
+      "text": "Bão kéo theo các hạt bụi phong phú",
+      "startMs": 129486,
+      "endMs": 131930,
+      "audio": "voices/thu-5p-groq-v2/line-48.mp3"
+    },
+    {
+      "text": "Nước lỏng và năng lượng mặt trời hỗ trợ sinh học",
+      "startMs": 132080,
+      "endMs": 135159,
+      "audio": "voices/thu-5p-groq-v2/line-49.mp3"
+    },
+    {
+      "text": "Vi sinh vật có thể tồn tại dưới băng bảo vệ",
+      "startMs": 135309,
+      "endMs": 138438,
+      "audio": "voices/thu-5p-groq-v2/line-50.mp3"
+    },
+    {
+      "text": "Nghiên cứu rover đã phát hiện hợp chất hữu cơ",
+      "startMs": 138588,
+      "endMs": 141754,
+      "audio": "voices/thu-5p-groq-v2/line-51.mp3"
+    },
+    {
+      "text": "Đây là dấu hiệu quan trọng cho sinh tồn",
+      "startMs": 141904,
+      "endMs": 144590,
+      "audio": "voices/thu-5p-groq-v2/line-52.mp3"
+    },
+    {
+      "text": "NASA lên kế hoạch đưa phi thuyền tới Mars",
+      "startMs": 144740,
+      "endMs": 147714,
+      "audio": "voices/thu-5p-groq-v2/line-53.mp3"
+    },
+    {
+      "text": "Nơi đóng bộ phận sống cần bảo vệ khỏi bão",
+      "startMs": 147864,
+      "endMs": 150780,
+      "audio": "voices/thu-5p-groq-v2/line-54.mp3"
+    },
+    {
+      "text": "Hệ thống khí cầu sẽ cung cấp oxy và nước",
+      "startMs": 150930,
+      "endMs": 153979,
+      "audio": "voices/thu-5p-groq-v2/line-55.mp3"
+    },
+    {
+      "text": "Nếu thành công, con người có thể định cư lâu dài",
+      "startMs": 154129,
+      "endMs": 157718,
+      "audio": "voices/thu-5p-groq-v2/line-56.mp3"
+    },
+    {
+      "text": "Sau Mars, hành trình tiếp tục tới sao Thổ",
+      "startMs": 157868,
+      "endMs": 160888,
+      "audio": "voices/thu-5p-groq-v2/line-57.mp3"
+    },
+    {
+      "text": "Sao Thổ có các vành đai băng khổng lồ",
+      "startMs": 161038,
+      "endMs": 163746,
+      "audio": "voices/thu-5p-groq-v2/line-58.mp3"
+    },
+    {
+      "text": "Chúng chứa khoáng vật và tiềm năng cho tương lai",
+      "startMs": 163896,
+      "endMs": 166748,
+      "audio": "voices/thu-5p-groq-v2/line-59.mp3"
+    },
+    {
+      "text": "Tiếp theo, khám phá sao Thổ",
+      "startMs": 166898,
+      "endMs": 169104,
+      "audio": "voices/thu-5p-groq-v2/line-60.mp3"
+    },
+    {
+      "text": "Băng hà và sao chổi, ký ức cổ đại",
+      "startMs": 169254,
+      "endMs": 172011,
+      "audio": "voices/thu-5p-groq-v2/line-61.mp3"
+    },
+    {
+      "text": "Chúng là những viên đá băng lơ lửng",
+      "startMs": 172161,
+      "endMs": 174351,
+      "audio": "voices/thu-5p-groq-v2/line-62.mp3"
+    },
+    {
+      "text": "Mang theo khoáng chất và nước từ xa",
+      "startMs": 174501,
+      "endMs": 176979,
+      "audio": "voices/thu-5p-groq-v2/line-63.mp3"
+    },
+    {
+      "text": "Đánh dấu hành trình thời tiền sử Trái Đất",
+      "startMs": 177129,
+      "endMs": 179769,
+      "audio": "voices/thu-5p-groq-v2/line-64.mp3"
+    },
+    {
+      "text": "Khi va chạm, nước rải khắp không gian",
+      "startMs": 179919,
+      "endMs": 182576,
+      "audio": "voices/thu-5p-groq-v2/line-65.mp3"
+    },
+    {
+      "text": "Nước băng tan chảy thành mưa đầu tiên",
+      "startMs": 182726,
+      "endMs": 185131,
+      "audio": "voices/thu-5p-groq-v2/line-66.mp3"
+    },
+    {
+      "text": "Giúp hình thành đại dương và sinh vật sơ khai",
+      "startMs": 185281,
+      "endMs": 188271,
+      "audio": "voices/thu-5p-groq-v2/line-67.mp3"
+    },
+    {
+      "text": "Không có chúng, Trái Đất sẽ khô cằn",
+      "startMs": 188421,
+      "endMs": 191115,
+      "audio": "voices/thu-5p-groq-v2/line-68.mp3"
+    },
+    {
+      "text": "Mỗi sao chổi giữ nguyên nguyên liệu ban đầu",
+      "startMs": 191265,
+      "endMs": 193999,
+      "audio": "voices/thu-5p-groq-v2/line-69.mp3"
+    },
+    {
+      "text": "Chúng chứa carbon, axit amin và khoáng chất",
+      "startMs": 194149,
+      "endMs": 197361,
+      "audio": "voices/thu-5p-groq-v2/line-70.mp3"
+    },
+    {
+      "text": "Khoa học giải mã câu hỏi về nguồn gốc",
+      "startMs": 197511,
+      "endMs": 200052,
+      "audio": "voices/thu-5p-groq-v2/line-71.mp3"
+    },
+    {
+      "text": "Giúp chúng ta hiểu quá trình hình thành sao",
+      "startMs": 200202,
+      "endMs": 203076,
+      "audio": "voices/thu-5p-groq-v2/line-72.mp3"
+    },
+    {
+      "text": "Đôi khi sao chổi đâm vào trái đất",
+      "startMs": 203226,
+      "endMs": 205471,
+      "audio": "voices/thu-5p-groq-v2/line-73.mp3"
+    },
+    {
+      "text": "Tạo ra hiện tượng sáng rực rỡ trên bầu trời",
+      "startMs": 205621,
+      "endMs": 208508,
+      "audio": "voices/thu-5p-groq-v2/line-74.mp3"
+    },
+    {
+      "text": "Các đài quan sát ghi lại dữ liệu quý giá",
+      "startMs": 208658,
+      "endMs": 211628,
+      "audio": "voices/thu-5p-groq-v2/line-75.mp3"
+    },
+    {
+      "text": "Cảnh báo nguy cơ va chạm trong tương lai",
+      "startMs": 211778,
+      "endMs": 214388,
+      "audio": "voices/thu-5p-groq-v2/line-76.mp3"
+    },
+    {
+      "text": "Băng hà và sao chổi vẫn còn nhiều bí ẩn",
+      "startMs": 214538,
+      "endMs": 217307,
+      "audio": "voices/thu-5p-groq-v2/line-77.mp3"
+    },
+    {
+      "text": "Chúng tiếp tục cung cấp nước và khoáng chất",
+      "startMs": 217457,
+      "endMs": 219845,
+      "audio": "voices/thu-5p-groq-v2/line-78.mp3"
+    },
+    {
+      "text": "Tiếp theo, chúng ta sẽ khám phá những điều chưa biết",
+      "startMs": 219995,
+      "endMs": 223443,
+      "audio": "voices/thu-5p-groq-v2/line-79.mp3"
+    },
+    {
+      "text": "Hãy theo dõi để cùng chúng tôi đi sâu hơn",
+      "startMs": 223593,
+      "endMs": 226386,
+      "audio": "voices/thu-5p-groq-v2/line-80.mp3"
+    },
+    {
+      "text": "Hệ Mặt Trời ẩn chứa vô số bí ẩn",
+      "startMs": 226536,
+      "endMs": 228980,
+      "audio": "voices/thu-5p-groq-v2/line-81.mp3"
+    },
+    {
+      "text": "Các hành tinh còn nhiều hiện tượng chưa giải mã",
+      "startMs": 229130,
+      "endMs": 231972,
+      "audio": "voices/thu-5p-groq-v2/line-82.mp3"
+    },
+    {
+      "text": "Những hố đen mini có thể tồn tại",
+      "startMs": 232122,
+      "endMs": 234636,
+      "audio": "voices/thu-5p-groq-v2/line-83.mp3"
+    },
+    {
+      "text": "Tiếp theo, chúng ta sẽ khám phá những điều chưa biết",
+      "startMs": 234786,
+      "endMs": 238234,
+      "audio": "voices/thu-5p-groq-v2/line-84.mp3"
+    },
+    {
+      "text": "Sao chổi mang theo tinh thể nguyên thủy cổ xưa",
+      "startMs": 238384,
+      "endMs": 241440,
+      "audio": "voices/thu-5p-groq-v2/line-85.mp3"
+    },
+    {
+      "text": "Chúng mang khoáng chất và nước tới Trái Đất",
+      "startMs": 241590,
+      "endMs": 244094,
+      "audio": "voices/thu-5p-groq-v2/line-86.mp3"
+    },
+    {
+      "text": "Băng hà sao Kim có thể chứa dấu vết",
+      "startMs": 244244,
+      "endMs": 246769,
+      "audio": "voices/thu-5p-groq-v2/line-87.mp3"
+    },
+    {
+      "text": "Khám phá sâu hơn những lớp băng lạnh giá",
+      "startMs": 246919,
+      "endMs": 249740,
+      "audio": "voices/thu-5p-groq-v2/line-88.mp3"
+    },
+    {
+      "text": "Các tiểu hành tinh như Ceres đang được nghiên cứu",
+      "startMs": 249890,
+      "endMs": 253138,
+      "audio": "voices/thu-5p-groq-v2/line-89.mp3"
+    },
+    {
+      "text": "Chúng có thể chứa khoáng sản quý hiếm",
+      "startMs": 253288,
+      "endMs": 255780,
+      "audio": "voices/thu-5p-groq-v2/line-90.mp3"
+    },
+    {
+      "text": "Vùng Kuiper đầy những vật thể lạ lùng",
+      "startMs": 255930,
+      "endMs": 258583,
+      "audio": "voices/thu-5p-groq-v2/line-91.mp3"
+    },
+    {
+      "text": "Mặt trời ảnh hưởng tới chúng bằng gió mặt trời",
+      "startMs": 258733,
+      "endMs": 261768,
+      "audio": "voices/thu-5p-groq-v2/line-92.mp3"
+    },
+    {
+      "text": "Mặt trăng của sao Thổ có hoạt động địa chất",
+      "startMs": 261918,
+      "endMs": 264698,
+      "audio": "voices/thu-5p-groq-v2/line-93.mp3"
+    },
+    {
+      "text": "Các quỹ đạo ổn định mở ra khả năng sinh sống",
+      "startMs": 264848,
+      "endMs": 267969,
+      "audio": "voices/thu-5p-groq-v2/line-94.mp3"
+    },
+    {
+      "text": "Năng lượng từ mặt trời hỗ trợ các trạm không gian",
+      "startMs": 268119,
+      "endMs": 271325,
+      "audio": "voices/thu-5p-groq-v2/line-95.mp3"
+    },
+    {
+      "text": "Các tàu thăm dò đang truyền dữ liệu mới nhất",
+      "startMs": 271475,
+      "endMs": 274201,
+      "audio": "voices/thu-5p-groq-v2/line-96.mp3"
+    },
+    {
+      "text": "Vũ trụ luôn mở ra những câu hỏi mới",
+      "startMs": 274351,
+      "endMs": 276992,
+      "audio": "voices/thu-5p-groq-v2/line-97.mp3"
+    },
+    {
+      "text": "Chúng ta chỉ mới chạm vào bề mặt kiến thức",
+      "startMs": 277142,
+      "endMs": 279890,
+      "audio": "voices/thu-5p-groq-v2/line-98.mp3"
+    },
+    {
+      "text": "Hãy cùng chúng tôi tiếp tục hành trình khám phá",
+      "startMs": 280040,
+      "endMs": 283007,
+      "audio": "voices/thu-5p-groq-v2/line-99.mp3"
+    },
+    {
+      "text": "Nhấn theo dõi để khám phá cùng chúng tôi",
+      "startMs": 283157,
+      "endMs": 285915,
+      "audio": "voices/thu-5p-groq-v2/line-100.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "caption",
+  "scenes": [
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 11898
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 11898,
+      "endMs": 25346
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 25346,
+      "endMs": 34606
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 34606,
+      "endMs": 43521
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 43521,
+      "endMs": 55138
+    },
+    {
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "460°C",
+        "caption": "nhiệt độ bề mặt"
+      },
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 55138,
+      "endMs": 67473
+    },
+    {
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "90x",
+        "caption": "áp suất"
+      },
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 67473,
+      "endMs": 76677
+    },
+    {
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "-180°C→430°C",
+        "caption": "nhiệt độ bề mặt"
+      },
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 76677,
+      "endMs": 88866
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 88866,
+      "endMs": 98969
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 98969,
+      "endMs": 109609
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 109609,
+      "endMs": 121745
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 121745,
+      "endMs": 132080
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 132080,
+      "endMs": 144740
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 144740,
+      "endMs": 157868
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 157868,
+      "endMs": 169254
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 169254,
+      "endMs": 179919
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 179919,
+      "endMs": 191265
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 191265,
+      "endMs": 203226
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 203226,
+      "endMs": 214538
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 214538,
+      "endMs": 226536
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 226536,
+      "endMs": 238384
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 238384,
+      "endMs": 249890
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 249890,
+      "endMs": 261918
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 261918,
+      "endMs": 274351
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 274351,
+      "endMs": 286065
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

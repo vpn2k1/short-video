@@ -84,12 +84,23 @@ và được điền sẵn vào ô chat khi chọn phong cách cho video mới.
 `meta.ts`, component trong `src/styles/<id>/`, một dòng trong `registry.tsx`, và skill
 `style-<id>` có đoạn ai-guide.
 
+## Độ dài video — chốt trước khi viết
+
+Project làm được cả video ngắn lẫn video dài nhiều phút. Thứ tự ưu tiên (`scripts/video-length.ts`):
+
+1. **Chip "Độ dài"** trong ô nhập web (`settings.length`) có giá trị cụ thể → thắng mọi thứ, kể cả prompt.
+2. Chip để **"✨ Tự động"** → đọc độ dài từ câu prompt: "5 phút", "tầm 90s", "không giới hạn".
+3. Không nguồn nào nói gì → video ngắn 15–30 giây.
+
+Quy ra cấu trúc: **~3 giây một câu**. Quá 30 câu thì AI viết theo chương (dàn ý → từng chương →
+ghép). "Không giới hạn" = viết đủ ý rồi dừng, KHÔNG phải viết dài nhất có thể. Chi tiết ở `long-video`.
+
 ## Chọn đường
 
 | Người dùng muốn | Nạp skill | Lệnh |
 |---|---|---|
-| Video ngắn 9:16 từ một prompt | `short-video`, `script-writing` | `/create-short` |
-| Video dài, nhiều chương | `long-video` | `/create-long` |
+| Video ngắn 9:16 từ một prompt (≤ 60s) | `short-video`, `script-writing` | `/create-short` |
+| Video dài, nhiều chương, hoặc độ dài cụ thể | `long-video` | `/create-long` |
 | Video từ file audio có sẵn | `voice-generation` (mục phiên âm) | `npm run audio-to-video` |
 | Viết/sửa nội dung kịch bản | `script-writing` | — |
 | Chia cảnh, chọn hình cho từng cảnh | `storyboard` | — |

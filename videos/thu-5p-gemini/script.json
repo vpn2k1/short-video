@@ -1,0 +1,129 @@
+{
+  "style": "ranking",
+  "title": "Hệ Mặt Trời có gì",
+  "subtitle": "Khám phá Mặt Trời và 8 hành tinh",
+  "handle": "@khamphavuotru",
+  "accent": "#F59E0B",
+  "background": "#0F172A",
+  "scenes": [
+    {
+      "lines": [
+        "Trung tâm hệ là Mặt Trời.",
+        "Ngôi sao khổng lồ chiếu sáng tất cả.",
+        "Nguồn năng lượng duy nhất của chúng ta."
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "99.8%",
+        "caption": "khối lượng hệ"
+      },
+      "tag": "#1 Mặt Trời",
+      "punch": "chiếu sáng tất cả"
+    },
+    {
+      "lines": [
+        "Sao Thủy nhỏ nhất và gần nhất.",
+        "Nhiệt độ thay đổi cực kỳ khắc nghiệt.",
+        "Ban ngày cực nóng ban đêm cực lạnh."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "#2 Sao Thủy",
+      "punch": "gần nhất"
+    },
+    {
+      "lines": [
+        "Sao Kim nóng nhất hệ Mặt Trời.",
+        "Hiệu ứng nhà kính giữ chân nhiệt lượng.",
+        "Hành tinh sáng nhất trên bầu trời đêm."
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "465°C",
+        "caption": "nhiệt độ bề mặt"
+      },
+      "tag": "#3 Sao Kim",
+      "punch": "nóng nhất"
+    },
+    {
+      "lines": [
+        "Trái Đất là nhà của chúng ta.",
+        "Hành tinh duy nhất có sự sống.",
+        "Đại dương xanh bao phủ phần lớn."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "#4 Trái Đất",
+      "punch": "có sự sống"
+    },
+    {
+      "lines": [
+        "Sao Hỏa mang sắc đỏ đặc trưng.",
+        "Có ngọn núi lửa cao nhất hệ.",
+        "Điểm đến tiếp theo của con người."
+      ],
+      "image": null,
+      "visual": {
+        "type": "badge",
+        "text": "Đỏ rực",
+        "caption": "oxit sắt"
+      },
+      "tag": "#5 Sao Hỏa",
+      "punch": "sắc đỏ đặc trưng"
+    },
+    {
+      "lines": [
+        "Sao Mộc khổng lồ nhất vũ trụ.",
+        "Vết đỏ lớn là cơn bão khổng lồ.",
+        "Bảo vệ các hành tinh phía trong."
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "1300",
+        "caption": "Trái Đất chứa vừa"
+      },
+      "tag": "#6 Sao Mộc",
+      "punch": "khổng lồ nhất"
+    },
+    {
+      "lines": [
+        "Sao Thổ sở hữu vành đai đẹp.",
+        "Được cấu tạo từ băng và đá.",
+        "Hành tinh nhẹ nhất trong tất cả."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "#7 Sao Thổ",
+      "punch": "vành đai đẹp"
+    },
+    {
+      "lines": [
+        "Sao Thiên Vương lạnh giá kỳ lạ.",
+        "Nó quay theo chiều ngang độc đáo.",
+        "Bầu khí quyển chứa băng và khí."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "#8 Sao Thiên Vương",
+      "punch": "quay theo chiều ngang"
+    },
+    {
+      "lines": [
+        "Sao Hải Vương xa xôi nhất.",
+        "Gió thổi mạnh nhất hệ Mặt Trời.",
+        "Hành tinh nào làm bạn ấn tượng nhất?"
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "2000",
+        "caption": "km/h tốc độ gió"
+      },
+      "tag": "#9 Sao Hải Vương",
+      "punch": "Gió thổi mạnh nhất"
+    }
+  ]
+}
