@@ -53,6 +53,10 @@ import { textToScript } from "../scripts/text-script";
 import { isScriptProvider, providerLabel, scriptProvider, scriptProviderCatalog } from "../scripts/generate-script";
 import { TRANSLATE_LANGUAGES, translateEngines } from "../scripts/translate";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
+import {
+  BILI_ORDERS, bilibiliDetail, downloadBilibili, isBvid, searchBilibili, toChineseKeywords, updateYtDlp, ytDlpVersion,
+  type BiliOrder,
+} from "../scripts/bilibili";
 import { watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { getJob, startJob } from "./jobs";
@@ -688,6 +692,58 @@ const server = http.createServer(async (req, res) => {
     if (route === "/api/pexels/pick" && req.method === "POST") {
       const body = await readJson<{ slug: string; query: string; id: number }>(req);
       return send(res, 200, await pickPexels(body.slug, body.query, body.id));
+    }
+
+    // ---- tư liệu Bilibili: chỉ video tác giả ghi rõ cho phép dùng (xem scripts/bilibili.ts) ----
+    if (route === "/api/bilibili/search") {
+      const order = url.searchParams.get("order");
+      return send(res, 200, await searchBilibili(
+        url.searchParams.get("q") ?? "",
+        Number(url.searchParams.get("page")) || 1,
+        BILI_ORDERS.includes(order as BiliOrder) ? (order as BiliOrder) : "totalrank",
+      ));
+    }
+
+    if (route.startsWith("/api/bilibili/detail/")) {
+      const bvid = route.split("/")[4];
+      if (!isBvid(bvid)) return send(res, 400, { error: "Mã video không hợp lệ" });
+      return send(res, 200, await bilibiliDetail(bvid));
+    }
+
+    if (route === "/api/bilibili/translate" && req.method === "POST") {
+      const body = await readJson<{ text?: string }>(req);
+      return send(res, 200, { keywords: await toChineseKeywords(body.text ?? "") });
+    }
+
+    if (route === "/api/bilibili/download" && req.method === "POST") {
+      const body = await readJson<{
+        bvid?: string; part?: number; start?: number | null; end?: number | null; maxHeight?: number; confirmed?: boolean;
+      }>(req);
+      if (!isBvid(body.bvid)) return send(res, 400, { error: "Mã video không hợp lệ" });
+      const seconds = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
+      const job = startJob((log) =>
+        downloadBilibili(
+          {
+            bvid: body.bvid as string,
+            part: Math.max(1, Math.round(Number(body.part) || 1)),
+            start: seconds(body.start),
+            end: seconds(body.end),
+            maxHeight: body.maxHeight === 720 ? 720 : 1080,
+            confirmed: body.confirmed === true,
+          },
+          log,
+        ),
+      );
+      return send(res, 200, { jobId: job.id });
+    }
+
+    if (route === "/api/bilibili/tool") {
+      return send(res, 200, { version: await ytDlpVersion() });
+    }
+
+    if (route === "/api/bilibili/tool/update" && req.method === "POST") {
+      const job = startJob((log) => updateYtDlp(log));
+      return send(res, 200, { jobId: job.id });
     }
 
     if (route === "/api/concat" && req.method === "POST") {

@@ -57,6 +57,7 @@
       "public/music/**",
       "public/sfx/**",
       "vendor/llama/${os}-${arch}/**",
+      "vendor/yt-dlp/${os}-${arch}/**",
       "vendor/models/**"
     ],
     "afterPack": "desktop/after-pack.cjs",
