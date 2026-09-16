@@ -1,0 +1,40 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "test",
+      "at": 1789551891566,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789551892567,
+      "error": true,
+      "text": "Claude báo lỗi 400: 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cf6uMEQQUk7oy95sEfo79\"} — hết lượt hoặc hết tiền trong tài khoản."
+    },
+    {
+      "role": "user",
+      "text": "kiến",
+      "at": 1789551936071,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789551936898,
+      "error": true,
+      "text": "Claude báo lỗi 400: 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cf6uQWGUJ2mAJZnmW6htz\"} — hết lượt hoặc hết tiền trong tài khoản."
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "whiteboard",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "anthropic",
+    "images": "none",
+    "length": "auto"
+  }
+}

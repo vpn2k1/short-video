@@ -589,6 +589,7 @@ npx remotion upgrade         # nâng Remotion + skill Remotion cùng lúc
 ```
 
 Tài liệu chi tiết hơn về pipeline: [docs/prompt-to-video.md](docs/prompt-to-video.md).
+Đọc code và bảo trì dự án (đọc gì trước, sửa một thứ phải đụng đâu, bẫy đã gặp, phát hành): [docs/bao-tri-du-an.md](docs/bao-tri-du-an.md).
 AI viết kịch bản chạy trên máy (có sẵn trong app, hoặc Ollama): [docs/ai-tren-may.md](docs/ai-tren-may.md).
 Video xong bấm **✍️ Gợi ý bài đăng**: AI viết tiêu đề, caption, hashtag cho TikTok, YouTube, Facebook, Instagram
 từ lời trong video (`scripts/post-copy.ts`, lưu ở `videos/<slug>/post-copy.json`).
