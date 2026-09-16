@@ -58,6 +58,26 @@ mkdir -p "$OUT"
   done
 )
 
+# Bỏ symlink: electron-builder chép chuỗi symlink (libggml.dylib → libggml.0.dylib → libggml.0.24.0.dylib)
+# song song và hỏng ("ENOENT ensureSymlink"). Thư viện được nạp theo soname (macOS: libX.0.dylib,
+# Linux: libX.so.0) — giữ file thật dưới đúng tên soname, xoá tên còn lại.
+(
+  cd "$OUT"
+  for link in *; do
+    [ -L "$link" ] || continue
+    case "$link" in
+      *.[0-9].dylib | *.so.[0-9]) cp -L "$link" "$link.real" && rm "$link" && mv "$link.real" "$link" ;;
+    esac
+  done
+  for link in *; do
+    if [ -L "$link" ]; then rm "$link"; fi
+  done
+  # Bản đầy đủ phiên bản (libX.0.24.0.dylib, libX.so.0.24.0) giờ không ai trỏ tới.
+  for file in *.[0-9].[0-9]*.[0-9]*.dylib *.so.[0-9].[0-9]*.[0-9]*; do
+    if [ -f "$file" ]; then rm "$file"; fi
+  done
+)
+
 echo "→ Model $MODEL_FILE"
 if [ ! -f "vendor/models/$MODEL_FILE" ]; then
   curl -fL --progress-bar -C - -o "vendor/models/$MODEL_FILE.part" "$MODEL_URL"
