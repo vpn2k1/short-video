@@ -1,0 +1,59 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "3 sự thật thú vị về cá heo",
+      "at": 1789526197135,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789526267065,
+      "text": "Đã tạo \"3 sự thật về cá heo\" · 💬 Phụ đề nổi bật · 4 cảnh · 30.7s\n🖼 4/4 cảnh có ảnh từ Pexels · ghi công tác giả trong public/images/3-su-that-thu-vi-ve-ca-heo/CREDITS.txt",
+      "style": "caption",
+      "mp4": "/out/3-su-that-thu-vi-ve-ca-heo.mp4?t=1789526267065",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Bạn đã biết cá heo có gì đặc biệt?",
+            "Cùng khám phá 3 sự thật bất ngờ"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cá heo nói chuyện bằng tiếng còi",
+            "Âm thanh truyền qua nước lên tới 30 km"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Chúng có trí nhớ xã hội mạnh mẽ",
+            "Nhớ khu vực ăn cá suốt 10 năm"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Những con cá heo giúp người đánh cá",
+            "Theo dõi để biết thêm điều kỳ diệu!"
+          ],
+          "image": null
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "caption",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "",
+    "music": null,
+    "video": "",
+    "provider": "groq",
+    "images": "pexels"
+  }
+}

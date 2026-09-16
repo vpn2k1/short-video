@@ -1,0 +1,50 @@
+{
+  "style": "plain",
+  "title": "Bí mật kiến siêu mạnh",
+  "subtitle": "Khám phá sức mạnh và tổ chức của kiến",
+  "handle": "@kienkinh",
+  "accent": "#FFCC00",
+  "background": "#111111",
+  "scenes": [
+    {
+      "lines": [
+        "Kiến là siêu đội chiến binh",
+        "Mỗi con đều có vai trò"
+      ],
+      "image": "images/kien-thuc-ve-kien/01-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Cả bầy di chuyển 100x nhanh",
+        "Mang thức ăn tới tổ"
+      ],
+      "image": "images/kien-thuc-ve-kien/02-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Kiến có hệ thống phân công",
+        "Nở rộ thành phố dưới đất"
+      ],
+      "image": "images/kien-thuc-ve-kien/03-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Bạn cũng có thể học",
+        "Theo dõi để biết thêm!"
+      ],
+      "image": "images/kien-thuc-ve-kien/04-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

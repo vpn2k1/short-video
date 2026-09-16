@@ -1,0 +1,119 @@
+{
+  "title": "3 sự thật về cá heo",
+  "subtitle": "Khám phá điều kỳ diệu của loài biển thông minh",
+  "handle": "@dolphinfacts",
+  "accent": "#00FFFF",
+  "background": "#0A0A0A",
+  "captions": [
+    {
+      "text": "Bạn đã biết cá heo có gì đặc biệt?",
+      "startMs": 2483,
+      "endMs": 6083,
+      "audio": null
+    },
+    {
+      "text": "Cùng khám phá 3 sự thật bất ngờ",
+      "startMs": 6233,
+      "endMs": 9433,
+      "audio": null
+    },
+    {
+      "text": "Cá heo nói chuyện bằng tiếng còi",
+      "startMs": 9583,
+      "endMs": 12383,
+      "audio": null
+    },
+    {
+      "text": "Âm thanh truyền qua nước lên tới 30 km",
+      "startMs": 12533,
+      "endMs": 16133,
+      "audio": null
+    },
+    {
+      "text": "Chúng có trí nhớ xã hội mạnh mẽ",
+      "startMs": 16283,
+      "endMs": 19483,
+      "audio": null
+    },
+    {
+      "text": "Nhớ khu vực ăn cá suốt 10 năm",
+      "startMs": 19633,
+      "endMs": 22833,
+      "audio": null
+    },
+    {
+      "text": "Những con cá heo giúp người đánh cá",
+      "startMs": 22983,
+      "endMs": 26183,
+      "audio": null
+    },
+    {
+      "text": "Theo dõi để biết thêm điều kỳ diệu!",
+      "startMs": 26333,
+      "endMs": 29533,
+      "audio": null
+    }
+  ],
+  "aspect": "9:16",
+  "style": "caption",
+  "scenes": [
+    {
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/01-did-you-know-what-s-special-abou.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "3",
+        "caption": "sự thật"
+      },
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 0,
+      "endMs": 9583
+    },
+    {
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/02-dolphins-communicate-with-whistl.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 9583,
+      "endMs": 16283
+    },
+    {
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/03-they-have-strong-social-memory-r.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 16283,
+      "endMs": 22983
+    },
+    {
+      "image": "images/3-su-that-thu-vi-ve-ca-heo/04-dolphins-help-fishermen-follow-f.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 22983,
+      "endMs": 29683
+    }
+  ],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

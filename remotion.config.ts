@@ -6,9 +6,11 @@
  */
 
 import { Config } from "@remotion/cli/config";
-import { enableTailwind } from '@remotion/tailwind-v4';
+import { enableTailwind } from "@remotion/tailwind-v4";
 
-Config.setRspack(true);
+// Rspack (Config.setRspack(true)) is intentionally left off: on Remotion 4.0.523
+// with @remotion/tailwind-v4 it finishes bundling without emitting bundle.js,
+// which makes `remotion compositions` / `render` fail with ENOENT on bundle.js.
 Config.setVideoImageFormat("jpeg");
 Config.setOverwriteOutput(true);
 Config.overrideBundlerConfig(enableTailwind);

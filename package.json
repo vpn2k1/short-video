@@ -6,26 +6,120 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@remotion/bundler": "^4.0.523",
     "@remotion/cli": "4.0.523",
+    "@remotion/install-whisper-cpp": "^4.0.523",
+    "@remotion/media": "4.0.523",
+    "@remotion/renderer": "^4.0.523",
+    "@remotion/tailwind-v4": "4.0.523",
+    "@remotion/zod-types": "4.0.523",
+    "ffmpeg-static": "^5.3.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.523",
-    "@remotion/tailwind-v4": "4.0.523",
-    "tailwindcss": "4.0.0"
+    "tailwindcss": "4.0.0",
+    "tsx": "^4.23.13",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@remotion/eslint-config-flat": "4.0.523",
+    "@types/node": "^22.20.2",
     "@types/react": "19.2.7",
     "@types/web": "0.0.166",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
     "eslint": "9.19.0",
     "prettier": "3.8.1",
     "typescript": "5.9.3"
   },
+  "main": "desktop/main.cjs",
+  "productName": "AI Video Studio",
+  "build": {
+    "appId": "nam.vp.rabiloo.ai-video-studio",
+    "productName": "AI Video Studio",
+    "icon": "desktop/icon.png",
+    "asar": false,
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "package.json",
+      "tsconfig.json",
+      "remotion.config.ts",
+      "desktop/**",
+      "src/**",
+      "server/**",
+      "scripts/**",
+      ".claude/skills/style-*/**",
+      "public/images/**",
+      "public/music/**",
+      "public/sfx/**",
+      "vendor/llama/${os}-${arch}/**",
+      "vendor/yt-dlp/${os}-${arch}/**",
+      "vendor/models/**"
+    ],
+    "afterPack": "desktop/after-pack.cjs",
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.video",
+      "identity": null
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "AudioVideo"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
   "scripts": {
-    "dev": "remotion studio",
+    "desktop": "electron .",
+    "dist:all": "npm run dist:mac && npm run dist:win && npm run dist:linux",
+    "dist:linux": "bash desktop/build-linux.sh",
+    "dist:mac": "bash desktop/build-mac.sh",
+    "dist:win": "bash desktop/build-win.sh",
+    "audio-assets": "bash scripts/make-audio-assets.sh",
+    "audio-to-video": "tsx scripts/audio-to-video.ts",
     "build": "remotion bundle",
-    "upgrade": "remotion upgrade",
-    "lint": "eslint src && tsc"
+    "dev": "remotion studio",
+    "fetch-images": "tsx scripts/fetch-images.ts",
+    "images": "tsx scripts/list-images.ts",
+    "lint": "eslint src && tsc",
+    "prompt-to-video": "tsx scripts/prompt-to-video.ts",
+    "render": "remotion render Short out/short.mp4",
+    "render-all": "tsx scripts/render-all.ts",
+    "start": "tsx server/index.ts",
+    "still": "remotion still Short out/thumbnail.png --frame=45",
+    "upgrade": "remotion upgrade"
   },
   "sideEffects": [
     "*.css"
