@@ -1,6 +1,8 @@
-import { AbsoluteFill, Img, Sequence, staticFile } from "remotion";
-import { msToFrames, TITLE_FRAMES } from "../../constants";
+import { AbsoluteFill, Img, Sequence, staticFile, useCurrentFrame } from "remotion";
+import { FPS, msToFrames, TITLE_FRAMES } from "../../constants";
 import type { ShortProps } from "../../compositions/Short/schema";
+import { overlayTransformAt } from "../../compositions/Short/overlayMotion";
+import { MediaMotion } from "../../components/MediaMotion";
 import { ClipVideo } from "../../scenes/ClipVideo";
 import { CropBox } from "../../scenes/CropBox";
 import { TitleCard } from "../../components/TitleCard";
@@ -23,6 +25,7 @@ export const PlainStyle: React.FC<ShortProps> = ({
   showTitle,
   captionPosition,
 }) => {
+  const frame = useCurrentFrame();
   const clock = useCaptionClock(captions);
   const { unit, captionBottom } = useLayout();
   // Khác các phong cách khác: phụ đề tắt đúng lúc hết câu — video gốc hay có khoảng lặng.
@@ -37,12 +40,17 @@ export const PlainStyle: React.FC<ShortProps> = ({
           <Sequence key={`plain-${index}`} name={`Cảnh ${index + 1}`} from={from} durationInFrames={durationInFrames}>
             {!scene.image ? (
               <AbsoluteFill style={{ backgroundColor: background }} />
-            ) : VIDEO_EXT.test(scene.image) ? (
-              <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} speed={scene.speed} volume={scene.volume} crop={scene.crop} objectFit="contain" />
             ) : (
-              <CropBox crop={scene.crop}>
-                <Img src={staticFile(scene.image)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              </CropBox>
+              // Vị trí / thu phóng / xoay / độ mờ của cảnh — kéo trên khung xem trước, chạy theo keyframe.
+              <MediaMotion transform={overlayTransformAt(scene, (frame / FPS) * 1000)}>
+                {VIDEO_EXT.test(scene.image) ? (
+                  <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} speed={scene.speed} volume={scene.volume} crop={scene.crop} objectFit="contain" />
+                ) : (
+                  <CropBox crop={scene.crop}>
+                    <Img src={staticFile(scene.image)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                  </CropBox>
+                )}
+              </MediaMotion>
             )}
           </Sequence>
         );

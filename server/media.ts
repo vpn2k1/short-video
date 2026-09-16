@@ -214,6 +214,37 @@ const VIDEO_PATH = /^(uploads|videos|images)\/[\w./-]+\.(mp4|mov|webm)$/i;
  * Tách tiếng của một video trong public/ ra file mp3 ở public/uploads/.
  * Chạy ffmpeg bất đồng bộ — không chặn server trong lúc xử lý video dài.
  */
+/**
+ * Cắt một khung hình của video thành ảnh JPG trong public/uploads — "đóng băng" khung đang xem.
+ * `atMs` tính theo file gốc (đã cộng phần cắt đầu và tốc độ phát ở phía trình chỉnh sửa).
+ */
+export const captureFrame = async (src: unknown, atMs: unknown) => {
+  if (typeof src !== "string" || !VIDEO_PATH.test(src) || src.includes("..")) {
+    throw new Error("File video không hợp lệ.");
+  }
+  const publicDir = path.join(process.cwd(), "public");
+  const input = path.join(publicDir, src);
+  if (!fs.existsSync(input)) {
+    throw new Error("Không thấy file video.");
+  }
+  const ms = Math.max(0, Math.round(Number(atMs)));
+  if (!Number.isFinite(ms)) {
+    throw new Error("Mốc thời gian không hợp lệ.");
+  }
+
+  const base = path.basename(src, path.extname(src)).replace(/[^\w-]+/g, "-").slice(0, 40);
+  const rel = `uploads/${Date.now()}-${base}-frame-${ms}.jpg`;
+  const output = path.join(publicDir, rel);
+  fs.mkdirSync(path.join(publicDir, "uploads"), { recursive: true });
+  // -ss trước -i: ffmpeg tua nhanh rồi giải mã đúng khung — nhanh với video dài.
+  await run("ffmpeg", ["-y", "-v", "error", "-ss", (ms / 1000).toFixed(3), "-i", input, "-frames:v", "1", "-q:v", "2", output]);
+  if (!fs.existsSync(output) || fs.statSync(output).size === 0) {
+    fs.rmSync(output, { force: true });
+    throw new Error("Không cắt được ảnh ở mốc này — thử dời đầu phát vào giữa clip.");
+  }
+  return { path: rel };
+};
+
 export const extractAudio = async (src: unknown) => {
   if (typeof src !== "string" || !VIDEO_PATH.test(src) || src.includes("..")) {
     throw new Error("File video không hợp lệ.");

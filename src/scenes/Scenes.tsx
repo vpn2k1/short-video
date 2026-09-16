@@ -9,7 +9,9 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { msToFrames } from "../constants";
+import { FPS, msToFrames } from "../constants";
+import { overlayTransformAt } from "../compositions/Short/overlayMotion";
+import { MediaMotion } from "../components/MediaMotion";
 import type { Scene } from "../compositions/Short/schema";
 
 /** Độ dài cross-fade giữa hai cảnh, tính bằng giây. */
@@ -70,34 +72,41 @@ export const Scenes: React.FC<Props> = ({ scenes }) => {
 
         // Video người dùng tải lên: bắt đầu phát từ đầu cảnh, tắt tiếng (voiceover
         // và nhạc nền là tiếng chính), lặp nếu clip ngắn hơn cảnh.
+        // Vị trí / thu phóng / xoay / độ mờ chỉnh tay của cảnh (kéo trên khung xem trước, keyframe).
+        const motion = overlayTransformAt(scene, (frame / FPS) * 1000);
+
         if (VIDEO_EXT.test(scene.image)) {
           return (
             <AbsoluteFill key={`scene-${index}`} style={{ opacity }}>
-              <Sequence from={start}>
-                <ClipVideo
-                  src={scene.image}
-                  trimStartMs={scene.trimStartMs} speed={scene.speed}
-                  volume={scene.volume}
-                  crop={scene.crop}
-                />
-              </Sequence>
+              <MediaMotion transform={motion}>
+                <Sequence from={start}>
+                  <ClipVideo
+                    src={scene.image}
+                    trimStartMs={scene.trimStartMs} speed={scene.speed}
+                    volume={scene.volume}
+                    crop={scene.crop}
+                  />
+                </Sequence>
+              </MediaMotion>
             </AbsoluteFill>
           );
         }
 
         return (
           <AbsoluteFill key={`scene-${index}`} style={{ opacity }}>
-            <CropBox crop={scene.crop}>
-              <Img
-                src={staticFile(scene.image)}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  transform: `scale(${1 + progress * KEN_BURNS_ZOOM})`,
-                }}
-              />
-            </CropBox>
+            <MediaMotion transform={motion}>
+              <CropBox crop={scene.crop}>
+                <Img
+                  src={staticFile(scene.image)}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    transform: `scale(${1 + progress * KEN_BURNS_ZOOM})`,
+                  }}
+                />
+              </CropBox>
+            </MediaMotion>
           </AbsoluteFill>
         );
       })}

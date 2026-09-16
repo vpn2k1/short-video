@@ -3,11 +3,25 @@ import type { Caption, TextOverlay } from "../../src/compositions/Short/schema";
 import { api, fmt, followJob, postJson, type MediaItem } from "./api";
 import type * as ops from "./ops";
 import { MEDIA_DRAG_TYPE } from "./Timeline";
+import {
+  cuesDurationMs, EXAMPLE_SRT, EXAMPLE_TXT, EXAMPLE_TXT_TIME, FORMAT_LABELS, looksLikeSubtitleFile,
+  parseSubtitleFile, SUBTITLE_ACCEPT, type Cue, type ParsedSubtitles,
+} from "./subtitle-import";
 
 /** Kéo một file từ thư viện — timeline nhận kiểu dữ liệu riêng, không nhầm với kéo file từ máy. */
 const dragMedia = (path: string) => (e: React.DragEvent) => {
   e.dataTransfer.setData(MEDIA_DRAG_TYPE, path);
   e.dataTransfer.effectAllowed = "copy";
+};
+
+/** Tải một file mẫu về máy để người dùng sửa nội dung rồi nhập lại. */
+const downloadSample = (name: string, content: string) => {
+  const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 };
 
 type Section = "visual" | "ai" | "audio" | "text" | "captions";
@@ -28,8 +42,8 @@ type Props = {
   onUpload: (files: File[]) => void;
   onAddText: (preset: Partial<TextOverlay>, label: string) => void;
   onSetMusic: (path: string) => void;
-  /** Nối file thành cảnh mới ở cuối video. */
-  onAppendScene: (item: MediaItem) => void;
+  /** Nối file thành một video mới ở cuối hàng Video 1. */
+  onAppendOverlay: (item: MediaItem) => void;
   /** Tách âm thanh của video thành file mp3 trong thư viện. */
   onExtractAudio: (item: MediaItem) => void;
   /** Cảnh đang chọn là video → chỉ số cảnh; không thì null. Hiện nút tách âm thanh ngay trong mục Ảnh & video. */
@@ -46,6 +60,8 @@ type Props = {
   onInsertCaption: (index: number | null) => void;
   onDeleteCaption: (index: number) => void;
   onAddCaptionLines: (lines: string[]) => void;
+  /** Nhập phụ đề từ file — file đã được đọc và bóc tách ngay trong trình duyệt. */
+  onImportCaptions: (cues: Cue[], opts: { replace: boolean; shiftToPlayhead: boolean }) => void;
 };
 
 const TEXT_PRESETS: { label: string; preview: React.CSSProperties; patch: Partial<TextOverlay> }[] = [
@@ -68,15 +84,17 @@ const AUDIO_GROUPS: { key: string; title: string }[] = [
  * Đặt bên trái hoặc bên phải trình chỉnh sửa (nút ⇄ trên thanh trên cùng).
  */
 export const MediaPanel: React.FC<Props> = ({
-  sectionRequest, media, aspect, selection, uploading, currentMusic, onUse, onUpload, onAddText, onSetMusic, onAppendScene, onExtractAudio, onAiVideo,
+  sectionRequest, media, aspect, selection, uploading, currentMusic, onUse, onUpload, onAddText, onSetMusic, onAppendOverlay, onExtractAudio, onAiVideo,
   selectedVideoScene, onDetachSceneAudio,
-  captions, timeMs, selectedCaption, onSelectCaption, onCaptionText, onInsertCaption, onDeleteCaption, onAddCaptionLines,
+  captions, timeMs, selectedCaption, onSelectCaption, onCaptionText, onInsertCaption, onDeleteCaption, onAddCaptionLines, onImportCaptions,
 }) => {
   const [section, setSection] = useState<Section>("visual");
   const [filter, setFilter] = useState<"all" | "image" | "video">("all");
   const [query, setQuery] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  /** File phụ đề vừa thả vào khi đang ở tab 💬 Phụ đề — chuyển xuống danh sách phụ đề để đọc. */
+  const [droppedSubtitle, setDroppedSubtitle] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLAudioElement>(null);
 
@@ -102,7 +120,10 @@ export const MediaPanel: React.FC<Props> = ({
     setPlaying(path);
   };
 
-  const target = selection?.type === "scene" ? `Cảnh ${selection.index + 1}` : "cảnh tại đầu phát";
+  // Bấm một ô trong thư viện: đang chọn video/cảnh nào thì thay hình của nó, không chọn gì thì thêm video mới.
+  const target = selection?.type === "overlay"
+    ? "thay video đang chọn"
+    : selection?.type === "scene" ? `thay Cảnh ${selection.index + 1}` : "thêm video tại đầu phát";
   const rail: { id: Section; icon: string; label: string }[] = [
     { id: "visual", icon: "🖼", label: "Ảnh/Video" },
     { id: "audio", icon: "🎵", label: "Âm thanh" },
@@ -141,7 +162,11 @@ export const MediaPanel: React.FC<Props> = ({
         if (!e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();
         setDragOver(false);
-        onUpload([...e.dataTransfer.files]);
+        const files = [...e.dataTransfer.files];
+        // Đang ở tab Phụ đề mà thả file .srt/.txt: nhập thành phụ đề thay vì tải lên thư viện.
+        const subtitle = section === "captions" ? files.find(looksLikeSubtitleFile) : undefined;
+        if (subtitle) setDroppedSubtitle(subtitle);
+        else onUpload(files);
       }}
     >
       <nav className="md-rail" aria-label="Thư viện">
@@ -155,7 +180,11 @@ export const MediaPanel: React.FC<Props> = ({
 
       <div className="md-body">
         {uploadButton}
-        {dragOver ? <div className="md-dropzone">Thả file vào đây để tải lên</div> : null}
+        {dragOver ? (
+          <div className="md-dropzone">
+            {section === "captions" ? "Thả file phụ đề (.srt, .vtt, .txt) vào đây" : "Thả file vào đây để tải lên"}
+          </div>
+        ) : null}
 
         {section === "ai" ? <AiVideoForm aspect={aspect} target={target} onDone={onAiVideo} /> : null}
 
@@ -185,7 +214,9 @@ export const MediaPanel: React.FC<Props> = ({
                 </button>
               </div>
             ) : null}
-            <p className="md-hint">Kéo xuống timeline · bấm ảnh để thay {target} · <b>＋</b> thêm vào cuối video.</p>
+            <p className="md-hint">
+              Kéo xuống timeline để đặt đúng chỗ · bấm ảnh để {target} · <b>＋</b> nối vào cuối.
+            </p>
             <div className="md-grid">
               <button className="md-import" onClick={() => fileRef.current?.click()} disabled={uploading}>
                 <b>{uploading ? "…" : "＋"}</b>
@@ -201,7 +232,14 @@ export const MediaPanel: React.FC<Props> = ({
                     {m.kind === "video" ? <i>🎬</i> : null}
                     <span>{m.name}</span>
                   </button>
-                  <button className="md-tile-add" onClick={() => onAppendScene(m)} title="Thêm thành cảnh mới ở cuối video" aria-label={`Thêm ${m.name} vào cuối video`}>＋</button>
+                  <button
+                    className="md-tile-add"
+                    onClick={() => onAppendOverlay(m)}
+                    title="Nối vào cuối hàng Video 1"
+                    aria-label={`Nối ${m.name} vào cuối video`}
+                  >
+                    ＋
+                  </button>
                   {m.kind === "video" ? (
                     <div className="md-tile-actions">
                       <button onClick={() => onExtractAudio(m)} title="Tách âm thanh của video thành file riêng">🎵</button>
@@ -252,6 +290,9 @@ export const MediaPanel: React.FC<Props> = ({
             onInsert={onInsertCaption}
             onDelete={onDeleteCaption}
             onAddLines={onAddCaptionLines}
+            onImport={onImportCaptions}
+            dropped={droppedSubtitle}
+            onDroppedHandled={() => setDroppedSubtitle(null)}
           />
         ) : null}
 
@@ -291,13 +332,52 @@ const CaptionList: React.FC<{
   onInsert: (index: number | null) => void;
   onDelete: (index: number) => void;
   onAddLines: (lines: string[]) => void;
-}> = ({ captions, timeMs, selected, onSelect, onText, onInsert, onDelete, onAddLines }) => {
+  onImport: (cues: Cue[], opts: { replace: boolean; shiftToPlayhead: boolean }) => void;
+  /** File phụ đề người dùng thả vào panel. */
+  dropped: File | null;
+  onDroppedHandled: () => void;
+}> = ({ captions, timeMs, selected, onSelect, onText, onInsert, onDelete, onAddLines, onImport, dropped, onDroppedHandled }) => {
   const listRef = useRef<HTMLDivElement>(null);
   /** Vừa thêm câu bằng Enter / nút ＋ — chờ danh sách vẽ lại rồi đưa con trỏ vào câu mới. */
   const focusNew = useRef(false);
   const [pasting, setPasting] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const pasteLines = pasteText.split("\n").map((line) => line.trim()).filter(Boolean);
+  const fileRef = useRef<HTMLInputElement>(null);
+  /** File đã đọc xong, đang chờ người dùng xác nhận. */
+  const [pending, setPending] = useState<{ name: string; parsed: ParsedSubtitles } | null>(null);
+  const [replace, setReplace] = useState(false);
+  const [shift, setShift] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const readSubtitleFile = async (file: File) => {
+    setError(null);
+    try {
+      const parsed = parseSubtitleFile(await file.text());
+      if (parsed.cues.length === 0) {
+        setPending(null);
+        setError(`Không đọc được câu nào trong ${file.name}. Xem ví dụ bên dưới để biết cách viết file.`);
+        return;
+      }
+      setPasting(false);
+      setReplace(false);
+      setShift(false);
+      setPending({ name: file.name, parsed });
+    } catch {
+      setPending(null);
+      setError(`Không đọc được ${file.name} — file phải là văn bản (.srt, .vtt, .txt, .json).`);
+    }
+  };
+
+  // Thả file vào panel khi đang ở tab Phụ đề.
+  useEffect(() => {
+    if (!dropped) return;
+    void readSubtitleFile(dropped);
+    onDroppedHandled();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dropped]);
+
+  const range = pending ? cuesDurationMs(pending.parsed.cues) : null;
 
   useEffect(() => {
     if (selected === null) return;
@@ -320,7 +400,61 @@ const CaptionList: React.FC<{
       <div className="cl-bar">
         <button className="cl-add" onClick={() => insert(null)} title="Thêm câu tại đầu phát, ở một hàng phụ đề mới">＋ Thêm phụ đề</button>
         <button className={pasting ? "on" : ""} onClick={() => setPasting(!pasting)}>📋 Dán nhiều dòng</button>
+        <button
+          className={pending ? "on" : ""}
+          onClick={() => fileRef.current?.click()}
+          title="Nhập file .srt, .vtt, .txt hoặc .json — kéo thả file vào đây cũng được"
+        >
+          📂 Nhập file
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          hidden
+          accept={SUBTITLE_ACCEPT}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void readSubtitleFile(file);
+            e.target.value = "";
+          }}
+        />
       </div>
+
+      {error ? <p className="cl-err">{error}</p> : null}
+
+      {pending ? (
+        <div className="cl-import">
+          <p className="cl-import-head">
+            <b>📄 {pending.name}</b>
+            <small>
+              {FORMAT_LABELS[pending.parsed.format]} · {pending.parsed.cues.length} câu
+              {range ? ` · ${fmt(range.fromMs)} → ${fmt(range.toMs)}` : ""}
+            </small>
+          </p>
+          {pending.parsed.notes.map((note) => <small key={note} className="cl-note">{note}</small>)}
+          <label>
+            <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+            Thay toàn bộ {captions.length} câu đang có
+          </label>
+          {range ? (
+            <label>
+              <input type="checkbox" checked={shift} onChange={(e) => setShift(e.target.checked)} />
+              Dời cả cụm về đầu phát ({fmt(timeMs)})
+            </label>
+          ) : null}
+          <div className="cl-import-foot">
+            <button className="ghost" onClick={() => setPending(null)}>Huỷ</button>
+            <button
+              onClick={() => {
+                onImport(pending.parsed.cues, { replace, shiftToPlayhead: shift });
+                setPending(null);
+              }}
+            >
+              Thêm {pending.parsed.cues.length} câu
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {pasting ? (
         <div className="cl-paste">
@@ -344,6 +478,23 @@ const CaptionList: React.FC<{
       ) : null}
 
       <p className="md-hint">＋ Thêm phụ đề: tạo hàng phụ đề mới · Enter: câu tiếp theo cùng hàng · ô trống + Backspace: xoá câu · bấm giờ để tua tới.</p>
+
+      <details className="cl-help">
+        <summary>📖 File phụ đề viết thế nào? (có file mẫu)</summary>
+        <div className="cl-help-body">
+          <p><b>Cách dễ nhất — file .txt, mỗi dòng một câu.</b> Không cần mốc giờ: các câu được rải nối tiếp nhau theo độ dài chữ, kéo trên timeline để chỉnh lại.</p>
+          <pre>{EXAMPLE_TXT}</pre>
+          <button onClick={() => downloadSample("phu-de-mau.txt", EXAMPLE_TXT)}>⬇ Tải mẫu .txt</button>
+
+          <p><b>Có sẵn thời gian — file .srt hoặc .vtt</b> (xuất từ CapCut, YouTube, Premiere…). Giờ trong file được giữ nguyên.</p>
+          <pre>{EXAMPLE_SRT}</pre>
+          <button onClick={() => downloadSample("phu-de-mau.srt", EXAMPLE_SRT)}>⬇ Tải mẫu .srt</button>
+
+          <p><b>Gõ tay kèm mốc giờ</b> cũng được — mỗi dòng bắt đầu bằng phút:giây.</p>
+          <pre>{EXAMPLE_TXT_TIME}</pre>
+          <p className="cl-note">Ngoài ra nhận .json dạng [{"{ \"text\": \"…\", \"startMs\": 0, \"endMs\": 2400 }"}]. Kéo thả file vào panel này cũng nhập được.</p>
+        </div>
+      </details>
 
       <div className="cl-list" ref={listRef}>
         {captions.map((c, k) => {

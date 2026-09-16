@@ -7,7 +7,7 @@
  */
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
-import type { Caption, Scene, ShortProps } from "../../compositions/Short/schema";
+import { noMotion, type Caption, type Scene, type ShortProps } from "../../compositions/Short/schema";
 import { activeIndexAt, Grain, useLayout } from "../shared";
 import { PaperSheet, type SheetLayout } from "./paper";
 import { PunchNote, Polaroid, StatNote, StickyNote, TagBox } from "./pieces";
@@ -26,6 +26,7 @@ const FALLBACK_SCENE: Scene = {
   trimStartMs: 0,
   volume: 0,
   crop: null,
+  ...noMotion(),
   startMs: 0,
   endMs: Number.MAX_SAFE_INTEGER,
 };

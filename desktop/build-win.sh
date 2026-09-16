@@ -18,6 +18,7 @@ mkdir -p "$STAGE/.claude/skills" "$STAGE/public" "$CACHE"
 cp -R package.json package-lock.json tsconfig.json remotion.config.ts desktop src server scripts "$STAGE/"
 cp -R .claude/skills/style-* "$STAGE/.claude/skills/"
 cp -R public/images public/music public/sfx "$STAGE/public/"
+bash desktop/fetch-local-ai.sh win-x64 "$STAGE"
 
 echo "→ Cài node_modules cho win32-x64"
 # --ignore-scripts: postinstall (esbuild…) sẽ kiểm tra binary theo máy đang build (Mac) và làm hỏng bản Windows.

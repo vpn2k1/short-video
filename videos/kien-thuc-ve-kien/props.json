@@ -1,0 +1,116 @@
+{
+  "title": "Bí mật kiến siêu mạnh",
+  "subtitle": "Khám phá sức mạnh và tổ chức của kiến",
+  "handle": "@kienkinh",
+  "accent": "#FFCC00",
+  "background": "#111111",
+  "captions": [
+    {
+      "text": "Kiến là siêu đội chiến binh",
+      "startMs": 2483,
+      "endMs": 4234,
+      "audio": "voices/kien-thuc-ve-kien/line-01.mp3"
+    },
+    {
+      "text": "Mỗi con đều có vai trò",
+      "startMs": 4384,
+      "endMs": 6271,
+      "audio": "voices/kien-thuc-ve-kien/line-02.mp3"
+    },
+    {
+      "text": "Cả bầy di chuyển 100x nhanh",
+      "startMs": 6421,
+      "endMs": 8622,
+      "audio": "voices/kien-thuc-ve-kien/line-03.mp3"
+    },
+    {
+      "text": "Mang thức ăn tới tổ",
+      "startMs": 8772,
+      "endMs": 10286,
+      "audio": "voices/kien-thuc-ve-kien/line-04.mp3"
+    },
+    {
+      "text": "Kiến có hệ thống phân công",
+      "startMs": 10436,
+      "endMs": 12187,
+      "audio": "voices/kien-thuc-ve-kien/line-05.mp3"
+    },
+    {
+      "text": "Nở rộ thành phố dưới đất",
+      "startMs": 12337,
+      "endMs": 14011,
+      "audio": "voices/kien-thuc-ve-kien/line-06.mp3"
+    },
+    {
+      "text": "Bạn cũng có thể học",
+      "startMs": 14161,
+      "endMs": 15550,
+      "audio": "voices/kien-thuc-ve-kien/line-07.mp3"
+    },
+    {
+      "text": "Theo dõi để biết thêm!",
+      "startMs": 15700,
+      "endMs": 17169,
+      "audio": "voices/kien-thuc-ve-kien/line-08.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "plain",
+  "scenes": [
+    {
+      "image": "images/kien-thuc-ve-kien/01-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 0,
+      "endMs": 6421
+    },
+    {
+      "image": "images/kien-thuc-ve-kien/02-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 6421,
+      "endMs": 10436
+    },
+    {
+      "image": "images/kien-thuc-ve-kien/03-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 10436,
+      "endMs": 14161
+    },
+    {
+      "image": "images/kien-thuc-ve-kien/04-the-secret-of-super-strong-ants.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "startMs": 14161,
+      "endMs": 17319
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

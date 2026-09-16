@@ -94,7 +94,7 @@ export const NewProject: React.FC = () => {
           <a className="ed-btn ghost" href="/">‹ Trang chủ</a>
           <h1>✂️ Dự án chỉnh sửa mới</h1>
         </header>
-        <p className="muted">Thêm video hoặc ảnh, rồi cắt ghép, thêm chữ, nhạc trên timeline. Không cần API key.</p>
+        <p className="muted">Thêm video hoặc ảnh rồi cắt ghép, thêm chữ, nhạc trên timeline. Không cần API key.</p>
 
         <div
           className={`np-drop ${dragOver ? "drag" : ""}`}
@@ -118,28 +118,6 @@ export const NewProject: React.FC = () => {
             onChange={(e) => { upload([...(e.target.files ?? [])]); e.target.value = ""; }}
           />
         </div>
-
-        <div className="np-field">
-          <span>Khung hình</span>
-          <div className="np-aspects">
-            {ASPECT_IDS.map((id) => {
-              const a = ASPECTS[id];
-              const scale = 34 / Math.max(a.width, a.height);
-              return (
-                <button key={id} className={aspect === id ? "on" : ""} onClick={() => setAspect(id)}>
-                  <i style={{ width: a.width * scale, height: a.height * scale }} />
-                  <b>{id}</b>
-                  <small>{a.label.split("—")[1]?.trim()}</small>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <label className="np-field">
-          <span>Tên dự án</span>
-          <input value={title} maxLength={60} placeholder="Video mới" onChange={(e) => setTitle(e.target.value)} />
-        </label>
 
         {picked.length > 0 ? (
           <div className="np-field">
@@ -176,6 +154,28 @@ export const NewProject: React.FC = () => {
             </div>
           </div>
         ) : null}
+
+        <div className="np-field">
+          <span>Khung hình</span>
+          <div className="np-aspects">
+            {ASPECT_IDS.map((id) => {
+              const a = ASPECTS[id];
+              const scale = 34 / Math.max(a.width, a.height);
+              return (
+                <button key={id} className={aspect === id ? "on" : ""} onClick={() => setAspect(id)}>
+                  <i style={{ width: a.width * scale, height: a.height * scale }} />
+                  <b>{id}</b>
+                  <small>{a.label.split("—")[1]?.trim()}</small>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <label className="np-field">
+          <span>Tên dự án</span>
+          <input value={title} maxLength={60} placeholder="Video mới" onChange={(e) => setTitle(e.target.value)} />
+        </label>
 
         {error ? <p className="err">{error}</p> : null}
 

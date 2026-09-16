@@ -1,6 +1,6 @@
 import { AbsoluteFill, Easing, interpolate, Sequence, spring, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
-import type { Scene, SceneVisual, ShortProps } from "../../compositions/Short/schema";
+import { noMotion, type Scene, type SceneVisual, type ShortProps } from "../../compositions/Short/schema";
 import { activeIndexAt, useLayout } from "../shared";
 import { Backdrop } from "./Backdrop";
 import { BellIcon, HeartIcon } from "./Icons";
@@ -110,6 +110,7 @@ export const SocialStyle: React.FC<ShortProps> = ({
           trimStartMs: 0,
           volume: 0,
           crop: null,
+          ...noMotion(),
           startMs: 0,
           endMs: captions.reduce((m, c) => Math.max(m, c.endMs), 0),
         },

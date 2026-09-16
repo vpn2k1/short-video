@@ -1,0 +1,80 @@
+{
+  "style": "whiteboard",
+  "title": "Từ nhỏ tôi đã không có vợ",
+  "subtitle": "Câu chuyện đời tôi",
+  "handle": "@kenh",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "scenes": [
+    {
+      "lines": [
+        "Lúc tôi mới sinh ra, không có ai đến thăm.",
+        "Tôi nằm trong nôi, nhìn xung quanh, không có vợ."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Thời thơ ấu",
+      "punch": null
+    },
+    {
+      "lines": [
+        "5 tuổi, vẫn không có vợ.",
+        "Tôi nghĩ chắc sau này sẽ có."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Tuổi 5",
+      "punch": null
+    },
+    {
+      "lines": [
+        "10 tuổi, cũng không.",
+        "Tôi vẫn chờ đợi."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Tuổi 10",
+      "punch": null
+    },
+    {
+      "lines": [
+        "Đến 18, tôi bắt đầu nhận ra.",
+        "Có lẽ vấn đề là tôi chưa đủ tuổi kết hôn."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Tuổi 18",
+      "punch": null
+    },
+    {
+      "lines": [
+        "Chờ thêm 10 năm, tới 30 tuổi, vẫn không có.",
+        "Lúc đó tôi mới hiểu ra một điều."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Tuổi 30",
+      "punch": null
+    },
+    {
+      "lines": [
+        "Từ nhỏ đến lớn, tôi chưa từng có vợ.",
+        "Và cho đến tận bây giờ, tôi vẫn chưa có."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Tổng kết",
+      "punch": "Từ nhỏ đến lớn, tôi chưa từng có vợ."
+    },
+    {
+      "lines": [
+        "Cuộc đời thật khó hiểu.",
+        "Câu chuyện của tôi vẫn chưa có kết thúc."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Kết luận",
+      "punch": "Cuộc đời thật khó hiểu."
+    }
+  ]
+}

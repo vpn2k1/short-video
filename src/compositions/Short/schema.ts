@@ -150,6 +150,20 @@ export const legacyCropSchema = z.object({
   size: z.number().min(0.05).max(1),
 });
 
+/**
+ * Một mốc chuyển động. Dùng CHUNG cho cảnh trên track chính và lớp đè — cùng tên trường nên
+ * trình chỉnh sửa dùng đúng một bộ điều khiển cho cả hai. Xem src/compositions/Short/overlayMotion.ts.
+ */
+export const overlayKeyframeSchema = z.object({
+  /** Mốc thời gian trong video, ms. */
+  atMs: z.number().min(0),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(2).max(400),
+  rotate: z.number().min(-180).max(180),
+  opacity: z.number().min(0).max(1),
+});
+
 /** Một cảnh: khoảng thời gian dùng chung một hình nền. */
 export const sceneSchema = z.object({
   /** staticFile() path của ảnh, hoặc null để chỉ dùng nền gradient. */
@@ -171,9 +185,80 @@ export const sceneSchema = z.object({
   speed: z.number().min(0.25).max(4).optional(),
   /** Chỉ lấy một vùng của ảnh/video — chỉnh trong khung crop của trình chỉnh sửa. */
   crop: z.union([mediaCropSchema, legacyCropSchema]).nullable().default(null),
+  /**
+   * Vị trí / thu phóng / xoay / độ mờ của hình trong khung — cùng ý nghĩa và cùng tên trường với lớp đè
+   * (xem mediaOverlaySchema) nên cảnh và lớp chỉnh bằng đúng một bộ điều khiển.
+   * Giá trị mặc định (50, 50, 100, 0, 1) = vẽ y như trước khi có các trường này.
+   */
+  x: z.number().min(-50).max(150).default(50),
+  y: z.number().min(-50).max(150).default(50),
+  /** Mức thu phóng, % khung hình: 100 = đúng khung như cũ. */
+  width: z.number().min(2).max(400).default(100),
+  rotate: z.number().min(-180).max(180).default(0),
+  opacity: z.number().min(0).max(1).default(1),
+  /** Mốc chuyển động — rỗng = đứng yên theo x/y/width/rotate/opacity ở trên. */
+  keyframes: z.array(overlayKeyframeSchema).default([]),
   startMs: z.number().min(0),
   endMs: z.number().min(0),
 });
+
+/**
+ * Một lớp video/ảnh chồng lên track chính (picture-in-picture kiểu CapCut).
+ *
+ * Khác `scenes`: cảnh nối liền nhau trên MỘT track và lấp kín khung hình, còn lớp chồng đặt
+ * tự do trên timeline (nhiều lớp đè nhau được) và có khối riêng trên khung hình — kéo để dời,
+ * kéo tay nắm góc để thu phóng, kéo tay nắm trên để xoay.
+ */
+/**
+ * Một mốc chuyển động của lớp đè (keyframe): chụp lại vị trí, cỡ, góc xoay và độ mờ tại một thời điểm.
+ * Chụp cả bộ thay vì từng thuộc tính riêng — dễ hiểu khi dùng và khỏi phải trộn nhiều đường cong.
+ */
+export const mediaOverlaySchema = z.object({
+  /** staticFile() path của ảnh hoặc video, ví dụ "uploads/1234-clip.mp4". */
+  src: z.string().min(1),
+  startMs: z.number().min(0),
+  endMs: z.number().min(0),
+  /** Lớp là video: bỏ qua bao nhiêu ms đầu clip. */
+  trimStartMs: z.number().min(0).default(0),
+  /** Tiếng gốc của clip, 0 = tắt. Ảnh thì không dùng. */
+  volume: z.number().min(0).max(1).default(0),
+  /** Tốc độ phát (0.25–4, không có = 1) — như `speed` của cảnh. */
+  speed: z.number().min(0.25).max(4).optional(),
+  /**
+   * Hàng video trên timeline: 0 là hàng ngay trên track chính, số lớn hơn nằm cao hơn và
+   * VẼ TRÊN các hàng thấp hơn — hai lớp đè nhau thì hàng cao thắng.
+   */
+  track: z.number().int().min(0).default(0),
+  /** Tâm khối, % khung hình. Cho ra ngoài một chút để kéo khối lệch khỏi khung. */
+  x: z.number().min(-50).max(150).default(50),
+  y: z.number().min(-50).max(150).default(50),
+  /** Bề rộng khối, % chiều rộng khung hình — đây là mức thu phóng. */
+  width: z.number().min(2).max(400).default(45),
+  /** Tỉ lệ rộng/cao của khối. Mặc định lấy theo file nên hình không méo. */
+  aspect: z.number().positive().default(16 / 9),
+  rotate: z.number().min(-180).max(180).default(0),
+  opacity: z.number().min(0).max(1).default(1),
+  /** Bo góc khối, % cạnh ngắn của khối. */
+  radius: z.number().min(0).max(50).default(0),
+  /** Hình lấp đầy khối (cover — cắt bớt) hay nằm gọn trong khối (contain). */
+  fit: z.enum(["cover", "contain"]).default("cover"),
+  /** Chỉ lấy một vùng của ảnh/video — cùng khung crop với cảnh. */
+  crop: z.union([mediaCropSchema, legacyCropSchema]).nullable().default(null),
+  /** Hiện dần ở đầu và mất dần ở cuối, ms mỗi bên. 0 = hiện/mất đột ngột. */
+  fadeMs: z.number().min(0).max(4000).default(0),
+  /**
+   * Mốc chuyển động. Rỗng = lớp đứng yên theo x/y/width/rotate/opacity ở trên.
+   * Có từ 2 mốc trở lên thì lớp chạy mượt giữa các mốc (nội suy tuyến tính); ngoài mốc đầu/cuối thì giữ nguyên.
+   */
+  keyframes: z.array(overlayKeyframeSchema).default([]),
+});
+
+/**
+ * Giá trị chuyển động mặc định của một cảnh — hình đúng khung, không xoay, không mờ, không mốc nào.
+ * Dùng khi dựng cảnh bằng code để khỏi lặp lại 6 trường ở mọi chỗ.
+ */
+export const noMotion = (): Pick<Scene, "x" | "y" | "width" | "rotate" | "opacity" | "keyframes"> =>
+  ({ x: 50, y: 50, width: 100, rotate: 0, opacity: 1, keyframes: [] });
 
 export const WATERMARK_POSITIONS = ["top-right", "top-left", "bottom-right", "bottom-left"] as const;
 
@@ -197,6 +282,11 @@ export const shortSchema = z.object({
   style: z.enum(STYLE_IDS).default(DEFAULT_STYLE),
   // Có default để props.json sinh trước khi thêm cảnh vẫn render được.
   scenes: z.array(sceneSchema).default([]),
+  /**
+   * Các lớp video/ảnh chồng lên track chính — thêm và chỉnh trong trình chỉnh sửa.
+   * Nhiều lớp đè nhau được; hàng (`track`) cao vẽ trên.
+   */
+  overlays: z.array(mediaOverlaySchema).default([]),
   /** Vị trí phụ đề: đáy màn hình hay chính giữa. */
   captionPosition: z.enum(["bottom", "center"]).default("bottom"),
   /**
@@ -239,6 +329,8 @@ export type Scene = z.infer<typeof sceneSchema>;
 export type SceneVisual = z.infer<typeof sceneVisualSchema>;
 export type ScenePunch = z.infer<typeof scenePunchSchema>;
 export type AudioClip = z.infer<typeof audioClipSchema>;
+export type MediaOverlay = z.infer<typeof mediaOverlaySchema>;
+export type OverlayKeyframe = z.infer<typeof overlayKeyframeSchema>;
 export type TextOverlay = z.infer<typeof textOverlaySchema>;
 export type SceneCrop = NonNullable<Scene["crop"]>;
 export type CaptionPosition = ShortProps["captionPosition"];

@@ -12,12 +12,12 @@
  *
  * Câu dài hơn 90 ký tự được tách ở dấu câu. Dán nguyên JSON của script.json cũng được.
  */
-import { parseScript, type ScriptScene, type VideoScript } from "../src/compositions/Short/script";
+import { MAX_SCRIPT_SCENES, parseScript, type ScriptScene, type VideoScript } from "../src/compositions/Short/script";
 import type { StyleId } from "../src/styles/meta";
 
-const MAX_LINE = 90;
+export const MAX_LINE = 90;
 const MAX_LINES_PER_SCENE = 12;
-const MAX_SCENES = 12;
+export const MAX_SCENES = MAX_SCRIPT_SCENES;
 /** Văn bản không có dòng trống: tự chia mỗi chừng này câu một cảnh. */
 const AUTO_SCENE_SIZE = 3;
 

@@ -148,9 +148,10 @@ cp .env.example .env
 
 Biến tuỳ chọn: `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL_ID`, `SAY_VOICE`, `PORT`.
 
-**Không có key nào vẫn viết kịch bản bằng AI được:** cài Ollama và chọn "Ollama" trong ⚙️ Cài đặt —
-model chạy ngay trên máy, không cần mạng. Cách cài, chọn model và kết quả đo thật:
-[docs/ai-tren-may.md](docs/ai-tren-may.md).
+**Không có key nào vẫn viết kịch bản bằng AI được:** bộ cài desktop kèm sẵn một AI nhỏ chạy trên máy
+(llama.cpp + Qwen2.5 1.5B, không cần mạng, không cần cài thêm). Chạy từ mã nguồn thì tải nó bằng
+`bash desktop/fetch-local-ai.sh mac-arm64`, hoặc cài Ollama và chọn "Ollama" trong ⚙️ Cài đặt.
+Cách hoạt động, chọn model và kết quả đo thật: [docs/ai-tren-may.md](docs/ai-tren-may.md).
 
 > `.env` đã nằm trong `.gitignore`. Đừng commit nó.
 
@@ -216,6 +217,61 @@ Nút **Tạo** trên mỗi thẻ render **riêng cảnh đó** ra `out/scenes/<s
 song song được. Giọng chỉ sinh lại khi kịch bản đã đổi.
 
 **+ Thêm cảnh** để thêm, **Gộp các cảnh thành 1 video** để nối lại.
+
+### 🏭 Hàng loạt — làm nhiều video một lượt
+
+Nút **🏭 Hàng loạt** trên thanh trên (hoặc `#/batch`). Đưa vào một danh sách, đặt cài đặt
+một lần, rồi để máy chạy lần lượt.
+
+Ba nguồn đầu vào, chung một hàng đợi:
+
+| Nguồn | Đưa vào | Mỗi video là |
+|---|---|---|
+| 💡 **Danh sách ý tưởng** | mỗi dòng một ý tưởng — gõ tay, dán từ Sheets, tải `.txt`/`.csv` lên, hoặc bấm **Nghĩ ý tưởng** để AI đẻ ra N ý từ một chủ đề | một dòng |
+| 🧩 **Mỗi video một ô** | một ô chữ nhật — **bấm vào ô mới hiện ô nhập**; bấm **＋ Thêm ô** để thêm ô nữa. Mỗi ô đặt riêng được **Lời · Phong cách · Khung · Giọng · Hình · Nhạc** | một ô |
+| 🎙 **File thu sẵn** | nhiều file audio/video | một file — phiên âm bằng whisper.cpp **chạy trên máy**, không cần key |
+| 🔁 **Biến thể của 1 video** | một video đã có kịch bản + tích tỉ lệ / giọng / ngôn ngữ | một tổ hợp — đổi ngôn ngữ thì dịch lại toàn bộ lời |
+
+Màn soạn đi theo ba bước như màn tạo video thường: **1 ·** chọn nguồn → **2 ·** mỗi cài đặt
+một ô riêng (bấm vào ô nào mở đúng menu của cài đặt đó: lời, AI, phong cách, khung, hình,
+giọng, nhạc, duyệt lời) → **3 ·** ô nhập to nhất ở dưới cùng. Với nguồn 🧩 **Mỗi video một ô**,
+cài đặt ở bước 2 là **mặc định** — ô nào đặt riêng thì ô đó thắng, chip của nó sáng lên; nên
+một loạt trộn được nhiều phong cách, nhiều khung hình, nhiều giọng. Một dòng ngay dưới bước 2 nói
+trước loạt sẽ chạy ra thế nào và thiếu key gì. Chọn **📝 Lời có sẵn** thì mỗi video là một
+khối, ngăn nhau bằng dòng `---`; nguồn file thu sẵn thì kéo thả thẳng vào ô lớn.
+
+**Chốt duyệt lời** (bật sẵn): cả loạt viết kịch bản xong thì dừng lại. Bạn đọc ngay trên
+bảng, bấm ✏️ Sửa lời để mở video đó ra chỉnh, rồi **✓ Duyệt** từng cái hoặc **Duyệt tất cả**.
+Lý do: viết kịch bản mất vài giây và gần như miễn phí, còn render mất cả phút mỗi video —
+duyệt trước thì không đốt thời gian render nội dung hỏng. Tắt công tắc này là chạy một mạch.
+
+Bảng theo dõi cũng là lưới ô đó: đang chạy thì ô hiện thanh tiến độ, xong thì ô hiện **ảnh
+bìa** (ffmpeg cắt một khung, lưu ở `public/thumbs/`) — bấm ảnh mới nạp và phát video. Làm vậy
+vì một loạt 50 video mà mỗi ô gắn sẵn một thẻ `<video>` là 50 lần tải metadata, cuộn tới đâu
+khựng tới đó. **Bấm vào ô (chỗ khác ảnh) là ra lại ô nhập** để sửa nội dung rồi làm lại — sửa
+xong dựng đè lên đúng video cũ, không đẻ thêm video rác trong Thư viện.
+
+Trên đầu bảng có thanh tiến độ cả loạt, ước tính **còn bao lâu** (tính từ chính những video đã
+xong trong loạt, không đoán mò), và tiến độ hiện luôn ở **tiêu đề tab** để bạn chuyển tab đi
+làm việc khác. Xong cả loạt thì có thông báo + một tiếng chuông.
+
+Xong rồi thì **⬇ Tải tất cả** gói mọi mp4 thành một file zip (đánh số theo đúng thứ tự trong
+loạt: `01-…mp4`, `02-…mp4`), và **📄 CSV** xuất bảng tiêu đề · lời đọc · tên file · khung ·
+phong cách để dán khi đăng bài.
+
+Lỗi một mục **không** làm dừng cả loạt: mục đó chuyển sang ⚠️, bấm ⟳ Thử lại riêng nó. Mục
+đã có kịch bản thì thử lại chạy thẳng từ bước dựng, không gọi AI viết lại lời.
+
+**Chạy cùng lúc bao nhiêu:** render và phiên âm ăn trọn CPU nên chỉ **một** việc nặng chạy
+một lúc — hai bản render song song chỉ làm cả hai cùng chậm. Riêng khâu gọi AI viết lời là
+chờ mạng nên cho 2 cái song song.
+
+Loạt lưu ở `data/batches/<id>.json` nên tắt app mở lại vẫn còn: mục đang chạy dở quay về
+hàng đợi, loạt về ⏸ tạm dừng, bấm ▶ Chạy tiếp là đi tiếp. Xoá loạt chỉ xoá bảng theo dõi —
+video đã tạo vẫn nằm trong Thư viện.
+
+Mỗi video xong là một video bình thường trong `videos/<slug>/` kèm `chat.json`: mở lại, nhắn
+sửa tiếp, mở trình chỉnh sửa hay xoá đều giống hệt video làm tay.
 
 ### Tab Thư viện
 Tất cả ảnh và video đã tạo từ **mọi cuộc**, kèm dung lượng và nút tải.
@@ -389,6 +445,8 @@ Background → Scenes → Scrim → SceneVisual → TitleCard → Captions → S
 server/
   index.ts           HTTP server + SSE
   api.ts             logic, dùng lại module trong scripts/
+  chat.ts            một video = một cuộc chat; pipeline tách 2 bước (kịch bản / dựng)
+  batch.ts           làm nhiều video một lượt: hàng đợi, chốt duyệt, biến thể
   jobs.ts            job chạy nền
   public/            index.html + app.js  (UI)
 src/
@@ -411,6 +469,7 @@ scripts/
   group-captions     token → từ → dòng 42 ký tự
   pexels / gemini-image / fetch-images    nguồn ảnh
   images / list-images                    quy ước ảnh + kiểm tra
+  ideas              chủ đề → danh sách ý tưởng (cho chế độ hàng loạt)
   make-audio         sinh nhạc theo mood + sfx
   render / render-all
 public/
@@ -419,7 +478,8 @@ public/
   music/  sfx/       nhạc nền + tiếng động (ffmpeg sinh ra)
   voices/<slug>/     voiceover sinh ra — gitignored
   videos/            clip (chưa dùng)
-videos/<slug>/       script.json (nội dung) + props.json (timing)
+videos/<slug>/       script.json (nội dung) + props.json (timing) + chat.json (lịch sử)
+data/batches/        mỗi loạt một file json — trạng thái từng video trong loạt
 docs/                tài liệu chi tiết
 out/                 mp4 xuất ra — gitignored
 ```
@@ -529,7 +589,9 @@ npx remotion upgrade         # nâng Remotion + skill Remotion cùng lúc
 ```
 
 Tài liệu chi tiết hơn về pipeline: [docs/prompt-to-video.md](docs/prompt-to-video.md).
-AI viết kịch bản chạy trên máy (Ollama): [docs/ai-tren-may.md](docs/ai-tren-may.md).
+AI viết kịch bản chạy trên máy (có sẵn trong app, hoặc Ollama): [docs/ai-tren-may.md](docs/ai-tren-may.md).
+Video xong bấm **✍️ Gợi ý bài đăng**: AI viết tiêu đề, caption, hashtag cho TikTok, YouTube, Facebook, Instagram
+từ lời trong video (`scripts/post-copy.ts`, lưu ở `videos/<slug>/post-copy.json`).
 
 ---
 

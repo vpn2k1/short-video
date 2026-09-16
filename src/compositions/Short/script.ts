@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FPS, OUTRO_FRAMES } from "../../constants";
-import type { Caption, CaptionPosition, Scene, ShortProps } from "./schema";
+import { noMotion, type Caption, type CaptionPosition, type Scene, type ShortProps } from "./schema";
 import { DEFAULT_STYLE, isStyleId, STYLE_IDS } from "../../styles/meta";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -32,6 +32,12 @@ export const scriptSceneSchema = z.object({
   punch: z.string().min(1).max(48).nullable(),
 });
 
+/**
+ * Trần an toàn số cảnh của một kịch bản — không phải mục tiêu. 200 cảnh × ~12s ≈ 40 phút.
+ * Độ dài thật do người dùng chọn (scripts/video-length.ts); video dài được AI viết theo chương.
+ */
+export const MAX_SCRIPT_SCENES = 200;
+
 export const videoScriptSchema = z.object({
   /** Phong cách hình ảnh. Người dùng chọn cụ thể thì server ghi đè giá trị này. */
   style: z.enum(STYLE_IDS),
@@ -40,9 +46,8 @@ export const videoScriptSchema = z.object({
   handle: z.string().min(1).max(30),
   accent: z.string().regex(HEX_COLOR),
   background: z.string().regex(HEX_COLOR),
-  // Bound an toàn, không phải hướng dẫn phong cách — độ dài mong muốn nằm ở
-  // system prompt. 12 cảnh × 12 câu là trần rộng rãi, không phải mục tiêu.
-  scenes: z.array(scriptSceneSchema).min(1).max(12),
+  // Bound an toàn, không phải hướng dẫn phong cách — độ dài mong muốn nằm ở system prompt.
+  scenes: z.array(scriptSceneSchema).min(1).max(MAX_SCRIPT_SCENES),
 });
 
 export type VideoScript = z.infer<typeof videoScriptSchema>;
@@ -195,6 +200,7 @@ export const scriptToProps = (
       trimStartMs: 0,
       volume: 0,
       crop: null,
+      ...noMotion(),
       tag: scriptScene.tag ?? null,
       punch: scriptScene.punch
         ? {
@@ -232,6 +238,7 @@ export const scriptToProps = (
     voiceVolume: 1,
     audioClips: [],
     texts: [],
+    overlays: [],
     watermark: null,
   };
 };

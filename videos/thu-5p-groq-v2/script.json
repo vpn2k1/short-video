@@ -1,0 +1,322 @@
+{
+  "style": "caption",
+  "title": "Bí ẩn Hệ Mặt Trời",
+  "subtitle": "Khám phá hành tinh, sao và bí mật",
+  "handle": "@hemtattrong",
+  "accent": "#FFCC00",
+  "background": "#0A0A0A",
+  "scenes": [
+    {
+      "lines": [
+        "Mặt Trời, ngọn lửa trung tâm",
+        "Cung cấp năng lượng cho mọi sinh vật",
+        "Ánh sáng chiếu xuyên khắp hành tinh",
+        "Không có nó, sự sống chấm dứt"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Khối lượng Sun gấp 99,8% hệ",
+        "Nhiệt độ bề mặt lên tới 5.500°C",
+        "Lõi chứa hydro, heli, liên tục phản ứng",
+        "Sự nổ hạt nhân tạo ra ánh sáng"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Ánh sáng duy trì nhiệt độ hành tinh",
+        "Gió mặt trời bảo vệ không gian",
+        "Các bức xạ ảnh hưởng khí quyển",
+        "Biến đổi thời tiết và khí hậu"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Chu kỳ 11 năm tạo bãi đen",
+        "Sóng năng lượng tăng, giảm theo",
+        "Cực đoan gây bão mặt trời",
+        "Ảnh hưởng truyền thông và vệ tinh"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Hiểu Sun, mở khóa bí mật vũ trụ",
+        "Tiếp theo, hành tinh nội sao sẽ bật mí",
+        "Khám phá sao Kim, sao Thủy đầy thú vị",
+        "Nhấn theo dõi, hành trình chưa kết thúc"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Hai hành tinh nội sao, sao Kim và sao Thủy",
+        "Sao Kim, hành tinh nóng nhất hệ",
+        "Nhiệt độ bề mặt lên tới 460°C",
+        "Bầu khí quyển dày đặc, chứa CO2"
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "460°C",
+        "caption": "nhiệt độ bề mặt"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Áp suất gấp 90 lần Trái Đất",
+        "Mây axit rơi như mưa kim loại",
+        "Hiệu ứng nhà kính làm nhiệt tăng",
+        "Không thể nhìn thấy bề mặt bằng mắt"
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "90x",
+        "caption": "áp suất"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Sao Thủy, hành tinh gần Mặt Trời nhất",
+        "Nhiệt độ dao động từ -180°C tới 430°C",
+        "Không có bầu khí quyển bảo vệ",
+        "Bề mặt phủ đầy hố va chạm"
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "-180°C→430°C",
+        "caption": "nhiệt độ bề mặt"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Hai hành tinh không có nước lỏng",
+        "Sao Kim khô cứng, không có băng",
+        "Sao Thủy thiếu từ trường, bức xạ mạnh",
+        "Cả hai đều khó sống cho con người"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Nhưng bí mật của chúng vẫn còn nhiều",
+        "Nghiên cứu sẽ mở ra khám phá mới",
+        "Tiếp theo, chúng ta sẽ tới sao Hỏa",
+        "Hãy chuẩn bị cho hành trình tới sao Hỏa"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Mars, hành tinh đỏ, có băng dưới bề mặt",
+        "Nhiệt độ trung bình chỉ -60 độ C",
+        "Áp suất không khí chỉ 1% Trái Đất",
+        "Những điều kiện này tạo ra gió khô khắc nghiệt"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Băng nước hiện diện tại cực Bắc và Nam",
+        "Khi băng tan, cung cấp hơi nước cho mây",
+        "Mây tạo ra những cơn bão mạnh",
+        "Bão kéo theo các hạt bụi phong phú"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Nước lỏng và năng lượng mặt trời hỗ trợ sinh học",
+        "Vi sinh vật có thể tồn tại dưới băng bảo vệ",
+        "Nghiên cứu rover đã phát hiện hợp chất hữu cơ",
+        "Đây là dấu hiệu quan trọng cho sinh tồn"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "NASA lên kế hoạch đưa phi thuyền tới Mars",
+        "Nơi đóng bộ phận sống cần bảo vệ khỏi bão",
+        "Hệ thống khí cầu sẽ cung cấp oxy và nước",
+        "Nếu thành công, con người có thể định cư lâu dài"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Sau Mars, hành trình tiếp tục tới sao Thổ",
+        "Sao Thổ có các vành đai băng khổng lồ",
+        "Chúng chứa khoáng vật và tiềm năng cho tương lai",
+        "Tiếp theo, khám phá sao Thổ"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Băng hà và sao chổi, ký ức cổ đại",
+        "Chúng là những viên đá băng lơ lửng",
+        "Mang theo khoáng chất và nước từ xa",
+        "Đánh dấu hành trình thời tiền sử Trái Đất"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Khi va chạm, nước rải khắp không gian",
+        "Nước băng tan chảy thành mưa đầu tiên",
+        "Giúp hình thành đại dương và sinh vật sơ khai",
+        "Không có chúng, Trái Đất sẽ khô cằn"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Mỗi sao chổi giữ nguyên nguyên liệu ban đầu",
+        "Chúng chứa carbon, axit amin và khoáng chất",
+        "Khoa học giải mã câu hỏi về nguồn gốc",
+        "Giúp chúng ta hiểu quá trình hình thành sao"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Đôi khi sao chổi đâm vào trái đất",
+        "Tạo ra hiện tượng sáng rực rỡ trên bầu trời",
+        "Các đài quan sát ghi lại dữ liệu quý giá",
+        "Cảnh báo nguy cơ va chạm trong tương lai"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Băng hà và sao chổi vẫn còn nhiều bí ẩn",
+        "Chúng tiếp tục cung cấp nước và khoáng chất",
+        "Tiếp theo, chúng ta sẽ khám phá những điều chưa biết",
+        "Hãy theo dõi để cùng chúng tôi đi sâu hơn"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Hệ Mặt Trời ẩn chứa vô số bí ẩn",
+        "Các hành tinh còn nhiều hiện tượng chưa giải mã",
+        "Những hố đen mini có thể tồn tại",
+        "Tiếp theo, chúng ta sẽ khám phá những điều chưa biết"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Sao chổi mang theo tinh thể nguyên thủy cổ xưa",
+        "Chúng mang khoáng chất và nước tới Trái Đất",
+        "Băng hà sao Kim có thể chứa dấu vết",
+        "Khám phá sâu hơn những lớp băng lạnh giá"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Các tiểu hành tinh như Ceres đang được nghiên cứu",
+        "Chúng có thể chứa khoáng sản quý hiếm",
+        "Vùng Kuiper đầy những vật thể lạ lùng",
+        "Mặt trời ảnh hưởng tới chúng bằng gió mặt trời"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Mặt trăng của sao Thổ có hoạt động địa chất",
+        "Các quỹ đạo ổn định mở ra khả năng sinh sống",
+        "Năng lượng từ mặt trời hỗ trợ các trạm không gian",
+        "Các tàu thăm dò đang truyền dữ liệu mới nhất"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Vũ trụ luôn mở ra những câu hỏi mới",
+        "Chúng ta chỉ mới chạm vào bề mặt kiến thức",
+        "Hãy cùng chúng tôi tiếp tục hành trình khám phá",
+        "Nhấn theo dõi để khám phá cùng chúng tôi"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

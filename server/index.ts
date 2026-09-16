@@ -33,13 +33,24 @@ import {
   startMultiScene, startTurn,
   startVoiceChange,
 } from "./chat";
+import {
+  approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
+  listBatches, pauseBatch, readBatch, removeItems, restyleSubs, retryItems, skipItems, startBatch,
+  SPOKEN_LANGUAGES,
+} from "./batch";
+import {
+  CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, DEFAULT_CAPTION_LOOK,
+} from "../src/components/captionLook";
+import { generateIdeas } from "../scripts/ideas";
+import { generatePostCopy, getPostCopy } from "../scripts/post-copy";
+import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
-import { deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
+import { captureFrame, deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
 import { deleteTrash, listTrash, restoreTrash, trashFilesDir } from "./app-trash";
 import { keyStatus, loadKeys, saveKeys } from "./keys";
 import { isStyleId, STYLE_IDS, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
-import { providerLabel, scriptProvider } from "../scripts/generate-script";
+import { isScriptProvider, providerLabel, scriptProvider, scriptProviderCatalog } from "../scripts/generate-script";
 import { TRANSLATE_LANGUAGES, translateEngines } from "../scripts/translate";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
 import { watermarkFromSettings } from "../scripts/watermark";
@@ -188,12 +199,16 @@ const server = http.createServer(async (req, res) => {
         compositions: ["Short", "LongVideo", "Explainer"],
         styles: STYLE_IDS.map((id) => STYLES[id]),
         ...(({ models, defaultModel }) => ({ videoModels: models, videoDefault: defaultModel }))(videoModelCatalog()),
+        /** AI viết kịch bản chọn được cho từng video (nhà cung cấp + model theo Cài đặt). */
+        scriptProviders: scriptProviderCatalog(),
         /** Watermark theo Cài đặt — trình chỉnh sửa gắn vào khung xem trước. */
         watermark: watermarkFromSettings(),
         keys: {
           /** Có key của một nhà cung cấp viết kịch bản nào đó (kể cả gói miễn phí). */
           script: Boolean(scriptProvider()),
           scriptLabel: ((p) => (p ? providerLabel(p) : null))(scriptProvider()),
+          /** Cài đặt AI viết kịch bản: "auto" (thử lần lượt) hay đã ghim một nhà cung cấp. */
+          scriptSetting: isScriptProvider(process.env.SCRIPT_PROVIDER) ? process.env.SCRIPT_PROVIDER : "auto",
           anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
           openai: Boolean(process.env.OPENAI_API_KEY),
           groq: Boolean(process.env.GROQ_API_KEY),
@@ -240,6 +255,20 @@ const server = http.createServer(async (req, res) => {
           punches: script.scenes.filter((s) => s.punch).length,
           notes,
         });
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    // Nhờ AI sửa đoạn dán vào cho đúng cú pháp kịch bản — cần 1 API key, không ghi gì ra đĩa.
+    if (route === "/api/script-normalize" && req.method === "POST") {
+      try {
+        const body = await readJson<{ text?: string; style?: string; provider?: string }>(req);
+        const style = body.style === "auto" || isStyleId(body.style) ? body.style : "auto";
+        return send(res, 200, await normalizeScript(String(body.text ?? ""), {
+          style,
+          provider: isScriptProvider(body.provider) ? body.provider : "auto",
+        }));
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
       }
@@ -320,6 +349,16 @@ const server = http.createServer(async (req, res) => {
       const dir = trashFilesDir(id);
       if (!dir || rest.length !== 1) return send(res, 404, { error: "not found" });
       return serveFile(res, dir, `/${rest[0]}`);
+    }
+
+    // Cắt khung hình đang xem thành ảnh (nút 📷 trên timeline).
+    if (route === "/api/media/capture-frame" && req.method === "POST") {
+      try {
+        const body = await readJson<{ src?: unknown; atMs?: unknown }>(req);
+        return send(res, 200, await captureFrame(body?.src, body?.atMs));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     if (route === "/api/media/extract-audio" && req.method === "POST") {
@@ -428,6 +467,110 @@ const server = http.createServer(async (req, res) => {
       }
       if (what === "props") {
         return send(res, 200, { props: writeProps(slug, body) });
+      }
+      return send(res, 404, { error: "unknown action" });
+    }
+
+    // ---- thêm phụ đề hàng loạt: lựa chọn cho màn 🔤 Phụ đề ----
+    if (route === "/api/subs/options") {
+      const engines = await translateEngines();
+      return send(res, 200, {
+        spoken: SPOKEN_LANGUAGES,
+        languages: TRANSLATE_LANGUAGES,
+        canTranslate: engines.some((engine) => engine.ready),
+        look: DEFAULT_CAPTION_LOOK,
+        templates: CAPTION_TEMPLATES,
+        fonts: CAPTION_FONT_LABELS,
+        presets: CAPTION_PRESET_LABELS,
+      });
+    }
+
+    // ---- làm nhiều video một lượt ----
+    if (route === "/api/batches") {
+      return send(res, 200, listBatches());
+    }
+
+    // AI nghĩ danh sách ý tưởng từ một chủ đề — đặt trước /api/batch/<id> để không bị nuốt.
+    if (route === "/api/batch/ideas" && req.method === "POST") {
+      try {
+        const body = await readJson<{ topic?: string; count?: number; provider?: string }>(req);
+        if (!body.topic?.trim()) {
+          return send(res, 400, { error: "Nhập chủ đề trước đã." });
+        }
+        return send(res, 200, await generateIdeas(
+          body.topic.trim(),
+          Number(body.count) || 10,
+          isScriptProvider(body.provider) ? body.provider : "auto",
+        ));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    // Gợi ý tiêu đề, caption, hashtag để đăng video lên từng nền tảng.
+    if (route.startsWith("/api/post-copy/")) {
+      const slug = route.split("/")[3];
+      if (!isSlug(slug)) return send(res, 400, { error: "Tên video không hợp lệ" });
+      if (req.method === "POST") {
+        try {
+          const body = await readJson<{ provider?: unknown }>(req);
+          return send(res, 200, await generatePostCopy(slug, isScriptProvider(body.provider) ? body.provider : "auto"));
+        } catch (error) {
+          return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      return send(res, 200, getPostCopy(slug));
+    }
+
+    if (route === "/api/batch" && req.method === "POST") {
+      try {
+        return send(res, 200, createBatch(await readJson(req)));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    if (route.startsWith("/api/batch/")) {
+      const [, , , id, action] = route.split("/");
+      try {
+        if (!action && req.method === "GET") {
+          return send(res, 200, readBatch(id));
+        }
+        // Tải cả loạt: zip ghi thẳng ra response, mỗi lúc chỉ giữ một video trong bộ nhớ.
+        if (action === "zip" && req.method === "GET") {
+          const info = batchExportInfo(id);
+          res.writeHead(200, {
+            "Content-Type": "application/zip",
+            "Content-Disposition": `attachment; filename="${info.name}"`,
+            "Cache-Control": "no-store",
+          });
+          for (const chunk of batchZip(id)) {
+            if (!res.write(chunk)) {
+              await new Promise((resolve) => res.once("drain", resolve));
+            }
+          }
+          return res.end();
+        }
+        if (action === "csv" && req.method === "GET") {
+          return send(res, 200, batchCsv(id), {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${id}.csv"`,
+          });
+        }
+        if (req.method === "POST") {
+          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown }>(req);
+          if (action === "restyle") return send(res, 200, restyleSubs(id, body.look));
+          if (action === "edit") return send(res, 200, editItem(id, body));
+          if (action === "start") return send(res, 200, startBatch(id));
+          if (action === "pause") return send(res, 200, pauseBatch(id));
+          if (action === "approve") return send(res, 200, approveItems(id, body.ids));
+          if (action === "retry") return send(res, 200, retryItems(id, body.ids));
+          if (action === "skip") return send(res, 200, skipItems(id, body.ids));
+          if (action === "remove") return send(res, 200, removeItems(id, body.ids, body.alsoVideo === true));
+          if (action === "delete") return send(res, 200, deleteBatch(id));
+        }
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
       }
       return send(res, 404, { error: "unknown action" });
     }

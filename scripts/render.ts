@@ -132,6 +132,8 @@ export const renderScene = async (
       startMs: 0,
       endMs: scene.endMs - shift,
       punch: scene.punch ? { ...scene.punch, atMs: Math.max(0, scene.punch.atMs - shift) } : null,
+      // Mốc chuyển động tính theo mốc tuyệt đối của cả video — dời về 0 như mọi mốc khác.
+      keyframes: (scene.keyframes ?? []).map((k) => ({ ...k, atMs: Math.max(0, k.atMs - shift) })),
     }],
     // Âm thanh thêm tay giao với cảnh: dời về mốc 0, phần trước cảnh thì cắt đầu.
     audioClips: (inputProps.audioClips ?? [])
@@ -149,6 +151,19 @@ export const renderScene = async (
     texts: (inputProps.texts ?? [])
       .filter((t) => t.startMs < scene.endMs && t.endMs > scene.startMs)
       .map((t) => ({ ...t, startMs: Math.max(0, t.startMs - shift), endMs: t.endMs - shift })),
+    // Lớp video chồng giao với cảnh: dời về mốc 0; phần bắt đầu trước cảnh thì cắt thêm đầu clip.
+    overlays: (inputProps.overlays ?? [])
+      .filter((o) => o.startMs < scene.endMs && o.endMs > scene.startMs)
+      .map((o) => {
+        const cut = Math.max(0, scene.startMs - o.startMs);
+        return {
+          ...o,
+          startMs: Math.max(0, o.startMs - shift),
+          endMs: o.endMs - shift,
+          trimStartMs: o.trimStartMs + cut * (o.speed ?? 1),
+          keyframes: (o.keyframes ?? []).map((k) => ({ ...k, atMs: Math.max(0, k.atMs - shift) })),
+        };
+      }),
     // Title card thuộc về đầu video, không lặp lại ở từng cảnh.
     showTitle: false,
     // Voiceover là một track cho cả video — cắt theo cảnh sẽ lệch, nên bỏ.

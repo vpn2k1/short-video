@@ -12,7 +12,7 @@ import { Inspector } from "./Inspector";
 import { MediaPanel, type LibrarySection } from "./MediaPanel";
 import * as ops from "./ops";
 import { StageOverlay } from "./StageOverlay";
-import { Timeline, type EditPhase } from "./Timeline";
+import { Timeline, type DropTarget, type EditPhase } from "./Timeline";
 
 type SaveState = "saved" | "dirty" | "saving" | "error";
 type JobState =
@@ -25,6 +25,8 @@ const FPS = 30;
 const same = (a: ShortProps, b: ShortProps) => JSON.stringify(a) === JSON.stringify(b);
 
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+/** Độ dài cảnh ảnh sinh ra từ nút 📷 Cắt ảnh — đổi được bằng cách kéo mép cảnh. */
+const FREEZE_MS = 2000;
 const LIB_SECTIONS: LibrarySection[] = ["visual", "audio", "text", "captions", "ai"];
 
 /** Bảng phím tắt — hiện trong hộp ⌨ (phím ? hoặc ⌘/), menu Trợ giúp của app desktop mở cùng hộp này. */
@@ -48,6 +50,7 @@ const SHORTCUTS: [string, [string[], string][]][] = [
     [["Delete"], "Xoá mục đang chọn"],
     [["T"], "Thêm văn bản"],
     [["C"], "Thêm phụ đề"],
+    [["P"], "Cắt ảnh từ video tại đầu phát"],
     [[MOD, "D"], "Nhân đôi văn bản"],
     [[MOD, "C / V"], "Sao chép / dán văn bản"],
     [[MOD, "Z"], "Hoàn tác"],
@@ -107,9 +110,10 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     }
   });
   /** Cảnh đang chọn vùng crop (null = không ở chế độ crop). */
-  const [cropScene, setCropScene] = useState<number | null>(null);
-  const cropRef = useRef<number | null>(null);
-  cropRef.current = cropScene;
+  /** Mục đang mở khung crop (cảnh hay video trên timeline), null = không ở chế độ crop. */
+  const [cropTarget, setCropTarget] = useState<ops.MotionSel | null>(null);
+  const cropRef = useRef<ops.MotionSel | null>(null);
+  cropRef.current = cropTarget;
   const toggleLibSide = () => {
     setLibSide((side) => {
       const next = side === "left" ? "right" : "left";
@@ -151,28 +155,6 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
   const refreshMedia = useCallback(() => {
     api<{ items: MediaItem[] }>("/api/media").then((d) => setMedia(d.items)).catch(() => undefined);
   }, []);
-
-  // ---------- tải dữ liệu ----------
-  useEffect(() => {
-    if (!slug) {
-      setLoadError("Thiếu tên video trong đường dẫn.");
-      return;
-    }
-    api<{ props: ShortProps; title: string }>(`/api/editor/${slug}`)
-      .then((d) => {
-        setProps(d.props);
-        setTitle(d.title);
-        document.title = `Chỉnh sửa · ${d.title}`;
-      })
-      .catch((e: Error) => setLoadError(e.message));
-    api<{ voices: { catalog: VoiceOption[] }; watermark?: ShortProps["watermark"] }>("/api/state")
-      .then((d) => {
-        setVoices(d.voices.catalog);
-        setWatermark(d.watermark ?? null);
-      })
-      .catch(() => undefined);
-    refreshMedia();
-  }, [slug, refreshMedia]);
 
   const meta = useMemo(() => (props ? ops.videoMeta(props) : null), [props]);
   // Đang chọn vùng crop: xem trước cảnh đó ở dạng chưa crop để thấy toàn bộ khung.
@@ -243,6 +225,36 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [saveState]);
+
+  // ---------- tải dữ liệu ----------
+  useEffect(() => {
+    if (!slug) {
+      setLoadError("Thiếu tên video trong đường dẫn.");
+      return;
+    }
+    api<{ props: ShortProps; title: string }>(`/api/editor/${slug}`)
+      .then((d) => {
+        // Dự án "Video gốc" (phong cách của trình chỉnh sửa) không vẽ gì riêng theo cảnh: gộp luôn
+        // hàng Cảnh vào các hàng Video để trên timeline chỉ còn MỘT loại. Hình không đổi chút nào.
+        const unified = d.props.style === "plain" && ops.hasSceneMedia(d.props) ? ops.unifyScenes(d.props) : null;
+        setProps(unified ? unified.props : d.props);
+        setTitle(d.title);
+        document.title = `Chỉnh sửa · ${d.title}`;
+        if (unified) {
+          scheduleSave(unified.props);
+          flash("Đã gộp các cảnh thành video trên timeline — giờ mọi clip chỉnh như nhau.");
+        }
+      })
+      .catch((e: Error) => setLoadError(e.message));
+    api<{ voices: { catalog: VoiceOption[] }; watermark?: ShortProps["watermark"] }>("/api/state")
+      .then((d) => {
+        setVoices(d.voices.catalog);
+        setWatermark(d.watermark ?? null);
+      })
+      .catch(() => undefined);
+    refreshMedia();
+  }, [slug, refreshMedia, scheduleSave, flash]);
+
 
   // ---------- lịch sử ----------
   const commit = useCallback((next: ShortProps, base: ShortProps, nextSelection: ops.Selection, mergeKey?: string) => {
@@ -316,37 +328,71 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
   });
   const removeAllVoice = () => withProps((p) => ops.removeAllVoice(p));
 
-  const appendScene = async (item: MediaItem) => {
-    const duration = item.kind === "video" ? await mediaDurationMs(`/public/${item.path}`, "video") : 3000;
-    withProps((p) => ops.appendScene(p, item.path, duration));
+  /** Độ dài một mục thư viện trên timeline: video lấy đúng độ dài file, ảnh mặc định 3 giây. */
+  const itemDurationMs = (item: MediaItem) =>
+    item.kind === "video" ? mediaDurationMs(`/public/${item.path}`, "video") : Promise.resolve(3000);
+
+  /**
+   * Thêm một ảnh/video thành MỘT VIDEO trên timeline. Mọi video thêm vào đều như nhau: phủ kín khung,
+   * không cắt hình, đặt tự do trên timeline và thu nhỏ/đè lên nhau được.
+   * track bỏ trống = tự chọn hàng còn trống.
+   */
+  const addOverlay = async (item: MediaItem, atMs: number, track?: number) => {
+    if (item.kind === "audio") return;
+    const duration = await itemDurationMs(item);
+    withProps((p) => ops.addOverlay(p, item.path, atMs, duration, track));
   };
 
-  const startCrop = (index: number) => {
-    const s = propsRef.current?.scenes[index];
-    if (!s?.image) {
-      flash("Cảnh này chưa có ảnh/video để crop.");
+  /** Nối vào cuối hàng Video 1 — dựng tuần tự clip này rồi clip kia. */
+  const appendOverlay = async (item: MediaItem) => {
+    if (item.kind === "audio") return;
+    const duration = await itemDurationMs(item);
+    withProps((p) => ops.appendOverlay(p, item.path, duration));
+  };
+
+  /** Nút ◆ trên thanh timeline: ghim / xoá mốc chuyển động cho cảnh hoặc lớp đang chọn. */
+  const setKeyframe = (sel: ops.MotionSel) => withProps((p) => ops.setKeyframe(p, sel, nowMs()));
+  const deleteKeyframe = (sel: ops.MotionSel) => withProps((p) => ops.deleteKeyframe(p, sel, nowMs()));
+
+  /** Kéo khối cảnh lên hàng lớp chồng, hoặc nút trong bảng thuộc tính. */
+  const liftScene = (index: number, track?: number) => {
+    dragBase.current = null;
+    withProps((p) => ops.liftSceneToOverlay(p, index, track));
+  };
+
+  /** Khung crop dùng chung cho cảnh và mọi video trên timeline. */
+  const startCrop = (sel: ops.MotionSel) => {
+    const current = propsRef.current;
+    const item = current ? ops.motionItem(current, sel) : null;
+    const src = item ? ops.mediaSrcOf(item) : null;
+    if (!item || !src) {
+      flash("Mục này chưa có ảnh/video để crop.");
       return;
     }
     playerRef.current?.pause();
     const t = nowMs();
-    if (t < s.startMs || t >= s.endMs) seek(s.startMs + Math.min(500, (s.endMs - s.startMs) / 2));
-    select({ type: "scene", index });
-    setCropScene(index);
+    // Crop đọc khung hình của clip tại điểm cắt đầu — đưa đầu phát vào trong mục cho khớp.
+    if (t < item.startMs || t >= item.endMs) seek(item.startMs + Math.min(500, (item.endMs - item.startMs) / 2));
+    select(sel);
+    setCropTarget(sel);
   };
 
   const applyCrop = (crop: SceneCrop | null) => {
-    const index = cropRef.current;
-    setCropScene(null);
-    if (index === null) return;
-    withProps((p) => ({
-      props: ops.updateScene(p, index, { crop }),
-      selection: { type: "scene", index },
-      message: !crop
-        ? `Đã bỏ crop cảnh ${index + 1}.`
-        : isMediaCrop(crop)
-          ? `Đã crop cảnh ${index + 1} — lấy ${Math.round(crop.w * 100)}% × ${Math.round(crop.h * 100)}% ảnh gốc${crop.rotate ? `, xoay ${crop.rotate}°` : ""}.`
-          : `Đã crop cảnh ${index + 1}.`,
-    }));
+    const sel = cropRef.current;
+    setCropTarget(null);
+    if (!sel) return;
+    withProps((p) => {
+      const name = ops.motionLabel(p, sel);
+      return {
+        props: sel.type === "scene" ? ops.updateScene(p, sel.index, { crop }) : ops.updateOverlay(p, sel.index, { crop }),
+        selection: sel,
+        message: !crop
+          ? `Đã bỏ crop ${name}.`
+          : isMediaCrop(crop)
+            ? `Đã crop ${name} — lấy ${Math.round(crop.w * 100)}% × ${Math.round(crop.h * 100)}% ảnh gốc${crop.rotate ? `, xoay ${crop.rotate}°` : ""}.`
+            : `Đã crop ${name}.`,
+      };
+    });
   };
 
   /** Phụ đề tự động bằng whisper.cpp trên server. */
@@ -408,6 +454,52 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     }
   };
 
+  /**
+   * 📷 Cắt ảnh tại đầu phát: lấy đúng khung hình đang xem của cảnh (hoặc lớp) video, lưu vào thư viện
+   * rồi chèn thành cảnh ảnh mới ngay sau cảnh đó — kiểu "đóng băng khung hình" của CapCut.
+   */
+  const freezeFrame = async () => {
+    const current = propsRef.current;
+    if (!current) return;
+    const now = nowMs();
+    const sel = selectionRef.current;
+
+    // Đang chọn một lớp video đè lên thì cắt khung của lớp đó; không thì cắt cảnh dưới đầu phát.
+    const overlay = sel?.type === "overlay" ? ops.overlaysOf(current)[sel.index] : undefined;
+    const fromOverlay = overlay && ops.isVideo(overlay.src) && now >= overlay.startMs && now < overlay.endMs;
+    const sceneIndex = ops.sceneIndexAt(current, now);
+    const scene = current.scenes[sceneIndex];
+    const src = fromOverlay ? overlay!.src : scene?.image;
+    if (!src || !ops.isVideo(src)) {
+      flash("Đầu phát không nằm trên video nào — dời đầu phát vào một cảnh có video rồi bấm lại.");
+      return;
+    }
+
+    // Mốc trong file gốc: cộng phần đã cắt đầu và nhân tốc độ phát.
+    const base = fromOverlay ? overlay! : scene;
+    const sourceMs = base.trimStartMs + (now - base.startMs) * ops.clipSpeed(base);
+    setJob({ status: "running", title: "Đang cắt ảnh từ video", percent: null, line: src.split("/").pop() ?? src });
+    try {
+      const { path: file } = await postJson<{ path: string }>("/api/media/capture-frame", { src, atMs: Math.round(sourceMs) });
+      refreshMedia();
+      setJob({ status: "idle" });
+      withProps((p) => {
+        // Cắt từ một video trên timeline (hoặc dự án không dùng hàng Cảnh): ảnh thành một video mới
+        // ngay tại đầu phát, để mọi thứ trên timeline vẫn cùng một loại. Cắt từ cảnh thì chèn thành cảnh.
+        if (fromOverlay || !ops.hasSceneMedia(p)) {
+          const added = ops.addOverlay(p, file, now, FREEZE_MS);
+          return { ...added, message: `Đã cắt ảnh ở ${fmt(now)} — thêm vào thư viện và đặt thành một video tại đầu phát.` };
+        }
+        return {
+          ...ops.insertSceneAfter(p, sceneIndex, file, FREEZE_MS),
+          message: `Đã cắt ảnh ở ${fmt(now)} — thêm vào thư viện và chèn thành cảnh ${sceneIndex + 2}.`,
+        };
+      });
+    } catch (e) {
+      setJob({ status: "error", title: "Không cắt được ảnh", message: (e as Error).message });
+    }
+  };
+
   /** Tách âm thanh của cảnh video ra track riêng — dùng chung cho timeline, bảng thuộc tính, thư viện. */
   const detachSceneAudio = (index: number) => {
     const src = propsRef.current?.scenes[index]?.image;
@@ -437,19 +529,30 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
       }));
       return;
     }
-    withProps((p) => {
-      const sel = selectionRef.current;
-      const index = sel && "index" in sel && sel.type === "scene" ? sel.index : ops.sceneIndexAt(p, nowMs());
-      return {
+    const sel = selectionRef.current;
+    // Đang chọn một video/cảnh thì bấm ảnh là THAY hình của mục đó; không chọn gì thì thêm video mới.
+    if (sel?.type === "overlay") {
+      withProps((p) => ({
+        props: ops.updateOverlay(p, sel.index, { src: item.path, trimStartMs: 0, speed: undefined, crop: null }),
+        selection: sel,
+        message: `Đã thay hình của ${ops.overlayName(ops.overlaysOf(p)[sel.index])}.`,
+      }));
+      return;
+    }
+    if (sel?.type === "scene") {
+      const index = sel.index;
+      withProps((p) => ({
         props: ops.setSceneMedia(p, index, item.path),
         selection: { type: "scene", index },
         message: `Đã gán ${item.kind === "video" ? "video" : "ảnh"} cho cảnh ${index + 1}.`,
-      };
-    });
+      }));
+      return;
+    }
+    await addOverlay(item, nowMs());
   };
 
   /** Kéo file từ thư viện thả xuống timeline — giống CapCut. */
-  const onDropMedia = async (path: string, atMs: number, sceneIndex: number | null) => {
+  const onDropMedia = async (path: string, atMs: number, target: DropTarget) => {
     const item = media.find((m) => m.path === path);
     if (!item) return;
     if (item.kind === "audio") {
@@ -460,15 +563,26 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
       }));
       return;
     }
-    if (sceneIndex === null) {
-      await appendScene(item);
-      flash(`Đã thêm “${item.name}” thành cảnh mới ở cuối video.`);
+    if (target.kind === "overlay") {
+      await addOverlay(item, atMs, target.track);
+      return;
+    }
+    if (target.kind === "replace") {
+      withProps((p) => ({
+        props: ops.updateOverlay(p, target.index, { src: item.path, trimStartMs: 0, speed: undefined, crop: null }),
+        selection: { type: "overlay", index: target.index },
+        message: `Đã thay hình của ${ops.overlayName(ops.overlaysOf(p)[target.index])}.`,
+      }));
+      return;
+    }
+    if (target.kind === "end") {
+      await appendOverlay(item);
       return;
     }
     withProps((p) => ({
-      props: ops.setSceneMedia(p, sceneIndex, item.path),
-      selection: { type: "scene", index: sceneIndex },
-      message: `Đã thay hình cảnh ${sceneIndex + 1}.`,
+      props: ops.setSceneMedia(p, target.index, item.path),
+      selection: { type: "scene", index: target.index },
+      message: `Đã thay hình cảnh ${target.index + 1}.`,
     }));
   };
 
@@ -563,6 +677,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     redo,
     addText,
     addCaption: () => withProps((p) => ops.addCaption(p, nowMs())),
+    freezeFrame,
     trimHead,
     trimTail,
     duplicate: () => {
@@ -642,7 +757,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
       if (jobRef.current.status === "running") return;
       // Chế độ crop: chỉ nhận Esc để huỷ, phím khác không được đụng timeline.
       if (cropRef.current !== null) {
-        if (e.key === "Escape") setCropScene(null);
+        if (e.key === "Escape") setCropTarget(null);
         return;
       }
       const h = handlers.current;
@@ -699,6 +814,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
       else if (key === "t") run(h.addText);
       else if (key === "c") run(h.addCaption);
       else if (key === "f") run(h.fullscreen);
+      else if (key === "p") run(h.freezeFrame);
       else if (e.key === "Delete" || e.key === "Backspace") run(h.del);
       else if (e.key === "=" || e.key === "+") run(() => h.zoom(1.25));
       else if (e.key === "-" || e.key === "_") run(() => h.zoom(0.8));
@@ -725,6 +841,9 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
   if (!props || !meta) {
     return <div className="ed-center"><p>Đang mở trình chỉnh sửa…</p></div>;
   }
+
+  // Mục đang crop (cảnh hay lớp) — chỉ mở khung crop khi mục đó thật sự có ảnh/video.
+  const cropItem = cropTarget ? ops.motionItem(props, cropTarget) : null;
 
   const saveLabel = { saved: "✓ Đã lưu", dirty: "Chưa lưu…", saving: "Đang lưu…", error: "⚠ Lỗi lưu" }[saveState];
 
@@ -777,7 +896,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
             withProps((p) => ({ ...ops.addText(p, nowMs(), preset), message: `Đã thêm “${label}” — kéo trên khung xem trước để đặt vị trí.` }))}
           onSetMusic={(path) =>
             withProps((p) => ({ props: { ...p, music: path }, selection: { type: "music" }, message: `Nhạc nền: ${path.split("/").pop()}` }))}
-          onAppendScene={appendScene}
+          onAppendOverlay={appendOverlay}
           onExtractAudio={(item) => extractAudio(item.path)}
           selectedVideoScene={
             selection?.type === "scene" && ops.isVideo(props.scenes[selection.index]?.image) ? selection.index : null
@@ -806,6 +925,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
           }}
           onDeleteCaption={(index) => withProps((p) => ops.deleteCaption(p, index))}
           onAddCaptionLines={(lines) => withProps((p) => ops.addCaptionLines(p, lines, nowMs()))}
+          onImportCaptions={(cues, opts) => withProps((p) => ops.importCaptions(p, cues, nowMs(), opts))}
         />
 
         <section className="ed-stage">
@@ -826,7 +946,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
               acknowledgeRemotionLicense
               style={{ width: "100%", height: "100%" }}
             />
-            {cropScene === null ? (
+            {cropTarget === null ? (
               <StageOverlay
                 props={props}
                 compositionWidth={meta.width}
@@ -853,16 +973,16 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
               <button className="ed-icon" onClick={() => playerRef.current?.requestFullscreen()} title="Xem toàn màn hình" aria-label="Xem toàn màn hình">⛶</button>
             </span>
           </div>
-          {cropScene !== null && props.scenes[cropScene]?.image ? (
+          {cropItem ? (
             <CropOverlay
-              key={cropScene}
-              src={props.scenes[cropScene].image ?? ""}
-              trimStartMs={props.scenes[cropScene].trimStartMs}
+              key={`${cropTarget?.type}-${cropTarget?.index}`}
+              src={ops.mediaSrcOf(cropItem) ?? ""}
+              trimStartMs={cropItem.trimStartMs}
               frameAspect={meta.width / meta.height}
               defaultFit={props.style === "plain" ? "contain" : "cover"}
-              initial={props.scenes[cropScene].crop}
+              initial={cropItem.crop}
               onApply={applyCrop}
-              onCancel={() => setCropScene(null)}
+              onCancel={() => setCropTarget(null)}
             />
           ) : null}
         </section>
@@ -885,7 +1005,11 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
             onRemoveAllVoice={removeAllVoice}
             onDetachAudio={detachSceneAudio}
             onStartCrop={startCrop}
+            onLiftScene={liftScene}
             onAutoSubtitles={autoSubtitles}
+            timeMs={timeMs}
+            onSeek={seek}
+            onRun={run}
           />
         </aside>
       </div>
@@ -910,7 +1034,11 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
         onTrimTail={trimTail}
         onZoom={setPxPerSec}
         onDetachAudio={detachSceneAudio}
+        onFreezeFrame={freezeFrame}
         onDropMedia={onDropMedia}
+        onLiftScene={liftScene}
+        onSetKeyframe={setKeyframe}
+        onDeleteKeyframe={deleteKeyframe}
         fitRequest={fitRequest}
       />
 
