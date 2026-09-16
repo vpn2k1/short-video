@@ -27,7 +27,7 @@ const same = (a: ShortProps, b: ShortProps) => JSON.stringify(a) === JSON.string
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
 /** Độ dài cảnh ảnh sinh ra từ nút 📷 Cắt ảnh — đổi được bằng cách kéo mép cảnh. */
 const FREEZE_MS = 2000;
-const LIB_SECTIONS: LibrarySection[] = ["visual", "audio", "text", "captions", "ai"];
+const LIB_SECTIONS: LibrarySection[] = ["visual", "audio", "text", "captions", "ai", "bili"];
 
 /** Bảng phím tắt — hiện trong hộp ⌨ (phím ? hoặc ⌘/), menu Trợ giúp của app desktop mở cùng hộp này. */
 const SHORTCUTS: [string, [string[], string][]][] = [
@@ -60,7 +60,7 @@ const SHORTCUTS: [string, [string[], string][]][] = [
   ["Timeline & thư viện", [
     [["=", "−"], "Phóng to / thu nhỏ timeline"],
     [["Shift", "Z"], "Vừa khung — thấy cả video"],
-    [["Alt", "1…5"], "Ảnh/Video · Âm thanh · Văn bản · Phụ đề · Video AI"],
+    [["Alt", "1…6"], "Ảnh/Video · Âm thanh · Văn bản · Phụ đề · Video AI · Bilibili"],
   ]],
   ["Dự án", [
     [[MOD, "S"], "Lưu ngay"],
@@ -96,7 +96,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
   const [showKeys, setShowKeys] = useState(false);
   /** Tăng lên để timeline tự thu phóng vừa khung (Shift+Z). */
   const [fitRequest, setFitRequest] = useState(0);
-  /** Phím Alt+1…5: chuyển tab thư viện. */
+  /** Phím Alt+1…6: chuyển tab thư viện. */
   const [libRequest, setLibRequest] = useState<{ section: LibrarySection; at: number } | null>(null);
   /** Văn bản đã sao chép bằng ⌘C — dán lại tại đầu phát, giữ nguyên kiểu chữ. */
   const clipboard = useRef<TextOverlay | null>(null);
@@ -781,9 +781,9 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
         return;
       }
 
-      // Alt+1…5: tab thư viện. e.code vì Option+số trên macOS ra ký tự khác.
+      // Alt+1…6: tab thư viện. e.code vì Option+số trên macOS ra ký tự khác.
       if (e.altKey && !mod) {
-        const digit = /^Digit([1-5])$/.exec(e.code);
+        const digit = /^Digit([1-6])$/.exec(e.code);
         if (digit) {
           e.preventDefault();
           h.library(Number(digit[1]) - 1);
@@ -885,6 +885,14 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
               onUseMedia({ path, name: path.split("/").pop() ?? path, kind: "video", bytes: 0, at: Date.now() });
             } else {
               flash("Đã tạo video — xem ở 🖼 Ảnh › Video.");
+            }
+          }}
+          onBiliVideo={(path, assign) => {
+            refreshMedia();
+            if (assign) {
+              onUseMedia({ path, name: path.split("/").pop() ?? path, kind: "video", bytes: 0, at: Date.now() });
+            } else {
+              flash("Đã tải tư liệu — xem ở 🖼 Ảnh › Video.");
             }
           }}
           selection={selection}
