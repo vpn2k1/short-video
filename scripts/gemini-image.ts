@@ -17,7 +17,7 @@ const defaultModel = () =>
  * Model trả ảnh dạng inline base64 trong parts của response.
  */
 export const generateImage = async (prompt: string, destination: string) => {
-  // Có key Cloudflare thì vẽ bằng FLUX (miễn phí ~170 ảnh/ngày) thay cho Gemini (tính tiền theo ảnh).
+  // Có key Cloudflare thì vẽ bằng FLUX (miễn phí ~100 ảnh/ngày) thay cho Gemini (tính tiền theo ảnh).
   if (cloudflareImageAvailable()) return generateFluxImage(prompt, destination);
   if (freeMode()) {
     throw new Error("💚 Chế độ Miễn phí đang bật — Gemini vẽ ảnh tính tiền nên đã tắt. Thêm key Cloudflare (vẽ ảnh FLUX miễn phí) trong ⚙ Cài đặt, hoặc chọn ảnh/clip miễn phí.");

@@ -1,4 +1,4 @@
-import { Children, isValidElement, useCallback, useEffect, useState } from "react";
+import { Children, isValidElement, useCallback, useEffect, useRef, useState } from "react";
 import { CAPTION_FONTS, CAPTION_PRESETS, type CaptionLook, type MediaOverlay, type Scene, type ShortProps } from "../../src/compositions/Short/schema";
 import { overlayTransformAt } from "../../src/compositions/Short/overlayMotion";
 import { ASPECT_IDS, ASPECTS } from "../../src/aspects";
@@ -8,6 +8,7 @@ import {
 } from "../../src/components/captionLook";
 import { captionTextStyle } from "../../src/components/CustomCaptions";
 import { api, fmt, type MediaItem, type SubtitleOptions, type TranslateCatalog, type TranslateEngine, type TranslateEngineInfo, type VoiceOption } from "./api";
+import type { LibrarySection } from "./MediaPanel";
 import * as ops from "./ops";
 
 type Props = {
@@ -35,6 +36,103 @@ type Props = {
   onSeek: (ms: number) => void;
   /** Chạy một thao tác ops (giữ nguyên thông báo và lựa chọn nó trả về). */
   onRun: (result: ops.Result) => void;
+  /** Đang tải file lên thư viện. */
+  uploading: boolean;
+  /** Thay ảnh/video của khối video `index` bằng một mục trong thư viện — giữ nguyên chỗ trên timeline. */
+  onReplaceMedia: (index: number, item: MediaItem) => void;
+  /** Thay bằng file chọn từ máy (tải lên thư viện rồi thay). */
+  onReplaceFile: (index: number, file: File) => void;
+  /** Mở một mục của thư viện bên cạnh (Kho free, Video AI…). */
+  onOpenLibrary: (section: LibrarySection) => void;
+};
+
+/**
+ * 🔁 Thay thế hình của khối đang chọn: chọn file từ máy (bấm hoặc kéo thả vào), chọn trong thư viện,
+ * hoặc mở Kho free / Video AI — kết quả ở đó bấm "Dùng" cũng thay đúng khối này. Không phải xoá rồi thêm lại.
+ */
+const ReplaceMedia: React.FC<{
+  current: string;
+  media: MediaItem[];
+  uploading: boolean;
+  onPick: (item: MediaItem) => void;
+  onFile: (file: File) => void;
+  onOpenLibrary: (section: LibrarySection) => void;
+  /** Panel gom khối theo prop này của phần tử con — đặt ở đây để mục có tab riêng. */
+  "data-tab"?: string;
+}> = ({ current, media, uploading, onPick, onFile, onOpenLibrary, "data-tab": tab }) => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [filter, setFilter] = useState<"all" | "image" | "video">("all");
+  const [query, setQuery] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const q = query.trim().toLowerCase();
+  const items = media
+    .filter((m) => m.kind !== "audio" && (filter === "all" || m.kind === filter))
+    .filter((m) => !q || m.name.toLowerCase().includes(q) || m.path.toLowerCase().includes(q));
+  const firstFile = (files: FileList | null) => {
+    const file = files?.[0];
+    if (file) onFile(file);
+  };
+  return (
+    <section
+      className={`in-sec in-replace ${dragging ? "drop" : ""}`}
+      data-tab={tab}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        setDragging(false);
+        firstFile(e.dataTransfer.files);
+      }}
+    >
+      <h3>🔁 Thay ảnh/video</h3>
+      <p className="in-note">Giữ nguyên chỗ trên timeline, vị trí, thu phóng và chuyển động — chỉ đổi hình.</p>
+      <input ref={fileRef} type="file" hidden accept="image/*,video/*" onChange={(e) => {
+        firstFile(e.target.files);
+        e.target.value = "";
+      }} />
+      <div className="in-actions">
+        <button className="primary" disabled={uploading} onClick={() => fileRef.current?.click()}>
+          {uploading ? "Đang tải lên…" : "⬆ Chọn từ máy"}
+        </button>
+        <button onClick={() => onOpenLibrary("stock")} title="Tìm ảnh/video miễn phí — bấm Dùng để thay khối này">🆓 Kho free</button>
+        <button onClick={() => onOpenLibrary("ai")} title="Tạo video AI — bật “gán vào mục đang chọn” để thay khối này">✨ Video AI</button>
+      </div>
+      <small className="in-hint">Hoặc kéo file từ máy thả vào đây.</small>
+
+      <div className="in-replace-bar">
+        <input type="search" placeholder="Tìm trong thư viện…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="md-filter">
+          {(["all", "image", "video"] as const).map((f) => (
+            <button key={f} className={filter === f ? "on" : ""} onClick={() => setFilter(f)}>
+              {f === "all" ? "Tất cả" : f === "image" ? "Ảnh" : "Video"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="in-replace-grid">
+        {items.map((m) => (
+          <button
+            key={m.path}
+            className={m.path === current ? "on" : ""}
+            onClick={() => onPick(m)}
+            title={m.path === current ? `${m.name} (đang dùng)` : `Thay bằng ${m.name}`}
+          >
+            {m.kind === "video"
+              ? <video src={`/public/${m.path}#t=0.5`} muted playsInline preload="metadata" />
+              : <img src={`/public/${m.path}`} alt="" loading="lazy" />}
+            {m.kind === "video" ? <i>🎬</i> : null}
+            <span>{m.name}</span>
+          </button>
+        ))}
+        {items.length === 0 ? <p className="in-note">{q ? `Không có file khớp “${query}”.` : "Thư viện chưa có ảnh/video — chọn từ máy."}</p> : null}
+      </div>
+    </section>
+  );
 };
 
 const Field: React.FC<{ label: string; children: React.ReactNode; hint?: string }> = ({ label, children, hint }) => (
@@ -594,6 +692,7 @@ export const Inspector: React.FC<Props> = ({
   props, selection, media, voices, onChange, onSelect, onDelete, onSplit, onDuplicateText, onVoice, onRemoveAllVoice, onDetachAudio,
   timeMs, onSeek, onRun,
   onStartCrop, onLiftScene, onAutoSubtitles,
+  uploading, onReplaceMedia, onReplaceFile, onOpenLibrary,
 }) => {
   const [voice, setVoice] = useState("linh");
   const [subLanguage, setSubLanguage] = useState<SubtitleOptions["language"]>("vi");
@@ -1135,6 +1234,16 @@ export const Inspector: React.FC<Props> = ({
           <small className="in-hint">Kéo khối lên/xuống trên timeline cũng đổi hàng. Hàng cao vẽ trên hàng thấp.</small>
         </section>
 
+        <ReplaceMedia
+          data-tab="🔁 Thay thế"
+          current={o.src}
+          media={media}
+          uploading={uploading}
+          onPick={(item) => onReplaceMedia(i, item)}
+          onFile={(file) => onReplaceFile(i, file)}
+          onOpenLibrary={onOpenLibrary}
+        />
+
         {motionKeySection(overlaySel, o)}
 
         {motionFrameSection(overlaySel, o, "Khung hình")}
@@ -1234,25 +1343,6 @@ export const Inspector: React.FC<Props> = ({
       <p className="in-tip" data-tab="Dự án">
         👆 Bấm một khối trên timeline để sửa riêng khối đó. Kéo ảnh, video, nhạc từ thư viện thả xuống timeline.
       </p>
-      {ops.hasSceneMedia(props) ? (
-        <section className="in-sec" data-tab="Dự án">
-          <h3>🎞 Hàng Cảnh</h3>
-          <p className="in-note">
-            Dự án này còn {props.scenes.filter((s) => s.image).length} cảnh do phong cách vẽ (hàng <b>Cảnh</b>).
-            Gộp thành video để mọi clip trên timeline là một loại: dời, thu nhỏ, đè lên nhau và chỉnh y như nhau.
-          </p>
-          <div className="in-actions">
-            <button onClick={() => onRun(ops.unifyScenes(props))}>⬆ Gộp cảnh thành video trên timeline</button>
-          </div>
-          {props.style !== "plain" ? (
-            <small className="in-hint">
-              Phong cách “{STYLES[props.style as keyof typeof STYLES].label}” đang lồng ảnh vào khung riêng của nó
-              (ô truyện tranh, ảnh polaroid, phóng chậm…) — gộp xong sẽ mất phần khung đó, đổi lại clip nào cũng chỉnh như nhau.
-            </small>
-          ) : null}
-        </section>
-      ) : null}
-
       <section className="in-sec">
         <h3>🎬 Video</h3>
         <Field label="Tiêu đề">

@@ -11,6 +11,7 @@ import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist, listAllImages } from "../scripts/images";
 import { downloadPhoto, searchPhotos, writeCredits } from "../scripts/pexels";
 import { generateImage } from "../scripts/gemini-image";
+import { composeImagePrompt, imageLookFor } from "../scripts/image-prompts";
 import { slugify } from "../scripts/slug";
 import {
   generateMusic, generateSfx, MOODS, SFX_KINDS,
@@ -162,10 +163,10 @@ export const fetchSceneImages = async (
           perQuery[i] = `images/${slug}/${base}.jpg`;
           log(`[pexels] ${base}.jpg — ${result.credit}`);
         } else {
+          // Truy vấn đã là prompt hoàn chỉnh (chat.ts ghép bằng composeImagePrompt) thì gửi nguyên; chỉ là cụm từ khoá thì
+          // ghép phần bố cục. Không thêm "no text"/"lower half darker": FLUX vẽ luôn chữ và dải đen (xem image-prompts.ts).
           await generateImage(
-            `${query}. Vertical 9:16 background image for a short-form video. ` +
-              "No text, no words, no letters, no logos. " +
-              "Keep the lower half darker so white subtitle text stays readable.",
+            /portrait composition/i.test(query) ? query : composeImagePrompt(query, imageLookFor(undefined).look),
             path.join(dir, `${base}.png`),
           );
           files.push(`images/${slug}/${base}.png`);

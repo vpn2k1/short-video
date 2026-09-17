@@ -346,3 +346,43 @@ export const stockForScene = async (
   used.add(`${pick.provider}-${pick.id}`);
   return downloadStock(pick.provider, pick.kind, pick.id);
 };
+
+/** Giá trị nhạc nền "🎲 Nhạc ngẫu nhiên" — mỗi lần dựng video chọn một bản khác (xem resolveMusicChoice ở server/chat.ts). */
+export const RANDOM_MUSIC = "random";
+
+/**
+ * Kiểu nhạc nền hợp video ngắn để bốc ngẫu nhiên — nhạc không lời, nhịp vừa, không nặng nề.
+ * Tìm bằng tiếng Anh vì thẻ trên Freesound chủ yếu là tiếng Anh.
+ */
+const RANDOM_MUSIC_QUERIES = [
+  "upbeat background music", "happy ukulele background", "calm ambient background music", "lofi chill beat",
+  "acoustic guitar background music", "corporate inspiring background", "cinematic soft piano background",
+  "light electronic background music", "positive motivational background", "chill hip hop instrumental",
+];
+
+/**
+ * Bốc ngẫu nhiên một bản nhạc nền từ Freesound (CC0/CC-BY), tải vào public/music/stock kèm ghi nguồn.
+ * Chọn bản 30 giây – 4 phút: ngắn hơn thì lặp nghe rõ chỗ nối, dài hơn thì tải lâu. Không lấy được thì trả null.
+ */
+export const randomFreesoundMusic = async (log: (line: string) => void = () => {}) => {
+  if (!hasKey("freesound")) return null;
+  const pick = <T>(list: T[]) => list[Math.floor(Math.random() * list.length)];
+  const tried = new Set<string>();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const query = pick(RANDOM_MUSIC_QUERIES.filter((q) => !tried.has(q)));
+    tried.add(query);
+    try {
+      // Chỉ trang đầu (20 bản xếp theo đánh giá): truy vấn hẹp không có trang 2–3, Freesound trả 404 (đã gặp).
+      const { items } = await searchStock("music", query, "any", 1);
+      const fits = items.filter((i) => (i.duration ?? 0) >= 30 && (i.duration ?? 0) <= 240);
+      if (fits.length === 0) continue;
+      const item = pick(fits);
+      const saved = await downloadStock("freesound", "music", item.id);
+      log(`🎲 Nhạc ngẫu nhiên: “${item.title}” — ${item.author} (Freesound, ${item.license})`);
+      return saved;
+    } catch (error) {
+      log(`Không lấy được nhạc Freesound (“${query}”): ${error instanceof Error ? error.message : error}`);
+    }
+  }
+  return null;
+};

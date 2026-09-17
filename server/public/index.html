@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AI Video Studio</title>
+<link rel="stylesheet" href="/crop.css" />
 <style>
   :root {
     --bg: #0b0d11; --panel: #14171d; --panel-2: #1b1f27; --line: #262b35; --line-2: #343b47;
@@ -573,6 +574,10 @@
   .sb-block h2 { font-size: 14.5px; margin: 0 0 10px; font-weight: 600; }
   .sb-block h2 i, .sb-field > span i { font-style: normal; font-weight: 400; font-size: 12.5px; }
   .sb-block .bt-files { margin-top: 10px; }
+  .sb-crop-frames { flex-wrap: wrap; border-radius: 14px; }
+  .sb-crop { margin-top: 10px; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .sb-crop-preview:empty { aspect-ratio: 9 / 16; background: var(--bg); border: 1px dashed var(--line); border-radius: 8px; }
+  .sb-crop-side { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .sb-block .bt-drop { width: 100%; min-height: 110px; }
   .sb-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-size: 13px; }
   .sb-field > span { color: var(--muted); }
@@ -595,10 +600,27 @@
               touch-action: none; user-select: none; }
   .lk-stage.wide { height: auto; width: 100%; }
   .lk-stage video, .lk-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .lk-media { position: absolute; inset: 0; pointer-events: none; }
+  .lk-media > div { height: 100%; border-radius: 0 !important; }
   .lk-cap { position: absolute; transform: translate(-50%, -50%); width: max-content; white-space: pre-wrap;
             overflow-wrap: break-word; cursor: grab; outline: 1px dashed rgba(62,230,255,.0); outline-offset: 5px; }
   .lk-stage:hover .lk-cap { outline-color: rgba(62,230,255,.8); }
   .lk-cap.drag { cursor: grabbing; outline-color: #3ee6ff; }
+  /* Nhiều hàng: hàng đang chỉnh viền liền, số hàng ở góc để khớp với chip bên bảng */
+  .lk.multi .lk-cap { outline-color: rgba(255,255,255,.35); }
+  .lk.multi .lk-cap.on { outline: 2px solid #3ee6ff; }
+  .lk-cap-n { position: absolute; top: -9px; left: -9px; min-width: 18px; height: 18px; border-radius: 9px; background: #3ee6ff;
+              color: #06222a; font: 700 11px/18px -apple-system, system-ui, sans-serif; text-align: center; text-shadow: none;
+              padding: 0 4px; pointer-events: none; }
+  .lk-cap:not(.on) .lk-cap-n { background: rgba(255,255,255,.75); }
+  .lk-rows { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lk-rows button { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--line);
+                    border-radius: 999px; padding: 4px 11px 4px 5px; font-size: 12.5px; color: var(--text); }
+  .lk-rows button b { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--line); font-size: 11px; }
+  .lk-rows button[aria-selected="true"] { border-color: #3ee6ff; box-shadow: 0 0 0 1px #3ee6ff; }
+  .lk-rows button[aria-selected="true"] b { background: #3ee6ff; color: #06222a; }
+  .lk-copy { align-self: flex-start; margin-top: 6px; background: transparent; border: 0; padding: 0; color: var(--accent);
+             font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
   .lk-guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #3ee6ff; opacity: 0; pointer-events: none; }
   .lk-guide.on { opacity: .8; }
   .lk-tip { font-size: 12px; color: var(--muted); text-align: center; margin: 6px 0 0; }
@@ -1046,6 +1068,7 @@ Lưu lại để làm theo nhé!</pre>
       <button type="button" class="btn" data-older="30">Cũ hơn 30 ngày</button>
       <button type="button" class="btn" data-older="all">Chọn tất cả</button>
       <button type="button" class="btn" id="libSelectNone">Bỏ chọn</button>
+      <button type="button" class="btn" id="libRestore" hidden disabled>↩ Khôi phục</button>
       <button type="button" class="btn danger" id="libDelete" disabled>🗑 Xoá</button>
       <button type="button" class="btn" id="libSelectDone">Xong</button>
     </div>
@@ -1093,12 +1116,11 @@ Lưu lại để làm theo nhé!</pre>
     <div class="bl-grid">
       <div class="bl-col">
         <form class="bl-search" id="biliForm">
-          <input type="search" id="biliQuery" placeholder="航拍 城市 免费商用 — gõ tiếng Việt rồi bấm Dịch cũng được" autocomplete="off" />
+          <input type="search" id="biliQuery" placeholder="Chủ đề bằng tiếng Việt — ví dụ: cảnh biển, nấu ăn, thành phố về đêm" autocomplete="off" />
           <select id="biliOrder" aria-label="Sắp xếp"></select>
           <button type="submit" class="send" id="biliSearch">Tìm</button>
         </form>
         <div class="bl-under">
-          <button type="button" class="bl-link" id="biliTranslate" hidden>文 Dịch sang tiếng Trung</button>
           <div class="bl-chips" id="biliChips"></div>
         </div>
         <p class="hint" id="biliHint"></p>
@@ -1135,10 +1157,31 @@ Lưu lại để làm theo nhé!</pre>
         </div>
 
         <div class="sb-block">
+          <h2>✂️ Cắt khung <i class="muted">— áp dụng cho tất cả video</i></h2>
+          <div class="sb-field"><span>Khung video ra</span>
+            <div class="seg sb-crop-frames" id="subsCropFrame" role="radiogroup" aria-label="Khung video ra"></div>
+          </div>
+          <div class="sb-crop">
+            <div class="sb-crop-preview" id="subsCropPreview"></div>
+            <div class="sb-crop-side">
+              <button type="button" class="btn" id="subsCropEdit">✂️ Chỉnh vùng cắt</button>
+              <button type="button" class="btn" id="subsCropClear" hidden>Bỏ cắt</button>
+              <p class="plan" id="subsCropNote"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="sb-block">
           <h2>Ngôn ngữ</h2>
           <label class="sb-field"><span>Video đang nói tiếng</span><select id="subsSpoken"></select></label>
-          <div class="sb-field"><span>Phụ đề muốn có <i class="muted">— chọn nhiều thì mỗi ngôn ngữ ra một video riêng</i></span>
+          <div class="sb-field"><span>Phụ đề muốn có <i class="muted">— chọn được nhiều ngôn ngữ</i></span>
             <div class="bt-picks" id="subsLangs"></div>
+          </div>
+          <div class="sb-field" id="subsLayout" hidden><span>Nhiều ngôn ngữ thì</span>
+            <div class="seg">
+              <button type="button" data-layout="stack" title="Mỗi video hiện cùng lúc nhiều hàng phụ đề — kéo từng hàng để đặt vị trí">🧩 Chung một video, nhiều hàng</button>
+              <button type="button" data-layout="separate" title="Mỗi ngôn ngữ dựng thành một video riêng">🎞 Mỗi ngôn ngữ một video</button>
+            </div>
           </div>
           <p class="plan" id="subsLangNote"></p>
         </div>
@@ -1160,7 +1203,7 @@ Lưu lại để làm theo nhé!</pre>
 
       <div class="sb-col sb-look">
         <div class="sb-block">
-          <h2>Kiểu phụ đề <i class="muted">— áp dụng cho tất cả video</i></h2>
+          <h2>Kiểu phụ đề <i class="muted" id="subsLookTitleNote">— áp dụng cho tất cả video</i></h2>
           <div id="subsLookEditor"></div>
         </div>
       </div>

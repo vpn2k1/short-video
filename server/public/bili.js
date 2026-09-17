@@ -8,7 +8,8 @@
  * Nạp sau app.js, dùng chung các hàm $, api, postJson, escapeHtml, download, setNav, stopFollowing… của nó.
  */
 
-const BILI_KEYWORDS = ["免费商用 视频素材", "空镜头 可商用", "航拍 免费素材", "CC0 素材", "欢迎二创"];
+/** Gợi ý chủ đề — server tự dịch sang tiếng Trung và ghép từ khoá tư liệu (scripts/bilibili.ts, searchBilibiliTopic). */
+const BILI_KEYWORDS = ["cảnh biển", "thiên nhiên", "thành phố về đêm", "đồ ăn", "động vật", "công nghệ", "người làm việc"];
 const BILI_ORDERS = [["totalrank", "Phù hợp nhất"], ["click", "Nhiều lượt xem"], ["pubdate", "Mới nhất"], ["stow", "Nhiều lượt lưu"]];
 
 const bili = {
@@ -78,16 +79,19 @@ function renderBiliSearchButtons() {
   const q = $("biliQuery").value.trim();
   $("biliSearch").disabled = bili.busy !== null || !q;
   $("biliSearch").textContent = bili.busy === "search" ? "Đang tìm…" : "Tìm";
-  $("biliTranslate").hidden = !q || /[一-鿿]/.test(q);
-  $("biliTranslate").disabled = bili.busy !== null;
-  $("biliTranslate").textContent = bili.busy === "translate" ? "Đang dịch…" : "文 Dịch sang tiếng Trung";
 }
 
 function renderBiliResults() {
   const s = bili.stats;
-  $("biliStats").textContent = s
-    ? `${s.kept - bili.rejected}/${s.scanned} video có lời cho phép${bili.rejected ? ` · loại thêm ${bili.rejected} sau khi kiểm tra kỹ` : ""} · trang ${s.page}/${s.pages}`
-    : "";
+  $("biliStats").innerHTML = s
+    ? [
+      s.keywords && s.keywords !== s.query ? `Đã tìm bằng <b lang="zh">${escapeHtml(s.keywords)}</b>` : "",
+      `${Math.max(0, s.kept - bili.rejected)} video tác giả cho phép dùng (xem ${s.scanned})` +
+        (bili.rejected ? ` · loại thêm ${bili.rejected} sau khi kiểm tra kỹ` : ""),
+      `trang ${s.page}/${s.pages}`,
+    ].filter(Boolean).join(" · ") +
+      (s.relaxed ? `<br>⚠️ Không có clip đúng “${escapeHtml(s.query)}” được phép dùng — đang hiện tư liệu gần chủ đề (<span lang="zh">${escapeHtml(s.broader.join(", "))}</span>).` : "")
+    : bili.busy === "search" ? "Đang dịch chủ đề và tìm vài kiểu từ khoá tư liệu… (khoảng 5–10 giây)" : "";
   $("biliResults").innerHTML = bili.results.map((r) => `
     <button type="button" class="bl-card ${bili.open === r.bvid ? "on" : ""}" data-bvid="${r.bvid}" title="${escapeHtml(r.permission.quote)}">
       <span class="bl-cover"><img src="${escapeHtml(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" /><i>${biliClock(r.duration)}</i></span>
@@ -98,7 +102,7 @@ function renderBiliResults() {
           bili.verified.has(r.bvid) ? "" : `<em class="pending">đang kiểm tra…</em>`}</span>
       </span>
     </button>`).join("") ||
-    (s && bili.busy === null ? `<p class="muted bl-empty">Chưa thấy video nào tác giả cho phép dùng. Thêm “免费商用” hoặc “素材” vào từ khoá, hoặc tìm trang sau.</p>` : "");
+    (s && bili.busy === null ? `<p class="muted bl-empty">Chưa thấy video nào tác giả cho phép dùng cho chủ đề này. Thử chủ đề rộng hơn (ví dụ “cảnh biển” thay vì “cá heo”) hoặc tìm trang sau.</p>` : "");
   $("biliMore").hidden = !s || s.page >= s.pages;
   $("biliMore").disabled = bili.busy !== null;
   $("biliMore").textContent = bili.busy === "search" ? "Đang tìm…" : "Tìm trang sau";
@@ -110,6 +114,12 @@ async function biliSearch(page) {
   if (!q) return;
   bili.query = q;
   bili.busy = "search";
+  if (page === 1) {
+    // Tìm mới: xoá danh sách cũ để dòng "Đang dịch chủ đề và tìm…" hiện ra trong lúc chờ.
+    bili.stats = null;
+    bili.results = [];
+    bili.rejected = 0;
+  }
   setBiliHint("");
   renderBiliSearchButtons();
   renderBiliResults();
@@ -122,6 +132,7 @@ async function biliSearch(page) {
     const seen = new Set(bili.results.map((r) => r.bvid));
     bili.results.push(...d.results.filter((r) => !seen.has(r.bvid)));
     bili.stats = {
+      query: q, keywords: d.keywords, relaxed: page === 1 ? d.relaxed : bili.stats?.relaxed || d.relaxed, broader: d.broader ?? [],
       page: d.page, pages: d.pages,
       scanned: (page === 1 ? 0 : bili.stats?.scanned ?? 0) + d.scanned,
       kept: (page === 1 ? 0 : bili.stats?.kept ?? 0) + d.results.length,
@@ -373,19 +384,6 @@ function bindBili() {
   $("biliQuery").addEventListener("input", renderBiliSearchButtons);
   $("biliOrder").addEventListener("change", (e) => { bili.order = e.target.value; });
   $("biliMore").addEventListener("click", () => biliSearch((bili.stats?.page ?? 0) + 1));
-  $("biliTranslate").addEventListener("click", async () => {
-    bili.busy = "translate";
-    renderBiliSearchButtons();
-    try {
-      const { keywords } = await postJson("/api/bilibili/translate", { text: $("biliQuery").value });
-      $("biliQuery").value = keywords;
-    } catch (e) {
-      setBiliHint(e.message, true);
-    } finally {
-      bili.busy = null;
-      renderBiliSearchButtons();
-    }
-  });
   $("biliChips").addEventListener("click", (e) => {
     const chip = e.target.closest("[data-kw]");
     if (!chip || bili.busy) return;

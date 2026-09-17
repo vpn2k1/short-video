@@ -554,6 +554,38 @@ const withOverlay = (p: ShortProps, i: number, overlay: MediaOverlay): ShortProp
   overlays: overlaysOf(p).map((x, k) => (k === i ? overlay : x)),
 });
 
+/**
+ * Thay ảnh/video của một khối trên timeline, giữ nguyên chỗ: mốc bắt đầu, hàng, vị trí/thu phóng/xoay,
+ * chuyển động, hiệu ứng. Bỏ phần chỉ đúng với file cũ: cắt đầu, tốc độ, vùng crop.
+ * Video mới ngắn hơn khối thì khối rút lại cho khỏi đứng hình ở cuối; dài hơn thì giữ độ dài khối.
+ * `durationMs` = độ dài file video mới (bỏ trống với ảnh).
+ */
+export const replaceOverlayMedia = (p: ShortProps, i: number, src: string, durationMs?: number): Result => {
+  const o = overlaysOf(p)[i];
+  if (!o) return { props: p };
+  const name = src.split("/").pop() ?? src;
+  if (o.src === src) return { props: p, selection: { type: "overlay", index: i }, message: `${overlayName(o)} đang dùng “${name}” rồi.` };
+  const video = isVideo(src);
+  const lengthMs = o.endMs - o.startMs;
+  const shorter = video && durationMs !== undefined && Number.isFinite(durationMs) && durationMs < lengthMs;
+  const next: MediaOverlay = {
+    ...o,
+    src,
+    trimStartMs: 0,
+    speed: undefined,
+    crop: null,
+    // Ảnh không có tiếng; đổi từ ảnh sang video thì bật tiếng gốc như lúc thêm video mới.
+    volume: video ? (isVideo(o.src) ? o.volume : 1) : 0,
+    endMs: shorter ? r(o.startMs + Math.max(MIN_MS, durationMs as number)) : o.endMs,
+  };
+  return {
+    props: withOverlay(p, i, next),
+    selection: { type: "overlay", index: i },
+    message: `Đã thay ${overlayName(o)} bằng “${name}”` +
+      (shorter ? ` — video mới chỉ dài ${((durationMs as number) / 1000).toFixed(1)}s nên khối rút lại.` : "."),
+  };
+};
+
 /** Tên hàng của một video trên timeline: hàng dưới cùng là "Video 1". */
 export const overlayName = (o: MediaOverlay | undefined) => `Video ${(o?.track ?? 0) + 1}`;
 
@@ -561,11 +593,24 @@ export const overlayName = (o: MediaOverlay | undefined) => `Video ${(o?.track ?
 export const hasSceneMedia = (p: ShortProps) => p.scenes.some((s) => Boolean(s.image));
 
 /**
- * Timeline có cần hiện hàng Cảnh không. Không cần khi cảnh đã gộp hết vào các hàng Video và chỉ còn
- * MỘT cảnh rỗng làm nền đen — lúc đó mọi thứ trên timeline là video, không còn hai loại.
- * Vẫn hiện khi còn nhiều cảnh rỗng, vì nhãn / câu nhấn / hình vẽ của phong cách gắn theo từng cảnh.
+ * Timeline có cần hiện hàng Cảnh không: chỉ khi còn cảnh mang hình (trình chỉnh sửa gộp hết lúc mở dự án).
+ * Cảnh rỗng vẫn nằm trong dữ liệu — nhãn / câu nhấn / hình vẽ của phong cách gắn theo từng cảnh — nhưng
+ * không hiện thành khối, để trên timeline chỉ còn video.
  */
-export const sceneRowVisible = (p: ShortProps) => hasSceneMedia(p) || p.scenes.length > 1;
+export const sceneRowVisible = (p: ShortProps) => hasSceneMedia(p);
+
+/**
+ * Video trên hàng cao nhất đang phủ mốc `atMs` (hàng trên đè hàng dưới nên đó là hình đang thấy).
+ * `videoOnly` bỏ qua ảnh tĩnh. -1 = không có.
+ */
+export const overlayIndexAt = (p: ShortProps, atMs: number, videoOnly = false) => {
+  let best = -1;
+  overlaysOf(p).forEach((o, k) => {
+    if (atMs < o.startMs || atMs >= o.endMs || (videoOnly && !isVideo(o.src))) return;
+    if (best < 0 || o.track > overlaysOf(p)[best].track) best = k;
+  });
+  return best;
+};
 
 /** Số hàng video chồng đang có (0 = chưa có lớp nào). */
 export const overlayTrackCount = (p: ShortProps) => overlaysOf(p).reduce((m, o) => Math.max(m, o.track + 1), 0);
@@ -1103,6 +1148,14 @@ export const splitAt = (p: ShortProps, atMs: number, sel: Selection): Result => 
     return { props: { ...p, overlays }, selection: { type: "overlay", index: sel.index + 1 }, message: "Đã tách lớp video thành hai." };
   }
 
+  // Không chọn gì và timeline chỉ có video (hàng Cảnh đã gộp): tách video đang thấy dưới đầu phát.
+  if (!(sel && "index" in sel && sel.type === "scene") && !sceneRowVisible(p)) {
+    const k = overlayIndexAt(p, t);
+    return k >= 0
+      ? splitAt(p, atMs, { type: "overlay", index: k })
+      : { props: p, message: "Đưa đầu phát vào giữa một video, hoặc chọn khối cần tách." };
+  }
+
   const i = sel && "index" in sel && sel.type === "scene" ? sel.index : sceneIndexAt(p, t);
   const s = p.scenes[i];
   if (!s || tooClose(s.startMs, s.endMs)) return { props: p, message: "Đưa đầu phát vào giữa cảnh cần tách." };
@@ -1246,15 +1299,18 @@ export const rippleDelete = (p: ShortProps, from: number, to: number): Result =>
   };
 };
 
-/** Các mốc để hít vào khi kéo: mép phụ đề, ranh giới cảnh, mép âm thanh, đầu phát. */
+/** Các mốc để hít vào khi kéo: mép phụ đề, ranh giới cảnh (khi hàng Cảnh còn hiện), mép âm thanh, video, đầu phát. */
 export const snapEdges = (p: ShortProps, excludeKey: string, playheadMs: number) => {
   const edges = [0, playheadMs];
   p.captions.forEach((c, k) => {
     if (`caption-${k}` !== excludeKey) edges.push(c.startMs, c.endMs);
   });
-  p.scenes.forEach((s, k) => {
-    if (`scene-${k}` !== excludeKey) edges.push(s.endMs);
-  });
+  // Cảnh rỗng bị ẩn khỏi timeline — không để khối "hít" vào mốc người dùng không nhìn thấy.
+  if (sceneRowVisible(p)) {
+    p.scenes.forEach((s, k) => {
+      if (`scene-${k}` !== excludeKey) edges.push(s.endMs);
+    });
+  }
   p.audioClips.forEach((c, k) => {
     if (`clip-${k}` !== excludeKey) edges.push(c.startMs, c.startMs + c.durationMs);
   });
