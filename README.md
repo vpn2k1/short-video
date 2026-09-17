@@ -42,7 +42,8 @@ Giọng đọc miễn phí, offline theo hệ điều hành:
 |---|---|---|
 | macOS | `say` — giọng Việt `Linh` | Có sẵn |
 | Windows | Giọng nói Windows (SAPI) | Cần cài gói giọng tiếng Việt: Settings → Time & Language → Speech |
-| Linux | Chưa hỗ trợ | Dùng ElevenLabs/EverAI hoặc audio thu sẵn |
+| Linux | Giọng có sẵn trong app (VieNeu) | Xem dòng dưới |
+| Mọi hệ điều hành | VieNeu-TTS v3 Turbo — 25 giọng Việt (nam/nữ, Bắc/Trung/Nam), ví dụ `ngoc-huyen`, `anh-khoi` | App desktop kèm sẵn: ~355 MB trên macOS (model int8), ~655 MB trên Windows/Linux (model fp32). Chạy từ mã nguồn: `bash desktop/fetch-vieneu.sh mac-arm64` (hoặc `win-x64`, `linux-x64`) |
 
 Kiểm tra nhanh (macOS/Linux dùng Terminal, Windows dùng PowerShell):
 

@@ -35,7 +35,7 @@ export type TranslateCatalog = {
 export type VoiceOption = {
   key: string;
   label: string;
-  engine: "say" | "elevenlabs" | "gemini";
+  engine: "say" | "elevenlabs" | "gemini" | "local";
   /** "miễn phí" / "ElevenLabs" / "Gemini". */
   engineLabel: string;
   lang: "vi" | "en";

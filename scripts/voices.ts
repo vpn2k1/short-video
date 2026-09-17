@@ -4,7 +4,7 @@ export type Voice = {
   /** Tên gõ ở CLI: --voice laura */
   key: string;
   engine: TtsEngine;
-  /** voice_id của ElevenLabs, tên giọng Gemini (Kore…), hoặc tên giọng của macOS `say`. */
+  /** voice_id của ElevenLabs, tên giọng Gemini (Kore…), tên giọng của macOS `say`, hoặc tên giọng VieNeu có sẵn trong app (Ngọc Huyền…). */
   id: string;
   lang: "vi" | "en";
   gender: "nữ" | "nam" | "khác";
@@ -23,6 +23,32 @@ export const VOICES: Voice[] = [
     gender: "nữ",
     note: "giọng Việt bản xứ, miễn phí, offline — mặc định cho nội dung tiếng Việt",
   },
+  // VieNeu-TTS v3 Turbo: có sẵn trong app, offline, mọi hệ điều hành (desktop/fetch-vieneu.sh). id = tên giọng preset.
+  { key: "ngoc-huyen", engine: "local", id: "Ngọc Huyền", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, tự nhiên" },
+  { key: "truc-ly", engine: "local", id: "Trúc Ly", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, tự nhiên" },
+  { key: "mai-anh", engine: "local", id: "Mai Anh", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, tin tức" },
+  { key: "thuy-dung", engine: "local", id: "Thùy Dung", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Nam, tin tức" },
+  { key: "ngoc-tran", engine: "local", id: "Ngọc Trân", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Trung, tự nhiên" },
+  { key: "ngoc-linh", engine: "local", id: "Ngọc Linh", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, kể chuyện" },
+  { key: "doan-trang", engine: "local", id: "Đoan Trang", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, tự nhiên" },
+  { key: "thuc-doan", engine: "local", id: "Thục Đoan", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Nam, kể chuyện" },
+  { key: "my-duyen", engine: "local", id: "Mỹ Duyên", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Nam, đọc truyện" },
+  { key: "quynh-anh", engine: "local", id: "Quỳnh Anh", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, đọc truyện" },
+  { key: "kim-thanh", engine: "local", id: "Kim Thanh", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Nam, đọc truyện" },
+  { key: "adam-bua", engine: "local", id: "Adam bựa", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, tự nhiên" },
+  { key: "anh-khoi", engine: "local", id: "Anh Khôi", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, kể chuyện" },
+  { key: "minh-quan-pro", engine: "local", id: "Minh Quân Pro", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, tự nhiên" },
+  { key: "thien-tam-duc", engine: "local", id: "Thiền Tâm Đức", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, kể chuyện" },
+  { key: "quang-son", engine: "local", id: "Quang Sơn", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Trung, tự nhiên" },
+  { key: "minh-duc", engine: "local", id: "Minh Đức", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, tin tức" },
+  { key: "pham-tuyen", engine: "local", id: "Phạm Tuyên", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, tự nhiên" },
+  { key: "thai-son", engine: "local", id: "Thái Sơn", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Nam, kể chuyện" },
+  { key: "xuan-vinh", engine: "local", id: "Xuân Vĩnh", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, tự nhiên" },
+  { key: "thanh-binh", engine: "local", id: "Thanh Bình", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, kể chuyện" },
+  { key: "minh-triet", engine: "local", id: "Minh Triết", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Nam, tin tức" },
+  { key: "duc-tri", engine: "local", id: "Đức Trí", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Nam, đọc truyện" },
+  { key: "adam-vi", engine: "local", id: "Adam", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Nam, tự nhiên" },
+  { key: "manh-dung", engine: "local", id: "Mạnh Dũng", lang: "vi", gender: "nam", note: "có sẵn trong app, miền Bắc, tự nhiên" },
   {
     key: "giang",
     engine: "elevenlabs",
