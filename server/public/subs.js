@@ -400,6 +400,7 @@ function renderSubsEditor() {
 }
 
 async function createSubsBatch() {
+  blurTyping();
   if (subsUploading > 0) return setSubsHint("Đợi tải file lên xong đã.", true);
   $("subsStart").disabled = true;
   setSubsHint("");

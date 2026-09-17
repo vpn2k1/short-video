@@ -13,13 +13,17 @@ import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { generateAiVideo, isVideoModelChoice, videoModelCatalog } from "../scripts/ai-video";
 import { TITLE_FRAMES } from "../src/constants";
-import { editScript, generateScript, isScriptProvider, providerLabel, scriptProvider, type ProviderChoice, type StyleChoice } from "../scripts/generate-script";
+import { editScript, generateScript, PAID_SCRIPT_PROVIDERS, isScriptProvider, providerLabel, scriptProvider, type ProviderChoice, type ScriptProvider, type StyleChoice } from "../scripts/generate-script";
 import { isLengthChoice, type LengthChoice } from "../scripts/video-length";
 import { moveToAppTrash } from "./app-trash";
+import { FREE_MEDIA_GROUP } from "./keys";
 import { isStyleId, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
 import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
 import { findVoice } from "../scripts/voices";
+import { freeMode } from "../scripts/usage";
+import { stockForScene } from "../scripts/stock";
+import { cloudflareImageAvailable } from "../scripts/cloudflare-image";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist } from "../scripts/images";
 import { slugify } from "../scripts/slug";
@@ -36,6 +40,9 @@ import {
   TRANSLATE_ENGINES, type TranslateEngine,
 } from "../scripts/translate";
 import { fetchSceneImages } from "./api";
+import {
+  assignVersions, latestEditableVersion, versionDraftPath, versionPropsPath, versionVideosDir,
+} from "./versions";
 
 export type ChatSettings = {
   /** Tạo video (có giọng + nhạc) hay bộ ảnh tĩnh, mỗi cảnh một ảnh. */
@@ -62,13 +69,14 @@ export type ChatSettings = {
  * Nguồn hình của cảnh:
  *  - "none": không hình — video chỉ có chữ trên nền màu.
  *  - "library": ảnh trong thư viện hoặc file bạn tải lên (AI chọn trong danh sách).
- *  - "pexels": tìm ảnh thật trên Pexels (cần PEXELS_API_KEY).
+ *  - "pexels": ảnh thật miễn phí từ Pexels/Pixabay (cần một trong hai key; giữ tên cũ cho dữ liệu đã lưu).
+ *  - "stock-video": clip video thật miễn phí từ Pexels/Pixabay cho từng cảnh.
  *  - "ai": Gemini vẽ ảnh cho từng cảnh (cần GEMINI_API_KEY, tính tiền theo ảnh).
  */
-export type ImageSource = "none" | "library" | "pexels" | "ai";
+export type ImageSource = "none" | "library" | "pexels" | "stock-video" | "ai";
 
 const isImageSource = (value: unknown): value is ImageSource =>
-  value === "none" || value === "library" || value === "pexels" || value === "ai";
+  value === "none" || value === "library" || value === "pexels" || value === "stock-video" || value === "ai";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -81,9 +89,24 @@ export type ChatMessage = {
   style?: string;
   scenes?: { lines: string[]; image: string | null }[];
   error?: boolean;
+  /** Số bản (xem server/versions.ts) — mỗi kết quả video một bản, giữ riêng video và props. */
+  version?: number;
+  /** Kết quả cũ từ trước khi có bản: video đã bị bản sau ghi đè, không xem/sửa lại được. */
+  stale?: boolean;
+  /** Xuất từ trình chỉnh sửa; `from` = bản được mở ra để sửa (null = dự án chưa từng xuất). */
+  edited?: boolean;
+  from?: number | null;
+  /** Lượt bị dừng giữa chừng vì server tắt (đóng app, mất điện) — không phải lỗi của pipeline. */
+  interrupted?: boolean;
+  /** Việc gì bị dừng: lượt chat, video nhiều cảnh hay lần xuất từ trình chỉnh sửa — giao diện chọn nút chạy lại. */
+  interruptedKind?: "turn" | "multi" | "render";
 };
 
-type Chat = { messages: ChatMessage[]; settings: ChatSettings };
+/** Lời đang gõ mà chưa gửi — lưu trên đĩa để tắt app, mất điện hay mất kết nối vẫn còn. */
+export type ChatDraft = { text: string; attachments: string[]; at: number };
+
+/** `draft` bỏ trống khi ghi = giữ bản nháp đang có trên đĩa; `null` = xoá bản nháp. */
+type Chat = { messages: ChatMessage[]; settings: ChatSettings; draft?: ChatDraft | null };
 
 export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", length: "auto" };
 
@@ -115,6 +138,79 @@ const chatPath = (slug: string) => path.join(videoDir(slug), "chat.json");
 const running = new Map<string, string>();
 
 /**
+ * `running` chỉ sống trong bộ nhớ. Server tắt ngang (đóng app, mất điện) thì không ai biết lượt đó
+ * chưa xong — nên ghi thêm một file đánh dấu, xong việc mới xoá. Lần sau đọc video mà còn file này
+ * (và tiến trình ghi nó không còn chạy) nghĩa là lượt đó đã bị gián đoạn.
+ */
+type RunKind = "turn" | "multi" | "render" | "subtitles" | "voice";
+const runMarkerPath = (slug: string) => path.join(videoDir(slug), ".running.json");
+
+const markRunning = (slug: string, jobId: string, kind: RunKind) => {
+  running.set(slug, jobId);
+  try {
+    fs.mkdirSync(videoDir(slug), { recursive: true });
+    fs.writeFileSync(runMarkerPath(slug), JSON.stringify({ kind, pid: process.pid, at: Date.now() }));
+  } catch {
+    // không ghi được dấu thì chỉ mất khả năng báo gián đoạn, không chặn việc chính
+  }
+};
+
+const clearRunning = (slug: string) => {
+  running.delete(slug);
+  fs.rmSync(runMarkerPath(slug), { force: true });
+};
+
+const processAlive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: tiến trình còn sống nhưng của người dùng khác.
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+};
+
+/** Lượt tạo/sửa/xuất bị dừng giữa chừng → thêm một tin báo, để người dùng thấy và chạy lại. */
+const INTERRUPT_NOTICE: Partial<Record<RunKind, string>> = {
+  turn: "Lượt này bị dừng giữa chừng — app bị tắt, mất điện hoặc mất kết nối khi đang xử lý. Lời bạn gửi vẫn còn, bấm ↻ Thử lại để chạy lại.",
+  multi: "Video nhiều cảnh bị dừng giữa chừng — app bị tắt hoặc mất điện khi đang dựng. Danh sách cảnh vẫn còn, bấm 🎬 Sửa cảnh rồi tạo lại.",
+  render: "Lần xuất video từ trình chỉnh sửa bị dừng giữa chừng — phần chỉnh sửa vẫn còn, mở ✂️ Chỉnh sửa và xuất lại.",
+};
+
+/** Lượt của video đang chạy ở một server khác còn sống (bản web và bản desktop dùng chung thư mục). */
+const runningElsewhere = (slug: string) => {
+  if (running.has(slug) || !fs.existsSync(runMarkerPath(slug))) return false;
+  try {
+    const { pid } = JSON.parse(fs.readFileSync(runMarkerPath(slug), "utf8")) as { pid?: number };
+    return Boolean(pid && pid !== process.pid && processAlive(pid));
+  } catch {
+    return false;
+  }
+};
+
+const recoverInterrupted = (slug: string) => {
+  if (running.has(slug) || !fs.existsSync(runMarkerPath(slug))) return;
+  let marker: { kind?: RunKind; pid?: number } = {};
+  try {
+    marker = JSON.parse(fs.readFileSync(runMarkerPath(slug), "utf8"));
+  } catch {
+    // file dở do mất điện đúng lúc ghi — vẫn coi là bị gián đoạn
+  }
+  // Một server khác (vd. bản web và bản desktop cùng thư mục) vẫn đang chạy lượt này.
+  if (marker.pid && marker.pid !== process.pid && processAlive(marker.pid)) return;
+  fs.rmSync(runMarkerPath(slug), { force: true });
+  const kind = marker.kind ?? "turn";
+  const notice = INTERRUPT_NOTICE[kind];
+  if (!notice || !fs.existsSync(chatPath(slug))) return;
+  const chat = JSON.parse(fs.readFileSync(chatPath(slug), "utf8")) as Chat;
+  chat.messages = [...(chat.messages ?? []), {
+    role: "assistant", at: Date.now(), error: true, interrupted: true,
+    interruptedKind: kind as "turn" | "multi" | "render", text: notice,
+  }];
+  fs.writeFileSync(chatPath(slug), JSON.stringify(chat, null, 2));
+};
+
+/**
  * Chặn tạo trùng khi bấm Gửi nhiều lần: video đã có slug thì `running` lo,
  * nhưng video mới mỗi lần bấm lại sinh slug mới. Nhớ lượt vừa mở trong ít giây,
  * cùng nội dung + file đính kèm thì trả lại đúng video đó thay vì tạo cái nữa.
@@ -136,10 +232,11 @@ const recentNewTurn = (key: string) => {
 };
 
 export const readChat = (slug: string): Chat & { slug: string; jobId: string | null } => {
-  let chat: Chat = { messages: [], settings: { ...DEFAULT_SETTINGS } };
+  recoverInterrupted(slug);
+  let chat: Chat = { messages: [], settings: { ...DEFAULT_SETTINGS }, draft: null };
   if (fs.existsSync(chatPath(slug))) {
     const raw = JSON.parse(fs.readFileSync(chatPath(slug), "utf8"));
-    chat = { messages: raw.messages ?? [], settings: { ...DEFAULT_SETTINGS, ...raw.settings } };
+    chat = { messages: raw.messages ?? [], settings: { ...DEFAULT_SETTINGS, ...raw.settings }, draft: raw.draft ?? null };
   } else {
     // Video làm từ trước khi có chat: dựng một tin nhắn từ những gì đang có.
     const props = readJson(path.join(videoDir(slug), "props.json"));
@@ -158,12 +255,21 @@ export const readChat = (slug: string): Chat & { slug: string; jobId: string | n
       });
     }
   }
+  // Video làm trước khi có "bản": đánh số một lần. Đang dựng thì để lượt đó tự ghi, không chen vào.
+  if (!running.has(slug) && chat.messages.some((m) => m.mp4 && !m.error && !m.version)) {
+    writeChat(slug, chat);
+  }
   return { slug, ...chat, jobId: running.get(slug) ?? null };
 };
 
+/** Ghi chat.json — kết quả video mới được đánh số bản và lưu riêng ngay tại đây (sửa `messages` tại chỗ). */
 export const writeChat = (slug: string, chat: Chat) => {
   fs.mkdirSync(videoDir(slug), { recursive: true });
-  fs.writeFileSync(chatPath(slug), JSON.stringify(chat, null, 2));
+  assignVersions(slug, chat.messages);
+  // Job chạy xong ghi lại chat — đừng xoá lời người dùng gõ dở trong lúc chờ.
+  const draft = chat.draft === undefined ? readJson(chatPath(slug))?.draft ?? null : chat.draft;
+  const { draft: _ignored, ...rest } = chat;
+  fs.writeFileSync(chatPath(slug), JSON.stringify(draft ? { ...rest, draft } : rest, null, 2));
 };
 
 const readJson = (file: string) =>
@@ -259,7 +365,7 @@ const runFile = promisify(execFile);
  * Mỗi nguồn được cắt đúng phần đang dùng (trimStart + độ dài), phiên âm, rồi dời
  * mốc thời gian về vị trí của nó trên timeline.
  */
-export const startAutoSubtitles = (slug: string, body: unknown) => {
+export const startAutoSubtitles = (slug: string, body: unknown, requested: number | null = null) => {
   const opts = (body ?? {}) as {
     source?: unknown; index?: unknown; language?: unknown; quality?: unknown; replace?: unknown;
     translate?: { to?: unknown; engine?: unknown; keepOriginal?: unknown } | null;
@@ -279,7 +385,7 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
   if (running.has(slug)) {
     throw new Error("Video này đang được xử lý — đợi xong đã.");
   }
-  const { props } = readEditorProps(slug);
+  const { props, version } = readEditorProps(slug, requested);
   const videoFile = (src: string | null) => Boolean(src && /\.(mp4|mov|webm)$/i.test(src));
 
   // speed: tốc độ phát — đoạn file dùng dài durationMs × speed; thời gian phụ đề ÷ speed để khớp timeline.
@@ -369,7 +475,7 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
         created = created.map((c, k) => ({ ...c, text: texts[k] }));
       }
 
-      const latest = readEditorProps(slug).props;
+      const latest = readEditorProps(slug, version).props;
       const keep = replace
         ? latest.captions.filter((c) => !segments.some((seg) => c.startMs < seg.startMs + seg.durationMs && c.endMs > seg.startMs))
         : latest.captions;
@@ -388,7 +494,7 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
         captions: [...compacted, ...onTrack(original, originalTrack ?? 0), ...onTrack(created, track)]
           .sort((a, b) => a.startMs - b.startMs),
       });
-      fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(next, null, 2));
+      writeEditorProps(slug, version, next);
       log(`Xong: ${created.length} câu phụ đề ở hàng Phụ đề ${track + 1}.`);
       return {
         props: next,
@@ -398,51 +504,97 @@ export const startAutoSubtitles = (slug: string, body: unknown) => {
         translatedTo: translate && created.length > 0 ? translateLanguageLabel(translate.to) : undefined,
       };
     } finally {
-      running.delete(slug);
+      clearRunning(slug);
     }
   });
-  running.set(slug, job.id);
+  markRunning(slug, job.id, "subtitles");
   return { jobId: job.id };
 };
 
-/** Dữ liệu cho trình chỉnh sửa — props đã điền mặc định cho các trường mới. */
-export const readEditorProps = (slug: string) => {
-  const propsPath = path.join(videoDir(slug), "props.json");
-  if (!fs.existsSync(propsPath)) {
-    throw new Error("Video này chưa được dựng — tạo video trước rồi mới chỉnh sửa được.");
+/**
+ * Trình chỉnh sửa mở bản nào: `requested` nếu có, không thì bản mới nhất. Dự án chưa từng xuất
+ * (tạo trong trình chỉnh sửa, chưa có bản) thì sửa thẳng props.json.
+ */
+const editorVersion = (slug: string, requested: number | null) => {
+  const latest = latestEditableVersion(slug, readChat(slug).messages);
+  if (requested === null) return { version: latest, latest };
+  if (!fs.existsSync(versionPropsPath(slug, requested))) {
+    throw new Error(`Bản ${requested} không còn dữ liệu để chỉnh sửa (video làm trước khi app lưu riêng từng bản).`);
   }
-  const props = shortSchema.parse(JSON.parse(fs.readFileSync(propsPath, "utf8")));
-  const script = readJson(path.join(videoDir(slug), "script.json"));
-  return { slug, props, title: script?.title ?? props.title, running: running.has(slug) };
+  return { version: requested, latest };
 };
 
-/** Xuất mp4 từ props.json đã chỉnh — không đụng kịch bản hay giọng đọc. */
-export const startEditorRender = (slug: string) => {
+/** File trình chỉnh sửa đọc/ghi: bản nháp của bản đang mở → props của bản đó → props.json. */
+const editorFile = (slug: string, version: number | null) => {
+  if (version === null) return path.join(videoDir(slug), "props.json");
+  const draft = versionDraftPath(slug, version);
+  return fs.existsSync(draft) ? draft : versionPropsPath(slug, version);
+};
+
+/** Dữ liệu cho trình chỉnh sửa — props đã điền mặc định cho các trường mới. */
+export const readEditorProps = (slug: string, requested: number | null = null) => {
+  const { version, latest } = editorVersion(slug, requested);
+  const file = editorFile(slug, version);
+  if (!fs.existsSync(file)) {
+    throw new Error("Video này chưa được dựng — tạo video trước rồi mới chỉnh sửa được.");
+  }
+  const props = shortSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+  const script = readJson(path.join(videoDir(slug), "script.json"));
+  return {
+    slug, props, title: script?.title ?? props.title, running: running.has(slug),
+    version, latest, hasDraft: version !== null && fs.existsSync(versionDraftPath(slug, version)),
+  };
+};
+
+/** Lưu thay đổi đang sửa: bản đã xuất thì vào bản nháp (bản gốc giữ nguyên), chưa có bản thì props.json. */
+export const writeEditorProps = (slug: string, requested: number | null, props: unknown) => {
+  const { version } = editorVersion(slug, requested);
+  const parsed = shortSchema.parse(props);
+  const file = version === null ? path.join(videoDir(slug), "props.json") : versionDraftPath(slug, version);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(parsed, null, 2));
+  return { version };
+};
+
+/** Bỏ mọi thay đổi chưa xuất trên một bản — quay về đúng bản đã xuất. */
+export const discardEditorDraft = (slug: string, requested: number | null) => {
+  const { version } = editorVersion(slug, requested);
+  if (version !== null) fs.rmSync(versionDraftPath(slug, version), { force: true });
+  return readEditorProps(slug, version);
+};
+
+/** Xuất mp4 từ bản đang sửa thành một BẢN MỚI — bản được mở ra sửa giữ nguyên. */
+export const startEditorRender = (slug: string, requested: number | null = null) => {
   if (running.has(slug)) {
     throw new Error("Video này đang được xử lý — đợi xong đã.");
   }
-  readEditorProps(slug);
+  const { props, version } = readEditorProps(slug, requested);
   const job = startJob(async (log) => {
     try {
+      // Bản mới nhất = bản vừa xuất: pipeline (đổi giọng, AI sửa tiếp…) đọc props.json.
+      fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(props, null, 2));
       log("__STEP__ render");
       const result = await runRenderStage(slug, undefined, log);
       const chat = readChat(slug);
-      const props = readJson(path.join(videoDir(slug), "props.json"));
       const message: ChatMessage = {
         role: "assistant",
         at: Date.now(),
-        text: `Đã xuất bản chỉnh sửa · ${(result.durationInFrames / 30).toFixed(1)}s`,
+        text: `Đã xuất từ trình chỉnh sửa${version !== null ? ` (chỉnh từ bản ${version})` : ""} · ${(result.durationInFrames / 30).toFixed(1)}s`,
         mp4: `${result.mp4}?t=${Date.now()}`,
-        aspect: props?.aspect ?? "9:16",
-        style: props?.style,
+        aspect: props.aspect ?? "9:16",
+        style: props.style,
+        edited: true,
+        from: version,
       };
       writeChat(slug, { messages: [...chat.messages, message], settings: chat.settings });
+      // Thay đổi đã thành bản mới — bản gốc trở lại như lúc xuất.
+      if (version !== null) fs.rmSync(versionDraftPath(slug, version), { force: true });
       return message;
     } finally {
-      running.delete(slug);
+      clearRunning(slug);
     }
   });
-  running.set(slug, job.id);
+  markRunning(slug, job.id, "render");
   return { jobId: job.id };
 };
 
@@ -450,7 +602,7 @@ export const startEditorRender = (slug: string) => {
  * Đổi giọng toàn bộ (index bỏ trống) hoặc đọc lại một câu, từ trình chỉnh sửa.
  * Giữ mốc bắt đầu của từng câu; câu dài ra thì phần phía sau lùi lại (xem ops.applyVoice).
  */
-export const startVoiceChange = (slug: string, body: unknown) => {
+export const startVoiceChange = (slug: string, body: unknown, requested: number | null = null) => {
   const { voice, index } = (body ?? {}) as { voice?: unknown; index?: unknown };
   const chosen = typeof voice === "string" ? findVoice(voice) : undefined;
   if (!chosen) {
@@ -462,7 +614,7 @@ export const startVoiceChange = (slug: string, body: unknown) => {
   if (running.has(slug)) {
     throw new Error("Video này đang được xử lý — đợi xong đã.");
   }
-  const { props } = readEditorProps(slug);
+  const { props, version } = readEditorProps(slug, requested);
   let indexes: number[];
   if (index === undefined || index === null) {
     indexes = props.captions.map((_, i) => i).filter((i) => props.captions[i].text.trim());
@@ -484,9 +636,10 @@ export const startVoiceChange = (slug: string, body: unknown) => {
         `${slug}/edit-${Date.now()}`,
         chosen.engine,
         chosen.id,
+        { log },
       );
       const next = shortSchema.parse(applyVoice(props, indexes, clips));
-      fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(next, null, 2));
+      writeEditorProps(slug, version, next);
       if (index === undefined || index === null) {
         const chat = readChat(slug);
         writeChat(slug, { messages: chat.messages, settings: { ...chat.settings, voice: chosen.key } });
@@ -494,10 +647,10 @@ export const startVoiceChange = (slug: string, body: unknown) => {
       log(`Xong: ${clips.length} câu.`);
       return { props: next, voice: chosen.key };
     } finally {
-      running.delete(slug);
+      clearRunning(slug);
     }
   });
-  running.set(slug, job.id);
+  markRunning(slug, job.id, "voice");
   return { jobId: job.id };
 };
 
@@ -530,7 +683,7 @@ const dirBytes = (target: string): number => {
  * video khác có thể đang dùng.
  */
 const projectFiles = (slug: string) => {
-  const files = [videoDir(slug), path.join(process.cwd(), "out", `${slug}.mp4`)];
+  const files = [videoDir(slug), path.join(process.cwd(), "out", `${slug}.mp4`), versionVideosDir(slug)];
   const scenes = path.join(process.cwd(), "out", "scenes");
   if (fs.existsSync(scenes)) {
     const own = new RegExp(`^${slug}-\\d+\\.(png|mp4)$`);
@@ -600,6 +753,7 @@ export const listProjects = () => {
     .filter((e) => e.isDirectory() && SLUG_RE.test(e.name))
     .map((e) => {
       const slug = e.name;
+      recoverInterrupted(slug);
       const props = readJson(path.join(videoDir(slug), "props.json"));
       const script = readJson(path.join(videoDir(slug), "script.json"));
       const chatFile = readJson(chatPath(slug));
@@ -617,16 +771,23 @@ export const listProjects = () => {
         fs.existsSync(chatPath(slug)) ? fs.statSync(chatPath(slug)).mtimeMs : 0,
       );
       const lastReply = [...turns].reverse().find((m) => m.role === "assistant");
-      const status = running.has(slug)
+      const multiInput = readJson(multiPath(slug)) as { title?: unknown } | null;
+      const draft = chatFile?.draft as ChatDraft | null | undefined;
+      const firstUser = turns.find((m) => m.role === "user")?.text;
+      const status = running.has(slug) || runningElsewhere(slug)
         ? "running"
-        : lastReply?.error
-          ? "error"
-          : hasMp4 || images.length > 0
-            ? "done"
-            : "draft";
+        : lastReply?.interrupted && turns.at(-1) === lastReply
+          ? "interrupted"
+          : lastReply?.error
+            ? "error"
+            : hasMp4 || images.length > 0
+              ? "done"
+              : "draft";
       return {
         slug,
-        title: script?.title ?? props?.title ?? slug,
+        title: script?.title ?? props?.title ??
+          (typeof multiInput?.title === "string" && multiInput.title.trim() ? multiInput.title.trim() : null) ??
+          (firstUser ?? draft?.text)?.replace(/\s+/g, " ").trim().slice(0, 60) ?? slug,
         aspect: settings?.aspect ?? props?.aspect ?? "9:16",
         kind,
         style: isStyleId(props?.style) ? props.style : isStyleId(script?.style) ? script.style : "caption",
@@ -637,8 +798,10 @@ export const listProjects = () => {
         thumb: firstSceneImage(props, script),
         images: images.length,
         running: running.has(slug),
-        /** "running" | "error" | "done" | "draft" — cho thanh lịch sử. */
+        /** "running" | "interrupted" | "error" | "done" | "draft" — cho thanh lịch sử. */
         status,
+        /** Có lời gõ dở chưa gửi. */
+        hasDraft: Boolean(draft?.text || draft?.attachments?.length),
         /** Có props.json — mở được trình chỉnh sửa. */
         editable: Boolean(props),
         /** Có script.json — nhân được biến thể (đổi tỉ lệ, giọng, ngôn ngữ) trong chế độ hàng loạt. */
@@ -685,18 +848,29 @@ export const normalizeSettings = (
 
 /** Thiếu key cho lựa chọn đang bật thì báo ngay, trước khi chạy nền. */
 export const assertSettingsUsable = (settings: ChatSettings) => {
+  if (freeMode()) {
+    if (settings.kind === "video" && settings.video) {
+      throw new Error("💚 Chế độ Miễn phí đang bật — video AI tính tiền nên đã tắt. Đổi chip Hình về 🖼 Ảnh, hoặc tắt chế độ này trong ⚙ Cài đặt.");
+    }
+    if (settings.images === "ai" && !cloudflareImageAvailable()) {
+      throw new Error("💚 Chế độ Miễn phí đang bật — AI vẽ ảnh bằng Gemini tính tiền. Thêm key Cloudflare (FLUX miễn phí ~170 ảnh/ngày) trong ⚙ Cài đặt, hoặc chọn ảnh/clip miễn phí.");
+    }
+    if (settings.mode === "ai" && PAID_SCRIPT_PROVIDERS.includes(settings.provider as ScriptProvider)) {
+      throw new Error(`💚 Chế độ Miễn phí đang bật — ${providerLabel(settings.provider as ScriptProvider)} tính tiền. Chọn AI "Tự động" (dùng Gemini, Groq, OpenRouter, AI trên máy) hoặc tắt chế độ này trong ⚙ Cài đặt.`);
+    }
+  }
   if (settings.kind === "video" && settings.video && !videoModelCatalog().defaultModel) {
     throw new Error(
       "Chọn hình Video AI nhưng chưa có key tạo video. Thêm key Gemini, fal.ai hoặc Replicate trong Cài đặt, hoặc đổi chip Hình về 🖼 Ảnh.",
     );
   }
-  if (settings.images === "pexels" && !process.env.PEXELS_API_KEY) {
+  if ((settings.images === "pexels" || settings.images === "stock-video") && !process.env.PEXELS_API_KEY && !process.env.PIXABAY_API_KEY) {
     throw new Error(
-      "Chọn tìm ảnh trên Pexels nhưng chưa có key Pexels. Lấy key miễn phí ở pexels.com/api rồi điền vào ⚙ Cài đặt, " +
+      `Chọn ảnh/clip miễn phí nhưng chưa có key Pexels hoặc Pixabay. Lấy key miễn phí rồi điền vào ⚙ Cài đặt › ${FREE_MEDIA_GROUP}, ` +
         "hoặc đổi nút Hình ảnh sang 🖼 Ảnh của tôi / 🚫 Không hình.",
     );
   }
-  if (settings.images === "ai" && !process.env.GEMINI_API_KEY) {
+  if (settings.images === "ai" && !process.env.GEMINI_API_KEY && !cloudflareImageAvailable()) {
     throw new Error(
       "Chọn AI vẽ ảnh nhưng chưa có key Gemini. Điền GEMINI_API_KEY trong ⚙ Cài đặt, hoặc đổi nút Hình ảnh sang " +
         "🔍 Tìm ảnh Pexels / 🖼 Ảnh của tôi.",
@@ -709,6 +883,88 @@ export const assertSettingsUsable = (settings: ChatSettings) => {
         : "Chưa có AI viết kịch bản. Điền key trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí), chọn Ollama để chạy AI ngay trên máy không cần key, hoặc chọn 📝 Lời có sẵn để dán kịch bản.",
     );
   }
+};
+
+const MAX_DRAFT_CHARS = 50_000;
+
+/** Video chỉ gồm bản nháp — xoá hết lời thì xoá luôn thư mục, khỏi rác trong lịch sử. */
+const onlyDraft = (slug: string) => {
+  const dir = videoDir(slug);
+  if (!fs.existsSync(dir) || running.has(slug)) return false;
+  const files = fs.readdirSync(dir);
+  if (files.some((f) => f !== "chat.json" && f !== "multi.json")) return false;
+  return (readJson(chatPath(slug))?.messages ?? []).length === 0;
+};
+
+/**
+ * Lưu lời đang gõ trong ô chat. Chưa có video thì tạo một video nháp (hiện trong lịch sử), gửi đi
+ * thì bản nháp thành tin nhắn. Trả slug để giao diện gắn các lần lưu sau và lần gửi vào đúng video đó.
+ */
+export const saveChatDraft = (body: unknown) => {
+  const input = (body ?? {}) as { slug?: unknown; text?: unknown; attachments?: unknown; settings?: Partial<ChatSettings> };
+  const text = typeof input.text === "string" ? input.text.slice(0, MAX_DRAFT_CHARS) : "";
+  const attachments = (Array.isArray(input.attachments) ? input.attachments : [])
+    .filter((f): f is string => typeof f === "string" && MEDIA_RE.test(f) && !f.includes(".."))
+    .slice(0, 20);
+  const empty = !text.trim() && attachments.length === 0;
+
+  let slug: string;
+  if (input.slug === undefined || input.slug === null || input.slug === "") {
+    if (empty) return { slug: null };
+    slug = freshSlug(text.trim().split("\n")[0] || "ban nhap");
+  } else if (isSlug(input.slug)) {
+    slug = input.slug;
+  } else {
+    throw new Error("Tên video không hợp lệ.");
+  }
+
+  if (empty && !fs.existsSync(videoDir(slug))) return { slug: null };
+  if (empty && onlyDraft(slug) && !fs.existsSync(multiPath(slug))) {
+    fs.rmSync(videoDir(slug), { recursive: true, force: true });
+    return { slug: null };
+  }
+  const chat = readChat(slug);
+  writeChat(slug, {
+    messages: chat.messages,
+    settings: normalizeSettings(input.settings, chat.settings),
+    draft: empty ? null : { text, attachments, at: Date.now() },
+  });
+  return { slug };
+};
+
+/**
+ * Lưu danh sách cảnh đang soạn ở tab 🎬 Nhiều cảnh (chưa bấm Tạo). Chỉ kiểm hình dạng thô —
+ * bản nháp được phép thiếu lời, thiếu hình; kiểm đầy đủ lúc bấm Tạo (parseMulti).
+ */
+export const saveMultiDraft = (body: unknown) => {
+  const { slug: rawSlug, ...input } = (body ?? {}) as Record<string, unknown>;
+  const scenes = Array.isArray(input.scenes) ? input.scenes.slice(0, 50) : [];
+  const title = typeof input.title === "string" ? input.title.slice(0, 200) : "";
+  const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const empty = !title.trim() && scenes.every((scene) => {
+    const s = (scene ?? {}) as Record<string, unknown>;
+    return !text(s.prompt) && !text(s.narration) && !s.media;
+  });
+  const payload = JSON.stringify({ ...input, title, scenes });
+  if (payload.length > 500_000) throw new Error("Bản nháp quá lớn.");
+
+  let slug: string;
+  if (rawSlug === undefined || rawSlug === null || rawSlug === "") {
+    if (empty) return { slug: null };
+    slug = freshSlug(title.trim() || "video nhieu canh");
+  } else if (isSlug(rawSlug)) {
+    slug = rawSlug;
+  } else {
+    throw new Error("Tên video không hợp lệ.");
+  }
+  if (empty && !fs.existsSync(videoDir(slug))) return { slug: null };
+  if (empty && onlyDraft(slug)) {
+    fs.rmSync(videoDir(slug), { recursive: true, force: true });
+    return { slug: null };
+  }
+  fs.mkdirSync(videoDir(slug), { recursive: true });
+  fs.writeFileSync(multiPath(slug), JSON.stringify(JSON.parse(payload), null, 2));
+  return { slug };
 };
 
 export type TurnInput = {
@@ -772,7 +1028,7 @@ export const startTurn = (input: TurnInput) => {
 
   const messages = chat.messages;
   messages.push({ role: "user", text: prompt, at: Date.now(), attachments: attachments as string[] });
-  writeChat(slug, { messages, settings });
+  writeChat(slug, { messages, settings, draft: null });
 
   const job = startJob(async (log) => {
     try {
@@ -788,10 +1044,10 @@ export const startTurn = (input: TurnInput) => {
       writeChat(slug, { messages, settings });
       throw error;
     } finally {
-      running.delete(slug);
+      clearRunning(slug);
     }
   });
-  running.set(slug, job.id);
+  markRunning(slug, job.id, "turn");
   if (dedupeKey) recentNew.set(dedupeKey, { slug, jobId: job.id, at: Date.now() });
   return { slug, jobId: job.id };
 };
@@ -896,10 +1152,17 @@ export const buildFromScript = async (
   // ---- giọng đọc ----
   log("__STEP__ voice");
   const voice = settings.voice ? findVoice(settings.voice) : undefined;
+  if (settings.voice && !voice) {
+    // Giọng đã bị gỡ khỏi app (ví dụ EverAI) — báo rõ thay vì âm thầm làm video không tiếng.
+    throw new Error(`Giọng "${settings.voice}" không còn trong app — chọn giọng khác ở mục Giọng đọc rồi thử lại.`);
+  }
   let voiceover;
+  let voiceNote = "";
   if (voice) {
     log(`Đang đọc bằng giọng ${voice.key}…`);
-    voiceover = await generateVoiceover(allLines(script), slug, voice.engine, voice.id);
+    voiceover = await generateVoiceover(allLines(script), slug, voice.engine, voice.id, {
+      log, onFallback: (note) => { voiceNote = note; },
+    });
   } else {
     log("Không dùng giọng đọc.");
   }
@@ -928,7 +1191,7 @@ export const buildFromScript = async (
 
   const seconds = (durationInFrames / 30).toFixed(1);
   return {
-    text: `${existed ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s${aiNote ? `\n${aiNote}` : ""}`,
+    text: `${existed ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s${aiNote ? `\n${aiNote}` : ""}${voiceNote ? `\n${voiceNote}` : ""}`,
     style: script.style,
     mp4: `/out/${slug}.mp4?t=${Date.now()}`,
     aspect: settings.aspect,
@@ -1005,10 +1268,36 @@ const addSceneImages = async (
   if (need.length === 0) return "";
 
   const ai = settings.images === "ai";
-  const label = ai ? "AI vẽ" : "Pexels";
-  log(ai ? `Đang để Gemini vẽ ${need.length} ảnh…` : `Đang tìm ${need.length} ảnh trên Pexels…`);
+  const clips = settings.images === "stock-video";
+  const label = ai ? "AI vẽ" : clips ? "kho clip miễn phí" : "kho ảnh miễn phí";
+  log(ai ? `Đang để ${cloudflareImageAvailable() ? "FLUX (Cloudflare, miễn phí)" : "Gemini"} vẽ ${need.length} ảnh…` : `Đang tìm ${need.length} ${clips ? "clip" : "ảnh"} miễn phí (Pexels, Pixabay)…`);
   const queries = await sceneImageQueries(script, need.map(({ i }) => i), settings, log);
-  const { perQuery } = await fetchSceneImages(slug, queries, [ai ? "gemini" : "pexels"], log);
+  let perQuery: (string | null)[];
+  if (ai) {
+    perQuery = (await fetchSceneImages(slug, queries, ["gemini"], log)).perQuery;
+  } else {
+    // Không lặp cùng một ảnh/clip giữa các cảnh; clip hết thì lùi về ảnh cho cảnh đó.
+    const used = new Set<string>();
+    perQuery = [];
+    for (const [k, query] of queries.entries()) {
+      const { scene } = need[k];
+      const seconds = Math.ceil((scene.endMs - scene.startMs) / 1000);
+      let file: string | null = null;
+      for (const kind of clips ? (["video", "image"] as const) : (["image"] as const)) {
+        try {
+          const result = await stockForScene(kind, query, seconds, used);
+          if (result) {
+            file = result.path;
+            log(`[${kind === "video" ? "clip" : "ảnh"}] cảnh ${need[k].i + 1}: ${result.credit}`);
+            break;
+          }
+        } catch (error) {
+          log(`Không lấy được ${kind === "video" ? "clip" : "ảnh"} cho "${query}": ${error instanceof Error ? error.message : error}`);
+        }
+      }
+      perQuery.push(file);
+    }
+  }
 
   let filled = 0;
   need.forEach(({ scene, i }, k) => {
@@ -1022,9 +1311,9 @@ const addSceneImages = async (
 
   const missing = need.length - filled;
   if (filled === 0) return `⚠ Không lấy được ảnh nào từ ${label} — các cảnh dùng nền trơn.`;
-  return `🖼 ${filled}/${need.length} cảnh có ảnh từ ${label}` +
+  return `🖼 ${filled}/${need.length} cảnh có hình từ ${label}` +
     (missing ? ` · ${missing} cảnh không có ảnh` : "") +
-    (ai ? "" : ` · ghi công tác giả trong public/images/${slug}/CREDITS.txt`);
+    (ai ? "" : " · ghi nguồn trong public/uploads/stock/CREDITS.txt");
 };
 
 /** Mô tả cho model video, suy từ lời đọc của cảnh — không gọi thêm AI viết prompt. */
@@ -1222,10 +1511,10 @@ export const startMultiScene = (body: unknown) => {
       writeChat(slug, { messages, settings });
       throw error;
     } finally {
-      running.delete(slug);
+      clearRunning(slug);
     }
   });
-  running.set(slug, job.id);
+  markRunning(slug, job.id, "multi");
   return { slug, jobId: job.id };
 };
 
@@ -1241,7 +1530,7 @@ const runMultiScene = async (slug: string, input: MultiInput, log: (line: string
   let voiceover: VoiceoverClip[] | undefined;
   if (voice && lines.length > 0) {
     log(`Đang đọc ${lines.length} câu bằng giọng ${voice.key}…`);
-    voiceover = await generateVoiceover(lines, slug, voice.engine, voice.id);
+    voiceover = await generateVoiceover(lines, slug, voice.engine, voice.id, { log });
   } else {
     log(lines.length > 0 ? "Không dùng giọng đọc — chỉ hiện phụ đề." : "Không có lời đọc.");
   }

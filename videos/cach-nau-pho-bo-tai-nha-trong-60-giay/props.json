@@ -1,0 +1,277 @@
+{
+  "title": "Bí quyết nấu phở bò",
+  "subtitle": "Tự làm phở bò ngon như quán trong 60 giây",
+  "handle": "@phobochome",
+  "accent": "#FFAA00",
+  "background": "#111111",
+  "captions": [
+    {
+      "text": "Chuẩn bị nước dùng hầm xương",
+      "startMs": 2483,
+      "endMs": 4277,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-01.mp3"
+    },
+    {
+      "text": "Thêm sả, gừng, hành tây",
+      "startMs": 4427,
+      "endMs": 6581,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-02.mp3"
+    },
+    {
+      "text": "Đun sôi rồi hạ lửa",
+      "startMs": 6731,
+      "endMs": 8256,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-03.mp3"
+    },
+    {
+      "text": "Rửa sạch bánh phở, ngâm nước",
+      "startMs": 8406,
+      "endMs": 10432,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-04.mp3"
+    },
+    {
+      "text": "Đặt bánh vào nồi, chờ mềm",
+      "startMs": 10582,
+      "endMs": 12734,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-05.mp3"
+    },
+    {
+      "text": "Lấy ra để ráo",
+      "startMs": 12884,
+      "endMs": 14173,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-06.mp3"
+    },
+    {
+      "text": "Chuẩn bị thịt bò lát mỏng",
+      "startMs": 14323,
+      "endMs": 16024,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-07.mp3"
+    },
+    {
+      "text": "Ướp nhẹ với tiêu, muối",
+      "startMs": 16174,
+      "endMs": 18071,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-08.mp3"
+    },
+    {
+      "text": "Luộc nhanh 30 giây",
+      "startMs": 18221,
+      "endMs": 19719,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-09.mp3"
+    },
+    {
+      "text": "Hãm rau thơm: ngò, húng",
+      "startMs": 19869,
+      "endMs": 22151,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-10.mp3"
+    },
+    {
+      "text": "Cắt hành tây, ớt",
+      "startMs": 22301,
+      "endMs": 23704,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-11.mp3"
+    },
+    {
+      "text": "Chuẩn bị chanh, nước mắm",
+      "startMs": 23854,
+      "endMs": 25613,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-12.mp3"
+    },
+    {
+      "text": "Đổ nước dùng lên bát",
+      "startMs": 25763,
+      "endMs": 27174,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-13.mp3"
+    },
+    {
+      "text": "Thêm bánh, thịt, rau",
+      "startMs": 27324,
+      "endMs": 29130,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-14.mp3"
+    },
+    {
+      "text": "Rắc tiêu, hành phi",
+      "startMs": 29280,
+      "endMs": 30865,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-15.mp3"
+    },
+    {
+      "text": "Nêm nếm gia vị vừa miệng",
+      "startMs": 31015,
+      "endMs": 32712,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-16.mp3"
+    },
+    {
+      "text": "Thêm chút đường, bột ngọt",
+      "startMs": 32862,
+      "endMs": 34680,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-17.mp3"
+    },
+    {
+      "text": "Khuấy nhẹ, hương lan tỏa",
+      "startMs": 34830,
+      "endMs": 36697,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-18.mp3"
+    },
+    {
+      "text": "Thưởng thức phở bò thơm ngon",
+      "startMs": 36847,
+      "endMs": 38706,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-19.mp3"
+    },
+    {
+      "text": "Chia sẻ video nếu thích",
+      "startMs": 38856,
+      "endMs": 40720,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-20.mp3"
+    },
+    {
+      "text": "Nhấn theo dõi để học thêm",
+      "startMs": 40870,
+      "endMs": 42676,
+      "audio": "voices/cach-nau-pho-bo-tai-nha-trong-60-giay/line-21.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "caption",
+  "scenes": [
+    {
+      "image": "images/cach-nau-pho-bo-tai-nha-trong-60-giay/01-secret-to-cooking-beef-pho-prepa.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "2h",
+        "caption": "hầm xương"
+      },
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 8406
+    },
+    {
+      "image": "images/cach-nau-pho-bo-tai-nha-trong-60-giay/02-secret-to-cooking-beef-pho-wash.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 8406,
+      "endMs": 14323
+    },
+    {
+      "image": "images/cach-nau-pho-bo-tai-nha-trong-60-giay/03-secret-to-cooking-beef-pho-prepa.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "30s",
+        "caption": "luộc thịt"
+      },
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 14323,
+      "endMs": 19869
+    },
+    {
+      "image": "images/cach-nau-pho-bo-tai-nha-trong-60-giay/04-secret-to-cooking-beef-pho-prep.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 19869,
+      "endMs": 25763
+    },
+    {
+      "image": "images/cach-nau-pho-bo-tai-nha-trong-60-giay/05-secret-to-cooking-beef-pho-pour.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 25763,
+      "endMs": 31015
+    },
+    {
+      "image": "images/cach-nau-pho-bo-tai-nha-trong-60-giay/06-secret-to-cooking-beef-pho-seaso.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 31015,
+      "endMs": 36847
+    },
+    {
+      "image": "images/cach-nau-pho-bo-tai-nha-trong-60-giay/07-secret-to-cooking-beef-pho-enjoy.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 36847,
+      "endMs": 42826
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

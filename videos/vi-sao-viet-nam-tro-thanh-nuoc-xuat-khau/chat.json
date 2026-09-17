@@ -35,7 +35,9 @@
           ],
           "image": null
         }
-      ]
+      ],
+      "version": 1,
+      "stale": true
     }
   ],
   "settings": {
@@ -47,6 +49,7 @@
     "music": "music/calm.mp3",
     "video": "",
     "provider": "auto",
-    "images": "pexels"
+    "images": "pexels",
+    "length": "auto"
   }
 }

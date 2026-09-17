@@ -18,6 +18,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { COMPAT_PROVIDERS, DEFAULT_OLLAMA_HOST } from "./generate-script";
 import { LOCAL_AI_LABEL, LOCAL_MODEL_NAME, localAiAvailable, localChat } from "./local-ai";
+import { describeProviderError } from "./provider-error";
+import { freeMode, recordCall } from "./usage";
 
 export const TRANSLATE_LANGUAGES = [
   { code: "vi", label: "Tiếng Việt", name: "Vietnamese" },
@@ -76,6 +78,9 @@ export const translateLanguageLabel = (code: TranslateLanguage) => TRANSLATE_LAN
 export const missingTranslateKey = (engine: TranslateEngine) =>
   engine === "ollama" || engine === "local" || process.env[keyOf(engine)] ? null : keyOf(engine);
 
+/** ChatGPT và Claude chỉ có gói trả tiền — tắt khi bật chế độ Miễn phí. */
+const paidBlocked = (engine: TranslateEngine) => freeMode() && (engine === "openai" || engine === "anthropic");
+
 /** Tên model trên Ollama so khớp cả khi không ghi tag (translategemma = translategemma:latest). */
 const sameOllamaModel = (installed: string, wanted: string) =>
   installed === wanted || installed === `${wanted}:latest`;
@@ -116,7 +121,7 @@ export const translateEngines = async (): Promise<TranslateEngineInfo[]> => {
     }
     if (id === "local") return { id, label: ENGINE_LABELS[id], ready: localAiAvailable() };
     const env = keyOf(id);
-    const ready = Boolean(process.env[env]);
+    const ready = Boolean(process.env[env]) && !paidBlocked(id);
     return { id, label: ENGINE_LABELS[id], ready, ...(ready ? {} : { missingKey: env }) };
   });
 };
@@ -197,11 +202,14 @@ const translateCompatible = async (
       }),
     });
     if (!response.ok) {
-      lastError = `${config.label} (${model}) báo lỗi ${response.status}: ${await errorMessage(response)}`;
+      recordCall(config.label, false);
+      lastError = describeProviderError(`${config.label} (${model})`, response.status, await errorMessage(response),
+        "hoặc chọn model dịch khác");
       // Quá tải / hết lượt → thử model dự phòng; lỗi khác (key sai…) thì dừng.
       if (response.status >= 500 || response.status === 429) continue;
       break;
     }
+    recordCall(config.label, true);
     const body = (await response.json()) as { choices?: { message?: { content?: string | null } }[] };
     return readLines(body.choices?.[0]?.message?.content ?? "", items.length, `${config.label} (${model})`);
   }
@@ -314,6 +322,9 @@ export const translateLines = async (
   { to, from, engine }: { to: TranslateLanguage; from?: string; engine: TranslateEngine },
   log: (line: string) => void,
 ): Promise<string[]> => {
+  if (paidBlocked(engine)) {
+    throw new Error("💚 Chế độ Miễn phí đang bật — dịch bằng ChatGPT/Claude tính tiền nên đã tắt. Chọn Gemini, Groq, OpenRouter hoặc model trên máy.");
+  }
   const missing = missingTranslateKey(engine);
   if (missing) {
     throw new Error(`Chưa có key ${missing} — điền trong ⚙ Cài đặt, hoặc chọn model dịch khác.`);

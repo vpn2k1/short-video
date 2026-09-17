@@ -358,7 +358,8 @@ export const listAudio = () => {
       .sort()
       .map((f) => ({ path: `${dir}/${f}`, name: f }));
   };
-  return { music: scan("music"), sfx: scan("sfx"), moods: MOODS, sfxKinds: SFX_KINDS };
+  // music/stock, sfx/stock: tải từ 🆓 Kho miễn phí (Freesound).
+  return { music: [...scan("music"), ...scan("music/stock")], sfx: [...scan("sfx"), ...scan("sfx/stock")], moods: MOODS, sfxKinds: SFX_KINDS };
 };
 
 /** Sinh bằng ffmpeg — offline, miễn phí. */

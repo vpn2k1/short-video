@@ -125,6 +125,9 @@
             max-height: 72vh; max-width: 100%; display: block; }
   .player video { width: 100%; height: 100%; display: block; }
   .actions, .quick { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .actions:not(:has(*)) { display: none; }
+  .version-tag { display: inline-block; font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin-bottom: 8px; }
+  .version-stale { margin: 0; font-size: 13px; color: var(--muted); font-style: italic; }
   .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--panel);
          border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px;
          font-size: 13px; text-decoration: none; white-space: nowrap; }
@@ -456,6 +459,28 @@
   kbd { font: 11.5px ui-monospace, Menlo, monospace; background: var(--panel-2); border: 1px solid var(--line-2);
         border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--text); }
   .keys-dlg { width: min(680px, calc(100vw - 32px)); }
+  .tips-dlg { width: min(560px, calc(100vw - 32px)); }
+  .tips-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .tips-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+                  background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .tips-list li.done { opacity: .55; }
+  .tips-list .tip-icon { font-size: 20px; text-align: center; }
+  .tips-list .tip-body b { display: block; font-size: 14px; }
+  .tips-list .tip-body .muted { display: block; margin-top: 1px; }
+  .tips-list .tip-act { font-size: 13px; text-align: right; white-space: nowrap; }
+  .tips-list .tip-act a { color: var(--accent); }
+  .tips-list .tip-on { color: var(--ok); }
+  .tips-paid { margin: 12px 0 0; }
+  @media (max-width: 480px) {
+    .tips-list li { grid-template-columns: 24px minmax(0, 1fr); }
+    .tips-list .tip-act { grid-column: 2; text-align: left; }
+  }
+  .usage-box { margin: 12px 0 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 13px; }
+  .usage-box:empty { display: none; }
+  .usage-head { font-weight: 600; margin-bottom: 4px; }
+  .usage-box ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .usage-box li.limit { color: var(--err); flex-basis: 100%; }
+  .usage-box .free-on { color: var(--ok); font-weight: 500; }
   .keys-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 24px; }
   .keys-grid h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 16px 0 6px; font-weight: 600; }
   .keys-grid ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
@@ -597,6 +622,72 @@
   @media (max-width: 720px) {
     .lk-dlg .lk { flex-direction: column; }
     .lk-dlg .lk-stage-wrap { max-width: 100%; }
+  }
+
+  /* ===== 📺 Tư liệu Bilibili ===== */
+  .bl-wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; }
+  .bl-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 20px; align-items: start; margin-top: 16px; }
+  .bl-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .bl-search { display: flex; gap: 8px; }
+  .bl-search input, .bl-search select, .bl-side input, .bl-side select {
+    font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-width: 0; }
+  .bl-search input { flex: 1; }
+  .bl-search input:focus, .bl-side input:focus { outline: 0; border-color: var(--line-2); }
+  .bl-search .send { padding: 0 20px; }
+  .bl-under { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .bl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bl-chip { background: transparent; border: 1px dashed var(--line-2); border-radius: 999px; padding: 4px 11px; font-size: 13px; color: var(--muted); }
+  .bl-chip:hover { color: var(--text); border-color: var(--accent); }
+  .bl-link { background: transparent; border: 0; padding: 0; color: var(--accent); font-size: 13px; text-decoration: underline; }
+  .bl-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .bl-card { display: flex; flex-direction: column; gap: 8px; text-align: left; background: var(--panel); border: 1px solid var(--line);
+             border-radius: 14px; padding: 8px; color: var(--text); }
+  .bl-card:hover, .bl-card.on { border-color: var(--accent); }
+  .bl-cover { position: relative; aspect-ratio: 16 / 10; border-radius: 9px; overflow: hidden; background: #000; }
+  .bl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bl-cover i { position: absolute; right: 5px; bottom: 5px; font-style: normal; font-size: 11.5px; background: rgba(0,0,0,.72); color: #fff; padding: 1px 5px; border-radius: 4px; }
+  .bl-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .bl-meta b { font-size: 13.5px; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .bl-meta small { color: var(--muted); font-size: 12px; }
+  .bl-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .bl-tags em { font-style: normal; font-size: 11.5px; color: #7ee2a8; background: rgba(63,185,80,.13); border-radius: 5px; padding: 1px 6px; }
+  .bl-tags em.pending { color: var(--muted); background: var(--panel-2); }
+  .bl-empty { grid-column: 1 / -1; text-align: center; padding: 24px 0; }
+  .bl-more { align-self: center; }
+  .bl-tool { margin-top: 8px; }
+  .bl-side { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--panel);
+             border: 1px solid var(--line); border-radius: 16px; padding: 14px; max-height: calc(100vh - 110px); overflow-y: auto; }
+  .bl-placeholder { text-align: center; padding: 40px 10px; }
+  .bl-player { aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+  .bl-player iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .bl-title { margin: 0; font-size: 16px; line-height: 1.35; }
+  .bl-side > p { margin: 0; }
+  .bl-side a { color: var(--muted); }
+  .bl-permit { display: flex; flex-direction: column; gap: 8px; border: 1px solid rgba(63,185,80,.4); border-radius: 12px; padding: 10px 12px; }
+  .bl-permit blockquote { margin: 0; padding: 2px 0 2px 10px; border-left: 3px solid var(--ok); font-size: 14px; }
+  .bl-permit details { font-size: 13px; color: var(--muted); }
+  .bl-permit details p { margin: 6px 0 0; white-space: pre-wrap; max-height: 180px; overflow-y: auto; }
+  .bl-permit > p { margin: 0; }
+  .bl-range { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 8px; }
+  .bl-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+  .bl-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+  .bl-check input { margin-top: 3px; }
+  .bl-side .send { width: 100%; justify-content: center; }
+  .bl-side .hint { margin: 0; text-align: left; }
+  #biliRangeNote.err { color: var(--err); }
+  .bl-downloads { margin-top: 28px; }
+  .bl-downloads h3 { font-size: 15px; margin: 0 0 10px; }
+  .bl-dl { display: flex; gap: 14px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-bottom: 10px; }
+  .bl-dl video { width: 220px; max-width: 40%; border-radius: 9px; background: #000; }
+  .bl-dl-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .bl-dl-body small { color: var(--muted); overflow-wrap: anywhere; }
+  @media (max-width: 900px) {
+    .bl-grid { grid-template-columns: 1fr; }
+    .bl-side { position: static; max-height: none; }
+    .bl-search { flex-wrap: wrap; }
+    .bl-search input { flex-basis: 100%; }
+    .bl-dl { flex-direction: column; }
+    .bl-dl video { width: 100%; max-width: none; }
   }
 
   /* ===== Làm nhiều video một lượt ===== */
@@ -790,6 +881,7 @@
   <a class="nav-link" id="nav-new" href="#/">✨ <span class="label">Tạo video</span></a>
   <a class="nav-link" id="nav-batch" href="#/batch">🏭 <span class="label">Hàng loạt</span></a>
   <a class="nav-link" id="nav-subs" href="#/subs">🔤 <span class="label">Phụ đề</span></a>
+  <a class="nav-link" id="nav-bili" href="#/bili" title="Tìm và tải tư liệu Bilibili tác giả cho phép dùng">📺 <span class="label">Bilibili</span></a>
   <a class="nav-link" id="nav-lib" href="#/library">📁 <span class="label">Thư viện</span></a>
   <span class="spacer"></span>
   <button type="button" class="nav-link" id="openShortcuts" title="Phím tắt (? hoặc Ctrl/⌘+/)" aria-label="Phím tắt">⌨</button>
@@ -821,7 +913,7 @@
       </a>
       <div class="pb-title"><b id="projectTitle"></b><span id="projectMeta"></span></div>
       <a class="btn" id="projectMulti" href="#" hidden title="Mở lại danh sách cảnh để sửa prompt, model, lời đọc">🎬 <span class="label">Sửa cảnh</span></a>
-      <a class="btn" id="projectEdit" href="#" hidden title="Mở trình chỉnh sửa timeline">✂️ <span class="label">Chỉnh sửa</span></a>
+      <a class="btn" id="projectEdit" href="#" hidden title="Mở bản mới nhất trong trình chỉnh sửa — bản cũ mở từ nút dưới từng video">✂️ <span class="label">Chỉnh sửa</span></a>
       <button type="button" class="btn" id="projectPostCopy" hidden title="AI gợi ý tiêu đề, caption, hashtag để đăng video">✍️ <span class="label">Bài đăng</span></button>
       <button type="button" class="btn primary" id="projectDownload" hidden>⬇ <span class="label">Tải video</span></button>
       <button type="button" class="icon-btn" id="projectDelete" hidden title="Xoá video này" aria-label="Xoá video này">🗑</button>
@@ -991,6 +1083,39 @@ Lưu lại để làm theo nhé!</pre>
 </section>
 
 <!-- ===== Thêm phụ đề cho nhiều video ===== -->
+<section class="batch" id="view-bili" hidden>
+  <div class="bl-wrap">
+    <div class="page-head">
+      <h1>📺 Tư liệu Bilibili</h1>
+      <p class="muted">Chỉ hiện video <b>tác giả ghi rõ cho phép dùng</b> (可商用, 免费使用, CC0…). Video đăng lại, trả phí hay có câu cấm đều bị loại.
+        Tải đoạn cần dùng vào thư viện, kèm bằng chứng cho phép để ghi nguồn khi đăng.</p>
+    </div>
+    <div class="bl-grid">
+      <div class="bl-col">
+        <form class="bl-search" id="biliForm">
+          <input type="search" id="biliQuery" placeholder="航拍 城市 免费商用 — gõ tiếng Việt rồi bấm Dịch cũng được" autocomplete="off" />
+          <select id="biliOrder" aria-label="Sắp xếp"></select>
+          <button type="submit" class="send" id="biliSearch">Tìm</button>
+        </form>
+        <div class="bl-under">
+          <button type="button" class="bl-link" id="biliTranslate" hidden>文 Dịch sang tiếng Trung</button>
+          <div class="bl-chips" id="biliChips"></div>
+        </div>
+        <p class="hint" id="biliHint"></p>
+        <p class="muted" id="biliStats"></p>
+        <div class="bl-results" id="biliResults"></div>
+        <button type="button" class="btn bl-more" id="biliMore" hidden>Tìm trang sau</button>
+        <p class="muted bl-tool" id="biliTool"></p>
+      </div>
+      <aside class="bl-side" id="biliDetail"></aside>
+    </div>
+    <div class="bl-downloads" id="biliDownloads" hidden>
+      <h3>Đã tải trong phiên này</h3>
+      <div id="biliDownloadList"></div>
+    </div>
+  </div>
+</section>
+
 <section class="batch" id="view-subs" hidden>
   <div class="bt-wrap sb-wrap">
     <div class="page-head">
@@ -1230,6 +1355,25 @@ Lưu lại để làm theo nhé!</pre>
   </form>
 </dialog>
 
+<!-- Lần đầu tạo video: gợi ý key miễn phí giúp video đẹp hơn (app.js › keyTipsBeforeFirstVideo) -->
+<dialog class="dlg tips-dlg" id="keyTipsDlg">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2>✨ Video đẹp hơn với vài key miễn phí</h2>
+      <button type="submit" class="icon-btn" value="cancel" aria-label="Đóng">✕</button>
+    </div>
+    <p class="muted">Không có key app vẫn tạo được video. Các key dưới đây đều <b>miễn phí</b>, mỗi key lấy mất 1–2 phút —
+      lấy xong dán vào ⚙ Cài đặt.</p>
+    <ul class="tips-list" id="keyTipsList"></ul>
+    <p class="muted tips-paid" id="keyTipsPaid">Muốn hơn nữa (trả phí): ElevenLabs cho giọng đọc, fal.ai hoặc Replicate cho clip video AI.</p>
+    <p class="hint err" id="keyTipsNeed" hidden>🤖 AI viết lời cần ít nhất một key — Gemini là nhanh nhất. Hoặc đổi sang 📝 Lời có sẵn.</p>
+    <div class="dlg-foot">
+      <button type="submit" class="btn" value="later" id="keyTipsLater">Để sau, tạo video luôn</button>
+      <button type="submit" class="btn primary" value="settings" id="keyTipsSettings">🔑 Điền key ngay</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog class="dlg" id="settingsDlg">
   <form id="settingsForm" autocomplete="off">
     <div class="dlg-head">
@@ -1237,7 +1381,8 @@ Lưu lại để làm theo nhé!</pre>
       <button type="button" class="icon-btn" data-close aria-label="Đóng">✕</button>
     </div>
     <p class="muted">Điền key vào các ô dưới đây. Key chỉ lưu trên máy này và có hiệu lực ngay.
-      Bỏ trống ô nào thì giữ nguyên key đang có.</p>
+      Bỏ trống ô nào thì giữ nguyên key đang có. Mới dùng? Chỉ cần các key <b>🆓 Miễn phí</b> ở đầu danh sách.</p>
+    <div class="usage-box" id="usageBox"></div>
     <div id="keyFields"></div>
     <p class="hint" id="settingsHint"></p>
     <div class="dlg-foot">
@@ -1265,6 +1410,7 @@ Lưu lại để làm theo nhé!</pre>
 
 <script src="/app.js"></script>
 <script src="/subs.js"></script>
+<script src="/bili.js"></script>
 <script src="/post-copy.js"></script>
 </body>
 </html>

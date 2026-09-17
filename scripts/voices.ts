@@ -4,7 +4,7 @@ export type Voice = {
   /** Tên gõ ở CLI: --voice laura */
   key: string;
   engine: TtsEngine;
-  /** voice_id của ElevenLabs, voice_code của EverAI, hoặc tên giọng của macOS `say`. */
+  /** voice_id của ElevenLabs, tên giọng Gemini (Kore…), hoặc tên giọng của macOS `say`. */
   id: string;
   lang: "vi" | "en";
   gender: "nữ" | "nam" | "khác";
@@ -41,10 +41,13 @@ export const VOICES: Voice[] = [
     note: "kể chuyện, trẻ",
     paidPlan: true,
   },
-  // EverAI: voice_code theo tài liệu API (help.everai.vn), ~1000 credit/1k ký tự.
-  { key: "kieu-nhi", engine: "everai", id: "vi_female_kieunhi_mn", lang: "vi", gender: "nữ", note: "EverAI, giọng miền Nam" },
-  { key: "thuy-trang", engine: "everai", id: "vi_female_thuytrang_mb", lang: "vi", gender: "nữ", note: "EverAI, giọng miền Bắc" },
-  { key: "le-hoang", engine: "everai", id: "vi_male_lehoang_mb", lang: "vi", gender: "nam", note: "EverAI, giọng miền Bắc" },
+  // Gemini TTS: dùng key Gemini, có gói miễn phí. Giọng đa ngôn ngữ — đọc tiếng Việt lẫn tiếng Anh.
+  { key: "gemini-kore", engine: "gemini", id: "Kore", lang: "vi", gender: "nữ", note: "Gemini, rõ ràng, chắc giọng" },
+  { key: "gemini-sulafat", engine: "gemini", id: "Sulafat", lang: "vi", gender: "nữ", note: "Gemini, ấm áp, kể chuyện" },
+  { key: "gemini-leda", engine: "gemini", id: "Leda", lang: "vi", gender: "nữ", note: "Gemini, trẻ trung" },
+  { key: "gemini-charon", engine: "gemini", id: "Charon", lang: "vi", gender: "nam", note: "Gemini, thuyết minh" },
+  { key: "gemini-puck", engine: "gemini", id: "Puck", lang: "vi", gender: "nam", note: "Gemini, sôi nổi" },
+  { key: "gemini-orus", engine: "gemini", id: "Orus", lang: "vi", gender: "nam", note: "Gemini, chắc giọng" },
 
   // ---- Tiếng Anh, ElevenLabs ----
   { key: "laura", engine: "elevenlabs", id: "FGY2WhTYpPnrIDTdsKH5", lang: "en", gender: "nữ", note: "trẻ, social media" },
@@ -69,9 +72,9 @@ export const VOICES: Voice[] = [
   { key: "callum", engine: "elevenlabs", id: "N2lVS1w4EtoT3dr4eOWO", lang: "en", gender: "nam", note: "nhân vật hoạt hình" },
   { key: "harry", engine: "elevenlabs", id: "SOYHLrjzK2X1ezoPC6cr", lang: "en", gender: "nam", note: "nhân vật hoạt hình" },
 
-  // ---- Tiếng Anh, EverAI (~100 credit/1k ký tự) ----
-  { key: "ever-nova", engine: "everai", id: "en_female_nova_default", lang: "en", gender: "nữ", note: "EverAI" },
-  { key: "ever-echo", engine: "everai", id: "en_male_echo_default", lang: "en", gender: "nam", note: "EverAI" },
+  // ---- Tiếng Anh, Gemini (gói miễn phí) ----
+  { key: "gemini-zephyr", engine: "gemini", id: "Zephyr", lang: "en", gender: "nữ", note: "Gemini, tươi sáng" },
+  { key: "gemini-fenrir", engine: "gemini", id: "Fenrir", lang: "en", gender: "nam", note: "Gemini, hào hứng" },
 
   // ---- Tiếng Anh, macOS (miễn phí, offline) ----
   { key: "mac-samantha", engine: "say", id: "Samantha", lang: "en", gender: "nữ", note: "macOS, giọng Mỹ" },

@@ -29,8 +29,8 @@ import {
   writeScript,
 } from "./api";
 import {
-  createEditorProject, deleteProjects, isSlug, listProjects, readChat, readEditorProps, readMulti, startAutoSubtitles, startEditorRender,
-  startMultiScene, startTurn,
+  createEditorProject, deleteProjects, discardEditorDraft, isSlug, writeEditorProps, listProjects, readChat, readEditorProps, readMulti, startAutoSubtitles, startEditorRender,
+  saveChatDraft, saveMultiDraft, startMultiScene, startTurn,
   startVoiceChange,
 } from "./chat";
 import {
@@ -47,7 +47,7 @@ import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
 import { captureFrame, deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
 import { deleteTrash, listTrash, restoreTrash, trashFilesDir } from "./app-trash";
-import { keyStatus, loadKeys, saveKeys } from "./keys";
+import { keyStatus, keyTipsSeen, loadKeys, markKeyTipsSeen, saveKeys } from "./keys";
 import { isStyleId, STYLE_IDS, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
 import { isScriptProvider, providerLabel, scriptProvider, scriptProviderCatalog } from "../scripts/generate-script";
@@ -60,6 +60,9 @@ import {
 import { watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { getJob, startJob } from "./jobs";
+import { parseVersion } from "./versions";
+import { freeMode, usageSummary } from "../scripts/usage";
+import { downloadStock, isStockKind, isStockProvider, searchStock, stockProviders, type Orientation } from "../scripts/stock";
 import { pipelineStatus, runRenderStage, runVoiceStage } from "./pipeline";
 import { slugify } from "../scripts/slug";
 
@@ -205,8 +208,12 @@ const server = http.createServer(async (req, res) => {
         ...(({ models, defaultModel }) => ({ videoModels: models, videoDefault: defaultModel }))(videoModelCatalog()),
         /** AI viết kịch bản chọn được cho từng video (nhà cung cấp + model theo Cài đặt). */
         scriptProviders: scriptProviderCatalog(),
+        /** 💚 Chế độ Miễn phí: giao diện khoá các lựa chọn tính tiền. */
+        freeMode: freeMode(),
         /** Watermark theo Cài đặt — trình chỉnh sửa gắn vào khung xem trước. */
         watermark: watermarkFromSettings(),
+        /** Đã hiện popup gợi ý key lúc tạo video lần đầu. */
+        keyTipsSeen: keyTipsSeen(),
         keys: {
           /** Có key của một nhà cung cấp viết kịch bản nào đó (kể cả gói miễn phí). */
           script: Boolean(scriptProvider()),
@@ -218,12 +225,22 @@ const server = http.createServer(async (req, res) => {
           groq: Boolean(process.env.GROQ_API_KEY),
           openrouter: Boolean(process.env.OPENROUTER_API_KEY),
           elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
-          pexels: Boolean(process.env.PEXELS_API_KEY),
+          /** Có nguồn ảnh/clip miễn phí (Pexels hoặc Pixabay) — giữ tên cũ cho các chỗ đang kiểm tra. */
+          pexels: Boolean(process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY),
+          pixabay: Boolean(process.env.PIXABAY_API_KEY),
+          freesound: Boolean(process.env.FREESOUND_API_KEY),
+          /** Vẽ ảnh FLUX miễn phí qua Cloudflare — dùng cả khi bật chế độ Miễn phí. */
+          flux: Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN),
           gemini: Boolean(process.env.GEMINI_API_KEY),
           fal: Boolean(process.env.FAL_KEY),
           replicate: Boolean(process.env.REPLICATE_API_TOKEN),
         },
       });
+    }
+
+    /** Lượt gọi AI hôm nay + lần gần nhất bị chặn vì hạn mức — hiện trong ⚙ Cài đặt. */
+    if (route === "/api/usage") {
+      return send(res, 200, { ...usageSummary(), freeMode: freeMode() });
     }
 
     /** Model dịch phụ đề dùng được — hỏi thật Ollama, nên gọi lại khi người dùng bấm "Kiểm tra lại". */
@@ -232,6 +249,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- cài đặt API key ----
+    if (route === "/api/key-tips/seen" && req.method === "POST") {
+      markKeyTipsSeen();
+      return send(res, 200, { ok: true });
+    }
     if (route === "/api/keys") {
       if (req.method === "POST") {
         try {
@@ -375,6 +396,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- video nhiều cảnh: mỗi cảnh một prompt ----
+    // Bản nháp chưa gửi (ô chat, danh sách cảnh) — lưu liên tục để tắt app/mất điện không mất.
+    if ((route === "/api/chat/draft" || route === "/api/multi/draft") && req.method === "POST") {
+      try {
+        const body = await readJson(req);
+        return send(res, 200, route === "/api/chat/draft" ? saveChatDraft(body) : saveMultiDraft(body));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
     if (route === "/api/multi" && req.method === "POST") {
       try {
         return send(res, 200, startMultiScene(await readJson(req)));
@@ -433,18 +464,26 @@ const server = http.createServer(async (req, res) => {
       if (!isSlug(slug)) {
         return send(res, 400, { error: "Tên video không hợp lệ" });
       }
+      // ?version=n: bản đang mở trong trình chỉnh sửa (bỏ trống = bản mới nhất). Xem server/versions.ts.
+      const version = parseVersion(url.searchParams.get("version"));
       try {
         if (action === "render" && req.method === "POST") {
-          return send(res, 200, startEditorRender(slug));
+          return send(res, 200, startEditorRender(slug, version));
         }
         if (action === "voice" && req.method === "POST") {
-          return send(res, 200, startVoiceChange(slug, await readJson(req)));
+          return send(res, 200, startVoiceChange(slug, await readJson(req), version));
         }
         if (action === "subtitles" && req.method === "POST") {
-          return send(res, 200, startAutoSubtitles(slug, await readJson(req)));
+          return send(res, 200, startAutoSubtitles(slug, await readJson(req), version));
+        }
+        if (action === "save" && req.method === "POST") {
+          return send(res, 200, writeEditorProps(slug, version, await readJson(req)));
+        }
+        if (action === "discard" && req.method === "POST") {
+          return send(res, 200, discardEditorDraft(slug, version));
         }
         if (!action && req.method === "GET") {
-          return send(res, 200, readEditorProps(slug));
+          return send(res, 200, readEditorProps(slug, version));
         }
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
@@ -679,6 +718,31 @@ const server = http.createServer(async (req, res) => {
         return { ...result, audio: listAudio() };
       });
       return send(res, 200, { jobId: job.id });
+    }
+
+    // ---- 🆓 kho ảnh, video, nhạc miễn phí (scripts/stock.ts) ----
+    if (route === "/api/stock/providers") {
+      return send(res, 200, { providers: stockProviders() });
+    }
+
+    if (route === "/api/stock/search") {
+      const kind = url.searchParams.get("kind");
+      const orientation = url.searchParams.get("orientation");
+      if (!isStockKind(kind)) return send(res, 400, { error: "Loại media không hợp lệ" });
+      return send(res, 200, await searchStock(
+        kind,
+        url.searchParams.get("q") ?? "",
+        (["portrait", "landscape", "square", "any"] as const).includes(orientation as Orientation) ? orientation as Orientation : "any",
+        Math.max(1, Math.min(20, Number(url.searchParams.get("page")) || 1)),
+      ));
+    }
+
+    if (route === "/api/stock/download" && req.method === "POST") {
+      const body = await readJson<{ provider?: string; kind?: string; id?: string }>(req);
+      if (!isStockProvider(body.provider) || !isStockKind(body.kind) || typeof body.id !== "string") {
+        return send(res, 400, { error: "Media không hợp lệ" });
+      }
+      return send(res, 200, await downloadStock(body.provider, body.kind, body.id));
     }
 
     if (route === "/api/pexels/search") {
