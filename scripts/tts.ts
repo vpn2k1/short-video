@@ -4,16 +4,18 @@ import fs from "fs";
 import path from "path";
 import type { VoiceoverClip } from "../src/compositions/Short/script";
 import { geminiTtsToWavs } from "./gemini-tts";
+import { LOCAL_DEFAULT_VOICE, LOCAL_VOICE_MODEL, localTtsToWavs, localVoiceAvailable } from "./vieneu-tts";
 import { VOICES } from "./voices";
 import { describeProviderError, ProviderError, shouldFallBack } from "./provider-error";
 
-export type TtsEngine = "elevenlabs" | "gemini" | "say";
+export type TtsEngine = "elevenlabs" | "gemini" | "say" | "local";
 
 /** Tên hiển thị của từng nguồn giọng — dùng chung cho CLI, API, giao diện. */
 export const ENGINE_LABELS: Record<TtsEngine, string> = {
   elevenlabs: "ElevenLabs",
   gemini: "Gemini",
   say: "miễn phí",
+  local: "có sẵn trong app",
 };
 
 const ENGINE_KEYS: Partial<Record<TtsEngine, string>> = {
@@ -197,9 +199,11 @@ export type VoiceoverOptions = {
 };
 
 /**
- * Giọng miễn phí thay thế khi giọng trên mạng hết lượt: giọng của hệ điều hành. null = không có gì thay được.
+ * Giọng miễn phí thay thế khi giọng trên mạng hết lượt: giọng có sẵn trong app (VieNeu, tiếng Việt)
+ * → giọng của hệ điều hành. null = không có gì thay được.
  */
 const fallbackVoice = (lang: "vi" | "en"): { engine: TtsEngine; id: string; label: string } | null => {
+  if (lang === "vi" && localVoiceAvailable()) return { engine: "local", id: LOCAL_DEFAULT_VOICE, label: `giọng ${LOCAL_DEFAULT_VOICE} có sẵn trong app` };
   if (process.platform === "darwin") return lang === "vi"
     ? { engine: "say", id: "Linh", label: "giọng Linh của macOS" }
     : { engine: "say", id: "Samantha", label: "giọng Samantha của macOS" };
@@ -211,7 +215,7 @@ export const generateVoiceover = async (
   lines: string[],
   slug: string,
   engine: TtsEngine,
-  /** Ghi đè lựa chọn giọng: voice_id của ElevenLabs, hoặc tên giọng của Gemini/`say`. */
+  /** Ghi đè lựa chọn giọng: voice_id của ElevenLabs, tên giọng của Gemini/`say`, hoặc tên giọng VieNeu có sẵn trong app. */
   voiceOverride?: string,
   options: VoiceoverOptions = {},
 ): Promise<VoiceoverClip[]> => {
@@ -271,13 +275,18 @@ const synthesizeVoiceover = async (
   // đọc lại cả video, không tốn thêm lượt gọi giọng trên mạng.
   const voiceTag = engine === "elevenlabs" ? `${voiceId}|${modelId}`
     : engine === "gemini" ? `${voiceOverride}|${process.env.GEMINI_TTS_MODEL ?? ""}|${process.env.GEMINI_TTS_STYLE ?? ""}`
-      : `${sayVoice}|${process.platform}`;
+      : engine === "say" ? `${sayVoice}|${process.platform}`
+        : `${LOCAL_VOICE_MODEL}|${voiceOverride ?? LOCAL_DEFAULT_VOICE}`;
   const cached = lines.map((text) => cachePath(engine, voiceTag, text));
   const todo = lines.map((_, i) => i).filter((i) => !fs.existsSync(cached[i]));
   if (todo.length < lines.length) {
     process.stdout.write(`     Dùng lại ${lines.length - todo.length}/${lines.length} câu đã đọc trước đó.\n`);
   }
 
+  // Giọng trong app đọc cả loạt trong một tiến trình con (nạp model một lần), rồi đổi sang mp3 ở vòng dưới.
+  if (engine === "local" && todo.length > 0) {
+    await localTtsToWavs(todo.map((i) => ({ text: lines[i], out: path.join(absDir, `${clipName(i)}.wav`) })), voiceOverride);
+  }
   // Gemini đọc các câu còn thiếu trong một lượt gọi rồi tự tách câu (tiết kiệm hạn mức gói miễn phí) — xem gemini-tts.ts.
   if (engine === "gemini" && todo.length > 0) {
     await geminiTtsToWavs(todo.map((i) => ({ text: lines[i], out: path.join(absDir, `${clipName(i)}.wav`) })), voiceOverride as string);
@@ -296,7 +305,7 @@ const synthesizeVoiceover = async (
         // không quan trọng
       }
     } else {
-      if (engine === "gemini") {
+      if (engine === "local" || engine === "gemini") {
         toMp3(`${abs}.wav`, abs);
         fs.unlinkSync(`${abs}.wav`);
       } else if (engine === "say") {

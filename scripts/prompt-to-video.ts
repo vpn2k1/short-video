@@ -152,8 +152,8 @@ for (let i = 0; i < args.length; i++) {
     } else if (arg === "--music") {
       music = value === "none" ? null : value;
     } else {
-      if (value !== "elevenlabs" && value !== "say" && value !== "none") {
-        console.error(`--tts chỉ nhận: elevenlabs | say | none`);
+      if (value !== "elevenlabs" && value !== "say" && value !== "local" && value !== "none") {
+        console.error(`--tts chỉ nhận: elevenlabs | say | local | none`);
         process.exit(1);
       }
       tts = value;
