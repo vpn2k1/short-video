@@ -11,6 +11,8 @@
 import fs from "fs";
 import path from "path";
 import { slugify } from "./slug";
+import { describeProviderError } from "./provider-error";
+import { freeMode } from "./usage";
 
 export type Provider = "gemini" | "fal" | "replicate";
 
@@ -188,13 +190,15 @@ export const videoModelCatalog = () => {
     durations: m.durations,
     ratios: m.ratios,
     usdPerSecond: m.usdPerSecond ?? null,
-    available: hasKey(m.provider),
+    available: hasKey(m.provider) && !freeMode(),
   }));
-  return { models, defaultModel: pickModel()?.key ?? null };
+  return { models, defaultModel: pickModel()?.key ?? null, freeMode: freeMode() };
 };
 
 /** Model trong Cài đặt nếu có key; "Tự động"/trống → model đầu tiên có key. */
 const pickModel = (key?: string) => {
+  // Video AI không có gói miễn phí dùng lâu dài.
+  if (freeMode()) return undefined;
   const wanted = key && key !== "auto" ? key : process.env.AI_VIDEO_MODEL;
   if (wanted && wanted !== "auto") {
     const model = VIDEO_MODELS.find((m) => m.key === wanted);
@@ -229,7 +233,7 @@ const POLL_MS = 5000;
 const TIMEOUT_MS = 15 * 60 * 1000;
 
 const failText = async (label: string, response: Response) =>
-  new Error(`${label} trả về ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  new Error(describeProviderError(label, response.status, (await response.text()).slice(0, 600), "hoặc chọn model video khác"));
 
 type Log = (line: string) => void;
 
@@ -337,7 +341,7 @@ const runReplicate = async (m: VideoModel, r: Request, log: Log) => {
     if (!res.ok) throw await failText("Replicate", res);
     const body = (await res.json()) as Prediction;
     if (body.status === "failed" || body.status === "canceled") {
-      throw new Error(`Replicate: ${body.error ?? body.status}`);
+      throw new Error(describeProviderError("Replicate", undefined, String(body.error ?? body.status), "hoặc chọn model video khác"));
     }
     return body.status === "succeeded" ? body : undefined;
   }, log, m.label);
@@ -368,6 +372,9 @@ export const generateAiVideo = async (
   if (!prompt) throw new Error("Thiếu mô tả video.");
 
   const model = pickModel(options.model);
+  if (!model && freeMode()) {
+    throw new Error("💚 Chế độ Miễn phí đang bật — video AI tính tiền nên đã tắt. Tắt chế độ này trong ⚙ Cài đặt nếu muốn dùng.");
+  }
   if (!model) {
     throw new Error(
       "Chưa có key tạo video. Thêm GEMINI_API_KEY, FAL_KEY hoặc REPLICATE_API_TOKEN trong ⚙ Cài đặt.",

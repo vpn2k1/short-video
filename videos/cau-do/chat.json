@@ -1,0 +1,28 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "câu đố thú vị",
+      "at": 1789620041534,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789620044245,
+      "error": true,
+      "text": "Chưa có giọng đọc trong app (thiếu vendor/models/vits-piper-vi_VN-vais1000-medium). Chạy bash desktop/fetch-local-voice.sh, hoặc chọn giọng khác."
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "comic",
+    "mode": "ai",
+    "aspect": "16:9",
+    "voice": "vais",
+    "music": null,
+    "video": "",
+    "provider": "auto",
+    "images": "ai",
+    "length": "60"
+  }
+}

@@ -24,7 +24,7 @@ const downloadSample = (name: string, content: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 };
 
-type Section = "visual" | "ai" | "audio" | "text" | "captions" | "bili";
+type Section = "visual" | "ai" | "audio" | "text" | "captions" | "stock";
 export type LibrarySection = Section;
 
 type Props = {
@@ -35,8 +35,8 @@ type Props = {
   aspect: string;
   /** Clip AI vừa tạo xong: làm mới thư viện, gán cho cảnh nếu người dùng chọn. */
   onAiVideo: (path: string, assign: boolean) => void;
-  /** Clip tư liệu Bilibili vừa tải xong: làm mới thư viện, gán cho cảnh nếu người dùng chọn. */
-  onBiliVideo: (path: string, assign: boolean) => void;
+  /** Media vừa tải từ 🆓 Kho miễn phí: "use" = dùng ngay (thay mục đang chọn / thêm tại đầu phát), "music" = nhạc nền, "save" = chỉ lưu. */
+  onStock: (path: string, kind: StockKind, action: "use" | "music" | "save", credit: string) => void;
   selection: ops.Selection;
   uploading: boolean;
   currentMusic: string | null;
@@ -86,7 +86,7 @@ const AUDIO_GROUPS: { key: string; title: string }[] = [
  * Đặt bên trái hoặc bên phải trình chỉnh sửa (nút ⇄ trên thanh trên cùng).
  */
 export const MediaPanel: React.FC<Props> = ({
-  sectionRequest, media, aspect, selection, uploading, currentMusic, onUse, onUpload, onAddText, onSetMusic, onAppendOverlay, onExtractAudio, onAiVideo, onBiliVideo,
+  sectionRequest, media, aspect, selection, uploading, currentMusic, onUse, onUpload, onAddText, onSetMusic, onAppendOverlay, onExtractAudio, onAiVideo, onStock,
   selectedVideoScene, onDetachSceneAudio,
   captions, timeMs, selectedCaption, onSelectCaption, onCaptionText, onInsertCaption, onDeleteCaption, onAddCaptionLines, onImportCaptions,
 }) => {
@@ -132,7 +132,7 @@ export const MediaPanel: React.FC<Props> = ({
     { id: "text", icon: "T", label: "Văn bản" },
     { id: "captions", icon: "💬", label: "Phụ đề" },
     { id: "ai", icon: "✨", label: "Video AI" },
-    { id: "bili", icon: "📺", label: "Bilibili" },
+    { id: "stock", icon: "🆓", label: "Kho free" },
   ];
 
   const uploadButton = section === "visual" || section === "audio" ? (
@@ -190,7 +190,7 @@ export const MediaPanel: React.FC<Props> = ({
         ) : null}
 
         {section === "ai" ? <AiVideoForm aspect={aspect} target={target} onDone={onAiVideo} /> : null}
-        {section === "bili" ? <BilibiliPanel target={target} onDone={onBiliVideo} /> : null}
+        {section === "stock" ? <StockPanel aspect={aspect} target={target} onStock={onStock} /> : null}
 
         {section === "visual" || section === "audio" ? (
           <div className="md-tools">
@@ -564,6 +564,7 @@ const AiVideoForm: React.FC<{
   onDone: (path: string, assign: boolean) => void;
 }> = ({ aspect, target, onDone }) => {
   const [models, setModels] = useState<VideoModelOption[] | null>(null);
+  const [freeMode, setFreeMode] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [model, setModel] = useState("");
   const [seconds, setSeconds] = useState(5);
@@ -573,9 +574,10 @@ const AiVideoForm: React.FC<{
   const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    api<{ models: VideoModelOption[]; defaultModel: string | null }>("/api/ai-video/models")
+    api<{ models: VideoModelOption[]; defaultModel: string | null; freeMode?: boolean }>("/api/ai-video/models")
       .then((d) => {
         setModels(d.models);
+        setFreeMode(Boolean(d.freeMode));
         setModel(d.defaultModel ?? "");
       })
       .catch((e: Error) => setLoadError(e.message));
@@ -586,11 +588,21 @@ const AiVideoForm: React.FC<{
   if (!models) return <p className="md-hint">Đang tải danh sách model…</p>;
 
   const available = models.filter((m) => m.available);
+  if (freeMode) {
+    return (
+      <div className="ai">
+        <p className="ai-note">
+          💚 <b>Chế độ Miễn phí</b> đang bật — video AI tính tiền theo clip nên đã tắt. Dùng ảnh/clip miễn phí trong thư viện,
+          hoặc tắt chế độ này ở trang chính › ⚙ Cài đặt.
+        </p>
+      </div>
+    );
+  }
   if (available.length === 0) {
     return (
       <div className="ai">
         <p className="ai-note">
-          Chưa có key tạo video. Về trang chính › ⚙ Cài đặt › <b>Tạo video bằng AI</b>, dán một trong các key:
+          Chưa có key tạo video. Về trang chính › ⚙ Cài đặt, dán một trong các key:
         </p>
         <ul className="ai-note" style={{ paddingLeft: 18 }}>
           {[...new Map(models.map((m) => [m.env, m.providerLabel])).entries()].map(([env, label]) => (
@@ -687,366 +699,169 @@ const AiVideoForm: React.FC<{
   );
 };
 
-/** Kiểu dữ liệu của scripts/bilibili.ts — chỉ import kiểu, không kéo code server vào trình duyệt. */
-type BiliResult = import("../../scripts/bilibili").BiliResult;
-type BiliDetail = import("../../scripts/bilibili").BiliDetail;
+type StockKind = import("../../scripts/stock").StockKind;
+type StockItem = import("../../scripts/stock").StockItem;
+type StockProviderInfo = { id: string; label: string; kinds: StockKind[]; available: boolean; env: string };
 
-const BILI_KEYWORDS = ["免费商用 视频素材", "空镜头 可商用", "航拍 免费素材", "CC0 素材", "欢迎二创"];
-
-const BILI_ORDER_LABELS: [string, string][] = [
-  ["totalrank", "Phù hợp nhất"],
-  ["click", "Nhiều lượt xem"],
-  ["pubdate", "Mới nhất"],
-  ["stow", "Nhiều lượt lưu"],
+const STOCK_KINDS: { id: StockKind; label: string }[] = [
+  { id: "video", label: "Video" },
+  { id: "image", label: "Ảnh" },
+  { id: "music", label: "Nhạc" },
+  { id: "sfx", label: "Hiệu ứng" },
 ];
 
-const clockText = (seconds: number) => {
-  const s = Math.max(0, Math.round(seconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return `${h ? `${h}:${String(m).padStart(2, "0")}` : m}:${String(s % 60).padStart(2, "0")}`;
+const stockOrientation = (aspect: string) => {
+  const [w, h] = aspect.split(":").map(Number);
+  return !w || !h ? "any" : w === h ? "square" : w < h ? "portrait" : "landscape";
 };
-
-/** "1:23" / "83" / "1:02:03" → giây; ô trống → null; gõ sai → NaN. */
-const parseClock = (text: string): number | null => {
-  const value = text.trim();
-  if (!value) return null;
-  if (!/^\d+(:\d{1,2}){0,2}$/.test(value)) return Number.NaN;
-  return value.split(":").reduce((total, part) => total * 60 + Number(part), 0);
-};
-
-const compactCount = (n: number) => (n >= 10_000 ? `${(n / 10_000).toFixed(n >= 100_000 ? 0 : 1)} vạn` : String(n));
 
 /**
- * Tìm tư liệu trên Bilibili — chỉ hiện video tác giả ghi rõ cho phép dùng. Server lọc theo lời tác giả,
- * kiểm tra lại khi mở chi tiết và ngay trước khi tải; người dùng đọc câu cho phép rồi xác nhận mới tải được.
+ * 🆓 Kho miễn phí: ảnh, video (Pexels, Pixabay), nhạc và hiệu ứng (Freesound CC0/CC-BY).
+ * Tải về thư viện kèm ghi nguồn — server chỉ nhận (nhà cung cấp, loại, id) rồi tự hỏi lại link tải.
  */
-const BilibiliPanel: React.FC<{
+const StockPanel: React.FC<{
+  aspect: string;
   target: string;
-  onDone: (path: string, assign: boolean) => void;
-}> = ({ target, onDone }) => {
+  onStock: (path: string, kind: StockKind, action: "use" | "music" | "save", credit: string) => void;
+}> = ({ aspect, target, onStock }) => {
+  const [kind, setKind] = useState<StockKind>("video");
   const [query, setQuery] = useState("");
-  const [order, setOrder] = useState("totalrank");
-  const [results, setResults] = useState<BiliResult[]>([]);
-  const [stats, setStats] = useState<{ page: number; pages: number; scanned: number; kept: number } | null>(null);
-  const [busy, setBusy] = useState<"search" | "translate" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
-  const [tool, setTool] = useState<{ version: string | null; updating: string | null }>({ version: null, updating: null });
-  /** Kết quả đã qua kiểm tra chi tiết (video tự làm, không trả phí, mô tả đầy đủ vẫn cho phép). */
-  const [verified, setVerified] = useState<Set<string>>(() => new Set());
-  const [rejected, setRejected] = useState(0);
-  const checking = useRef<string | null>(null);
+  const [items, setItems] = useState<StockItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
+  const [providers, setProviders] = useState<StockProviderInfo[] | null>(null);
+  const [working, setWorking] = useState<string | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    api<{ version: string | null }>("/api/bilibili/tool").then((d) => setTool((t) => ({ ...t, version: d.version }))).catch(() => {});
+    api<{ providers: StockProviderInfo[] }>("/api/stock/providers").then((d) => setProviders(d.providers)).catch(() => setProviders([]));
   }, []);
 
-  // Kiểm tra lần lượt từng kết quả ở nền — server gọi Bilibili thưa ra nên không bị chặn.
-  // Kết quả nào không qua thì bỏ khỏi danh sách; kiểm tra lỗi mạng thì giữ lại, mở chi tiết sẽ kiểm tra lại.
-  useEffect(() => {
-    if (checking.current) return;
-    const next = results.find((r) => !verified.has(r.bvid));
-    if (!next) return;
-    checking.current = next.bvid;
-    api<BiliDetail>(`/api/bilibili/detail/${next.bvid}`)
-      .then((d) => {
-        if (d.permission) return;
-        setResults((prev) => prev.filter((r) => r.bvid !== next.bvid));
-        setRejected((n) => n + 1);
-      })
-      .catch(() => {})
-      .finally(() => {
-        checking.current = null;
-        setVerified((prev) => new Set(prev).add(next.bvid));
-      });
-  }, [results, verified]);
+  const usable = providers?.filter((p) => p.kinds.includes(kind)) ?? [];
+  const ready = usable.filter((p) => p.available);
 
-  const search = async (page: number, keyword = query) => {
-    if (!keyword.trim()) return;
-    setBusy("search");
-    setError(null);
+  const search = async (nextPage: number) => {
+    if (!query.trim()) return;
+    setBusy(true);
+    setNote(null);
     try {
-      const d = await api<{ results: BiliResult[]; scanned: number; page: number; pages: number }>(
-        `/api/bilibili/search?${new URLSearchParams({ q: keyword, page: String(page), order })}`,
-      );
-      if (page === 1) setRejected(0);
-      setResults((prev) => {
-        const base = page === 1 ? [] : prev;
-        const seen = new Set(base.map((r) => r.bvid));
-        return [...base, ...d.results.filter((r) => !seen.has(r.bvid))];
-      });
-      setStats((prev) => ({
-        page: d.page,
-        pages: d.pages,
-        scanned: (page === 1 ? 0 : prev?.scanned ?? 0) + d.scanned,
-        kept: (page === 1 ? 0 : prev?.kept ?? 0) + d.results.length,
-      }));
+      const d = await api<{ items: StockItem[]; errors: string[] }>(`/api/stock/search?${new URLSearchParams({
+        kind, q: query, page: String(nextPage), orientation: kind === "image" || kind === "video" ? stockOrientation(aspect) : "any",
+      })}`);
+      setItems((prev) => (nextPage === 1 ? d.items : [...prev, ...d.items]));
+      setPage(nextPage);
+      if (d.errors.length) setNote({ text: d.errors.join("\n"), error: true });
+      else if (d.items.length === 0 && nextPage === 1) setNote({ text: "Không có kết quả — thử từ khoá tiếng Anh, ngắn hơn." });
     } catch (e) {
-      setError((e as Error).message);
+      setNote({ text: (e as Error).message, error: true });
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
-  const translate = async () => {
-    setBusy("translate");
-    setError(null);
+  const take = async (item: StockItem, action: "use" | "music" | "save") => {
+    const key = `${item.provider}-${item.id}`;
+    setWorking(key);
+    setNote({ text: "Đang tải về thư viện…" });
     try {
-      const { keywords } = await postJson<{ keywords: string }>("/api/bilibili/translate", { text: query });
-      setQuery(keywords);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const updateTool = async () => {
-    setTool((t) => ({ ...t, updating: "Đang cập nhật…" }));
-    try {
-      const { jobId } = await postJson<{ jobId: string }>("/api/bilibili/tool/update", {});
-      followJob(jobId, (line) => setTool((t) => ({ ...t, updating: line })), (status, result, err) => {
-        setTool((t) => ({
-          version: status === "done" ? (result as { version: string | null }).version : t.version,
-          updating: null,
-        }));
-        if (status !== "done") setError(err ?? "Cập nhật yt-dlp thất bại.");
+      const d = await postJson<{ path: string; credit: string; reused: boolean }>("/api/stock/download", {
+        provider: item.provider, kind: item.kind, id: item.id,
       });
+      onStock(d.path, item.kind, action, d.credit);
+      setNote({ text: `${d.reused ? "Đã có sẵn trong thư viện" : "Đã tải"} · ${d.credit}` });
     } catch (e) {
-      setTool((t) => ({ ...t, updating: null }));
-      setError((e as Error).message);
+      setNote({ text: (e as Error).message, error: true });
+    } finally {
+      setWorking(null);
     }
   };
 
-  if (open) return <BilibiliDetailView bvid={open} target={target} onBack={() => setOpen(null)} onDone={onDone} />;
+  const preview = (item: StockItem) => {
+    const el = audioRef.current;
+    if (!el) return;
+    const key = `${item.provider}-${item.id}`;
+    if (playing === key) {
+      el.pause();
+      setPlaying(null);
+      return;
+    }
+    el.src = item.preview;
+    el.play().catch(() => setPlaying(null));
+    setPlaying(key);
+  };
 
-  const hasCjk = /[一-鿿]/.test(query);
+  const visual = kind === "image" || kind === "video";
   return (
-    <div className="ai bl">
-      <p className="ai-note">
-        Chỉ hiện video <b>tác giả ghi rõ cho phép dùng</b> (可商用, 免费使用, CC0…). Video đăng lại, trả phí hay có câu cấm đều bị loại.
-        Tìm bằng tiếng Trung cho nhiều kết quả hơn.
-      </p>
-      <form className="bl-search" onSubmit={(e) => { e.preventDefault(); void search(1); }}>
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="航拍 城市 免费商用" disabled={busy !== null} />
-        {query.trim() && !hasCjk ? (
-          <button type="button" onClick={translate} disabled={busy !== null} title="Dịch từ khoá sang tiếng Trung bằng AI trong Cài đặt">
-            {busy === "translate" ? "…" : "文 Dịch"}
-          </button>
-        ) : null}
-        <button type="submit" className="ai-go" disabled={busy !== null || !query.trim()}>{busy === "search" ? "…" : "Tìm"}</button>
-      </form>
-      <div className="bl-chips">
-        {BILI_KEYWORDS.map((k) => (
-          <button key={k} type="button" disabled={busy !== null} onClick={() => { setQuery(k); void search(1, k); }}>{k}</button>
+    <div className="ai stock">
+      <div className="md-filter">
+        {STOCK_KINDS.map((k) => (
+          <button key={k.id} className={kind === k.id ? "on" : ""} onClick={() => { setKind(k.id); setItems([]); setNote(null); }}>{k.label}</button>
         ))}
       </div>
-      <label>
-        Sắp xếp
-        <select value={order} onChange={(e) => setOrder(e.target.value)} disabled={busy !== null}>
-          {BILI_ORDER_LABELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-      </label>
-
-      {error ? <p className="ai-note err">{error}</p> : null}
-      {stats ? (
+      {providers && ready.length === 0 ? (
         <p className="ai-note">
-          {stats.kept - rejected}/{stats.scanned} video có lời cho phép
-          {rejected ? ` · loại thêm ${rejected} sau khi kiểm tra kỹ` : ""} · trang {stats.page}/{stats.pages}
+          Chưa có key {usable.map((p) => p.label).join(" hoặc ")} — lấy key <b>miễn phí</b> rồi điền ở trang chính › ⚙ Cài đặt ›
+          Miễn phí · Ảnh, clip & nhạc.
         </p>
-      ) : null}
-
-      <div className="bl-list">
-        {results.map((r) => (
-          <button key={r.bvid} className="bl-item" onClick={() => setOpen(r.bvid)} title={r.permission.quote}>
-            <span className="bl-cover">
-              <img src={r.cover} alt="" loading="lazy" referrerPolicy="no-referrer" />
-              <i>{clockText(r.duration)}</i>
-            </span>
-            <span className="bl-meta">
-              <b>{r.title}</b>
-              <small>{r.author} · {compactCount(r.plays)} lượt xem</small>
-              <span className="bl-tags">
-                {r.permission.labels.map((l) => <em key={l}>✓ {l}</em>)}
-                {verified.has(r.bvid) ? null : <em className="pending">đang kiểm tra…</em>}
-              </span>
-            </span>
-          </button>
-        ))}
-        {stats && results.length === 0 && busy === null ? (
-          <p className="md-empty">Chưa thấy video nào tác giả cho phép dùng. Thử thêm “免费商用” hoặc “素材” vào từ khoá, hoặc tìm trang sau.</p>
-        ) : null}
-      </div>
-      {stats && stats.page < stats.pages ? (
-        <button type="button" className="bl-more" disabled={busy !== null} onClick={() => void search(stats.page + 1)}>
-          {busy === "search" ? "Đang tìm…" : "Tìm trang sau"}
-        </button>
-      ) : null}
-
-      <p className="ai-note bl-tool">
-        Bộ tải: yt-dlp {tool.version ?? "chưa có"} ·{" "}
-        <button type="button" onClick={updateTool} disabled={tool.updating !== null}>{tool.updating ?? "Cập nhật"}</button>
-        <br />Tải lỗi sau khi Bilibili đổi trang thì bấm Cập nhật.
-      </p>
-    </div>
-  );
-};
-
-type BiliDownloadState =
-  | { status: "idle" }
-  | { status: "running"; line: string }
-  | { status: "done"; path: string; credit: string }
-  | { status: "error"; message: string };
-
-const BilibiliDetailView: React.FC<{
-  bvid: string;
-  target: string;
-  onBack: () => void;
-  onDone: (path: string, assign: boolean) => void;
-}> = ({ bvid, target, onBack, onDone }) => {
-  const [detail, setDetail] = useState<BiliDetail | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [part, setPart] = useState(1);
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [height, setHeight] = useState(1080);
-  const [confirmed, setConfirmed] = useState(false);
-  const [assign, setAssign] = useState(true);
-  const [state, setState] = useState<BiliDownloadState>({ status: "idle" });
-  const [copied, setCopied] = useState(false);
-  const stopRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    api<BiliDetail>(`/api/bilibili/detail/${bvid}`).then(setDetail).catch((e: Error) => setLoadError(e.message));
-    return () => stopRef.current?.();
-  }, [bvid]);
-
-  const back = <button type="button" className="bl-back" onClick={onBack}>‹ Kết quả tìm kiếm</button>;
-  if (loadError) return <div className="ai bl">{back}<p className="ai-note err">{loadError}</p></div>;
-  if (!detail) return <div className="ai bl">{back}<p className="md-hint">Đang kiểm tra quyền sử dụng…</p></div>;
-
-  const current = detail.parts.find((p) => p.page === part) ?? detail.parts[0];
-  const startSec = parseClock(start);
-  const endSec = parseClock(end);
-  const rangeError =
-    Number.isNaN(startSec) || Number.isNaN(endSec)
-      ? "Giờ gõ dạng phút:giây, ví dụ 1:05."
-      : (startSec ?? 0) >= (endSec ?? current.duration)
-        ? "Điểm cuối phải sau điểm bắt đầu."
-        : (endSec ?? 0) > current.duration
-          ? `Phần này chỉ dài ${clockText(current.duration)}.`
-          : null;
-  const running = state.status === "running";
-
-  const download = async () => {
-    setState({ status: "running", line: "Đang gửi yêu cầu…" });
-    try {
-      const { jobId } = await postJson<{ jobId: string }>("/api/bilibili/download", {
-        bvid, part: current.page, start: startSec, end: endSec, maxHeight: height, confirmed,
-      });
-      stopRef.current = followJob(
-        jobId,
-        (line) => setState({ status: "running", line }),
-        (status, result, error) => {
-          stopRef.current = null;
-          if (status === "done") {
-            const r = result as { path: string; credit: string };
-            setState({ status: "done", ...r });
-            onDone(r.path, assign);
-          } else {
-            setState({ status: "error", message: error ?? "Lỗi không rõ." });
-          }
-        },
-      );
-    } catch (e) {
-      setState({ status: "error", message: (e as Error).message });
-    }
-  };
-
-  return (
-    <div className="ai bl">
-      {back}
-      <div className="bl-player">
-        <iframe
-          src={`https://player.bilibili.com/player.html?${new URLSearchParams({ bvid, p: String(current.page), autoplay: "0", danmaku: "0" })}`}
-          title={detail.title}
-          allow="fullscreen; picture-in-picture"
-          referrerPolicy="no-referrer"
-        />
-      </div>
-      <p className="bl-title"><b>{detail.title}</b><small>{detail.author} · <a href={detail.url} target="_blank" rel="noreferrer">Mở trên Bilibili ↗</a></small></p>
-
-      {detail.permission ? (
-        <div className="bl-permit">
-          <span className="bl-tags">{detail.permission.labels.map((l) => <em key={l}>✓ {l}</em>)}</span>
-          <blockquote>{detail.permission.quote}</blockquote>
-          <details>
-            <summary>Đọc toàn bộ mô tả của tác giả</summary>
-            <p>{detail.desc || "(trống)"}</p>
-          </details>
+      ) : (
+        <>
+          <form className="stock-search" onSubmit={(e) => { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur(); void search(1); }}>
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} disabled={busy}
+              placeholder={visual ? "vd: city night, coffee pour" : kind === "music" ? "vd: lofi, upbeat, cinematic" : "vd: whoosh, click, pop"} />
+            <button type="submit" className="ai-go" disabled={busy || !query.trim()}>{busy ? "…" : "Tìm"}</button>
+          </form>
           <p className="ai-note">
-            Dùng đúng điều kiện tác giả nêu (ví dụ “不得用于售卖” = không được bán lại chính tư liệu).
-            {detail.noReprintFlag ? " Video có bật dấu “cấm đăng lại khi chưa được phép” mặc định của Bilibili — lời cho phép trên chính là sự cho phép của tác giả; nên dùng làm tư liệu trong video của bạn, không đăng lại nguyên bản." : ""}
+            {ready.map((p) => p.label).join(" + ")} · miễn phí, dùng thương mại được{kind === "music" || kind === "sfx" ? " (CC0/CC-BY)" : ""} ·
+            tự ghi nguồn. Tìm bằng tiếng Anh cho nhiều kết quả hơn.
           </p>
+        </>
+      )}
+      {note ? <p className={`ai-note ${note.error ? "err" : ""}`}>{note.text}</p> : null}
+
+      {visual ? (
+        <div className="md-grid">
+          {items.map((item) => {
+            const key = `${item.provider}-${item.id}`;
+            return (
+              <div key={key} className="md-tile" title={`${item.title} — ${item.author} (${item.provider})`}>
+                <button className="md-tile-main" onClick={() => take(item, "use")} disabled={working !== null} aria-label={`Dùng cho ${target}`}>
+                  <img src={item.preview} alt="" loading="lazy" draggable={false} />
+                  {item.kind === "video" ? <i>🎬 {item.duration}s</i> : null}
+                  <span>{working === key ? "Đang tải…" : `${item.provider} · ${item.author}`}</span>
+                </button>
+                <button className="md-tile-add" onClick={() => take(item, "save")} disabled={working !== null} title="Chỉ lưu vào thư viện">⬇</button>
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <p className="ai-note err">Không dùng được video này: {detail.reason}</p>
+        <div className="md-list">
+          {items.map((item) => {
+            const key = `${item.provider}-${item.id}`;
+            return (
+              <div key={key} className="md-row" title={`${item.title} — ${item.author} (${item.license})`}>
+                <button className="md-play" onClick={() => preview(item)} aria-label="Nghe thử">{playing === key ? "⏸" : "▶"}</button>
+                <span><b>{item.title}</b><small>{item.duration}s · {item.author} · {item.license}</small></span>
+                {item.kind === "music" ? (
+                  <button className="md-bg" onClick={() => take(item, "music")} disabled={working !== null} title="Tải và đặt làm nhạc nền">♪</button>
+                ) : null}
+                <button className="md-add" onClick={() => take(item, "use")} disabled={working !== null} title="Tải và thêm tại đầu phát">
+                  {working === key ? "…" : "＋"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       )}
-
-      {detail.permission ? (
-        <>
-          {detail.parts.length > 1 ? (
-            <label>
-              Phần
-              <select value={current.page} onChange={(e) => setPart(Number(e.target.value))} disabled={running}>
-                {detail.parts.map((p) => <option key={p.page} value={p.page}>P{p.page} · {p.title} ({clockText(p.duration)})</option>)}
-              </select>
-            </label>
-          ) : null}
-          <div className="bl-range">
-            <label>Từ<input value={start} onChange={(e) => setStart(e.target.value)} placeholder="0:00" disabled={running} /></label>
-            <label>Đến<input value={end} onChange={(e) => setEnd(e.target.value)} placeholder={clockText(current.duration)} disabled={running} /></label>
-            <label>
-              Chất lượng
-              <select value={height} onChange={(e) => setHeight(Number(e.target.value))} disabled={running}>
-                <option value={1080}>1080p</option>
-                <option value={720}>720p</option>
-              </select>
-            </label>
-          </div>
-          <p className="ai-note">Để trống là tải cả phần {clockText(current.duration)} — chỉ lấy đoạn cần dùng cho nhẹ.</p>
-          {rangeError ? <p className="ai-note err">{rangeError}</p> : null}
-          <label className="ai-check">
-            <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} disabled={running} />
-            Tôi đã đọc lời cho phép và sẽ dùng đúng điều kiện của tác giả, có ghi nguồn
-          </label>
-          <label className="ai-check">
-            <input type="checkbox" checked={assign} onChange={(e) => setAssign(e.target.checked)} disabled={running} />
-            Xong thì gán cho {target}
-          </label>
-          <button className="ai-go" onClick={download} disabled={running || !confirmed || rangeError !== null}>
-            {running ? "Đang tải…" : "⬇ Tải vào dự án"}
-          </button>
-        </>
+      {items.length > 0 && !busy ? (
+        <button className="btn-more" onClick={() => void search(page + 1)}>Xem thêm</button>
       ) : null}
-
-      {state.status === "running" ? <p className="ai-note">{state.line}</p> : null}
-      {state.status === "error" ? <p className="ai-note err">{state.message}</p> : null}
-      {state.status === "done" ? (
-        <>
-          <p className="ai-note">Đã lưu vào thư viện 🖼 Ảnh › Video, kèm bằng chứng cho phép ({state.path.replace(/\.mp4$/, ".json")}).</p>
-          <div className="bl-credit">
-            <span>{state.credit}</span>
-            <button
-              type="button"
-              onClick={() => navigator.clipboard.writeText(state.credit).then(() => setCopied(true), () => {})}
-            >
-              {copied ? "Đã chép" : "Chép ghi nguồn"}
-            </button>
-          </div>
-        </>
-      ) : null}
+      <p className="ai-note">
+        {visual ? `Bấm ô: dùng cho ${target} · ⬇ chỉ lưu vào thư viện.` : "▶ nghe thử · ♪ đặt làm nhạc nền · ＋ thêm tại đầu phát."}
+      </p>
+      <audio ref={audioRef} onEnded={() => setPlaying(null)} hidden />
     </div>
   );
 };

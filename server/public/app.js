@@ -21,6 +21,15 @@ const fold = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 const matches = (p, q) => !q || fold(p.title).includes(q) || p.slug.includes(q);
 
+/**
+ * Bấm Enter hoặc nút Tạo/Chạy: bỏ focus ô đang gõ — bàn phím điện thoại cụp xuống, phím tắt một chữ
+ * của app dùng lại được, và không lỡ tay gõ thêm vào ô trong lúc đang tạo.
+ */
+const blurTyping = () => {
+  const el = document.activeElement;
+  if (el instanceof HTMLElement && el.matches("input, textarea, select, [contenteditable]")) el.blur();
+};
+
 const isVideoFile = (p) => /\.(mp4|mov|webm)(\?|$)/i.test(p);
 const ratioCss = (aspect) => (aspect || "9:16").replace(":", " / ");
 const isWide = (aspect) => { const [w, h] = (aspect || "9:16").split(":").map(Number); return w / h > 1; };
@@ -96,6 +105,7 @@ async function boot() {
   bindMulti();
   bindBatch();
   bindSubs();
+  bindBili();
   loadHistory();
   renderKeyNotice();
   window.addEventListener("hashchange", route);
@@ -116,11 +126,14 @@ function route() {
   // Tiến độ loạt hiện trên tiêu đề tab; rời màn đó thì trả lại tên app.
   document.title = BASE_TITLE;
   renderHistory();
+  // Màn 📺 Bilibili nằm ở bili.js — các màn khác không biết tới nó, nên ẩn ở đây.
+  $("view-bili").hidden = true;
   const hash = location.hash.replace(/^#\/?/, "");
   if (hash === "library") return showLibrary("videos");
   if (hash === "library/media") return showLibrary("media");
   if (hash === "library/trash") return showLibrary("trash");
   if (hash === "subs") return showSubs();
+  if (hash === "bili") return showBili();
   if (hash === "batch") return showBatch(null);
   const batchMatch = hash.match(/^batch\/([a-z0-9-]+)$/);
   if (batchMatch) return showBatch(batchMatch[1]);
@@ -136,6 +149,7 @@ function setNav(which) {
   $("nav-lib").classList.toggle("on", which === "lib");
   $("nav-batch").classList.toggle("on", which === "batch");
   $("nav-subs").classList.toggle("on", which === "subs");
+  $("nav-bili").classList.toggle("on", which === "bili");
 }
 
 async function showChat(slug) {
@@ -147,6 +161,17 @@ async function showChat(slug) {
   setNav(slug ? "" : "new");
   stopFollowing();
 
+  flushChatDraft();
+  // Ô nhập thuộc về một video: rời video đó (hoặc từ video sang tạo mới) thì dọn ô, lời gõ dở đã được lưu.
+  const switching = composerOwner !== (slug ?? null);
+  if (switching) {
+    if (composerOwner !== null || slug) {
+      $("input").value = ""; autosize();
+      pending = []; renderPending();
+    }
+    if (!slug) newDraftSlug = null;
+  }
+  composerOwner = slug ?? null;
   current = slug;
   project = null;
   messages = [];
@@ -183,6 +208,7 @@ async function showChat(slug) {
       length: chat.settings.length ?? "auto",
     });
     project = projects.find((p) => p.slug === slug) ?? null;
+    if (switching && chat.draft) restoreChatDraft(chat.draft);
     renderProjectBar();
     renderComposer();
     renderThread();
@@ -258,6 +284,7 @@ function renderProjectBar() {
   // Trình chỉnh sửa cần props.json — có kết quả (video hoặc ảnh) là có.
   const editable = Boolean(lastVideo) || messages.some((m) => m.images?.length) || Boolean(project?.editable);
   $("projectEdit").hidden = !editable;
+  // Không ghi số bản: trình chỉnh sửa tự mở bản mới nhất. Bản cũ mở từ nút "✂️ Chỉnh sửa bản n" dưới từng video.
   $("projectEdit").href = `/editor.html#${encodeURIComponent(current)}`;
   $("projectDelete").hidden = busy;
   $("projectDelete").onclick = () => deleteProjects([current]);
@@ -361,12 +388,13 @@ function renderHistory() {
     const img = p.kind === "image" ? p.cover : p.thumb;
     const status = {
       running: `<span class="h-status running">Đang dựng…</span>`,
+      interrupted: `<span class="h-status error">⚠ Bị gián đoạn</span> · ${historyTime(p.updated)}`,
       error: `<span class="h-status error">Lỗi</span> · ${historyTime(p.updated)}`,
-      draft: `Chưa có kết quả · ${historyTime(p.updated)}`,
+      draft: `${p.hasDraft || (p.multi && p.edits === 0) ? "✏️ Bản nháp" : "Chưa có kết quả"} · ${historyTime(p.updated)}`,
       done: `${style.emoji} ${p.kind === "image" ? `${p.images} ảnh` : "Video"} · ${historyTime(p.updated)}`,
     }[p.status] ?? historyTime(p.updated);
     return `${heading}
-      <a class="h-item ${p.slug === activeSlug ? "on" : ""}" href="#/v/${p.slug}"
+      <a class="h-item ${p.slug === activeSlug ? "on" : ""}" href="${p.multi && p.edits === 0 ? `#/multi/${p.slug}` : `#/v/${p.slug}`}"
          ${p.slug === activeSlug ? 'aria-current="page"' : ""} title="${escapeHtml(p.title)}">
         <span class="h-thumb">${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" />` : style.emoji}</span>
         <span class="h-text"><b>${escapeHtml(p.title)}</b><small>${status}</small></span>
@@ -906,10 +934,20 @@ function renderMessage(m, isLatest) {
     return `<div class="msg-user">${atts ? `<div class="atts">${atts}</div>` : ""}
       <div class="bubble">${escapeHtml(m.text)}</div></div>`;
   }
+  if (m.interrupted) {
+    const retry = m.interruptedKind === "multi"
+      ? `<a class="btn" href="#/multi/${current}">🎬 Sửa cảnh và tạo lại</a>`
+      : m.interruptedKind === "render"
+        ? `<a class="btn" href="/editor.html#${encodeURIComponent(current)}">✂️ Mở chỉnh sửa</a>`
+        : `<button type="button" class="btn" data-retry>↻ Thử lại</button>`;
+    return `<div class="msg-bot error"><div class="text">⚠ ${escapeHtml(m.text)}</div>
+      ${isLatest ? `<div class="actions">${retry}</div>` : ""}
+    </div>`;
+  }
   if (m.error) {
     return `<div class="msg-bot error"><div class="text">Không làm được: ${escapeHtml(m.text)}</div>
       ${isLatest ? `<div class="actions"><button type="button" class="btn" data-retry>↻ Thử lại</button>
-        ${/API key/i.test(m.text) ? `<button type="button" class="btn" data-open-settings>🔑 Mở cài đặt</button>` : ""}</div>` : ""}
+        ${/API key|Cài đặt/i.test(m.text) ? `<button type="button" class="btn" data-open-settings>⚙ Mở cài đặt</button>` : ""}</div>` : ""}
     </div>`;
   }
   const scenes = m.scenes?.length
@@ -928,14 +966,23 @@ function renderMessage(m, isLatest) {
     </div>
     ${m.images.length > 1 ? `<div class="actions">
       <button type="button" class="btn" data-dl-all="${escapeHtml(m.images.join("|"))}">⬇ Tải cả ${m.images.length} ảnh</button></div>` : ""}`;
+  } else if (m.mp4 && m.stale) {
+    // Video làm trước khi app lưu riêng từng bản: file đã bị bản sau ghi đè.
+    result = `<p class="version-stale">Bản ${m.version ?? ""} · video đã bị bản sau ghi đè (làm trước khi app lưu riêng từng bản).</p>`;
   } else if (m.mp4) {
-    result = `
+    // Mỗi kết quả là một bản riêng (server/versions.ts): xem, tải, sửa đúng bản đó.
+    const label = m.version
+      ? `<div class="version-tag">Bản ${m.version}${m.edited ? ` · chỉnh tay${m.from ? ` từ bản ${m.from}` : ""}` : ""}</div>`
+      : "";
+    result = `${label}
     <div class="player" style="aspect-ratio:${ratioCss(m.aspect)};width:${playerWidth(m.aspect)}">
       <video src="${escapeHtml(m.mp4)}" controls playsinline preload="metadata"></video>
     </div>
-    ${isLatest ? "" : `<div class="actions">
-      <button type="button" class="btn" data-dl="${escapeHtml(m.mp4)}">⬇ Tải bản này</button>
-    </div>`}`;
+    <div class="actions">
+      ${isLatest ? "" : `<button type="button" class="btn" data-dl="${escapeHtml(m.mp4)}">⬇ Tải bản này</button>`}
+      ${m.version ? `<a class="btn" href="/editor.html#${encodeURIComponent(current)}/v${m.version}"
+        title="Mở đúng bản ${m.version} trong trình chỉnh sửa — xuất ra thành bản mới, bản ${m.version} giữ nguyên">✂️ Chỉnh sửa bản ${m.version}</a>` : ""}
+    </div>`;
   }
   // Sửa nhanh bằng câu lệnh cần AI — ở chế độ nguyên văn thì không hiện.
   const hasResult = isLatest && (m.mp4 || m.images?.length);
@@ -1041,9 +1088,11 @@ function prefill(text) {
 
 // ---------- gửi & theo dõi ----------
 async function send() {
+  blurTyping();
   const prompt = $("input").value.trim();
   // sending: chặn bấm/Enter liên tục trong lúc chờ server trả lời — nếu không sẽ tạo trùng nhiều video.
   if (!prompt || busy || sending || pending.some((f) => !f.path)) return;
+  if (!(await keyTipsBeforeFirstVideo({ needsScript: opts.mode === "ai" }))) return;
   if (opts.mode === "ai" && !hasScriptKey()) {
     openSettings();
     return;
@@ -1051,17 +1100,34 @@ async function send() {
   setHint("");
   closeMenu();
 
+  // Bản mới nhất có chỉnh tay: AI viết lại từ kịch bản nên phần chỉnh tay không được giữ — báo trước.
+  const latestResult = [...messages].reverse().find((m) => m.role === "assistant" && m.mp4 && !m.error);
+  if (current && opts.mode === "ai" && latestResult?.edited) {
+    const ok = await confirmDialog({
+      title: "Sửa bằng AI từ kịch bản?",
+      message: `Bản ${latestResult.version ?? "mới nhất"} có chỉnh tay trong trình chỉnh sửa. AI sẽ dựng lại từ kịch bản — ` +
+        "phần chỉnh tay (cắt, chữ, crop, phụ đề sửa tay…) không có trong bản mới. Bản cũ vẫn được giữ để xem hoặc sửa tiếp.",
+      okText: "Vẫn sửa bằng AI",
+    });
+    if (!ok) return;
+  }
+
   const attachments = pending.map((f) => f.path);
   sending = true;
   updateSend();
+  clearTimeout(chatDraftTimer);
   try {
+    await chatDraftSaving;
     const { slug, jobId } = await postJson("/api/chat", {
-      slug: current ?? undefined,
+      // Lời gõ ở màn tạo mới đã thành một video nháp — gửi vào đúng video đó, không tạo thêm.
+      slug: current ?? newDraftSlug ?? undefined,
       prompt,
       attachments,
       settings: { ...opts, music: opts.music || null },
     });
 
+    newDraftSlug = null;
+    composerOwner = slug;
     messages.push({ role: "user", text: prompt, attachments, at: Date.now() });
     $("input").value = ""; autosize();
     beforeNormalize = null; syncNormalize();
@@ -1300,7 +1366,7 @@ function providerMenu(onPick) {
       },
       ...list.map((p) => ({
         value: p.id,
-        group: p.available ? "Đã có key" : "Chưa có key — điền trong Cài đặt",
+        group: p.available ? "Đã có key" : state?.freeMode && p.paid ? "💚 Tắt trong chế độ Miễn phí" : "Chưa có key — điền trong Cài đặt",
         title: `🤖 ${p.label}`,
         sub: `${p.model}${p.smallPrompt ? " · prompt gọn: phong cách Tự động đoán bằng từ khoá" : ""}`,
         disabled: !p.available,
@@ -1323,11 +1389,18 @@ const PRESETS = [
     ready: () => true,
   },
   {
-    id: "photo", label: "🖼 Có ảnh thật", hint: "Pexels",
-    title: "Tự tìm ảnh thật trên Pexels cho từng cảnh, có giọng đọc và nhạc nền",
+    id: "photo", label: "🖼 Có ảnh thật", hint: "miễn phí",
+    title: "Tự tìm ảnh thật (Pexels, Pixabay) cho từng cảnh, có giọng đọc và nhạc nền",
     apply: () => ({ images: "pexels", video: "", voice: "linh", music: state?.audio.music[0]?.path ?? "" }),
     ready: () => Boolean(state?.keys.pexels),
-    why: "Cần key Pexels — lấy miễn phí ở pexels.com/api rồi điền trong Cài đặt",
+    why: "Cần key Pexels hoặc Pixabay — lấy miễn phí rồi điền trong Cài đặt",
+  },
+  {
+    id: "stock-clip", label: "🎞 Có clip thật", hint: "miễn phí",
+    title: "Tự tìm clip video thật (Pexels, Pixabay) cho từng cảnh, có giọng đọc và nhạc nền",
+    apply: () => ({ images: "stock-video", video: "", voice: "linh", music: state?.audio.music[0]?.path ?? "" }),
+    ready: () => Boolean(state?.keys.pexels),
+    why: "Cần key Pexels hoặc Pixabay — lấy miễn phí rồi điền trong Cài đặt",
   },
   {
     id: "clip", label: "🎬 Có clip AI", hint: "tốn phí",
@@ -1373,16 +1446,17 @@ function renderPlan() {
   if (opts.video) {
     parts.push("clip AI cho từng cảnh");
     warn.push("clip AI tính tiền theo clip");
-  } else if (opts.images === "pexels") parts.push("ảnh thật từ Pexels");
+  } else if (opts.images === "pexels") parts.push("ảnh thật miễn phí (Pexels, Pixabay)");
+  else if (opts.images === "stock-video") parts.push("clip thật miễn phí (Pexels, Pixabay)");
   else if (opts.images === "ai") {
-    parts.push("ảnh do AI vẽ");
-    warn.push("AI vẽ ảnh tính tiền theo ảnh");
+    parts.push(state?.keys.flux ? "ảnh do FLUX vẽ (miễn phí)" : "ảnh do AI vẽ");
+    if (!state?.keys.flux) warn.push("AI vẽ ảnh tính tiền theo ảnh");
   } else if (opts.images === "none") parts.push("chỉ chữ, không hình");
   else {
     parts.push("ảnh của bạn");
     if (pending.length === 0) {
       warn.push(state?.keys.pexels
-        ? "chưa đính kèm ảnh nào — video sẽ chỉ có chữ; chọn Hình ảnh › 🔍 Ảnh Pexels để tự lấy hình"
+        ? "chưa đính kèm ảnh nào — video sẽ chỉ có chữ; chọn Hình ảnh › 🔍 Ảnh miễn phí hoặc 🎞 Clip miễn phí để tự lấy hình"
         : "chưa đính kèm ảnh nào — video sẽ chỉ có chữ");
     }
   }
@@ -1398,7 +1472,8 @@ function renderPlan() {
 const IMAGE_SOURCES = {
   none: "🚫 Không hình",
   library: "🖼 Ảnh của tôi",
-  pexels: "🔍 Ảnh Pexels",
+  pexels: "🔍 Ảnh miễn phí",
+  "stock-video": "🎞 Clip miễn phí",
   ai: "🎨 AI vẽ ảnh",
 };
 
@@ -1434,7 +1509,8 @@ function imageMenu() {
   const videoOptions = opts.kind === "image" ? [] : [
     {
       value: "video:auto", group: "Clip video AI — mỗi cảnh một clip, tính tiền theo clip",
-      title: "🎬 Tự động", sub: anyVideoKey ? "Model rẻ nhất có key (đổi trong Cài đặt)" : "Cần key Gemini (đã bật thanh toán), fal.ai hoặc Replicate",
+      title: "🎬 Tự động", sub: anyVideoKey ? "Model rẻ nhất có key (đổi trong Cài đặt)"
+        : state?.freeMode ? "💚 Tắt trong chế độ Miễn phí" : "Cần key Gemini (đã bật thanh toán), fal.ai hoặc Replicate",
       disabled: !anyVideoKey,
     },
     ...models.map((m) => ({
@@ -1443,7 +1519,7 @@ function imageMenu() {
       title: `🎬 ${m.label}`,
       sub: m.available
         ? `${m.durations[0]}–${m.durations.at(-1)}s/clip${m.usdPerSecond ? ` · ~$${m.usdPerSecond}/giây` : ""}`
-        : `Cần ${m.env} — điền trong Cài đặt`,
+        : state?.freeMode ? "💚 Tắt trong chế độ Miễn phí" : `Cần ${m.env} — điền trong Cài đặt`,
       disabled: !m.available,
     })),
   ];
@@ -1456,17 +1532,29 @@ function imageMenu() {
         value: "pexels", group: "Tự lấy hình cho cảnh chưa có ảnh",
         title: IMAGE_SOURCES.pexels,
         sub: state?.keys.pexels
-          ? "Ảnh thật, miễn phí — tự ghi công tác giả vào CREDITS.txt"
-          : "Cần key Pexels: lấy miễn phí ở pexels.com/api rồi điền trong ⚙ Cài đặt",
+          ? "Ảnh thật từ Pexels, Pixabay — miễn phí, tự ghi nguồn"
+          : "Cần key Pexels hoặc Pixabay (miễn phí) — điền trong ⚙ Cài đặt",
+        disabled: !state?.keys.pexels,
+      },
+      {
+        value: "stock-video",
+        title: IMAGE_SOURCES["stock-video"],
+        sub: state?.keys.pexels
+          ? "Clip video thật cho từng cảnh từ Pexels, Pixabay — miễn phí, không lặp clip"
+          : "Cần key Pexels hoặc Pixabay (miễn phí) — điền trong ⚙ Cài đặt",
         disabled: !state?.keys.pexels,
       },
       {
         value: "ai",
         title: IMAGE_SOURCES.ai,
-        sub: state?.keys.gemini
-          ? "Gemini vẽ ảnh theo nội dung từng cảnh — tính tiền theo ảnh"
-          : "Cần key Gemini — điền trong ⚙ Cài đặt",
-        disabled: !state?.keys.gemini,
+        sub: state?.keys.flux
+          ? "FLUX vẽ ảnh qua Cloudflare — miễn phí khoảng 170 ảnh/ngày"
+          : state?.freeMode
+            ? "💚 Gemini vẽ ảnh tính tiền — thêm key Cloudflare để vẽ FLUX miễn phí"
+            : state?.keys.gemini
+              ? "Gemini vẽ ảnh theo nội dung từng cảnh — tính tiền theo ảnh (thêm key Cloudflare để vẽ miễn phí)"
+              : "Cần key Cloudflare (miễn phí) hoặc Gemini — điền trong ⚙ Cài đặt",
+        disabled: !state?.keys.flux && (!state?.keys.gemini || state?.freeMode),
       },
       ...videoOptions,
     ],
@@ -1886,7 +1974,7 @@ function bindComposerCollapse() {
 function bindComposer() {
   bindComposerCollapse();
   const input = $("input");
-  input.addEventListener("input", () => { autosize(); updateSend(); schedulePreview(); syncNormalize(); });
+  input.addEventListener("input", () => { autosize(); updateSend(); schedulePreview(); syncNormalize(); scheduleChatDraft(); });
   input.addEventListener("keydown", (e) => {
     // Ô trống + ↑: điền lại tin vừa gửi để sửa rồi gửi lại, như các app chat.
     if (e.key === "ArrowUp" && !e.isComposing && !input.value) {
@@ -1958,6 +2046,7 @@ async function upload(file, item) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error);
     item.path = body.path;
+    scheduleChatDraft();
   } catch (e) {
     pending = pending.filter((f) => f !== item);
     setHint(`Không tải lên được ${file.name}: ${e.message}`, true);
@@ -1976,9 +2065,133 @@ function renderPending() {
     b.addEventListener("click", () => {
       pending = pending.filter((f) => f.id !== b.dataset.rm);
       renderPending();
+      scheduleChatDraft();
     }));
   updateSend();
 }
+
+// ---------- bản nháp: lời gõ dở và danh sách cảnh được lưu lên server ----------
+// Mất điện, tắt app hay mất kết nối vẫn còn — hiện trong lịch sử là "✏️ Bản nháp".
+
+/** Video mà ô nhập đang thuộc về: slug, hoặc null = màn tạo mới. */
+let composerOwner = null;
+/** Màn tạo mới: video nháp server đã tạo cho lời đang gõ. */
+let newDraftSlug = null;
+let chatDraftTimer = null;
+let chatDraftSaving = Promise.resolve();
+const DRAFT_DELAY_MS = 800;
+
+function chatDraftPayload() {
+  return {
+    slug: composerOwner ?? newDraftSlug ?? undefined,
+    text: $("input").value,
+    // File chưa tải lên xong thì chưa có đường dẫn — lần lưu sau (khi tải xong) sẽ có.
+    attachments: pending.filter((f) => f.path).map((f) => f.path),
+    settings: { ...opts, music: opts.music || null },
+  };
+}
+
+function scheduleChatDraft() {
+  if (sending) return;
+  clearTimeout(chatDraftTimer);
+  chatDraftTimer = setTimeout(saveChatDraft, DRAFT_DELAY_MS);
+}
+
+function saveChatDraft() {
+  clearTimeout(chatDraftTimer);
+  chatDraftTimer = null;
+  // Chụp nội dung NGAY LÚC NÀY — đợi tới lượt gửi thì người dùng có thể đã sang video khác.
+  const owner = composerOwner;
+  const payload = chatDraftPayload();
+  // Nối tiếp: lần lưu đầu ở màn tạo mới tạo video nháp, các lần sau phải đợi có slug đó.
+  chatDraftSaving = chatDraftSaving.then(async () => {
+    if (owner === null) payload.slug = newDraftSlug ?? undefined;
+    if (!payload.slug && !payload.text.trim() && payload.attachments.length === 0) return;
+    try {
+      const { slug } = await postJson("/api/chat/draft", payload);
+      // Chỉ nhận slug khi ô nhập vẫn là màn tạo mới đó — đã sang video khác thì bản nháp nằm trong lịch sử.
+      if (owner === null && composerOwner === null) newDraftSlug = slug;
+      // Vừa tạo hoặc vừa xoá video nháp: lịch sử đổi.
+      if (payload.slug !== (slug ?? undefined)) loadHistory();
+      // Đang mở đúng video nháp mà xoá hết lời thì video đó không còn — về màn tạo mới.
+      if (owner !== null && !slug && composerOwner === owner) {
+        composerOwner = null;
+        location.hash = "#/";
+      }
+    } catch {
+      // lưu nháp hỏng không chặn việc gõ — lần gõ sau thử lại
+    }
+  });
+  return chatDraftSaving;
+}
+
+/** Rời màn hình / đóng tab: gửi ngay phần chưa lưu, không đợi hẹn giờ. */
+function flushChatDraft() {
+  if (!chatDraftTimer) return;
+  clearTimeout(chatDraftTimer);
+  chatDraftTimer = null;
+  saveChatDraft();
+}
+
+function restoreChatDraft(draft) {
+  $("input").value = draft.text ?? "";
+  autosize();
+  pending = (draft.attachments ?? []).map((p) => ({
+    id: Math.random().toString(36).slice(2),
+    name: p.split("/").pop(), path: p, url: `/public/${p}`,
+    video: isVideoFile(p),
+  }));
+  renderPending();
+  updateSend();
+  syncNormalize();
+}
+
+let multiDraftTimer = null;
+
+function scheduleMultiDraft() {
+  if (!multi) return;
+  clearTimeout(multiDraftTimer);
+  multiDraftTimer = setTimeout(saveMultiDraft, DRAFT_DELAY_MS);
+}
+
+async function saveMultiDraft() {
+  clearTimeout(multiDraftTimer);
+  multiDraftTimer = null;
+  const draft = multi;
+  if (!draft) return;
+  const { draftSlug, ...data } = draft;
+  try {
+    const { slug } = await postJson("/api/multi/draft", { ...data, slug: draft.slug ?? draftSlug ?? undefined });
+    if (!draft.slug) {
+      if (!draftSlug && slug) loadHistory();
+      draft.draftSlug = slug ?? undefined;
+      if (!slug) loadHistory();
+    }
+  } catch {
+    // như bản nháp chat: không chặn việc soạn
+  }
+}
+
+function sendDraftBeacon() {
+  // Tab đóng/ẩn: fetch thường có thể bị huỷ, sendBeacon thì trình duyệt gửi nốt.
+  if (chatDraftTimer) {
+    clearTimeout(chatDraftTimer);
+    chatDraftTimer = null;
+    const payload = chatDraftPayload();
+    if (payload.slug || payload.text.trim()) {
+      navigator.sendBeacon("/api/chat/draft", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+    }
+  }
+  if (multiDraftTimer && multi) {
+    clearTimeout(multiDraftTimer);
+    multiDraftTimer = null;
+    const { draftSlug, ...data } = multi;
+    navigator.sendBeacon("/api/multi/draft",
+      new Blob([JSON.stringify({ ...data, slug: multi.slug ?? draftSlug ?? undefined })], { type: "application/json" }));
+  }
+}
+window.addEventListener("pagehide", sendDraftBeacon);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") sendDraftBeacon(); });
 
 function autosize() {
   const el = $("input");
@@ -2017,12 +2230,34 @@ function bindSettings() {
   $("settingsForm").addEventListener("submit", saveSettings);
 }
 
-async function openSettings() {
+const LIMIT_LABELS = {
+  rate_limit: "⏳ hết lượt theo phút", daily_quota: "📅 hết lượt trong ngày", credit: "💳 hết tiền/credit",
+  auth: "🔑 key bị từ chối", overloaded: "🔥 quá tải", too_large: "📏 yêu cầu quá lớn",
+};
+
+/** Lượt gọi AI hôm nay + lần gần nhất bị chặn vì hạn mức (scripts/usage.ts). */
+async function renderUsage() {
+  const box = $("usageBox");
+  try {
+    const u = await api("/api/usage");
+    const rows = u.today.map((r) => `<li><b>${escapeHtml(r.provider)}</b> ${r.calls} lượt${r.errors ? ` · ${r.errors} lỗi` : ""}</li>`).join("");
+    const limits = u.limits.map((l) => `<li class="limit"><b>${escapeHtml(l.provider)}</b> ${LIMIT_LABELS[l.kind] ?? l.kind} lúc ${
+      new Date(l.at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</li>`).join("");
+    box.innerHTML = `<div class="usage-head">📊 Hôm nay${u.freeMode ? ` · <span class="free-on">💚 Chế độ Miễn phí đang bật</span>` : ""}</div>
+      ${rows || limits ? `<ul>${limits}${rows}</ul>` : `<p class="muted">Chưa gọi dịch vụ AI nào hôm nay.</p>`}`;
+  } catch {
+    box.innerHTML = "";
+  }
+}
+
+/** focusName: ô cần đưa con trỏ vào (gợi ý key gọi); bấm nút thì tham số là Event — bỏ qua. */
+async function openSettings(focusName) {
   closeMenu();
   removals = new Set();
   $("settingsHint").textContent = "";
   $("keyFields").innerHTML = `<p class="muted">Đang tải…</p>`;
   if (!$("settingsDlg").open) $("settingsDlg").showModal();
+  renderUsage();
   try {
     const { keys } = await api("/api/keys");
     let group = "";
@@ -2041,7 +2276,7 @@ async function openSettings() {
                           value="${escapeHtml(k.value)}" placeholder="${escapeHtml(k.placeholder ?? "")}" />`;
       } else {
         status = `<span class="state ${k.set ? "on" : ""}">${k.set ? `✓ đã có ${escapeHtml(k.preview)}` : "chưa có"}</span>`;
-        control = `<input id="key-${k.name}" name="${k.name}" data-type="secret" type="password" spellcheck="false"
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="secret" type="password" spellcheck="false"${k.set ? "" : " data-empty"}
                           placeholder="${k.set ? "Dán key mới để thay" : "Dán key vào đây"}" />
           ${k.set ? `<button type="button" class="btn" data-remove="${k.name}">Xoá</button>` : ""}`;
       }
@@ -2074,11 +2309,81 @@ async function openSettings() {
           removals.add(name); b.textContent = "Hoàn tác"; field.classList.add("removing");
         }
       }));
-    // Chưa có key viết kịch bản thì đưa con trỏ thẳng vào ô key đầu tiên.
-    ($("keyFields").querySelector('[data-type="secret"]'))?.focus();
+    // Con trỏ vào ô được nhờ, không thì ô key đầu tiên còn trống — key miễn phí xếp đầu nên người mới điền chúng trước.
+    ((typeof focusName === "string" && $(`key-${focusName}`))
+      || $("keyFields").querySelector('[data-type="secret"][data-empty]')
+      || $("keyFields").querySelector('[data-type="secret"]'))?.focus();
   } catch (e) {
     $("keyFields").innerHTML = `<p class="hint err">Lỗi: ${escapeHtml(e.message)}</p>`;
   }
+}
+
+// ---------- gợi ý key lúc tạo video lần đầu ----------
+/**
+ * Key miễn phí làm video đẹp hơn, xếp theo mức đáng có. `links`: chữ trên link → tên ô trong Cài đặt
+ * (lấy url và trạng thái từ /api/keys). `needs`: phải có đủ các ô này mới tính là có (mặc định: một trong `links`).
+ */
+const KEY_TIPS = [
+  { icon: "✍️", title: "Google Gemini", what: "AI viết lời hay hơn và giọng đọc AI tự nhiên — một key dùng cho cả hai.",
+    links: { "Lấy key": "GEMINI_API_KEY" } },
+  { icon: "🖼", title: "Pexels hoặc Pixabay", what: "Ảnh và clip quay thật cho từng cảnh, thay cho nền trơn.",
+    links: { Pexels: "PEXELS_API_KEY", Pixabay: "PIXABAY_API_KEY" } },
+  { icon: "🎵", title: "Freesound", what: "Nhạc nền và hiệu ứng âm thanh được phép dùng.",
+    links: { "Lấy key": "FREESOUND_API_KEY" } },
+  { icon: "🎨", title: "Cloudflare Workers AI", what: "AI vẽ ảnh minh hoạ, khoảng 170 ảnh mỗi ngày.",
+    links: { "Lấy key": "CLOUDFLARE_ACCOUNT_ID" }, needs: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"] },
+  { icon: "⚡", title: "Groq hoặc OpenRouter", what: "AI viết lời dự phòng khi Gemini hết lượt trong ngày.",
+    links: { Groq: "GROQ_API_KEY", OpenRouter: "OPENROUTER_API_KEY" } },
+];
+
+/**
+ * Người mới (chưa có video nào render xong) bấm tạo video lần đầu: gợi ý các key miễn phí còn thiếu.
+ * Hiện một lần duy nhất. needsScript: lần tạo này cần AI viết lời — thiếu key thì không cho "tạo luôn".
+ * true = tạo tiếp; false = người dùng đóng hoặc đi điền key (lời đang gõ vẫn giữ nguyên).
+ */
+async function keyTipsBeforeFirstVideo({ needsScript = false } = {}) {
+  if (state.keyTipsSeen || state.videos.some((v) => v.mp4)) return true;
+  // Kiểm tra một lần mỗi phiên — đủ key rồi thì khỏi hỏi lại server ở lần bấm sau.
+  state.keyTipsSeen = true;
+  let fields;
+  try {
+    fields = Object.fromEntries((await api("/api/keys")).keys.map((k) => [k.name, k]));
+  } catch {
+    return true; // không đọc được trạng thái key: bỏ qua gợi ý, đừng chặn tạo video
+  }
+  const has = (tip) => tip.needs
+    ? tip.needs.every((name) => fields[name]?.set)
+    : Object.values(tip.links).some((name) => fields[name]?.set);
+  const missing = KEY_TIPS.filter((tip) => !has(tip));
+  if (missing.length === 0) return true;
+  postJson("/api/key-tips/seen", {}).catch(() => {});
+
+  $("keyTipsList").innerHTML = KEY_TIPS.map((tip) => {
+    const done = has(tip);
+    const links = Object.entries(tip.links)
+      .filter(([, name]) => fields[name]?.url)
+      .map(([text, name]) => `<a href="${escapeHtml(fields[name].url)}" target="_blank" rel="noopener">${escapeHtml(text)} ↗</a>`)
+      .join(" · ");
+    return `<li${done ? ` class="done"` : ""}>
+      <span class="tip-icon" aria-hidden="true">${tip.icon}</span>
+      <div class="tip-body"><b>${escapeHtml(tip.title)}</b><span class="muted">${escapeHtml(tip.what)}</span></div>
+      <span class="tip-act">${done ? `<span class="tip-on">✓ đã có</span>` : links}</span>
+    </li>`;
+  }).join("");
+  $("keyTipsPaid").hidden = Boolean(state.freeMode);
+  const blocked = needsScript && !hasScriptKey();
+  $("keyTipsNeed").hidden = !blocked;
+  $("keyTipsLater").hidden = blocked;
+
+  const dlg = $("keyTipsDlg");
+  const choice = await new Promise((resolve) => {
+    dlg.returnValue = "";
+    dlg.addEventListener("close", () => resolve(dlg.returnValue), { once: true });
+    dlg.showModal();
+    $("keyTipsSettings").focus();
+  });
+  if (choice === "settings") openSettings(Object.values(missing[0].links)[0]);
+  return choice === "later";
 }
 
 async function saveSettings(event) {
@@ -2148,6 +2453,8 @@ function setMultiHint(text, isError = false) {
 
 async function showMulti(slug) {
   stopFollowing();
+  // Chuyển sang danh sách cảnh khác: lưu ngay bản đang soạn trước khi thay `multi`.
+  if (multiDraftTimer) saveMultiDraft();
   $("view-chat").hidden = true;
   $("view-library").hidden = true;
   $("view-batch").hidden = true;
@@ -2299,6 +2606,13 @@ function bindMulti() {
     $("multiScenes").lastElementChild?.querySelector("textarea")?.focus();
   });
   $("multiSubmit").addEventListener("click", submitMulti);
+  // Mọi thay đổi trong màn Nhiều cảnh (gõ, chọn, thêm/xoá/đổi chỗ cảnh) đều lưu nháp.
+  for (const type of ["input", "change", "click"]) {
+    $("view-multi").addEventListener(type, (e) => {
+      if (e.target.closest?.("#multiSubmit")) return;
+      scheduleMultiDraft();
+    });
+  }
 
   const box = $("multiScenes");
   // Ô chữ: chỉ ghi vào state, không vẽ lại — vẽ lại sẽ làm mất con trỏ đang gõ.
@@ -2360,6 +2674,7 @@ function bindMulti() {
       if (!res.ok) throw new Error(body.error);
       scene.media = body.path;
       setMultiHint("");
+      scheduleMultiDraft();
     } catch (err) {
       setMultiHint(`Không tải lên được ${file.name}: ${err.message}`, true);
     } finally {
@@ -2370,16 +2685,22 @@ function bindMulti() {
 }
 
 async function submitMulti() {
+  blurTyping();
   if (multiUploads > 0) {
     setMultiHint("Đợi tải file lên xong đã.", true);
     return;
   }
+  if (!(await keyTipsBeforeFirstVideo())) return;
   setMultiHint("");
   $("multiSubmit").disabled = true;
   try {
+    clearTimeout(multiDraftTimer);
+    multiDraftTimer = null;
+    const { draftSlug, ...data } = multi;
     const { slug } = await postJson("/api/multi", {
-      ...multi,
-      slug: multi.slug ?? undefined,
+      ...data,
+      // Danh sách đang soạn đã lưu thành video nháp — tạo vào đúng video đó.
+      slug: multi.slug ?? draftSlug ?? undefined,
       music: multi.music || null,
     });
     multi = null;
@@ -2782,10 +3103,10 @@ function renderBatchPlan() {
   if (needsAi && !hasScriptKey()) {
     warn.push("Chưa có AI viết lời — đổi ô “Lời video” sang 📝 Có sẵn, hoặc thêm key trong Cài đặt.");
   }
-  if (batchSource !== "media" && opts.images === "pexels" && !state?.keys.pexels) {
-    warn.push("Chưa có key Pexels — đổi ô “Hình ảnh” sang 🚫 Không hình hoặc 🖼 Ảnh của tôi.");
+  if (batchSource !== "media" && (opts.images === "pexels" || opts.images === "stock-video") && !state?.keys.pexels) {
+    warn.push("Chưa có key Pexels/Pixabay — đổi ô “Hình ảnh” sang 🚫 Không hình hoặc 🖼 Ảnh của tôi.");
   }
-  if (batchSource !== "media" && opts.images === "ai" && !state?.keys.gemini) {
+  if (batchSource !== "media" && opts.images === "ai" && !state?.keys.gemini && !state?.keys.flux) {
     warn.push("Chưa có key Gemini để vẽ ảnh — đổi ô “Hình ảnh”.");
   }
   // Cảnh báo về cài đặt (thiếu key…): mở phần cài đặt để thấy ngay ô cần đổi.
@@ -2812,6 +3133,7 @@ async function importBatchFile(e) {
 }
 
 async function askForIdeas() {
+  blurTyping();
   const topic = $("batchTopic").value.trim();
   if (!topic) { setBatchHint("Gõ chủ đề trước đã.", true); return; }
   const count = Math.max(1, Math.min(50, Number($("batchTopicCount").value) || 10));
@@ -3012,8 +3334,9 @@ function cardMenuFor(key, target, onChange) {
       options: [inherit,
         { value: "none", title: IMAGE_SOURCES.none, sub: "Chỉ có chữ trên nền màu" },
         { value: "library", title: IMAGE_SOURCES.library, sub: "Ảnh đã có trong thư viện" },
-        { value: "pexels", title: IMAGE_SOURCES.pexels, sub: state?.keys.pexels ? "Ảnh thật, miễn phí" : "Cần key Pexels", disabled: !state?.keys.pexels },
-        { value: "ai", title: IMAGE_SOURCES.ai, sub: state?.keys.gemini ? "Gemini vẽ từng cảnh" : "Cần key Gemini", disabled: !state?.keys.gemini },
+        { value: "pexels", title: IMAGE_SOURCES.pexels, sub: state?.keys.pexels ? "Ảnh thật, miễn phí" : "Cần key Pexels/Pixabay", disabled: !state?.keys.pexels },
+        { value: "stock-video", title: IMAGE_SOURCES["stock-video"], sub: state?.keys.pexels ? "Clip thật, miễn phí" : "Cần key Pexels/Pixabay", disabled: !state?.keys.pexels },
+        { value: "ai", title: IMAGE_SOURCES.ai, sub: state?.keys.flux ? "FLUX miễn phí (Cloudflare)" : state?.freeMode ? "💚 Cần key Cloudflare" : state?.keys.gemini ? "Gemini vẽ từng cảnh" : "Cần key Cloudflare/Gemini", disabled: !state?.keys.flux && (!state?.keys.gemini || state?.freeMode) },
         { value: "video:auto", group: "Clip video AI — tính tiền theo clip", title: "🎬 Tự động",
           sub: anyVideoKey ? "Model rẻ nhất đang có key" : "Chưa có key tạo video", disabled: !anyVideoKey },
         ...models.map((m) => ({
@@ -3155,7 +3478,9 @@ function renderBatchVariant() {
 // ---------- tạo loạt ----------
 
 async function createBatch() {
+  blurTyping();
   if (batchUploading > 0) { setBatchHint("Đợi tải file lên xong đã.", true); return; }
+  if (!(await keyTipsBeforeFirstVideo())) return;
   const body = {
     source: batchSource,
     name: $("batchName").value,

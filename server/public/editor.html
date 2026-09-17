@@ -52,6 +52,10 @@
   .ed-keys > .muted { margin: 14px 0 0; font-size: 12px; }
   .ed-title b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
   .save { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .ed-version { font-size: 11.5px; white-space: nowrap; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .ed-version.old { color: #ffcf6b; border-color: rgba(255,207,107,.45); }
+  .ed-link { background: transparent; border: 0; padding: 0; font-size: 12px; color: var(--muted); text-decoration: underline; white-space: nowrap; }
+  .ed-link:hover { color: var(--text); }
   .save.saved { color: var(--ok); }
   .save.error { color: var(--err); }
   .ed-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border-radius: 999px;
@@ -354,44 +358,13 @@
   .ai-note.err { color: var(--err); white-space: pre-line; }
   .ai-result { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #000; }
   .ai-result video { width: 100%; max-height: 220px; display: block; }
+  .stock .md-grid { padding: 0; }
+  .stock .md-list { padding: 0; }
+  .stock-search { display: flex; gap: 6px; }
+  .stock-search input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; color: var(--text); outline: 0; }
+  .stock-search .ai-go { padding: 6px 14px; }
+  .btn-more { align-self: center; background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; color: var(--text); font-size: 12px; }
 
-  /* ---------- tư liệu Bilibili ---------- */
-  .bl input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; outline: 0; color: var(--text); min-width: 0; }
-  .bl input:focus { border-color: var(--line-2); }
-  .bl-search { display: flex; gap: 6px; }
-  .bl-search input { flex: 1 1 auto; }
-  .bl-search button { flex: none; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 12px; }
-  .bl-search .ai-go { border: 0; background: var(--accent); color: var(--accent-ink); }
-  .bl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .bl-chips button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font-size: 11.5px; color: var(--muted); }
-  .bl-chips button:hover { color: var(--text); border-color: var(--line-2); }
-  .bl-list { display: flex; flex-direction: column; gap: 6px; }
-  .bl-item { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px; text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px; color: var(--text); }
-  .bl-item:hover { border-color: var(--accent); }
-  .bl-cover { position: relative; aspect-ratio: 16 / 10; border-radius: 5px; overflow: hidden; background: #000; }
-  .bl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .bl-cover i { position: absolute; right: 3px; bottom: 3px; font-style: normal; font-size: 10.5px; background: rgba(0,0,0,.72); color: #fff; padding: 0 4px; border-radius: 3px; }
-  .bl-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-  .bl-meta b { font-size: 12px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .bl-meta small, .bl-title small { color: var(--muted); font-size: 11px; }
-  .bl-tags { display: flex; flex-wrap: wrap; gap: 3px; }
-  .bl-tags em { font-style: normal; font-size: 10.5px; color: #7ee2a8; background: rgba(46,204,113,.12); border-radius: 4px; padding: 0 5px; }
-  .bl-tags em.pending { color: var(--muted); background: var(--panel); }
-  .bl-more, .bl-back { align-self: flex-start; background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; color: var(--text); font-size: 12px; }
-  .bl-back { border: 0; padding: 2px 0; color: var(--muted); }
-  .bl-back:hover { color: var(--text); }
-  .bl-player { aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid var(--line); }
-  .bl-player iframe { width: 100%; height: 100%; border: 0; display: block; }
-  .bl-title { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
-  .bl-title a { color: var(--muted); }
-  .bl-permit { display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(46,204,113,.35); border-radius: 8px; padding: 8px; }
-  .bl-permit blockquote { margin: 0; padding: 2px 0 2px 8px; border-left: 3px solid #2ecc71; font-size: 12.5px; color: var(--text); }
-  .bl-permit details { font-size: 11.5px; color: var(--muted); }
-  .bl-permit details p { margin: 4px 0 0; white-space: pre-wrap; max-height: 160px; overflow-y: auto; }
-  .bl-range { display: grid; grid-template-columns: 1fr 1fr 84px; gap: 6px; }
-  .bl-credit { display: flex; gap: 6px; align-items: center; font-size: 11.5px; background: var(--panel-2); border-radius: 8px; padding: 6px 8px; }
-  .bl-credit span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-  .bl-credit button, .bl-tool button { flex: none; background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; color: var(--text); font-size: 11px; }
 
   /* ---------- khung crop kiểu CapCut ---------- */
   /* Phủ cả trình chỉnh sửa như trang Crop của CapCut — khu xem trước riêng quá chật, nhất là trên điện thoại. */

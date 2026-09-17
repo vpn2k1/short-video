@@ -18,7 +18,7 @@ type SaveState = "saved" | "dirty" | "saving" | "error";
 type JobState =
   | { status: "idle" }
   | { status: "running"; title: string; percent: number | null; line: string }
-  | { status: "exported"; mp4: string }
+  | { status: "exported"; mp4: string; version: number | null }
   | { status: "error"; title: string; message: string };
 
 const FPS = 30;
@@ -27,7 +27,7 @@ const same = (a: ShortProps, b: ShortProps) => JSON.stringify(a) === JSON.string
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
 /** Độ dài cảnh ảnh sinh ra từ nút 📷 Cắt ảnh — đổi được bằng cách kéo mép cảnh. */
 const FREEZE_MS = 2000;
-const LIB_SECTIONS: LibrarySection[] = ["visual", "audio", "text", "captions", "ai", "bili"];
+const LIB_SECTIONS: LibrarySection[] = ["visual", "audio", "text", "captions", "ai", "stock"];
 
 /** Bảng phím tắt — hiện trong hộp ⌨ (phím ? hoặc ⌘/), menu Trợ giúp của app desktop mở cùng hộp này. */
 const SHORTCUTS: [string, [string[], string][]][] = [
@@ -60,7 +60,7 @@ const SHORTCUTS: [string, [string[], string][]][] = [
   ["Timeline & thư viện", [
     [["=", "−"], "Phóng to / thu nhỏ timeline"],
     [["Shift", "Z"], "Vừa khung — thấy cả video"],
-    [["Alt", "1…6"], "Ảnh/Video · Âm thanh · Văn bản · Phụ đề · Video AI · Bilibili"],
+    [["Alt", "1…6"], "Ảnh/Video · Âm thanh · Văn bản · Phụ đề · Video AI · Kho free"],
   ]],
   ["Dự án", [
     [[MOD, "S"], "Lưu ngay"],
@@ -74,10 +74,14 @@ const SHORTCUTS: [string, [string[], string][]][] = [
 /**
  * Trình chỉnh sửa kiểu CapCut cho một video: xem trước bằng Remotion Player (chính
  * composition dùng để render, nên thấy gì xuất ra nấy), timeline nhiều track,
- * bảng thuộc tính, thư viện media. Mọi thay đổi ghi thẳng vào props.json.
+ * bảng thuộc tính, thư viện media. Mở đúng MỘT bản của video (server/versions.ts): thay đổi lưu vào
+ * bản nháp của bản đó, xuất ra thành bản mới — bản gốc giữ nguyên.
  */
-export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
+export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slug, version: requestedVersion }) => {
   const [props, setProps] = useState<ShortProps | null>(null);
+  /** Bản đang sửa (server đã quy "mới nhất" ra số); null = dự án chưa từng xuất. */
+  const [versionInfo, setVersionInfo] = useState<{ version: number | null; latest: number | null; hasDraft: boolean } | null>(null);
+  const versionQuery = useRef("");
   const [title, setTitle] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selection, setSelection] = useState<ops.Selection>(null);
@@ -200,7 +204,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
   const saveNow = useCallback(async (next: ShortProps) => {
     setSaveState("saving");
     try {
-      await postJson(`/api/video/${slug}/props`, next);
+      await postJson(`/api/editor/${slug}/save${versionQuery.current}`, next);
       setSaveState("saved");
     } catch (e) {
       setSaveState("error");
@@ -232,8 +236,13 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
       setLoadError("Thiếu tên video trong đường dẫn.");
       return;
     }
-    api<{ props: ShortProps; title: string }>(`/api/editor/${slug}`)
+    api<{ props: ShortProps; title: string; version: number | null; latest: number | null; hasDraft: boolean }>(
+      `/api/editor/${slug}${requestedVersion !== null ? `?version=${requestedVersion}` : ""}`,
+    )
       .then((d) => {
+        // Mọi lần lưu/xuất sau đó gắn đúng bản này — kể cả khi trong lúc sửa có bản mới hơn ra đời.
+        versionQuery.current = d.version !== null ? `?version=${d.version}` : "";
+        setVersionInfo({ version: d.version, latest: d.latest, hasDraft: d.hasDraft });
         // Dự án "Video gốc" (phong cách của trình chỉnh sửa) không vẽ gì riêng theo cảnh: gộp luôn
         // hàng Cảnh vào các hàng Video để trên timeline chỉ còn MỘT loại. Hình không đổi chút nào.
         const unified = d.props.style === "plain" && ops.hasSceneMedia(d.props) ? ops.unifyScenes(d.props) : null;
@@ -253,7 +262,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
       })
       .catch(() => undefined);
     refreshMedia();
-  }, [slug, refreshMedia, scheduleSave, flash]);
+  }, [slug, requestedVersion, refreshMedia, scheduleSave, flash]);
 
 
   // ---------- lịch sử ----------
@@ -404,7 +413,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     try {
       window.clearTimeout(saveTimer.current);
       await saveNow(current);
-      const { jobId } = await postJson<{ jobId: string }>(`/api/editor/${slug}/subtitles`, options);
+      const { jobId } = await postJson<{ jobId: string }>(`/api/editor/${slug}/subtitles${versionQuery.current}`, options);
       setJob({ status: "running", title, percent: null, line: "Đang chuẩn bị phiên âm… (lần đầu có thể lâu hơn)" });
       followJob(
         jobId,
@@ -613,7 +622,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     try {
       window.clearTimeout(saveTimer.current);
       await saveNow(current);
-      const { jobId } = await postJson<{ jobId: string }>(`/api/editor/${slug}/voice`, { voice, index });
+      const { jobId } = await postJson<{ jobId: string }>(`/api/editor/${slug}/voice${versionQuery.current}`, { voice, index });
       setJob({ status: "running", title, percent: null, line: "Đang tạo giọng đọc…" });
       followJob(
         jobId,
@@ -636,6 +645,20 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     }
   };
 
+  /** Bỏ bản nháp: nạp lại đúng bản đã xuất. */
+  const discardDraft = async () => {
+    if (!versionInfo?.hasDraft || !window.confirm(`Bỏ mọi thay đổi chưa xuất và quay về đúng bản ${versionInfo.version}?`)) return;
+    window.clearTimeout(saveTimer.current);
+    try {
+      await postJson(`/api/editor/${slug}/discard${versionQuery.current}`, {});
+      setSaveState("saved");
+      // Tải lại trang: lịch sử hoàn tác đang chứa thay đổi vừa bỏ.
+      window.location.reload();
+    } catch (e) {
+      flash((e as Error).message);
+    }
+  };
+
   const exportVideo = async () => {
     const current = propsRef.current;
     if (!current) return;
@@ -643,7 +666,7 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
     try {
       window.clearTimeout(saveTimer.current);
       await saveNow(current);
-      const { jobId } = await postJson<{ jobId: string }>(`/api/editor/${slug}/render`, {});
+      const { jobId } = await postJson<{ jobId: string }>(`/api/editor/${slug}/render${versionQuery.current}`, {});
       setJob({ status: "running", title: "Đang xuất video", percent: 0, line: "Đang chuẩn bị dựng…" });
       followJob(
         jobId,
@@ -657,7 +680,8 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
         },
         (status, result, error) => {
           if (status === "done") {
-            setJob({ status: "exported", mp4: (result as { mp4?: string } | null)?.mp4 ?? `/out/${slug}.mp4` });
+            const message = result as { mp4?: string; version?: number } | null;
+            setJob({ status: "exported", mp4: message?.mp4 ?? `/out/${slug}.mp4`, version: message?.version ?? null });
           } else {
             setJob({ status: "error", title: "Không xuất được", message: error ?? "Xuất video thất bại." });
           }
@@ -855,7 +879,22 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
         </div>
         <div className="ed-title">
           <b title={title}>{title}</b>
+          {versionInfo?.version != null ? (
+            <span
+              className={`ed-version ${versionInfo.version !== versionInfo.latest ? "old" : ""}`}
+              title={versionInfo.version !== versionInfo.latest
+                ? `Đang sửa bản ${versionInfo.version} (bản mới nhất là ${versionInfo.latest}). Xuất ra sẽ thành bản mới, bản ${versionInfo.version} giữ nguyên.`
+                : "Xuất ra sẽ thành bản mới, bản đang mở giữ nguyên."}
+            >
+              Bản {versionInfo.version}{versionInfo.version !== versionInfo.latest ? " · bản cũ" : ""}
+            </span>
+          ) : null}
           <span className={`save ${saveState}`}>{saveLabel}</span>
+          {versionInfo?.hasDraft ? (
+            <button className="ed-link" onClick={discardDraft} disabled={job.status === "running"} title="Bỏ mọi thay đổi chưa xuất, quay về đúng bản đã xuất">
+              Bỏ thay đổi
+            </button>
+          ) : null}
         </div>
         <div className="ed-top-r">
           <button className="ed-icon" onClick={() => setShowKeys((v) => !v)} title={`Phím tắt (? hoặc ${MOD}+/)`} aria-expanded={showKeys}>⌨</button>
@@ -887,12 +926,15 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
               flash("Đã tạo video — xem ở 🖼 Ảnh › Video.");
             }
           }}
-          onBiliVideo={(path, assign) => {
+          onStock={(path, kind, action, credit) => {
             refreshMedia();
-            if (assign) {
-              onUseMedia({ path, name: path.split("/").pop() ?? path, kind: "video", bytes: 0, at: Date.now() });
+            const name = path.split("/").pop() ?? path;
+            if (action === "music") {
+              withProps((p) => ({ props: { ...p, music: path }, selection: { type: "music" }, message: `Nhạc nền: ${name} — ${credit}` }));
+            } else if (action === "use") {
+              void onUseMedia({ path, name, kind: kind === "image" ? "image" : kind === "video" ? "video" : "audio", bytes: 0, at: Date.now() });
             } else {
-              flash("Đã tải tư liệu — xem ở 🖼 Ảnh › Video.");
+              flash(`Đã lưu vào thư viện — ${credit}`);
             }
           }}
           selection={selection}
@@ -1097,7 +1139,11 @@ export const Editor: React.FC<{ slug: string }> = ({ slug }) => {
                 <div className="ed-actions">
                   <a className="ed-btn primary" href={job.mp4.split("?")[0]} download>⬇ Tải xuống</a>
                   <a className="ed-btn" href={`/#/v/${slug}`}>Mở trong chat</a>
-                  <button className="ed-btn ghost" onClick={() => setJob({ status: "idle" })}>Tiếp tục sửa</button>
+                  {job.version !== null ? (
+                    <a className="ed-btn ghost" href={`/editor.html#${slug}/v${job.version}`} title="Mở bản vừa xuất để sửa tiếp">Sửa tiếp bản {job.version}</a>
+                  ) : (
+                    <button className="ed-btn ghost" onClick={() => setJob({ status: "idle" })}>Tiếp tục sửa</button>
+                  )}
                 </div>
               </>
             ) : (

@@ -35,9 +35,17 @@ public/uploads
 
 # API key điền trong ô Cài đặt của giao diện web
 data/api-keys.json
+# Đã hiện popup gợi ý key lúc tạo video lần đầu
+data/key-tips-seen
 
 # Ảnh bìa cắt từ mp4 cho bảng làm hàng loạt — sinh lại được
 public/thumbs
 
 # Trạng thái từng loạt video (Hàng loạt)
 data/batches
+
+# Cờ "đang chạy" của từng video — còn sót sau khi server tắt nghĩa là lượt bị gián đoạn
+videos/*/.running.json
+
+# Thống kê lượt gọi dịch vụ theo ngày (⚙ Cài đặt › 📊 Hôm nay) — dữ liệu của từng máy
+data/usage.json

@@ -1,6 +1,6 @@
 ---
 name: voice-generation
-description: Giọng đọc cho video — TTS ElevenLabs, EverAI, giọng macOS miễn phí, và phiên âm audio có sẵn bằng whisper.cpp. Dùng khi cần voiceover, chọn giọng, hoặc làm video từ file thu sẵn.
+description: Giọng đọc cho video — TTS ElevenLabs, Gemini TTS, giọng macOS miễn phí, và phiên âm audio có sẵn bằng whisper.cpp. Dùng khi cần voiceover, chọn giọng, hoặc làm video từ file thu sẵn.
 ---
 
 # Voice Generation
@@ -13,21 +13,25 @@ Hai chiều ngược nhau: **chữ → giọng** (TTS) và **giọng → chữ**
 npm run prompt-to-video -- --name x --voice linh     # tiếng Việt, macOS, miễn phí
 npm run prompt-to-video -- --name x --voice laura    # ElevenLabs
 npm run prompt-to-video -- --name x --voice <voice_id>   # bất kỳ giọng ElevenLabs nào
-npm run prompt-to-video -- --name x --voice kieu-nhi     # EverAI, tiếng Việt bản xứ
-npm run prompt-to-video -- --name x --voice vi_female_kieunhi_mn   # bất kỳ voice_code EverAI nào
+npm run prompt-to-video -- --name x --voice gemini-kore  # Gemini TTS, key Gemini, có gói miễn phí
 npm run prompt-to-video -- --list-voices             # catalog tĩnh
 npm run prompt-to-video -- --list-voices --live      # đọc /v1/voices — nguồn chính xác
 ```
 
 Giọng quyết định luôn engine, không phải khai báo cả `--tts` lẫn voice id.
 
-## EverAI (tiếng Việt bản xứ)
+## Gemini TTS
 
-Key `EVERAI_API_KEY` (tạo ở https://everai.vn/api), model `EVERAI_MODEL_ID` (mặc định
-`everai-v1.6`). API bất đồng bộ: `POST /api/v1/tts` → hỏi `GET /api/v1/tts/{request_id}`
-mỗi giây tới `status: "done"` → tải `audio_link`. Giọng trong catalog: `kieu-nhi`,
-`thuy-trang`, `le-hoang` (vi, ~1000 credit/1k ký tự), `ever-nova`, `ever-echo` (en).
-Code ở `scripts/tts.ts` (`everAiToFile`) — **chưa chạy thử với key thật**.
+Dùng `GEMINI_API_KEY`, model `GEMINI_TTS_MODEL` (mặc định `gemini-3.1-flash-tts-preview`, lỗi thì lùi về
+`gemini-2.5-flash-preview-tts`), cách đọc `GEMINI_TTS_STYLE` (mô tả bằng lời). Giọng trong catalog:
+`gemini-kore`, `gemini-sulafat`, `gemini-leda`, `gemini-charon`, `gemini-puck`, `gemini-orus` (vi),
+`gemini-zephyr`, `gemini-fenrir` (en) — giọng đa ngôn ngữ, đọc được cả hai.
+
+Gói miễn phí giới hạn lượt gọi mỗi phút/ngày, nên `scripts/gemini-tts.ts` **đọc cả kịch bản trong một
+lượt** (tối đa ~2.500 ký tự mỗi lượt), dặn model ngừng hẳn giữa các dòng, rồi tách thành từng câu theo
+khoảng lặng (quy hoạch động: khoảng lặng dài + gần vị trí ước lượng theo số ký tự). Hết hạn mức theo phút
+thì tự đợi (≤ 65 giây) rồi thử lại; hết lượt trong ngày thì báo lỗi rõ (`scripts/provider-error.ts`).
+Tách lệch hiếm gặp — nếu có, log báo "tách theo ước lượng", nên soát phụ đề.
 
 ## Giới hạn tài khoản ElevenLabs (đo thật)
 

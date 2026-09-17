@@ -6,6 +6,8 @@
  * thuần nên model nhỏ và model miễn phí cũng làm được — không cần structured output nặng.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { describeProviderError } from "./provider-error";
+import { recordCall } from "./usage";
 import {
   COMPAT_PROVIDERS,
   DEFAULT_OLLAMA_HOST,
@@ -85,11 +87,13 @@ const compatAsk = async (
       }),
     });
     if (!response.ok) {
-      lastError = `${config.label} (${model}) báo lỗi ${response.status}: ${await errorMessage(response)}`;
+      recordCall(config.label, false);
+      lastError = describeProviderError(`${config.label} (${model})`, response.status, await errorMessage(response));
       // Quá tải / hết lượt → thử model dự phòng; lỗi khác (key sai…) thì dừng luôn.
       if (response.status >= 500 || response.status === 429) continue;
       break;
     }
+    recordCall(config.label, true);
     const body = (await response.json()) as { choices?: { message?: { content?: string | null } }[] };
     return { raw: body.choices?.[0]?.message?.content ?? "", who: `${config.label} (${model})` };
   }

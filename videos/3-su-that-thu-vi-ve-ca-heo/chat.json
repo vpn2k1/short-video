@@ -42,7 +42,9 @@
           ],
           "image": null
         }
-      ]
+      ],
+      "version": 1,
+      "stale": true
     }
   ],
   "settings": {
@@ -54,6 +56,7 @@
     "music": null,
     "video": "",
     "provider": "groq",
-    "images": "pexels"
+    "images": "pexels",
+    "length": "auto"
   }
 }

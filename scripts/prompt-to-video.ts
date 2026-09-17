@@ -135,11 +135,6 @@ for (let i = 0; i < args.length; i++) {
         tts = "elevenlabs";
         voiceOverride = value;
         voiceLabel = `${value} (elevenlabs)`;
-      } else if (/^[a-z]{2}_(male|female)_\w+$/.test(value)) {
-        // voice_code của EverAI, ví dụ vi_female_kieunhi_mn.
-        tts = "everai";
-        voiceOverride = value;
-        voiceLabel = `${value} (everai)`;
       } else {
         console.error(
           `Không có giọng "${value}", và cũng không phải voice_id ElevenLabs hợp lệ.\n` +

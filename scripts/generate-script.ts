@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { describeProviderError, isProviderUnavailable } from "./provider-error";
+import { freeMode, recordCall } from "./usage";
 import { z } from "zod";
 import { listImagesFor } from "./images";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
@@ -166,7 +168,9 @@ export const scriptProviderCatalog = (claudeModel = "claude-opus-5") =>
     id,
     label: providerLabel(id),
     model: providerModel(id, claudeModel),
-    available: hasScriptKey(id),
+    available: hasScriptKey(id) && !(freeMode() && PAID_SCRIPT_PROVIDERS.includes(id)),
+    /** Chỉ có gói trả tiền — chế độ Miễn phí tắt đi. */
+    paid: PAID_SCRIPT_PROVIDERS.includes(id),
     /** Prompt phải gọn (ngữ cảnh nhỏ / hạn mức token thấp) — phong cách "Tự động" đoán bằng từ khoá. */
     smallPrompt: SMALL_PROMPT.includes(id),
   }));
@@ -188,7 +192,15 @@ export const scriptProvider = (choice?: ProviderChoice): ScriptProvider | null =
  * Các nhà cung cấp sẽ thử, theo thứ tự. Chọn cụ thể → chỉ đúng nó. "Tự động" → mọi
  * nhà cung cấp có key: cái đầu hết lượt/hết tiền thì chuyển sang cái sau.
  */
+/** Nhà cung cấp chỉ có gói trả tiền — chế độ Miễn phí bỏ qua. */
+export const PAID_SCRIPT_PROVIDERS: ScriptProvider[] = ["anthropic", "openai"];
+
 export const scriptProviders = (choice?: ProviderChoice): ScriptProvider[] => {
+  const all = scriptProvidersIgnoringCost(choice);
+  return freeMode() ? all.filter((p) => !PAID_SCRIPT_PROVIDERS.includes(p)) : all;
+};
+
+const scriptProvidersIgnoringCost = (choice?: ProviderChoice): ScriptProvider[] => {
   // Người dùng chọn cho riêng video này thì thắng cài đặt chung.
   const pick = choice && choice !== "auto"
     ? choice
@@ -202,13 +214,8 @@ export const scriptProviders = (choice?: ProviderChoice): ScriptProvider[] => {
 /** Lỗi hết lượt / hết tiền / key không có quyền — thử nhà cung cấp khác thì có thể được. */
 class ProviderUnavailable extends Error {}
 
-const unavailable = (status: number | undefined, message: string) =>
-  status === 429 || status === 402 || status === 401 || status === 403 ||
-  // 413 = prompt vượt hạn mức token của gói (Groq miễn phí: 8.000 token/phút) — nhà cung cấp khác vẫn chạy.
-  status === 413 ||
-  // Quá tải tạm thời (Gemini hay trả 503 "high demand") — nhà cung cấp khác vẫn có thể chạy.
-  status === 500 || status === 502 || status === 503 ||
-  /credit|quota|billing|insufficient|exceeded|rate.?limit|denied|permission|high demand|overloaded|unavailable|too large|context length/i.test(message);
+/** Hết lượt/hết tiền/key sai/quá tải/prompt quá lớn — nhà cung cấp khác (nếu có key) vẫn có thể chạy. */
+const unavailable = isProviderUnavailable;
 
 /** Danh sách ảnh/video model được phép gán vào "image". File tải lên xếp đầu. */
 const mediaSection = (images: string[], uploads: string[]) => {
@@ -457,7 +464,7 @@ const callModel = async (
       // Hết lượt/hết tiền và còn nhà cung cấp khác có key → thử tiếp; lỗi khác thì báo ngay.
       if (!(error instanceof ProviderUnavailable) || provider === providers[providers.length - 1]) {
         throw skipped.length
-          ? new Error(`${skipped.join(" · ")} · ${error instanceof Error ? error.message : error}`)
+          ? new Error(`${skipped.join("\n")}\n${error instanceof Error ? error.message : error}`)
           : error;
       }
       skipped.push(error.message);
@@ -490,12 +497,14 @@ const callClaude = async (
   } catch (error) {
     const status = error instanceof Anthropic.APIError ? error.status : undefined;
     const message = error instanceof Error ? error.message : String(error);
+    recordCall("Claude", false);
     if (unavailable(status, message)) {
-      throw new ProviderUnavailable(`Claude báo lỗi ${status ?? ""}: ${message} — hết lượt hoặc hết tiền trong tài khoản.`);
+      throw new ProviderUnavailable(describeProviderError("Claude", status, message));
     }
     throw error;
   }
 
+  recordCall("Claude", true);
   if (response.stop_reason === "refusal") {
     throw new Error(
       `Claude từ chối yêu cầu này: ${response.stop_details?.explanation ?? "không rõ lý do"}`,
@@ -556,6 +565,9 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
           { role: "user", content },
         ],
         response_format: responseFormat,
+        // gpt-oss trên Groq suy luận trước khi trả lời, suy luận dài ăn hết giới hạn token đầu ra → JSON bị cắt
+        // giữa chừng, Groq báo 400 "Failed to validate JSON". Viết kịch bản không cần suy luận sâu.
+        ...(provider === "groq" && /gpt-oss/i.test(model) ? { reasoning_effort: "low" } : {}),
       }),
     });
 
@@ -567,9 +579,10 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
       { type: "json_schema", json_schema: { name: "video_script", strict: true, schema } },
       system,
     );
-    // Model không nhận json_schema (hay gặp ở model miễn phí): thử lại chế độ JSON thường,
-    // đưa schema vào prompt. tidyScript + zod vẫn kiểm lại kết quả như mọi nhà cung cấp.
-    if (response.status === 400 && /response_format|json_schema|schema|structured/i.test(await response.clone().text())) {
+    // Model không nhận json_schema (hay gặp ở model miễn phí), hoặc viết ra JSON sai schema / bị cắt
+    // (Groq "json_validate_failed"): thử lại chế độ JSON thường, đưa schema vào prompt.
+    // tidyScript + zod vẫn kiểm lại kết quả như mọi nhà cung cấp.
+    if (response.status === 400 && /response_format|json_schema|schema|structured|json_validate_failed|validate JSON/i.test(await response.clone().text())) {
       response = await send(
         model,
         { type: "json_object" },
@@ -581,6 +594,7 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
   }
   if (!response) throw new Error(`${config.label}: chưa có model nào để gọi.`);
 
+  recordCall(config.label, response.ok);
   if (!response.ok) {
     const detail = await response.text();
     let message = detail.slice(0, 300);
@@ -590,18 +604,12 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
     } catch {
       // không phải JSON — giữ nguyên text
     }
-    const text = `${config.label} (${model}) báo lỗi ${response.status}: ${message}`;
-    if (unavailable(response.status, message)) {
-      const reason = response.status >= 500 || /high demand|overloaded|unavailable/i.test(message)
-        ? "máy chủ đang quá tải tạm thời — thử lại sau ít phút"
-        : response.status === 401 || response.status === 403 || /denied|permission/i.test(message)
-          ? "key sai hoặc tài khoản bị từ chối quyền — kiểm tra key, hoặc tạo key ở tài khoản khác"
-          : response.status === 413 || /too large|context length/i.test(message)
-            ? "yêu cầu vượt hạn mức token của gói — chọn sẵn một phong cách thay vì Tự động cho nhẹ prompt, " +
-              "hoặc dùng nhà cung cấp khác"
-            : "hết lượt hoặc hết tiền trong tài khoản. Gói miễn phí giới hạn theo phút/ngày: đợi một lúc, hoặc thêm key nhà cung cấp khác";
-      throw new ProviderUnavailable(`${text} — ${reason}.`);
+    const text = describeProviderError(`${config.label} (${model})`, response.status, message);
+    if (/json_validate_failed|validate JSON|max completion tokens/i.test(message)) {
+      throw new Error(`${config.label} (${model}) viết kịch bản bị cắt giữa chừng hoặc sai cấu trúc — bấm thử lại, ` +
+        "hoặc chọn AI khác / đổi model trong ⚙ Cài đặt.");
     }
+    if (unavailable(response.status, message)) throw new ProviderUnavailable(text);
     throw new Error(text);
   }
 
