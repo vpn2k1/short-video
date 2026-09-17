@@ -218,29 +218,157 @@ export const searchBilibili = async (keyword: string, page = 1, order: BiliOrder
   return { results, scanned: raw.length, page, pages: data.numPages ?? 1 };
 };
 
-/** Từ khoá tiếng Việt → tiếng Trung giản thể: tìm bằng tiếng Việt trên Bilibili gần như không ra gì. */
-export const toChineseKeywords = async (text: string, provider: ProviderChoice = "auto") => {
+/** Có chữ Hán → coi như người dùng đã gõ từ khoá tiếng Trung. */
+const hasHan = (text: string) => /[\u4e00-\u9fff]/.test(text);
+
+export type ChineseKeywords = {
+  /** Chủ đề tiếng Trung giản thể để tìm, ví dụ "海豚" hay "越南河粉 制作". */
+  keywords: string;
+  /** Từ bắt buộc có trong tiêu đề/mô tả để coi là đúng chủ đề (danh từ chính + từ đồng nghĩa). */
+  terms: string[];
+  /** Nhóm rộng hơn khi không có clip đúng chủ đề, ví dụ 海豚 → 海洋. Rỗng nếu không có nhóm hợp. */
+  broader: string[];
+};
+
+const TRANSLATE_SYSTEM = `Bạn giúp tìm video tư liệu (b-roll) trên Bilibili. Người dùng gõ CHỦ ĐỀ bằng tiếng Việt (có khi tiếng Anh).
+Dịch sang tiếng Trung giản thể đúng nghĩa, kiểu người Trung Quốc gõ vào ô tìm kiếm.
+
+Luật:
+- "keywords": 1-4 từ, cách nhau bằng dấu cách, chỉ nội dung hình ảnh (con vật, cảnh, món ăn, hoạt động). Không thêm 素材/可商用/免费.
+- "terms": 1-4 từ tiếng Trung NGẮN mà một video đúng chủ đề chắc chắn có trong tiêu đề: danh từ chính và từ đồng nghĩa phổ biến.
+- "broader": 1-2 từ tiếng Trung cho bối cảnh/nhóm rộng hơn, dùng khi không có clip đúng chủ đề (cá heo → 海洋; mèo con → 宠物).
+- Dịch đúng loài/vật cụ thể, không đổi sang thứ gần giống. Tên riêng Việt Nam giữ đúng cách Trung Quốc gọi.
+
+Ví dụ:
+"cá heo" → {"keywords":"海豚","terms":["海豚"],"broader":["海洋"]}
+"phong cảnh thiên nhiên" → {"keywords":"自然风光","terms":["自然","风光","风景"],"broader":[]}
+"nấu phở bò" → {"keywords":"越南河粉 制作","terms":["河粉","米粉"],"broader":["美食","烹饪"]}
+"thành phố về đêm" → {"keywords":"城市夜景","terms":["夜景","城市"],"broader":["城市"]}
+"mèo con" → {"keywords":"小猫","terms":["猫"],"broader":["宠物"]}
+
+Chỉ trả về MỘT object JSON: {"keywords":"...","terms":["..."],"broader":["..."]}`;
+
+const keywordCache = new Map<string, ChineseKeywords>();
+
+/** Nhà cung cấp dự phòng khi cái đang chọn lỗi — việc nhẹ, gói miễn phí trước. */
+const FALLBACK_PROVIDERS: ProviderChoice[] = ["gemini", "groq", "openrouter", "openai", "anthropic"];
+
+/** Chủ đề tiếng Việt → từ khoá + từ chủ đề tiếng Trung: tìm bằng tiếng Việt trên Bilibili gần như không ra gì. */
+export const toChineseKeywords = async (text: string, provider: ProviderChoice = "auto"): Promise<ChineseKeywords> => {
   const input = text.trim().slice(0, 200);
-  if (!input) throw new Error("Nhập từ khoá cần dịch.");
-  const { value } = await askJson(
-    provider,
+  if (!input) throw new Error("Nhập chủ đề cần tìm.");
+  const cached = keywordCache.get(input.toLowerCase());
+  if (cached) return cached;
+
+  const ask = (choice: ProviderChoice) => askJson(
+    choice,
     {
-      system: `Dịch từ khoá tìm video sang tiếng Trung giản thể, kiểu người Trung Quốc gõ vào ô tìm kiếm Bilibili.
-Luật: ngắn gọn 1-6 từ, cách nhau bằng dấu cách; không giải thích; không phiên âm.
-Chỉ trả về MỘT object JSON: {"keywords":"..."}`,
+      system: TRANSLATE_SYSTEM,
       user: input,
-      temperature: 0.2,
-      maxTokens: 100,
-      schema: { type: "object", properties: { keywords: { type: "string" } }, required: ["keywords"] },
+      temperature: 0.1,
+      maxTokens: 150,
+      schema: {
+        type: "object",
+        properties: {
+          keywords: { type: "string" },
+          terms: { type: "array", items: { type: "string" } },
+          broader: { type: "array", items: { type: "string" } },
+        },
+        required: ["keywords", "terms", "broader"],
+      },
     },
     (reply) => {
-      const keywords = String(parseJson<{ keywords?: unknown }>(reply).keywords ?? "").trim();
-      if (!/[\u4e00-\u9fff]/.test(keywords)) throw new Error(`${reply.who} không dịch ra tiếng Trung.`);
-      return keywords.slice(0, 100);
+      const body = parseJson<{ keywords?: unknown; terms?: unknown; broader?: unknown }>(reply);
+      const keywords = String(body.keywords ?? "").trim().slice(0, 60);
+      if (!hasHan(keywords)) throw new Error(`${reply.who} không dịch ra tiếng Trung.`);
+      const terms = (Array.isArray(body.terms) ? body.terms : [])
+        .map((t) => String(t).trim())
+        .filter((t) => hasHan(t) && t.length <= 8)
+        .slice(0, 4);
+      const broader = (Array.isArray(body.broader) ? body.broader : [])
+        .map((t) => String(t).trim())
+        .filter((t) => hasHan(t) && t.length <= 8 && !terms.includes(t))
+        .slice(0, 2);
+      return { keywords, terms: terms.length ? terms : keywords.split(/\s+/).filter(hasHan), broader };
     },
-    "Chưa có AI để dịch từ khoá — điền key trong Cài đặt, hoặc tự gõ từ khoá tiếng Trung.",
+    "Chưa có AI để dịch chủ đề — điền key trong Cài đặt (Gemini, Groq có gói miễn phí), hoặc tự gõ từ khoá tiếng Trung.",
   );
-  return value;
+
+  const failures: string[] = [];
+  for (const choice of [provider, ...FALLBACK_PROVIDERS.filter((p) => p !== provider)]) {
+    try {
+      const { value } = await ask(choice);
+      keywordCache.set(input.toLowerCase(), value);
+      return value;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (choice === provider || !/Chưa có key|Chưa có AI/.test(message)) failures.push(message);
+    }
+  }
+  throw new Error(failures.join(" · "));
+};
+
+/**
+ * Tìm theo chủ đề: video tác giả cho phép dùng gần như không bao giờ lọt vào kết quả của từ khoá trần ("海豚": 0/20 —
+ * đo 2026-09-17), còn ghép thêm chữ mà kênh tư liệu hay ghi thì ra nhiều ("海豚 空镜 素材", "自然风光 素材 可商用": 13/20).
+ * Nên tìm vài biến thể rồi gộp, bỏ trùng, bỏ video lạc đề (tiêu đề/mô tả không có từ chủ đề) và tuyển tập nhạc nền.
+ */
+const TOPIC_VARIANTS = ["素材 可商用", "空镜 素材", "无版权素材"];
+/** Video chỉ có nhạc/âm thanh (tìm "海豚 无版权素材" ra cả tuyển tập BGM) — mục này cần hình. */
+const AUDIO_ONLY = /BGM|背景音乐|纯音乐|音乐|音效|配乐|歌曲|歌单|无损|伴奏|铃声/i;
+/** Người dùng tự gõ kiểu từ khoá tư liệu thì tìm nguyên văn, không ghép thêm. */
+const ALREADY_STOCK = /素材|商用|版权|CC0|二创|空镜/i;
+
+export const searchBilibiliTopic = async (text: string, page = 1, order: BiliOrder = "totalrank", provider: ProviderChoice = "auto") => {
+  const input = text.trim().slice(0, 100);
+  if (!input) throw new Error("Nhập chủ đề cần tìm.");
+  const translated = hasHan(input) ? null : await toChineseKeywords(input, provider);
+  const keywords = translated?.keywords ?? input;
+  const terms = translated?.terms ?? [];
+  const queries = ALREADY_STOCK.test(keywords) ? [keywords] : TOPIC_VARIANTS.map((v) => `${keywords} ${v}`);
+
+  const seen = new Set<string>();
+  const broader = translated?.broader ?? [];
+  let scanned = 0;
+  let pages = 1;
+  let offTopic = 0;
+  const errors: string[] = [];
+
+  /** Chạy các truy vấn, giữ video không trùng, không phải tuyển tập nhạc, có ít nhất một từ trong `words`. */
+  const collect = async (list: string[], words: string[]) => {
+    const kept: BiliResult[] = [];
+    for (const query of list) {
+      try {
+        const found = await searchBilibili(query, page, order);
+        scanned += found.scanned;
+        pages = Math.max(pages, found.pages);
+        for (const item of found.results) {
+          if (seen.has(item.bvid)) continue;
+          seen.add(item.bvid);
+          const onTopic = !words.length || words.some((t) => item.title.includes(t) || item.permission.quote.includes(t));
+          if (AUDIO_ONLY.test(item.title) || !onTopic) {
+            offTopic++;
+            continue;
+          }
+          kept.push(item);
+        }
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+    return kept;
+  };
+
+  let results = await collect(queries, terms);
+  // Không có clip đúng chủ đề (clip cá heo cho phép dùng rất hiếm): tìm thêm theo bối cảnh rộng hơn (海洋 = biển),
+  // đánh dấu `relaxed` để giao diện nói rõ đây là tư liệu gần chủ đề.
+  let relaxed = false;
+  if (results.length === 0 && broader.length) {
+    results = await collect(TOPIC_VARIANTS.map((v) => `${broader[0]} ${v}`), broader);
+    relaxed = results.length > 0;
+  }
+  if (results.length === 0 && errors.length > 0 && scanned === 0) throw new Error(errors[0]);
+  return { results, relaxed, scanned, page, pages, keywords, terms, broader, queries, offTopic };
 };
 
 // ---------- chi tiết + kiểm tra quyền ----------
@@ -428,6 +556,10 @@ export const downloadBilibili = async (input: BiliDownload, log: (line: string) 
     log(`Đang tải ${detail.parts.length > 1 ? `P${part.page} ` : ""}${start !== null || end !== null ? `đoạn ${clock(start ?? 0)}–${clock(end ?? part.duration)}` : "cả video"} (tối đa ${height}p)…`);
     const args = [
       "--no-playlist", "--newline", "--no-warnings", "--no-part",
+      // Mạng từ Việt Nam tới Bilibili hay chập chờn ("Read timed out" khi đọc trang video — gặp 2026-09-17):
+      // chờ lâu hơn mặc định 20 giây và tự thử lại, có nghỉ tăng dần giữa các lần.
+      "--socket-timeout", "45", "--retries", "10", "--fragment-retries", "10", "--extractor-retries", "5",
+      "--retry-sleep", "exp=1:15",
       // Ưu tiên H.264: trình duyệt và Remotion đọc chắc chắn; HEVC/AV1 dễ lỗi khi xem trước/render.
       "-f", `bv*[vcodec^=avc][height<=${height}]+ba/bv*[height<=${height}]+ba/b`,
       "--merge-output-format", "mp4",
@@ -445,16 +577,39 @@ export const downloadBilibili = async (input: BiliDownload, log: (line: string) 
     const heartbeat = setInterval(() => {
       if (!lastPercent) log(`Đang tải và cắt đoạn… ${Math.round((Date.now() - began) / 1000)} giây (thường dưới 1 phút)`);
     }, 5000);
+    const onLine = (line: string) => {
+      const percent = /TIẾN ĐỘ\s+([\d.]+%)/.exec(line)?.[1];
+      if (percent && percent !== lastPercent) {
+        lastPercent = percent;
+        log(`Đang tải… ${percent}`);
+      } else if (/^\[(Merger|FixupM3u8|VideoConvertor|ModifyChapters)\]/.test(line)) {
+        log("Đang ghép hình và tiếng…");
+      }
+    };
+    const clearPartial = () => {
+      for (const f of fs.readdirSync(dir)) if (f.startsWith(`${base}.download.`)) fs.rmSync(path.join(dir, f), { force: true });
+    };
     try {
-      await runTool(ytDlpPath(), args, (line) => {
-        const percent = /TIẾN ĐỘ\s+([\d.]+%)/.exec(line)?.[1];
-        if (percent && percent !== lastPercent) {
-          lastPercent = percent;
-          log(`Đang tải… ${percent}`);
-        } else if (/^\[(Merger|FixupM3u8|VideoConvertor|ModifyChapters)\]/.test(line)) {
-          log("Đang ghép hình và tiếng…");
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await runTool(ytDlpPath(), args, onLine);
+          break;
+        } catch (error) {
+          // Lỗi mạng sau khi yt-dlp đã tự thử lại: chạy lại cả lượt một lần nữa trước khi báo lỗi.
+          const message = error instanceof Error ? error.message : String(error);
+          if (attempt >= 2 || !/timed out|timeout|Connection|reset|Temporary failure|HTTP Error 5\d\d/i.test(message)) throw error;
+          clearPartial();
+          lastPercent = "";
+          log("Mạng tới Bilibili chập chờn — thử tải lại…");
         }
-      });
+      }
+    } catch (error) {
+      clearPartial();
+      const message = error instanceof Error ? error.message : String(error);
+      if (/timed out|timeout|Connection|reset|Temporary failure/i.test(message)) {
+        throw new Error("Không kết nối ổn định được tới Bilibili (hết thời gian chờ) — kiểm tra mạng rồi bấm tải lại.");
+      }
+      throw error;
     } finally {
       clearInterval(heartbeat);
     }

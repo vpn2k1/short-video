@@ -22,8 +22,10 @@ import { textToScript } from "../scripts/text-script";
 import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
 import { findVoice } from "../scripts/voices";
 import { freeMode } from "../scripts/usage";
-import { stockForScene } from "../scripts/stock";
+import { RANDOM_MUSIC, randomFreesoundMusic, stockForScene } from "../scripts/stock";
+import { listAudio } from "./api";
 import { cloudflareImageAvailable } from "../scripts/cloudflare-image";
+import { composeImagePrompt, imageLookFor, writeImagePrompts } from "../scripts/image-prompts";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist } from "../scripts/images";
 import { slugify } from "../scripts/slug";
@@ -107,6 +109,32 @@ export type ChatDraft = { text: string; attachments: string[]; at: number };
 
 /** `draft` bỏ trống khi ghi = giữ bản nháp đang có trên đĩa; `null` = xoá bản nháp. */
 type Chat = { messages: ChatMessage[]; settings: ChatSettings; draft?: ChatDraft | null };
+
+/**
+ * Nhạc nền hợp lệ: file trong public/music, hoặc public/music/stock (tải từ 🆓 Kho free / Freesound) —
+ * đúng các thư mục listAudio liệt kê. Không nhận đường dẫn khác để khỏi trỏ ra ngoài thư mục nhạc.
+ */
+const isMusicPath = (value: unknown): value is string =>
+  typeof value === "string" && (value === RANDOM_MUSIC || /^music\/(stock\/)?[\w.-]+$/.test(value));
+
+/**
+ * Đổi lựa chọn nhạc nền thành file thật lúc dựng video. "🎲 Nhạc ngẫu nhiên": bốc một bản trên Freesound (cần key);
+ * Freesound lỗi/không có key thì bốc một bản trong thư viện nhạc — không để video hỏng vì thiếu nhạc.
+ * Cài đặt vẫn giữ "random" nên lần dựng sau lại ra bản khác; props.json lưu đúng file đã dùng.
+ */
+export const resolveMusicChoice = async (music: string | null, log: (line: string) => void) => {
+  if (music !== RANDOM_MUSIC) return music;
+  const fromFreesound = await randomFreesoundMusic(log);
+  if (fromFreesound) return fromFreesound.path;
+  const library = listAudio().music.filter((m) => !/placeholder/i.test(m.name));
+  if (library.length === 0) {
+    log("🎲 Không lấy được nhạc ngẫu nhiên — video không có nhạc nền.");
+    return null;
+  }
+  const track = library[Math.floor(Math.random() * library.length)];
+  log(`🎲 Nhạc ngẫu nhiên (thư viện): ${track.name}`);
+  return track.path;
+};
 
 export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", length: "auto" };
 
@@ -835,7 +863,7 @@ export const normalizeSettings = (
       ? s.aspect : base.aspect,
     voice: typeof s.voice === "string" && (s.voice === "" || findVoice(s.voice))
       ? s.voice : base.voice,
-    music: typeof s.music === "string" && /^music\/[\w.-]+$/.test(s.music)
+    music: isMusicPath(s.music)
       ? s.music : s.music === null ? null : base.music,
     video: typeof s.video === "string" && (s.video === "" || isVideoModelChoice(s.video))
       ? s.video : base.video,
@@ -853,7 +881,7 @@ export const assertSettingsUsable = (settings: ChatSettings) => {
       throw new Error("💚 Chế độ Miễn phí đang bật — video AI tính tiền nên đã tắt. Đổi chip Hình về 🖼 Ảnh, hoặc tắt chế độ này trong ⚙ Cài đặt.");
     }
     if (settings.images === "ai" && !cloudflareImageAvailable()) {
-      throw new Error("💚 Chế độ Miễn phí đang bật — AI vẽ ảnh bằng Gemini tính tiền. Thêm key Cloudflare (FLUX miễn phí ~170 ảnh/ngày) trong ⚙ Cài đặt, hoặc chọn ảnh/clip miễn phí.");
+      throw new Error("💚 Chế độ Miễn phí đang bật — AI vẽ ảnh bằng Gemini tính tiền. Thêm key Cloudflare (FLUX miễn phí ~100 ảnh/ngày) trong ⚙ Cài đặt, hoặc chọn ảnh/clip miễn phí.");
     }
     if (settings.mode === "ai" && PAID_SCRIPT_PROVIDERS.includes(settings.provider as ScriptProvider)) {
       throw new Error(`💚 Chế độ Miễn phí đang bật — ${providerLabel(settings.provider as ScriptProvider)} tính tiền. Chọn AI "Tự động" (dùng Gemini, Groq, OpenRouter, AI trên máy) hoặc tắt chế độ này trong ⚙ Cài đặt.`);
@@ -1171,7 +1199,7 @@ export const buildFromScript = async (
     scriptToProps(script, {
       startAtFrame: TITLE_FRAMES,
       voiceover,
-      music: settings.music,
+      music: await resolveMusicChoice(settings.music, log),
       captionPosition: "bottom",
       aspect: settings.aspect,
     }),
@@ -1218,8 +1246,11 @@ const pickTranslateEngine = (provider: ProviderChoice): TranslateEngine | null =
 };
 
 /**
- * Truy vấn ảnh cho từng cảnh cần hình. Gemini vẽ ảnh thì giữ tiếng Việt (model hiểu được);
- * Pexels là tìm theo từ khoá nên phải dịch sang tiếng Anh, không dịch được thì vẫn tìm bằng nguyên văn.
+ * Truy vấn ảnh cho từng cảnh cần hình.
+ * - AI vẽ: nhờ model viết kịch bản tả cụ thể từng cảnh bằng tiếng Anh, cùng một phong cách (scripts/image-prompts.ts).
+ *   Trước đây gửi nguyên "tiêu đề. lời đọc" tiếng Việt — FLUX không hiểu, ra ảnh lạc đề (hồ nước cho video cá heo).
+ *   Không viết được thì lùi về bản dịch tiếng Anh của lời đọc.
+ * - Pexels/Pixabay: tìm theo từ khoá nên dịch sang tiếng Anh, không dịch được thì vẫn tìm bằng nguyên văn.
  */
 const sceneImageQueries = async (
   script: VideoScript,
@@ -1228,7 +1259,15 @@ const sceneImageQueries = async (
   log: (line: string) => void,
 ) => {
   const text = indexes.map((i) => script.scenes[i].lines.join(" ").slice(0, 120));
-  if (settings.images === "ai") return text.map((line) => `${script.title}. ${line}`);
+  if (settings.images === "ai") {
+    try {
+      const written = await writeImagePrompts(script, indexes, { provider: settings.provider, style: script.style });
+      log(`Mô tả hình cho ${indexes.length} cảnh (${providerLabel(written.provider)}) — ${written.look.kind === "photo" ? "ảnh chụp thật" : "tranh vẽ"} theo phong cách ${STYLES[script.style]?.label ?? script.style}`);
+      return written.prompts.map((prompt) => composeImagePrompt(prompt, written.look.look));
+    } catch (error) {
+      log(`Không viết được mô tả hình (${error instanceof Error ? error.message : error}) — vẽ theo bản dịch lời đọc.`);
+    }
+  }
   const engine = pickTranslateEngine(settings.provider);
   if (!engine) {
     log("Không có model dịch — tìm Pexels bằng nguyên văn, kết quả có thể kém.");
@@ -1238,7 +1277,8 @@ const sceneImageQueries = async (
     // Dịch kèm tiêu đề: Pexels tìm theo từ khoá nên câu như "chúng ghi nhớ rất lâu" mất chủ thể
     // và trả về ảnh sai hẳn chủ đề. Ghép tiêu đề vào để giữ chủ thể ("cá heo") trong truy vấn.
     const [title, ...lines] = await translateLines([script.title, ...text], { to: "en", from: "vi", engine }, () => {});
-    return lines.map((query, k) => [title.trim(), (query ?? "").trim() || text[k]].filter(Boolean).join(", "));
+    const queries = lines.map((query, k) => [title.trim(), (query ?? "").trim() || text[k]].filter(Boolean).join(", "));
+    return settings.images === "ai" ? queries.map((query) => composeImagePrompt(query, imageLookFor(script.style).look)) : queries;
   } catch (error) {
     log(`Không dịch được truy vấn (${error instanceof Error ? error.message : error}) — tìm bằng nguyên văn.`);
     return text;
@@ -1454,7 +1494,7 @@ const parseMulti = (body: unknown): MultiInput & { slug?: string } => {
     title: typeof b.title === "string" && b.title.trim() ? b.title.trim().slice(0, 60) : "Video nhiều cảnh",
     aspect: typeof b.aspect === "string" && ASPECT_IDS.includes(b.aspect as never) ? b.aspect : "9:16",
     voice: typeof b.voice === "string" && (b.voice === "" || findVoice(b.voice)) ? b.voice : "",
-    music: typeof b.music === "string" && /^music\/[\w.-]+$/.test(b.music) ? b.music : null,
+    music: isMusicPath(b.music) ? b.music : null,
     scenes,
   };
 };
@@ -1587,7 +1627,7 @@ const runMultiScene = async (slug: string, input: MultiInput, log: (line: string
   const props = shortSchema.parse({
     title: input.title, subtitle: "", handle: "@kenh", accent: "#ff6b2c", background: "#000000",
     captions, aspect: input.aspect, style: "plain", scenes,
-    captionPosition: "bottom", showTitle: false, voiceoverTrack: null, music: input.music, sfx: false,
+    captionPosition: "bottom", showTitle: false, voiceoverTrack: null, music: await resolveMusicChoice(input.music, log), sfx: false,
   });
   fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(props, null, 2));
   assertImagesExist(props);

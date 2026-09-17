@@ -9,6 +9,7 @@ import {
 } from "./api";
 import { CropOverlay } from "./CropOverlay";
 import { Inspector } from "./Inspector";
+import { usePanelWidths, useStageZoom } from "./layout";
 import { MediaPanel, type LibrarySection } from "./MediaPanel";
 import * as ops from "./ops";
 import { StageOverlay } from "./StageOverlay";
@@ -38,9 +39,16 @@ const SHORTCUTS: [string, [string[], string][]][] = [
     [["L"], "Tới 5 giây"],
     [["←", "→"], "Lùi / tới 1 khung hình"],
     [["Shift", "← →"], "Lùi / tới 1 giây"],
-    [["↑", "↓"], "Về cảnh trước / cảnh sau"],
+    [["↑", "↓"], "Về đầu video trước / video sau"],
     [["Home", "End"], "Về đầu / cuối video"],
     [["F"], "Xem toàn màn hình"],
+  ]],
+  ["Khung xem trước", [
+    [[MOD, "="], "Phóng to khung xem trước"],
+    [[MOD, "−"], "Thu nhỏ khung xem trước"],
+    [[MOD, "0"], "Vừa khung"],
+    [[MOD, "lăn chuột"], "Phóng to / thu nhỏ tại con trỏ (chụm 2 ngón trên trackpad)"],
+    [["Chuột giữa", "kéo"], "Di chuyển khi đang phóng to — hoặc kéo trên nền tối"],
   ]],
   ["Chỉnh sửa", [
     [["S"], "Tách tại đầu phát"],
@@ -161,6 +169,12 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   }, []);
 
   const meta = useMemo(() => (props ? ops.videoMeta(props) : null), [props]);
+  // Kéo thanh chia để đổi độ rộng thư viện / bảng thuộc tính; thu phóng khung xem trước.
+  const mainRef = useRef<HTMLDivElement>(null);
+  const panels = usePanelWidths(mainRef, Boolean(meta));
+  const stage = useStageZoom(meta ? meta.width / meta.height : 9 / 16, Boolean(meta));
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
   // Đang chọn vùng crop: xem trước cảnh đó ở dạng chưa crop để thấy toàn bộ khung.
   // Khung crop phủ cả khu xem trước và tự hiện toàn bộ file gốc — Player không cần bỏ crop.
   const previewProps = useMemo(() => (props ? { ...props, watermark } : props), [props, watermark]);
@@ -243,9 +257,10 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
         // Mọi lần lưu/xuất sau đó gắn đúng bản này — kể cả khi trong lúc sửa có bản mới hơn ra đời.
         versionQuery.current = d.version !== null ? `?version=${d.version}` : "";
         setVersionInfo({ version: d.version, latest: d.latest, hasDraft: d.hasDraft });
-        // Dự án "Video gốc" (phong cách của trình chỉnh sửa) không vẽ gì riêng theo cảnh: gộp luôn
-        // hàng Cảnh vào các hàng Video để trên timeline chỉ còn MỘT loại. Hình không đổi chút nào.
-        const unified = d.props.style === "plain" && ops.hasSceneMedia(d.props) ? ops.unifyScenes(d.props) : null;
+        // Trên timeline chỉ có MỘT loại khối là video: mở dự án là gộp hàng Cảnh vào các hàng Video, mọi
+        // phong cách. "Video gốc" giữ nguyên hình; phong cách khác mất khung trang trí của nó (ô truyện
+        // tranh, polaroid, Ken Burns…) — nhãn / câu nhấn theo cảnh vẫn giữ.
+        const unified = ops.hasSceneMedia(d.props) ? ops.unifyScenes(d.props) : null;
         setProps(unified ? unified.props : d.props);
         setTitle(d.title);
         document.title = `Chỉnh sửa · ${d.title}`;
@@ -350,6 +365,35 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
     if (item.kind === "audio") return;
     const duration = await itemDurationMs(item);
     withProps((p) => ops.addOverlay(p, item.path, atMs, duration, track));
+  };
+
+  /** Thay ảnh/video của khối `index` trên timeline, giữ nguyên chỗ (xem ops.replaceOverlayMedia). */
+  const replaceOverlay = async (index: number, item: MediaItem) => {
+    if (item.kind === "audio") {
+      flash("Khối video chỉ thay được bằng ảnh hoặc video.");
+      return;
+    }
+    const duration = item.kind === "video" ? await mediaDurationMs(`/public/${item.path}`, "video") : undefined;
+    withProps((p) => ops.replaceOverlayMedia(p, index, item.path, duration));
+  };
+
+  /** Chọn file từ máy để thay khối `index`: tải lên thư viện rồi thay luôn. */
+  const replaceOverlayFromFile = async (index: number, file: File) => {
+    const kind = file.type.startsWith("video/") ? "video" : file.type.startsWith("image/") ? "image" : null;
+    if (!kind) {
+      flash("Chỉ thay được bằng ảnh hoặc video.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const { path } = await uploadFile(file);
+      refreshMedia();
+      await replaceOverlay(index, { path, name: file.name, kind, bytes: file.size, at: Date.now() });
+    } catch (e) {
+      flash((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   /** Nối vào cuối hàng Video 1 — dựng tuần tự clip này rồi clip kia. */
@@ -473,14 +517,18 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
     const now = nowMs();
     const sel = selectionRef.current;
 
-    // Đang chọn một lớp video đè lên thì cắt khung của lớp đó; không thì cắt cảnh dưới đầu phát.
-    const overlay = sel?.type === "overlay" ? ops.overlaysOf(current)[sel.index] : undefined;
-    const fromOverlay = overlay && ops.isVideo(overlay.src) && now >= overlay.startMs && now < overlay.endMs;
+    // Đang chọn một video thì cắt khung của video đó; không chọn gì thì lấy video đang thấy dưới đầu phát
+    // (hàng cao nhất), còn không có nữa mới xét cảnh.
+    const picked = sel?.type === "overlay" ? ops.overlaysOf(current)[sel.index] : undefined;
+    const overlay = picked && ops.isVideo(picked.src) && now >= picked.startMs && now < picked.endMs
+      ? picked
+      : ops.overlaysOf(current)[ops.overlayIndexAt(current, now, true)];
+    const fromOverlay = Boolean(overlay);
     const sceneIndex = ops.sceneIndexAt(current, now);
     const scene = current.scenes[sceneIndex];
     const src = fromOverlay ? overlay!.src : scene?.image;
     if (!src || !ops.isVideo(src)) {
-      flash("Đầu phát không nằm trên video nào — dời đầu phát vào một cảnh có video rồi bấm lại.");
+      flash("Đầu phát không nằm trên video nào — dời đầu phát vào một video rồi bấm lại.");
       return;
     }
 
@@ -541,11 +589,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
     const sel = selectionRef.current;
     // Đang chọn một video/cảnh thì bấm ảnh là THAY hình của mục đó; không chọn gì thì thêm video mới.
     if (sel?.type === "overlay") {
-      withProps((p) => ({
-        props: ops.updateOverlay(p, sel.index, { src: item.path, trimStartMs: 0, speed: undefined, crop: null }),
-        selection: sel,
-        message: `Đã thay hình của ${ops.overlayName(ops.overlaysOf(p)[sel.index])}.`,
-      }));
+      await replaceOverlay(sel.index, item);
       return;
     }
     if (sel?.type === "scene") {
@@ -577,11 +621,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
       return;
     }
     if (target.kind === "replace") {
-      withProps((p) => ({
-        props: ops.updateOverlay(p, target.index, { src: item.path, trimStartMs: 0, speed: undefined, crop: null }),
-        selection: { type: "overlay", index: target.index },
-        message: `Đã thay hình của ${ops.overlayName(ops.overlaysOf(p)[target.index])}.`,
-      }));
+      await replaceOverlay(target.index, item);
       return;
     }
     if (target.kind === "end") {
@@ -752,16 +792,23 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
     fullscreen: () => playerRef.current?.requestFullscreen(),
     fit: () => setFitRequest((n) => n + 1),
     library: (n: number) => setLibRequest({ section: LIB_SECTIONS[n] ?? "visual", at: Date.now() }),
+    stageZoom: (factor: number) => stageRef.current.zoomBy(factor),
+    stageFit: () => stageRef.current.zoomTo(1),
     zoom: (factor: number) => setPxPerSec((v) => Math.min(320, Math.max(20, Math.round(v * factor)))),
     nudge: (direction: number, big: boolean) => seek(nowMs() + direction * (big ? 1000 : 1000 / FPS)),
     jump: (ms: number) => seek(nowMs() + ms),
     seekTo: (ms: number) => seek(ms),
-    /** Nhảy tới ranh giới cảnh gần nhất phía trước/phía sau đầu phát. */
+    /** Nhảy tới mép khối gần nhất phía trước/phía sau đầu phát: đầu/cuối mỗi video (và ranh giới cảnh nếu hàng Cảnh còn hiện). */
     jumpScene: (direction: number) => {
       const p = propsRef.current;
       if (!p) return;
       const now = nowMs();
-      const marks = [...p.scenes.map((s) => s.startMs), ops.videoMeta(p).durationMs];
+      const marks = [
+        0,
+        ...(ops.sceneRowVisible(p) ? p.scenes.map((s) => s.startMs) : []),
+        ...ops.overlaysOf(p).flatMap((o) => [o.startMs, o.endMs]),
+        ops.videoMeta(p).durationMs,
+      ].sort((a, b) => a - b);
       const target = direction > 0 ? marks.find((m) => m > now + 20) : [...marks].reverse().find((m) => m < now - 20);
       if (target !== undefined) seek(target);
     },
@@ -816,7 +863,11 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
       }
 
       if (mod) {
-        if (key === "z") { e.preventDefault(); if (e.shiftKey) h.redo(); else h.undo(); }
+        // Thu phóng khung xem trước. e.code: bàn phím không phải US vẫn đúng phím; e.key dự phòng khi không có code.
+        if (!e.altKey && (e.code === "Equal" || e.code === "NumpadAdd" || e.key === "=" || e.key === "+")) { e.preventDefault(); h.stageZoom(1.25); }
+        else if (!e.altKey && (e.code === "Minus" || e.code === "NumpadSubtract" || e.key === "-" || e.key === "_")) { e.preventDefault(); h.stageZoom(0.8); }
+        else if (!e.altKey && (e.code === "Digit0" || e.code === "Numpad0" || e.key === "0")) { e.preventDefault(); h.stageFit(); }
+        else if (key === "z") { e.preventDefault(); if (e.shiftKey) h.redo(); else h.undo(); }
         else if (key === "y") { e.preventDefault(); h.redo(); }
         else if (key === "b") { e.preventDefault(); h.split(); }
         else if (key === "d") { e.preventDefault(); h.duplicate(); }
@@ -913,7 +964,28 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
         </div>
       </header>
 
-      <div className={`ed-main ${libSide === "right" ? "lib-right" : ""}`}>
+      <div
+        ref={mainRef}
+        className={`ed-main ${libSide === "right" ? "lib-right" : ""}`}
+        style={{
+          "--left-w": `${libSide === "left" ? panels.widths.lib : panels.widths.insp}px`,
+          "--right-w": `${libSide === "left" ? panels.widths.insp : panels.widths.lib}px`,
+        } as React.CSSProperties}
+      >
+        {(["left", "right"] as const).map((side) => {
+          const panel = (side === "left") === (libSide === "left") ? "lib" : "insp";
+          return (
+            <div
+              key={side}
+              className={`ed-split ${side}`}
+              role="separator"
+              aria-orientation="vertical"
+              title={`Kéo để đổi độ rộng ${panel === "lib" ? "thư viện" : "bảng thuộc tính"} — nhấp đúp về mặc định`}
+              onPointerDown={panels.startDrag(panel, side)}
+              onDoubleClick={() => panels.reset(panel)}
+            />
+          );
+        })}
         <MediaPanel
           sectionRequest={libRequest}
           media={media}
@@ -979,8 +1051,14 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
         />
 
         <section className="ed-stage">
-          <div className="ed-view" onPointerDown={(e) => { if (e.target === e.currentTarget) select(null); }}>
-          <div className="ed-player" style={{ aspectRatio: `${meta.width} / ${meta.height}` }}>
+          <div ref={stage.viewRef} className={`ed-view ${stage.zoom > 1 ? "zoomed" : ""}`} onPointerDown={(e) => stage.beginPan(e, () => select(null))}>
+          <div
+            ref={stage.playerBoxRef}
+            className="ed-player"
+            style={stage.playerSize
+              ? { width: stage.playerSize.width, height: stage.playerSize.height }
+              : { aspectRatio: `${meta.width} / ${meta.height}` }}
+          >
             <Player
               ref={playerRef}
               component={Short}
@@ -1019,6 +1097,13 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
               )}
             </button>
             <span className="ed-pbar-r">
+              <span className="ed-zoom" role="group" aria-label="Thu phóng khung xem trước">
+                <button onClick={() => stage.zoomBy(0.8)} title={`Thu nhỏ khung xem trước (${MOD} −)`} aria-label="Thu nhỏ">−</button>
+                <button className="ed-zoom-v" onClick={() => stage.zoomTo(1)} title={`Vừa khung (${MOD} 0) — ${MOD} + lăn chuột để phóng tại con trỏ`}>
+                  {stage.zoom === 1 ? "Vừa" : `${Math.round(stage.zoom * 100)}%`}
+                </button>
+                <button onClick={() => stage.zoomBy(1.25)} title={`Phóng to khung xem trước (${MOD} =)`} aria-label="Phóng to">+</button>
+              </span>
               <span className="ed-ratio">{props.aspect}</span>
               <button className="ed-icon" onClick={() => playerRef.current?.requestFullscreen()} title="Xem toàn màn hình" aria-label="Xem toàn màn hình">⛶</button>
             </span>
@@ -1060,6 +1145,10 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             timeMs={timeMs}
             onSeek={seek}
             onRun={run}
+            uploading={uploading}
+            onReplaceMedia={replaceOverlay}
+            onReplaceFile={replaceOverlayFromFile}
+            onOpenLibrary={(section) => setLibRequest({ section, at: Date.now() })}
           />
         </aside>
       </div>

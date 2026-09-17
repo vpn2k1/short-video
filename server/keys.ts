@@ -107,7 +107,7 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "CLOUDFLARE_ACCOUNT_ID",
     label: "Cloudflare — Account ID (vẽ ảnh AI)",
-    help: "Vẽ ảnh AI bằng FLUX.1 schnell trên Cloudflare Workers AI: 10.000 neuron miễn phí mỗi ngày ≈ 170 ảnh. Có key thì 🎨 AI vẽ ảnh dùng FLUX thay Gemini (tính tiền). Account ID là chuỗi 32 ký tự ở trang Workers AI › Use REST API.",
+    help: "Vẽ ảnh AI bằng FLUX.1 schnell trên Cloudflare Workers AI: 10.000 neuron miễn phí mỗi ngày ≈ 100 ảnh (mỗi ảnh 96 neuron), đặt lại lúc 7h sáng giờ Việt Nam. Có key thì 🎨 AI vẽ ảnh dùng FLUX thay Gemini (tính tiền). Account ID là chuỗi 32 ký tự ở trang Workers AI › Use REST API.",
     group: FREE_MEDIA_GROUP,
     type: "text",
     url: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai",

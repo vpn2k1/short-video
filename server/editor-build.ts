@@ -18,7 +18,8 @@ import { Scanner } from "@tailwindcss/oxide";
 const root = () => process.cwd();
 const WATCH_DIRS = ["src", "server/editor"];
 
-type Assets = { js: string; css: string; builtAt: number };
+/** js: trình chỉnh sửa; cropJs: riêng công cụ crop cho trang không dùng React (server/editor/crop-entry.tsx). */
+type Assets = { js: string; cropJs: string; css: string; builtAt: number };
 let cache: Assets | null = null;
 let building: Promise<Assets> | null = null;
 
@@ -47,10 +48,9 @@ const buildCss = async () => {
   return compiler.build(scanner.scan());
 };
 
-const buildAssets = async (): Promise<Assets> => {
-  const startedAt = Date.now();
+const bundle = async (entry: string) => {
   const result = await build({
-    entryPoints: [path.join(root(), "server/editor/main.tsx")],
+    entryPoints: [path.join(root(), entry)],
     bundle: true,
     write: false,
     format: "iife",
@@ -64,9 +64,17 @@ const buildAssets = async (): Promise<Assets> => {
     define: { "process.env.NODE_ENV": '"production"' },
     logLevel: "silent",
   });
-  const js = result.outputFiles[0].text;
-  const css = await buildCss();
-  cache = { js, css, builtAt: startedAt };
+  return result.outputFiles[0].text;
+};
+
+const buildAssets = async (): Promise<Assets> => {
+  const startedAt = Date.now();
+  const [js, cropJs, css] = await Promise.all([
+    bundle("server/editor/main.tsx"),
+    bundle("server/editor/crop-entry.tsx"),
+    buildCss(),
+  ]);
+  cache = { js, cropJs, css, builtAt: startedAt };
   return cache;
 };
 

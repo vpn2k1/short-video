@@ -187,6 +187,17 @@ const createWindow = async () => {
       shell.openExternal(url);
     }
   });
+  // Menu Xem không giữ phím zoom (xem buildMenu): ngoài trình chỉnh sửa thì tự zoom cả cửa sổ.
+  win.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown" || !(input.meta || input.control) || input.alt) return;
+    if (new URL(win.webContents.getURL()).pathname === "/editor.html") return;
+    const wc = win.webContents;
+    if (input.code === "Equal" || input.code === "NumpadAdd") wc.setZoomLevel(Math.min(5, wc.getZoomLevel() + 0.5));
+    else if (input.code === "Minus" || input.code === "NumpadSubtract") wc.setZoomLevel(Math.max(-5, wc.getZoomLevel() - 0.5));
+    else if (input.code === "Digit0" || input.code === "Numpad0") wc.setZoomLevel(0);
+    else return;
+    event.preventDefault();
+  });
   win.loadURL(`${origin}/`);
 };
 
@@ -195,7 +206,23 @@ const buildMenu = () => {
     ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),
     { role: "fileMenu" },
     { role: "editMenu" },
-    { role: "viewMenu" },
+    {
+      // Như viewMenu mặc định, nhưng ⌘+ / ⌘− / ⌘0 không đăng ký với hệ thống: trong trình chỉnh
+      // sửa các phím này thu phóng khung xem trước (trang tự bắt). Trang khác zoom cả cửa sổ —
+      // xem before-input-event trong createWindow.
+      label: "Xem",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom", registerAccelerator: false },
+        { role: "zoomIn", registerAccelerator: false },
+        { role: "zoomOut", registerAccelerator: false },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
     { role: "windowMenu" },
     {
       label: "Thư mục",

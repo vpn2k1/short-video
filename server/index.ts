@@ -54,7 +54,7 @@ import { isScriptProvider, providerLabel, scriptProvider, scriptProviderCatalog 
 import { TRANSLATE_LANGUAGES, translateEngines } from "../scripts/translate";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
 import {
-  BILI_ORDERS, bilibiliDetail, downloadBilibili, isBvid, searchBilibili, toChineseKeywords, updateYtDlp, ytDlpVersion,
+  BILI_ORDERS, bilibiliDetail, downloadBilibili, isBvid, searchBilibiliTopic, toChineseKeywords, updateYtDlp, ytDlpVersion,
   type BiliOrder,
 } from "../scripts/bilibili";
 import { watermarkFromSettings } from "../scripts/watermark";
@@ -128,23 +128,77 @@ const readBody = (req: http.IncomingMessage) =>
 const readJson = async <T>(req: http.IncomingMessage): Promise<T> =>
   JSON.parse((await readBody(req)).toString("utf8") || "{}") as T;
 
-/** Chỉ cho phép đọc file bên trong thư mục cho trước — chặn ../ */
-const serveFile = (res: http.ServerResponse, base: string, rel: string) => {
-  const target = path.resolve(base, "." + decodeURIComponent(rel));
+/**
+ * Chỉ cho phép đọc file bên trong thư mục cho trước — chặn ../
+ * `media`: ảnh/video/âm thanh của video — hỗ trợ Range (trình duyệt và @remotion/media
+ * đọc video từng đoạn khi tua) và ETag để lần sau chỉ hỏi lại 304 thay vì tải lại cả file.
+ * Không có Range, mỗi thẻ <video> kéo nguyên file và giữ kết nối — trình duyệt chỉ mở
+ * 6 kết nối/host nên các request sau xếp hàng, xem trước bị đứng.
+ */
+const serveFile = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  base: string,
+  rel: string,
+  media = false,
+) => {
+  let target: string;
+  try {
+    target = path.resolve(base, "." + decodeURIComponent(rel));
+  } catch {
+    return send(res, 400, { error: "bad path" });
+  }
   // So kèm dấu phân cách — "/public" không được khớp nhầm "/publicX".
   if (!target.startsWith(path.resolve(base) + path.sep)) {
     return send(res, 403, { error: "forbidden" });
   }
-  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
+  const stat = fs.statSync(target, { throwIfNoEntry: false });
+  if (!stat?.isFile()) {
     return send(res, 404, { error: "not found" });
   }
-  res.writeHead(200, {
+
+  const size = stat.size;
+  // File sinh lại cùng tên (ảnh, giọng đọc) đổi mtime/size nên ETag đổi theo — không dính bản cũ.
+  const etag = `"${size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+  const headers: Record<string, string | number> = {
     "Content-Type": MIME[path.extname(target).toLowerCase()] ?? "application/octet-stream",
-    "Cache-Control": "no-store",
-  });
-  fs.createReadStream(target)
-    .on("error", () => res.destroy())
-    .pipe(res);
+    "Cache-Control": media ? "no-cache" : "no-store",
+    "Accept-Ranges": "bytes",
+    ...(media ? { ETag: etag, "Last-Modified": stat.mtime.toUTCString() } : {}),
+  };
+
+  if (media && req.headers["if-none-match"] === etag) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+
+  let start = 0;
+  let end = size - 1;
+  let status = 200;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? "");
+  if (range && (range[1] || range[2])) {
+    if (range[1]) {
+      start = Number(range[1]);
+      if (range[2]) end = Math.min(Number(range[2]), size - 1);
+    } else {
+      // "bytes=-N": N byte cuối file.
+      start = Math.max(0, size - Number(range[2]));
+    }
+    if (start > end || start >= size) {
+      res.writeHead(416, { ...headers, "Content-Range": `bytes */${size}` });
+      return res.end();
+    }
+    status = 206;
+    headers["Content-Range"] = `bytes ${start}-${end}/${size}`;
+  }
+  headers["Content-Length"] = size === 0 ? 0 : end - start + 1;
+
+  res.writeHead(status, headers);
+  if (req.method === "HEAD" || size === 0) return res.end();
+  const stream = fs.createReadStream(target, { start, end });
+  // Trình duyệt huỷ request khi tua/đổi video — đóng file ngay, không đọc tiếp vô ích.
+  res.on("close", () => stream.destroy());
+  stream.on("error", () => res.destroy()).pipe(res);
 };
 
 const server = http.createServer(async (req, res) => {
@@ -165,10 +219,10 @@ const server = http.createServer(async (req, res) => {
   try {
     // ---- file tĩnh ----
     if (route === "/" || route === "/index.html") {
-      return serveFile(res, publicDir, "/index.html");
+      return serveFile(req, res, publicDir, "/index.html");
     }
     // Trình chỉnh sửa: JS + CSS đóng gói lúc chạy (xem editor-build.ts).
-    if (route === "/editor/app.js" || route === "/editor/tailwind.css") {
+    if (route === "/editor/app.js" || route === "/editor/crop.js" || route === "/editor/tailwind.css") {
       try {
         const assets = await getEditorAssets();
         const isJs = route.endsWith(".js");
@@ -176,7 +230,7 @@ const server = http.createServer(async (req, res) => {
           "Content-Type": MIME[isJs ? ".js" : ".css"],
           "Cache-Control": "no-store",
         });
-        return res.end(isJs ? assets.js : assets.css);
+        return res.end(route === "/editor/crop.js" ? assets.cropJs : isJs ? assets.js : assets.css);
       } catch (error) {
         return send(res, 500, {
           error: `Không đóng gói được trình chỉnh sửa: ${error instanceof Error ? error.message : error}`,
@@ -187,13 +241,13 @@ const server = http.createServer(async (req, res) => {
     if (!route.startsWith("/api/") && !route.startsWith("/out/") &&
         !route.startsWith("/public/") &&
         fs.existsSync(path.join(publicDir, "." + route))) {
-      return serveFile(res, publicDir, route);
+      return serveFile(req, res, publicDir, route);
     }
     if (route.startsWith("/out/")) {
-      return serveFile(res, path.join(process.cwd(), "out"), route.slice(4));
+      return serveFile(req, res, path.join(process.cwd(), "out"), route.slice(4), true);
     }
     if (route.startsWith("/public/")) {
-      return serveFile(res, path.join(process.cwd(), "public"), route.slice(7));
+      return serveFile(req, res, path.join(process.cwd(), "public"), route.slice(7), true);
     }
 
     // ---- API ----
@@ -373,7 +427,7 @@ const server = http.createServer(async (req, res) => {
       const [id, ...rest] = route.slice("/api/trash/file/".length).split("/");
       const dir = trashFilesDir(id);
       if (!dir || rest.length !== 1) return send(res, 404, { error: "not found" });
-      return serveFile(res, dir, `/${rest[0]}`);
+      return serveFile(req, res, dir, `/${rest[0]}`, true);
     }
 
     // Cắt khung hình đang xem thành ảnh (nút 📷 trên timeline).
@@ -601,8 +655,8 @@ const server = http.createServer(async (req, res) => {
           });
         }
         if (req.method === "POST") {
-          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown }>(req);
-          if (action === "restyle") return send(res, 200, restyleSubs(id, body.look));
+          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown }>(req);
+          if (action === "restyle") return send(res, 200, restyleSubs(id, body.look, body.looks));
           if (action === "edit") return send(res, 200, editItem(id, body));
           if (action === "start") return send(res, 200, startBatch(id));
           if (action === "pause") return send(res, 200, pauseBatch(id));
@@ -761,7 +815,8 @@ const server = http.createServer(async (req, res) => {
     // ---- tư liệu Bilibili: chỉ video tác giả ghi rõ cho phép dùng (xem scripts/bilibili.ts) ----
     if (route === "/api/bilibili/search") {
       const order = url.searchParams.get("order");
-      return send(res, 200, await searchBilibili(
+      // Gõ chủ đề tiếng Việt: tự dịch, tìm vài biến thể từ khoá tư liệu, lọc đúng chủ đề (scripts/bilibili.ts).
+      return send(res, 200, await searchBilibiliTopic(
         url.searchParams.get("q") ?? "",
         Number(url.searchParams.get("page")) || 1,
         BILI_ORDERS.includes(order as BiliOrder) ? (order as BiliOrder) : "totalrank",
@@ -776,7 +831,7 @@ const server = http.createServer(async (req, res) => {
 
     if (route === "/api/bilibili/translate" && req.method === "POST") {
       const body = await readJson<{ text?: string }>(req);
-      return send(res, 200, { keywords: await toChineseKeywords(body.text ?? "") });
+      return send(res, 200, await toChineseKeywords(body.text ?? ""));
     }
 
     if (route === "/api/bilibili/download" && req.method === "POST") {
