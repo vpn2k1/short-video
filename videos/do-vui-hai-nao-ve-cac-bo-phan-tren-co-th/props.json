@@ -1,0 +1,158 @@
+{
+  "title": "Bạn Hiểu Rõ Cơ Thể Mình",
+  "subtitle": "3 câu đố vui về cơ thể người",
+  "handle": "@kienthucsieucap",
+  "accent": "#FACC15",
+  "background": "#0F172A",
+  "captions": [
+    {
+      "text": "Chỉ 1 trong 10 người đúng hết!",
+      "startMs": 2483,
+      "endMs": 4003,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-01.mp3"
+    },
+    {
+      "text": "Xương nào dài và chắc nhất cơ thể người?",
+      "startMs": 4153,
+      "endMs": 6153,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-02.mp3"
+    },
+    {
+      "text": "Suy nghĩ 3 giây nhé…",
+      "startMs": 6303,
+      "endMs": 7423,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-03.mp3"
+    },
+    {
+      "text": "Đáp án là xương đùi.",
+      "startMs": 7573,
+      "endMs": 8853,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-04.mp3"
+    },
+    {
+      "text": "Bộ phận duy nhất không có mạch máu là gì?",
+      "startMs": 9003,
+      "endMs": 11163,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-05.mp3"
+    },
+    {
+      "text": "Đoán nhanh nào…",
+      "startMs": 11313,
+      "endMs": 12193,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-06.mp3"
+    },
+    {
+      "text": "Đáp án là giác mạc.",
+      "startMs": 12343,
+      "endMs": 13463,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-07.mp3"
+    },
+    {
+      "text": "Cơ quan nặng nhất trên cơ thể là gì?",
+      "startMs": 13613,
+      "endMs": 15533,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-08.mp3"
+    },
+    {
+      "text": "Suy nghĩ thật kỹ nhé…",
+      "startMs": 15683,
+      "endMs": 16883,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-09.mp3"
+    },
+    {
+      "text": "Đáp án là làn da.",
+      "startMs": 17033,
+      "endMs": 18233,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-10.mp3"
+    },
+    {
+      "text": "Bạn đúng mấy câu? Bình luận nhé!",
+      "startMs": 18383,
+      "endMs": 20063,
+      "audio": "voices/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/line-11.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "quiz",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-5427824.jpg",
+      "visual": null,
+      "tag": "CÂU 1",
+      "punch": {
+        "text": "xương đùi",
+        "atMs": 8213
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 9003
+    },
+    {
+      "image": "uploads/stock/pexels-image-8624600.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "85%",
+        "caption": "người trả lời sai"
+      },
+      "tag": "CÂU 2",
+      "punch": {
+        "text": "giác mạc",
+        "atMs": 12932
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 9003,
+      "endMs": 13613
+    },
+    {
+      "image": "uploads/stock/pexels-image-32271658.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Câu khó",
+        "caption": null
+      },
+      "tag": "CÂU KHÓ",
+      "punch": {
+        "text": "làn da",
+        "atMs": 17739
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 13613,
+      "endMs": 20213
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

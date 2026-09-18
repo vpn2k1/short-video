@@ -1,0 +1,234 @@
+{
+  "title": "Thử thách đoán món ăn",
+  "subtitle": "5 câu hỏi ẩm thực siêu nhanh",
+  "handle": "@thutachamthuc",
+  "accent": "#FFD700",
+  "background": "#1A1A1A",
+  "captions": [
+    {
+      "text": "90% người trả lời sai câu cuối!",
+      "startMs": 2483,
+      "endMs": 4563,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-01.mp3"
+    },
+    {
+      "text": "Món phở truyền thống dùng sợi gì?",
+      "startMs": 4713,
+      "endMs": 6313,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-02.mp3"
+    },
+    {
+      "text": "Suy nghĩ 3 giây nhé...",
+      "startMs": 6463,
+      "endMs": 7663,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-03.mp3"
+    },
+    {
+      "text": "Đáp án là phở bún phở bánh phở.",
+      "startMs": 7813,
+      "endMs": 9653,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-04.mp3"
+    },
+    {
+      "text": "Món bún bò đặc sản xứ nào?",
+      "startMs": 9803,
+      "endMs": 11323,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-05.mp3"
+    },
+    {
+      "text": "Đoán nhanh nào...",
+      "startMs": 11473,
+      "endMs": 12433,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-06.mp3"
+    },
+    {
+      "text": "Đáp án là Huế.",
+      "startMs": 12583,
+      "endMs": 13703,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-07.mp3"
+    },
+    {
+      "text": "Bánh xèo có màu vàng nhờ gì?",
+      "startMs": 13853,
+      "endMs": 15453,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-08.mp3"
+    },
+    {
+      "text": "Bạn chọn gì?",
+      "startMs": 15603,
+      "endMs": 16483,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-09.mp3"
+    },
+    {
+      "text": "Đáp án là nghệ.",
+      "startMs": 16633,
+      "endMs": 17673,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-10.mp3"
+    },
+    {
+      "text": "Nem rán miền Bắc gọi là gì?",
+      "startMs": 17823,
+      "endMs": 19343,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-11.mp3"
+    },
+    {
+      "text": "Đoán xem nào...",
+      "startMs": 19493,
+      "endMs": 20373,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-12.mp3"
+    },
+    {
+      "text": "Đáp án là chả giò.",
+      "startMs": 20523,
+      "endMs": 21803,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-13.mp3"
+    },
+    {
+      "text": "Nước chấm bánh cuốn làm từ gì?",
+      "startMs": 21953,
+      "endMs": 23553,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-14.mp3"
+    },
+    {
+      "text": "Suy nghĩ 3 giây nhé...",
+      "startMs": 23703,
+      "endMs": 24903,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-15.mp3"
+    },
+    {
+      "text": "Đáp án là nước mắm.",
+      "startMs": 25053,
+      "endMs": 26253,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-16.mp3"
+    },
+    {
+      "text": "Bạn đúng mấy câu? Bình luận nhé!",
+      "startMs": 26403,
+      "endMs": 28083,
+      "audio": "voices/vuot-qua-thu-thach-doan-ten-mon-an-qua-n/line-17.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "quiz",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-35517015.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "90%",
+        "caption": "người trả lời sai"
+      },
+      "tag": "CÂU 1",
+      "punch": {
+        "text": "bánh phở",
+        "atMs": 9119
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 9803
+    },
+    {
+      "image": "uploads/stock/pexels-image-39393268.jpg",
+      "visual": null,
+      "tag": "CÂU 2",
+      "punch": {
+        "text": "Huế",
+        "atMs": 13383
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 9803,
+      "endMs": 13853
+    },
+    {
+      "image": "uploads/stock/pexels-image-39030442.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Câu khó",
+        "caption": null
+      },
+      "tag": "CÂU 3",
+      "punch": {
+        "text": "nghệ",
+        "atMs": 17326
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 13853,
+      "endMs": 17823
+    },
+    {
+      "image": "uploads/stock/pexels-image-1791376.jpg",
+      "visual": null,
+      "tag": "CÂU 4",
+      "punch": {
+        "text": "chả giò",
+        "atMs": 21234
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 17823,
+      "endMs": 21953
+    },
+    {
+      "image": "uploads/stock/pexels-image-6009475.jpg",
+      "visual": null,
+      "tag": "CÂU 5",
+      "punch": {
+        "text": "nước mắm",
+        "atMs": 25685
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 21953,
+      "endMs": 28233
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}
