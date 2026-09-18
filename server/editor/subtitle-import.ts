@@ -1,5 +1,5 @@
 /**
- * Đọc file phụ đề người dùng nhập vào tab 💬 Phụ đề thành danh sách câu.
+ * Đọc file phụ đề người dùng nhập vào tab Phụ đề thành danh sách câu.
  *
  * Nhận 4 kiểu, tự nhận dạng theo NỘI DUNG (không tin đuôi file, vì .srt hay bị đổi tên thành .txt):
  *

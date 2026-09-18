@@ -25,6 +25,7 @@ import {
   listVideos,
   readVideo,
   voiceCatalog,
+  voiceSample,
   writeProps,
   writeScript,
 } from "./api";
@@ -45,6 +46,8 @@ import { generateIdeas } from "../scripts/ideas";
 import { generatePostCopy, getPostCopy } from "../scripts/post-copy";
 import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
+import { getIconsJs } from "./icons";
+import { FONT_CATALOG, fontGroups } from "../src/fonts/catalog";
 import { captureFrame, deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
 import { deleteTrash, listTrash, restoreTrash, trashFilesDir } from "./app-trash";
 import { keyStatus, keyTipsSeen, loadKeys, markKeyTipsSeen, saveKeys } from "./keys";
@@ -53,6 +56,7 @@ import { textToScript } from "../scripts/text-script";
 import { isScriptProvider, providerLabel, scriptProvider, scriptProviderCatalog } from "../scripts/generate-script";
 import { TRANSLATE_LANGUAGES, translateEngines } from "../scripts/translate";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
+import { artStyleCatalog } from "../scripts/image-prompts";
 import {
   BILI_ORDERS, bilibiliDetail, downloadBilibili, isBvid, searchBilibiliTopic, toChineseKeywords, updateYtDlp, ytDlpVersion,
   type BiliOrder,
@@ -97,6 +101,7 @@ const MIME: Record<string, string> = {
   ".m4a": "audio/mp4",
   ".aac": "audio/aac",
   ".ogg": "audio/ogg",
+  ".woff2": "font/woff2",
 };
 
 /** File người dùng được tải lên để dùng trong video. */
@@ -237,6 +242,11 @@ const server = http.createServer(async (req, res) => {
         });
       }
     }
+    // Icon Lucide cho các trang không dùng React — chỉ gồm icon trang thật sự dùng (server/icons.ts).
+    if (route === "/icons.js") {
+      res.writeHead(200, { "Content-Type": MIME[".js"], "Cache-Control": "no-store" });
+      return res.end(getIconsJs());
+    }
     // Mọi file khác trong server/public (app.js, css…)
     if (!route.startsWith("/api/") && !route.startsWith("/out/") &&
         !route.startsWith("/public/") &&
@@ -259,6 +269,8 @@ const server = http.createServer(async (req, res) => {
         audio: listAudio(),
         compositions: ["Short", "LongVideo", "Explainer"],
         styles: STYLE_IDS.map((id) => STYLES[id]),
+        /** Kiểu vẽ khi AI vẽ ảnh / tạo clip (3D, hoạt hình…) — ghép với mọi phong cách. */
+        artStyles: artStyleCatalog(),
         ...(({ models, defaultModel }) => ({ videoModels: models, videoDefault: defaultModel }))(videoModelCatalog()),
         /** AI viết kịch bản chọn được cho từng video (nhà cung cấp + model theo Cài đặt). */
         scriptProviders: scriptProviderCatalog(),
@@ -578,6 +590,10 @@ const server = http.createServer(async (req, res) => {
         look: DEFAULT_CAPTION_LOOK,
         templates: CAPTION_TEMPLATES,
         fonts: CAPTION_FONT_LABELS,
+        // Ô chọn font của trang phụ đề: font-family từng font và thứ tự nhóm (src/fonts/catalog.ts).
+        fontStacks: Object.fromEntries(Object.entries(FONT_CATALOG).map(([id, info]) => [id, info.stack])),
+        singleWeight: Object.entries(FONT_CATALOG).filter(([, info]) => "singleWeight" in info).map(([id]) => id),
+        fontGroups: fontGroups().map(([label, ids]) => ({ label, ids })),
         presets: CAPTION_PRESET_LABELS,
       });
     }
@@ -730,6 +746,16 @@ const server = http.createServer(async (req, res) => {
 
     if (route.startsWith("/api/pipeline/")) {
       return send(res, 200, { stages: pipelineStatus(route.split("/")[3]) });
+    }
+
+    // Nghe thử giọng trước khi chọn: { voice } → { url, durationMs }. Xem voiceSample trong server/api.ts.
+    if (route === "/api/voice/sample" && req.method === "POST") {
+      try {
+        const { voice } = await readJson<{ voice?: unknown }>(req);
+        return send(res, 200, await voiceSample(String(voice ?? "")));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     if (route === "/api/stage/voice" && req.method === "POST") {

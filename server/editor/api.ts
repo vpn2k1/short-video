@@ -40,6 +40,10 @@ export type VoiceOption = {
   engineLabel: string;
   lang: "vi" | "en";
   paidPlan: boolean;
+  /** Giọng gọi dịch vụ trên mạng (Gemini, ElevenLabs). */
+  online?: boolean;
+  /** Câu nghe thử đã có trong bộ nhớ — nghe lại không tốn lượt. */
+  sampled?: boolean;
 };
 
 export const api = async <T>(path: string, init?: RequestInit): Promise<T> => {
@@ -63,6 +67,24 @@ export const mediaDurationMs = (src: string, kind: "audio" | "video") =>
     el.preload = "metadata";
     el.onloadedmetadata = () => resolve(Number.isFinite(el.duration) ? el.duration * 1000 : 5000);
     el.onerror = () => resolve(5000);
+    el.src = src;
+  });
+
+/** Tỉ lệ rộng/cao của ảnh hoặc video gốc — cần khi tạo crop "toàn bộ ảnh" (mediaCropSchema.mediaAspect). */
+export const mediaAspect = (src: string, kind: "image" | "video") =>
+  new Promise<number>((resolve, reject) => {
+    const fail = () => reject(new Error("Không đọc được kích thước ảnh/video."));
+    if (kind === "image") {
+      const img = new Image();
+      img.onload = () => (img.naturalWidth && img.naturalHeight ? resolve(img.naturalWidth / img.naturalHeight) : fail());
+      img.onerror = fail;
+      img.src = src;
+      return;
+    }
+    const el = document.createElement("video");
+    el.preload = "metadata";
+    el.onloadedmetadata = () => (el.videoWidth && el.videoHeight ? resolve(el.videoWidth / el.videoHeight) : fail());
+    el.onerror = fail;
     el.src = src;
   });
 

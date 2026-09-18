@@ -2,9 +2,10 @@ import { zColor } from "@remotion/zod-types";
 import { z } from "zod";
 import { ASPECT_IDS, DEFAULT_ASPECT } from "../../aspects";
 import { DEFAULT_STYLE, STYLE_IDS } from "../../styles/meta";
+import { FONT_IDS } from "../../fonts/catalog";
 
-/** Font phụ đề — khoá của FONTS trong src/styles/shared.tsx (đã kiểm có dấu tiếng Việt). */
-export const CAPTION_FONTS = ["sans", "rounded", "serif", "mono", "condensed"] as const;
+/** Font phụ đề/văn bản — khoá của src/fonts/catalog.ts (font hệ thống + font đóng gói, đều có dấu tiếng Việt). */
+export const CAPTION_FONTS = FONT_IDS;
 /** Kiểu chữ có sẵn cho phụ đề, giống các mẫu chữ của CapCut. */
 export const CAPTION_PRESETS = ["plain", "shadow", "outline", "box", "highlight", "neon", "pop3d"] as const;
 

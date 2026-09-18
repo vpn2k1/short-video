@@ -10,6 +10,7 @@
  *  - Kích thước tính theo useLayout().unit để chạy đúng mọi tỉ lệ khung hình.
  */
 import { AbsoluteFill, random, useCurrentFrame, useVideoConfig } from "remotion";
+import { FONT_CATALOG, type FontId } from "../fonts/catalog";
 import { layoutFor } from "../aspects";
 import { msToFrames } from "../constants";
 import type { Caption, Scene } from "../compositions/Short/schema";
@@ -121,10 +122,6 @@ export const Grain: React.FC<{ opacity?: number; animated?: boolean; baseFrequen
  * bằng JS `text.normalize("NFC").toLocaleUpperCase("vi")` thay vì CSS text-transform,
  * và luôn render still kiểm các chữ "ĐỪNG THƯỜNG ƯU ƠN NHỮNG" trước khi coi là xong.
  */
-export const FONTS = {
-  sans: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
-  rounded: '"Avenir Next", -apple-system, "Helvetica Neue", Arial, sans-serif',
-  serif: 'Georgia, "Times New Roman", serif',
-  mono: '"SF Mono", Menlo, "Courier New", monospace',
-  condensed: '"Avenir Next Condensed", "Helvetica Neue", Arial, sans-serif',
-} as const;
+export const FONTS = Object.fromEntries(
+  Object.entries(FONT_CATALOG).map(([id, info]) => [id, info.stack]),
+) as { [K in FontId]: (typeof FONT_CATALOG)[K]["stack"] };

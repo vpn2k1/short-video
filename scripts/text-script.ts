@@ -89,6 +89,9 @@ const guessStyle = (all: string, scenes: ScriptScene[]): StyleId => {
   if (/\btop\s*\d+\b|xếp hạng|đếm ngược|(^|\s)#\d\b/i.test(all)) return "ranking";
   if (/reddit|ẩn danh|bài đăng|tâm sự|thú nhận|confession/i.test(all)) return "social";
   if (/truyện tranh|siêu anh hùng|comic|manga/i.test(all)) return "comic";
+  if (/ngày xửa ngày xưa|cổ tích|truyện thiếu nhi|trước giờ ngủ|kể chuyện cho bé|ngụ ngôn/i.test(all)) return "storybook";
+  if (/lá thư|bức thư|thư gửi|thân gửi|thân ái|nhật ký|gửi (em|anh|mẹ|bố|con|cậu|bạn|tôi)(?=[\s,.!?]|$)/im.test(all)) return "pen";
+  if (/cuốn sách|trang sách|tóm tắt sách|review sách|bài học từ sách|chương\s*\d|truyền thuyết/i.test(all)) return "book";
   if (/trailer|điện ảnh|thước phim/i.test(all)) return "cinematic";
   if (/tin nóng|bản tin|vừa xảy ra|mới nhất|cập nhật|chính thức|công bố|thông báo khẩn/i.test(all)) return "news";
   if (/ngày xưa|thập niên|thời thơ ấu|tuổi thơ|hoài niệm|thế hệ 8x|thế hệ 9x|\b(19[89]\d)s?\b/i.test(all)) return "retro";

@@ -4,6 +4,7 @@
  * Mọi chuyển động tính từ `appear` (frame tuyệt đối trang bắt đầu diễn).
  */
 import { ClipVideo } from "../../scenes/ClipVideo";
+import { CropBox } from "../../scenes/CropBox";
 import type { SceneCrop } from "../../compositions/Short/schema";
 import { Easing, Img, interpolate, Sequence, staticFile } from "remotion";
 import { seeded } from "../shared";
@@ -141,7 +142,11 @@ export const Polaroid: React.FC<{
             <ClipVideo src={src} trimStartMs={trimStartMs} speed={speed} volume={volume} crop={crop} />
           </Sequence>
         ) : (
-          <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "cover", scale: String(zoom) }} />
+          <div style={{ width: "100%", height: "100%", scale: String(zoom) }}>
+            <CropBox crop={crop}>
+              <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </CropBox>
+          </div>
         )}
       </div>
       <div style={{ ...tape, left: -tapeW * 0.28, rotate: "-34deg" }} />

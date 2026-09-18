@@ -1,4 +1,5 @@
 import { ClipVideo } from "../../scenes/ClipVideo";
+import { CropBox } from "../../scenes/CropBox";
 import {
   AbsoluteFill,
   Easing,
@@ -101,17 +102,13 @@ export const Footage: React.FC<{ scenes: Scene[]; background: string }> = ({ sce
             </Sequence>
           );
         } else {
+          // Lia máy + chỉnh màu ở lớp ngoài, crop (chỉnh trong trình chỉnh sửa) ở trong — như cảnh video.
           content = (
-            <Img
-              src={staticFile(scene.image)}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                filter: GRADE,
-                transform: `translate(${tx}%, ${ty}%) scale(${scale})`,
-              }}
-            />
+            <AbsoluteFill style={{ filter: GRADE, transform: `translate(${tx}%, ${ty}%) scale(${scale})` }}>
+              <CropBox crop={scene.crop}>
+                <Img src={staticFile(scene.image)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </CropBox>
+            </AbsoluteFill>
           );
         }
 

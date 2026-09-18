@@ -23,6 +23,9 @@ export const STYLE_IDS = [
   "social",
   "quiz",
   "ranking",
+  "book",
+  "storybook",
+  "pen",
 ] as const;
 
 export type StyleId = (typeof STYLE_IDS)[number];
@@ -434,6 +437,78 @@ Khói thịt nướng **dẫn đường từ đầu ngõ**.
 Hạng 1: phở bò gánh sáng sớm.
 Nước dùng ninh từ đêm, thơm mùi quế hồi.
 Số 1 của bạn là gì? Bình luận nhé!`,
+  },
+  book: {
+    id: "book",
+    label: "Mở sách",
+    emoji: "📖",
+    summary: "Cuốn sách bìa da mở ra trên bàn gỗ, mỗi cảnh một trang in có tranh minh hoạ, lật trang 3D.",
+    bestFor: "tóm tắt sách, bài học từ một cuốn sách, lịch sử, truyền thuyết, danh nhân, kể chuyện có chương hồi, trích dẫn hay",
+    examplePrompt: "Tóm tắt 3 bài học đắt giá nhất trong cuốn Nhà giả kim.",
+    exampleScript: `# Nhà giả kim
+> 3 bài học trong 60 giây
+
+[Chương 1 · Giấc mơ]
+Cậu bé chăn cừu mơ thấy kho báu dưới chân kim tự tháp.
+Cậu bán cả đàn cừu để lên đường.
+
+[Chương 2 · Dấu hiệu]
+Suốt hành trình, cuộc đời gửi cho cậu những dấu hiệu nhỏ.
+Chỉ ai **chịu lắng nghe** mới nhận ra.
+
+[Chương 3 · Kho báu]
+! 1 câu | đáng nhớ nhất cuốn sách
+Kho báu hoá ra nằm ngay nơi cậu bắt đầu.
+Nhưng không có chuyến đi, cậu sẽ chẳng bao giờ biết.`,
+  },
+  storybook: {
+    id: "storybook",
+    label: "Sách truyện",
+    emoji: "🧸",
+    summary: "Sách tranh thiếu nhi: tranh minh hoạ khung bo tròn, chữ to, từ đang đọc sáng lên, lật trang cuộn góc.",
+    bestFor: "truyện cổ tích, truyện thiếu nhi, kể chuyện trước giờ ngủ, bài học đạo đức cho bé, ngụ ngôn, chuyện con vật",
+    examplePrompt: "Kể chuyện cổ tích ngắn cho bé: chú thỏ con học cách chia sẻ.",
+    exampleScript: `# Thỏ con biết chia sẻ
+> Truyện kể trước giờ ngủ
+
+[Ngày xửa ngày xưa]
+Trong khu rừng nhỏ có một chú thỏ con.
+Thỏ có một giỏ cà rốt thật to.
+
+[Một buổi sáng]
+Bạn sóc đói bụng đi ngang qua.
+Thỏ ngập ngừng, rồi **chìa ra một củ**.
+
+[Từ hôm đó]
+Cả khu rừng chơi với thỏ vui hơn.
+Chia sẻ làm niềm vui lớn gấp đôi.
+Chúc bé ngủ ngon nhé!`,
+  },
+  pen: {
+    id: "pen",
+    label: "Thư tay",
+    emoji: "✒️",
+    summary: "Tờ thư trên bàn gỗ, bút máy viết từng chữ bằng mực, câu nhấn đổi màu mực và gạch chân lượn sóng.",
+    bestFor: "lá thư gửi ai đó, tâm sự, nhật ký, lời cảm ơn, kỷ niệm, lời khuyên chân thành, kể chuyện ngôi thứ nhất",
+    examplePrompt: "Lá thư gửi bản thân 10 năm trước: những điều ước gì mình biết sớm hơn.",
+    exampleScript: `# Gửi tôi của 10 năm trước
+> Những điều ước gì mình biết sớm hơn
+
+[Hà Nội, một tối mưa]
+Chào cậu, mình là cậu của mười năm sau.
+Có vài điều mình muốn kể.
+
+[Điều thứ nhất]
+Đừng sợ bắt đầu từ con số không.
+Ai cũng từng **vụng về lúc đầu**.
+
+[Điều thứ hai]
+! 10 phút | đọc sách mỗi tối
+Nghe thì ít, nhưng mười năm là cả một thư viện.
+
+[Thân ái]
+Cảm ơn cậu đã không bỏ cuộc.
+Hẹn gặp ở phía trước nhé.`,
   },
 };
 

@@ -25,7 +25,7 @@ import { freeMode } from "../scripts/usage";
 import { RANDOM_MUSIC, randomFreesoundMusic, stockForScene } from "../scripts/stock";
 import { listAudio } from "./api";
 import { cloudflareImageAvailable } from "../scripts/cloudflare-image";
-import { composeImagePrompt, imageLookFor, writeImagePrompts } from "../scripts/image-prompts";
+import { ART_STYLES, composeImagePrompt, imageLookFor, isArtStyle, writeImagePrompts, type ArtStyle } from "../scripts/image-prompts";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist } from "../scripts/images";
 import { slugify } from "../scripts/slug";
@@ -63,6 +63,8 @@ export type ChatSettings = {
   provider: ProviderChoice;
   /** Hình cho cảnh chưa có ảnh: không hình / thư viện / tìm Pexels / AI vẽ. */
   images: ImageSource;
+  /** Kiểu vẽ khi AI vẽ ảnh hoặc tạo clip (3D, hoạt hình…): "auto" = theo phong cách video. */
+  art: ArtStyle;
   /** Độ dài AI viết: "auto" = đọc từ prompt (không nêu thì video ngắn), "free" = không giới hạn, còn lại là số giây. */
   length: LengthChoice;
 };
@@ -136,7 +138,7 @@ export const resolveMusicChoice = async (music: string | null, log: (line: strin
   return track.path;
 };
 
-export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", length: "auto" };
+export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", art: "auto", length: "auto" };
 
 /** Ảnh đã dựng của một video: out/scenes/<slug>-<cảnh>.png, theo thứ tự cảnh. */
 const sceneImages = (slug: string) => {
@@ -869,6 +871,8 @@ export const normalizeSettings = (
       ? s.video : base.video,
     provider: s.provider === "auto" || isScriptProvider(s.provider) ? s.provider : base.provider,
     images: isImageSource(s.images) ? s.images : base.images,
+    // Cuộc chat cũ lưu trước khi có kiểu vẽ thì không có trường này.
+    art: isArtStyle(s.art) ? s.art : base.art ?? "auto",
     // Cuộc chat cũ lưu trước khi có ô độ dài thì không có trường này.
     length: isLengthChoice(s.length) ? s.length : base.length ?? "auto",
   };
@@ -1261,8 +1265,12 @@ const sceneImageQueries = async (
   const text = indexes.map((i) => script.scenes[i].lines.join(" ").slice(0, 120));
   if (settings.images === "ai") {
     try {
-      const written = await writeImagePrompts(script, indexes, { provider: settings.provider, style: script.style });
-      log(`Mô tả hình cho ${indexes.length} cảnh (${providerLabel(written.provider)}) — ${written.look.kind === "photo" ? "ảnh chụp thật" : "tranh vẽ"} theo phong cách ${STYLES[script.style]?.label ?? script.style}`);
+      const written = await writeImagePrompts(script, indexes, { provider: settings.provider, style: script.style, art: settings.art });
+      log(`Mô tả hình cho ${indexes.length} cảnh (${providerLabel(written.provider)}) — ${
+        settings.art !== "auto"
+          ? `kiểu vẽ ${ART_STYLES[settings.art].label}`
+          : `${written.look.kind === "photo" ? "ảnh chụp thật" : "tranh vẽ"} theo phong cách ${STYLES[script.style]?.label ?? script.style}`
+      }`);
       return written.prompts.map((prompt) => composeImagePrompt(prompt, written.look.look));
     } catch (error) {
       log(`Không viết được mô tả hình (${error instanceof Error ? error.message : error}) — vẽ theo bản dịch lời đọc.`);
@@ -1278,7 +1286,7 @@ const sceneImageQueries = async (
     // và trả về ảnh sai hẳn chủ đề. Ghép tiêu đề vào để giữ chủ thể ("cá heo") trong truy vấn.
     const [title, ...lines] = await translateLines([script.title, ...text], { to: "en", from: "vi", engine }, () => {});
     const queries = lines.map((query, k) => [title.trim(), (query ?? "").trim() || text[k]].filter(Boolean).join(", "));
-    return settings.images === "ai" ? queries.map((query) => composeImagePrompt(query, imageLookFor(script.style).look)) : queries;
+    return settings.images === "ai" ? queries.map((query) => composeImagePrompt(query, imageLookFor(script.style, settings.art).look)) : queries;
   } catch (error) {
     log(`Không dịch được truy vấn (${error instanceof Error ? error.message : error}) — tìm bằng nguyên văn.`);
     return text;
@@ -1356,12 +1364,17 @@ const addSceneImages = async (
     (ai ? "" : " · ghi nguồn trong public/uploads/stock/CREDITS.txt");
 };
 
-/** Mô tả cho model video, suy từ lời đọc của cảnh — không gọi thêm AI viết prompt. */
-const sceneVideoPrompt = (script: VideoScript, index: number) =>
+/**
+ * Mô tả cho model video, suy từ lời đọc của cảnh — không gọi thêm AI viết prompt.
+ * Kiểu vẽ khác ảnh thật (3D, hoạt hình…) thì clip là phim hoạt hình theo kiểu đó.
+ */
+const sceneVideoPrompt = (script: VideoScript, index: number, art: ArtStyle) =>
   [
     `B-roll footage for a short video titled "${script.title}".`,
     `Show visually what this narration describes: "${script.scenes[index].lines.join(" ")}".`,
-    "Realistic, cinematic camera movement.",
+    art === "auto" || art === "photo"
+      ? "Realistic, cinematic camera movement."
+      : `Animated in this style: ${ART_STYLES[art].look}. Smooth camera movement.`,
     "No on-screen text, subtitles, captions, letters, watermarks or logos.",
   ].join(" ");
 
@@ -1416,7 +1429,7 @@ const addAiClips = async (
     log(`Cảnh ${i + 1}/${total}: video AI…`);
     try {
       scene.image = await cachedAiClip(slug, {
-        prompt: sceneVideoPrompt(script, i),
+        prompt: sceneVideoPrompt(script, i, settings.art),
         model: settings.video,
         seconds: Math.ceil((scene.endMs - scene.startMs) / 1000),
         aspect: settings.aspect,
