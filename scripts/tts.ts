@@ -38,6 +38,23 @@ const cacheDir = () => path.join(publicDir(), "voices", ".cache");
 const cachePath = (engine: TtsEngine, voiceTag: string, text: string) =>
   path.join(cacheDir(), `${createHash("sha1").update([engine, voiceTag, text.replace(/\s+/g, " ").trim()].join("\u0000")).digest("hex")}.mp3`);
 
+/**
+ * Nhãn giọng trong khoá bộ nhớ — cùng giọng, cùng model, cùng chữ thì dùng lại file đã đọc.
+ * ElevenLabs cần voice_id đã biết (giọng mặc định của tài khoản chỉ biết sau khi gọi API).
+ */
+const voiceCacheTag = (engine: TtsEngine, voiceOverride: string | undefined, elevenVoiceId = voiceOverride ?? "") => {
+  const modelId = process.env.ELEVENLABS_MODEL_ID ?? "eleven_v3";
+  const sayVoice = voiceOverride ?? process.env.SAY_VOICE ?? "Linh";
+  return engine === "elevenlabs" ? `${elevenVoiceId}|${modelId}`
+    : engine === "gemini" ? `${voiceOverride}|${process.env.GEMINI_TTS_MODEL ?? ""}|${process.env.GEMINI_TTS_STYLE ?? ""}`
+      : engine === "say" ? `${sayVoice}|${process.platform}`
+        : `${LOCAL_VOICE_MODEL}|${voiceOverride ?? LOCAL_DEFAULT_VOICE}`;
+};
+
+/** Câu này đã được giọng này đọc và còn trong bộ nhớ chưa — đọc lại sẽ không gọi dịch vụ ngoài. */
+export const isVoiceCached = (engine: TtsEngine, voiceOverride: string | undefined, text: string) =>
+  fs.existsSync(cachePath(engine, voiceCacheTag(engine, voiceOverride), text));
+
 const rememberClip = (file: string, target: string) => {
   try {
     fs.mkdirSync(cacheDir(), { recursive: true });
@@ -239,7 +256,7 @@ export const generateVoiceover = async (
   return synthesizeVoiceover(lines, slug, engine, voiceOverride);
 };
 
-const synthesizeVoiceover = async (
+export const synthesizeVoiceover = async (
   lines: string[],
   slug: string,
   engine: TtsEngine,
@@ -273,10 +290,7 @@ const synthesizeVoiceover = async (
 
   // Câu đã đọc trước đó (cùng giọng, cùng model, cùng chữ) lấy lại từ bộ nhớ — sửa một câu không phải
   // đọc lại cả video, không tốn thêm lượt gọi giọng trên mạng.
-  const voiceTag = engine === "elevenlabs" ? `${voiceId}|${modelId}`
-    : engine === "gemini" ? `${voiceOverride}|${process.env.GEMINI_TTS_MODEL ?? ""}|${process.env.GEMINI_TTS_STYLE ?? ""}`
-      : engine === "say" ? `${sayVoice}|${process.platform}`
-        : `${LOCAL_VOICE_MODEL}|${voiceOverride ?? LOCAL_DEFAULT_VOICE}`;
+  const voiceTag = voiceCacheTag(engine, voiceOverride, voiceId);
   const cached = lines.map((text) => cachePath(engine, voiceTag, text));
   const todo = lines.map((_, i) => i).filter((i) => !fs.existsSync(cached[i]));
   if (todo.length < lines.length) {

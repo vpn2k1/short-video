@@ -21,8 +21,8 @@ const appRoot = app.getAppPath();
 const workspace = app.isPackaged ? path.join(app.getPath("userData"), "workspace") : appRoot;
 const logPath = path.join(app.getPath("logs"), "server.log");
 
-/** Chép lại mỗi lần đổi bản — người dùng không sửa những thứ này. */
-const CODE = ["package.json", "tsconfig.json", "remotion.config.ts", "src", "server", "scripts", ".claude/skills"];
+/** Chép lại mỗi lần đổi bản — người dùng không sửa những thứ này. public/fonts: font đóng gói (src/fonts/catalog.ts). */
+const CODE = ["package.json", "tsconfig.json", "remotion.config.ts", "src", "server", "scripts", ".claude/skills", "public/fonts"];
 /** Chỉ chép file còn thiếu — không đè nhạc/ảnh người dùng đã thêm. */
 const SEED = ["public/images", "public/music", "public/sfx"];
 const DATA_DIRS = ["videos", "out", "data", "public/uploads", "public/voices", "public/videos"];

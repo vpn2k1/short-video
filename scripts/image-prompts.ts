@@ -42,10 +42,71 @@ export const IMAGE_LOOKS: Record<StyleId, ImageLook> = {
   vox: { kind: "photo", look: "Realistic editorial photograph, subject clearly separated against a plain light background, sharp focus" },
   comic: { kind: "illustration", look: "Comic book illustration, bold black ink outlines, flat vivid colors, halftone dot shading, expressive characters" },
   whiteboard: { kind: "illustration", look: "Hand-drawn black marker line drawing on white paper, simple clean sketch, a few soft colored marker accents" },
+  book: { kind: "illustration", look: "Classic book illustration plate, detailed pen-and-ink drawing with soft watercolor wash, muted vintage palette" },
+  storybook: { kind: "illustration", look: "Children's picture book illustration, soft gouache and watercolor, warm pastel colors, cute friendly characters, gentle rounded shapes" },
+  pen: { kind: "photo", look: "Vintage photograph, warm faded film colors, soft natural light, gentle film grain, nostalgic candid moment" },
 };
 
-export const imageLookFor = (style: string | undefined): ImageLook =>
-  (style && style in IMAGE_LOOKS ? IMAGE_LOOKS[style as StyleId] : IMAGE_LOOKS.caption);
+/**
+ * Kiểu vẽ người dùng tự chọn (nút "Kiểu vẽ" khi AI vẽ ảnh / tạo clip) — thắng kiểu ảnh cố định của phong cách.
+ * Hiệu ứng dựng của phong cách (khung truyện, hạt phim…) vẫn giữ, chỉ chất liệu ảnh đổi.
+ */
+export const ART_STYLES = {
+  photo: { label: "Ảnh thật", summary: "Ảnh chụp thật, đúng màu ngoài đời", kind: "photo", look: PHOTO },
+  "3d": {
+    label: "3D", summary: "Hoạt hình 3D kiểu phim chiếu rạp, khối mềm, ánh sáng dịu",
+    kind: "illustration",
+    look: "3D animated feature film style render, stylized characters with soft rounded shapes, soft global illumination, vibrant colors, high detail",
+  },
+  "2d": {
+    label: "2D phẳng", summary: "Minh hoạ vector phẳng, hình khối gọn, màu trơn",
+    kind: "illustration",
+    look: "Flat 2D vector illustration, clean simple geometric shapes, solid flat colors, minimal shading, modern graphic design",
+  },
+  cartoon: {
+    label: "Hoạt hình", summary: "Tranh hoạt hình viền đậm, màu tươi, dáng vui nhộn",
+    kind: "illustration",
+    look: "Cartoon illustration, bold clean outlines, bright saturated colors, playful exaggerated proportions, expressive faces",
+  },
+  anime: {
+    label: "Anime", summary: "Tranh anime Nhật, nét sạch, tô bóng phẳng, nền vẽ kỹ",
+    kind: "illustration",
+    look: "Anime illustration, clean line art, cel shading, vivid colors, detailed painted background, Japanese animation style",
+  },
+  watercolor: {
+    label: "Màu nước", summary: "Tranh màu nước mềm, loang nhẹ trên giấy",
+    kind: "illustration",
+    look: "Watercolor painting on textured paper, soft translucent washes, gentle bleeding edges, light airy palette",
+  },
+  clay: {
+    label: "Đất sét", summary: "Mô hình đất sét nặn tay kiểu phim stop-motion",
+    kind: "illustration",
+    look: "Claymation style, handmade plasticine clay figures and miniature sets, visible fingerprint texture, soft studio lighting",
+  },
+  pixel: {
+    label: "Pixel art", summary: "Đồ hoạ điểm ảnh kiểu game 16-bit",
+    kind: "illustration",
+    look: "Pixel art, 16-bit retro video game graphics, crisp visible square pixels, limited color palette",
+  },
+} satisfies Record<string, ImageLook & { label: string; summary: string }>;
+
+/** "auto" = theo phong cách video (IMAGE_LOOKS). */
+export type ArtStyle = "auto" | keyof typeof ART_STYLES;
+
+export const isArtStyle = (value: unknown): value is ArtStyle =>
+  value === "auto" || (typeof value === "string" && Object.prototype.hasOwnProperty.call(ART_STYLES, value));
+
+/** Danh sách cho giao diện (/api/state). */
+export const artStyleCatalog = () =>
+  Object.entries(ART_STYLES).map(([id, s]) => ({ id, label: s.label, summary: s.summary, kind: s.kind }));
+
+export const imageLookFor = (style: string | undefined, art: ArtStyle = "auto"): ImageLook => {
+  if (art !== "auto" && isArtStyle(art)) {
+    const { kind, look } = ART_STYLES[art];
+    return { kind, look };
+  }
+  return style && style in IMAGE_LOOKS ? IMAGE_LOOKS[style as StyleId] : IMAGE_LOOKS.caption;
+};
 
 const COMMON = `You write image-generation prompts for the background pictures of a vertical short video (9:16).
 The narration is usually Vietnamese; your prompts are ALWAYS English.
@@ -83,13 +144,14 @@ Return JSON only: {"prompts": ["<prompt for scene 1>", ...]} with exactly one pr
 /**
  * `indexes`: những cảnh cần ảnh (theo thứ tự trả về). Cả kịch bản được gửi kèm làm ngữ cảnh.
  * `style`: id phong cách video — quyết định kiểu ảnh (ảnh thật hay tranh vẽ) theo IMAGE_LOOKS.
+ * `art`: kiểu vẽ người dùng chọn (ART_STYLES), khác "auto" thì thắng kiểu của phong cách.
  */
 export const writeImagePrompts = async (
   video: { title: string; subtitle?: string | null; scenes: SceneForPrompt[] },
   indexes: number[],
-  options: { provider: ProviderChoice; style?: string },
+  options: { provider: ProviderChoice; style?: string; art?: ArtStyle },
 ): Promise<{ prompts: string[]; look: ImageLook; provider: ScriptProvider }> => {
-  const look = imageLookFor(options.style);
+  const look = imageLookFor(options.style, options.art);
   const outline = video.scenes
     .map((scene, i) => `Scene ${i + 1}${indexes.includes(i) ? " [NEEDS IMAGE]" : ""}: ${scene.lines.join(" ")}`)
     .join("\n");

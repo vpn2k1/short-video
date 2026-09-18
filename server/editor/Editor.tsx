@@ -1,4 +1,8 @@
 import { Player, type PlayerRef } from "@remotion/player";
+import {
+  ArrowLeft, ArrowLeftRight, Check, ChevronLeft, CircleCheck, Download, Keyboard, Maximize, Minus, Pause, Play, Plus, TriangleAlert,
+  Upload, X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Short } from "../../src/compositions/Short";
 import type { SceneCrop, ShortProps, TextOverlay } from "../../src/compositions/Short/schema";
@@ -26,11 +30,11 @@ const FPS = 30;
 const same = (a: ShortProps, b: ShortProps) => JSON.stringify(a) === JSON.stringify(b);
 
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
-/** Độ dài cảnh ảnh sinh ra từ nút 📷 Cắt ảnh — đổi được bằng cách kéo mép cảnh. */
+/** Độ dài cảnh ảnh sinh ra từ nút Cắt ảnh — đổi được bằng cách kéo mép cảnh. */
 const FREEZE_MS = 2000;
 const LIB_SECTIONS: LibrarySection[] = ["visual", "audio", "text", "captions", "ai", "stock"];
 
-/** Bảng phím tắt — hiện trong hộp ⌨ (phím ? hoặc ⌘/), menu Trợ giúp của app desktop mở cùng hộp này. */
+/** Bảng phím tắt — hiện trong hộp Phím tắt (phím ? hoặc ⌘/), menu Trợ giúp của app desktop mở cùng hộp này. */
 const SHORTCUTS: [string, [string[], string][]][] = [
   ["Phát", [
     [["Space"], "Phát / dừng"],
@@ -257,10 +261,11 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
         // Mọi lần lưu/xuất sau đó gắn đúng bản này — kể cả khi trong lúc sửa có bản mới hơn ra đời.
         versionQuery.current = d.version !== null ? `?version=${d.version}` : "";
         setVersionInfo({ version: d.version, latest: d.latest, hasDraft: d.hasDraft });
-        // Trên timeline chỉ có MỘT loại khối là video: mở dự án là gộp hàng Cảnh vào các hàng Video, mọi
-        // phong cách. "Video gốc" giữ nguyên hình; phong cách khác mất khung trang trí của nó (ô truyện
-        // tranh, polaroid, Ken Burns…) — nhãn / câu nhấn theo cảnh vẫn giữ.
-        const unified = ops.hasSceneMedia(d.props) ? ops.unifyScenes(d.props) : null;
+        // "Video gốc" vẽ cảnh y như một khối video nên gộp hàng Cảnh vào các hàng Video — mọi clip chỉnh như
+        // nhau. Phong cách khác GIỮ hàng Cảnh: ảnh nằm trong khung trang trí của phong cách (ô truyện tranh,
+        // polaroid, ảnh dán, Ken Burns…); gộp thì khung đó mất hẳn. Cần chỉnh tự do thì tách từng cảnh
+        // thành video bằng nút "Tách thành video riêng" (liftSceneToOverlay).
+        const unified = d.props.style === "plain" && ops.hasSceneMedia(d.props) ? ops.unifyScenes(d.props) : null;
         setProps(unified ? unified.props : d.props);
         setTitle(d.title);
         document.title = `Chỉnh sửa · ${d.title}`;
@@ -475,8 +480,8 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
               ? "Không nhận ra lời nói nào trong đoạn đã chọn."
               : translatedTo
                 ? `Đã tạo ${count} câu dịch sang ${translatedTo} ở hàng Phụ đề ${(track ?? 0) + 1}` +
-                  `${originalTrack !== undefined ? `, bản gốc ở hàng Phụ đề ${originalTrack + 1}` : ""} — soát lại câu dịch trong mục 💬 Phụ đề.`
-                : `Đã tạo ${count} câu ở hàng Phụ đề ${(track ?? 0) + 1} — sửa chữ trong mục 💬 Phụ đề nếu nghe nhầm.`);
+                  `${originalTrack !== undefined ? `, bản gốc ở hàng Phụ đề ${originalTrack + 1}` : ""} — soát lại câu dịch trong mục Phụ đề.`
+                : `Đã tạo ${count} câu ở hàng Phụ đề ${(track ?? 0) + 1} — sửa chữ trong mục Phụ đề nếu nghe nhầm.`);
           } else {
             setJob({ status: "error", title: "Không tạo được phụ đề", message: error ?? "Lỗi không rõ." });
           }
@@ -498,7 +503,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
       refreshMedia();
       setJob({ status: "idle" });
       if (sceneIndex === undefined) {
-        flash("Đã tách âm thanh — xem ở 🔊 Âm thanh › Đã tải lên.");
+        flash("Đã tách âm thanh — xem ở Âm thanh › Đã tải lên.");
       } else {
         withProps((p) => ops.detachAudio(p, sceneIndex, result.path, result.durationMs));
       }
@@ -508,7 +513,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   };
 
   /**
-   * 📷 Cắt ảnh tại đầu phát: lấy đúng khung hình đang xem của cảnh (hoặc lớp) video, lưu vào thư viện
+   * Cắt ảnh tại đầu phát: lấy đúng khung hình đang xem của cảnh (hoặc lớp) video, lưu vào thư viện
    * rồi chèn thành cảnh ảnh mới ngay sau cảnh đó — kiểu "đóng băng khung hình" của CapCut.
    */
   const freezeFrame = async () => {
@@ -909,7 +914,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
     return (
       <div className="ed-center">
         <p>{loadError}</p>
-        <a className="ed-btn" href={slug ? `/#/v/${slug}` : "/"}>← Quay lại</a>
+        <a className="ed-btn" href={slug ? `/#/v/${slug}` : "/"}><ArrowLeft size={16} aria-hidden /> Quay lại</a>
       </div>
     );
   }
@@ -920,13 +925,18 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   // Mục đang crop (cảnh hay lớp) — chỉ mở khung crop khi mục đó thật sự có ảnh/video.
   const cropItem = cropTarget ? ops.motionItem(props, cropTarget) : null;
 
-  const saveLabel = { saved: "✓ Đã lưu", dirty: "Chưa lưu…", saving: "Đang lưu…", error: "⚠ Lỗi lưu" }[saveState];
+  const saveLabel = {
+    saved: <><Check size={14} aria-hidden /> Đã lưu</>,
+    dirty: "Chưa lưu…",
+    saving: "Đang lưu…",
+    error: <><TriangleAlert size={14} aria-hidden /> Lỗi lưu</>,
+  }[saveState];
 
   return (
     <div className="ed">
       <header className="ed-top">
         <div className="ed-top-l">
-          <a className="ed-btn ghost" href={`/#/v/${slug}`} title="Về trang video">‹ Quay lại</a>
+          <a className="ed-btn ghost" href={`/#/v/${slug}`} title="Về trang video"><ChevronLeft size={16} aria-hidden /> Quay lại</a>
         </div>
         <div className="ed-title">
           <b title={title}>{title}</b>
@@ -948,7 +958,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
           ) : null}
         </div>
         <div className="ed-top-r">
-          <button className="ed-icon" onClick={() => setShowKeys((v) => !v)} title={`Phím tắt (? hoặc ${MOD}+/)`} aria-expanded={showKeys}>⌨</button>
+          <button className="ed-icon" onClick={() => setShowKeys((v) => !v)} title={`Phím tắt (? hoặc ${MOD}+/)`} aria-label="Phím tắt" aria-expanded={showKeys}><Keyboard size={16} aria-hidden /></button>
           <input
             ref={importRef}
             type="file"
@@ -957,9 +967,9 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             accept="image/*,video/*,audio/*"
             onChange={(e) => { onUpload([...(e.target.files ?? [])]); e.target.value = ""; }}
           />
-          <button className="ed-icon" onClick={toggleLibSide} title={`Đưa thư viện sang bên ${libSide === "left" ? "phải" : "trái"}`}>⇄</button>
+          <button className="ed-icon" onClick={toggleLibSide} title={`Đưa thư viện sang bên ${libSide === "left" ? "phải" : "trái"}`} aria-label={`Đưa thư viện sang bên ${libSide === "left" ? "phải" : "trái"}`}><ArrowLeftRight size={16} aria-hidden /></button>
           <button className="ed-btn primary ed-export" onClick={exportVideo} disabled={job.status === "running"} title={`Xuất video (${MOD}+E)`}>
-            ⬆ Xuất video
+            <Upload size={16} aria-hidden /> Xuất video
           </button>
         </div>
       </header>
@@ -995,7 +1005,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             if (assign) {
               onUseMedia({ path, name: path.split("/").pop() ?? path, kind: "video", bytes: 0, at: Date.now() });
             } else {
-              flash("Đã tạo video — xem ở 🖼 Ảnh › Video.");
+              flash("Đã tạo video — xem ở Ảnh › Video.");
             }
           }}
           onStock={(path, kind, action, credit) => {
@@ -1091,21 +1101,21 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             <span className="ed-tc"><b>{fmt(timeMs)}</b> / {fmt(meta.durationMs)}</span>
             <button className="ed-play" onClick={() => playerRef.current?.toggle()} title="Phát / dừng (Space)" aria-label={playing ? "Dừng" : "Phát"}>
               {playing ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                <Pause size={18} fill="currentColor" aria-hidden />
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" /></svg>
+                <Play size={18} fill="currentColor" aria-hidden />
               )}
             </button>
             <span className="ed-pbar-r">
               <span className="ed-zoom" role="group" aria-label="Thu phóng khung xem trước">
-                <button onClick={() => stage.zoomBy(0.8)} title={`Thu nhỏ khung xem trước (${MOD} −)`} aria-label="Thu nhỏ">−</button>
+                <button onClick={() => stage.zoomBy(0.8)} title={`Thu nhỏ khung xem trước (${MOD} −)`} aria-label="Thu nhỏ"><Minus size={16} aria-hidden /></button>
                 <button className="ed-zoom-v" onClick={() => stage.zoomTo(1)} title={`Vừa khung (${MOD} 0) — ${MOD} + lăn chuột để phóng tại con trỏ`}>
                   {stage.zoom === 1 ? "Vừa" : `${Math.round(stage.zoom * 100)}%`}
                 </button>
-                <button onClick={() => stage.zoomBy(1.25)} title={`Phóng to khung xem trước (${MOD} =)`} aria-label="Phóng to">+</button>
+                <button onClick={() => stage.zoomBy(1.25)} title={`Phóng to khung xem trước (${MOD} =)`} aria-label="Phóng to"><Plus size={16} aria-hidden /></button>
               </span>
               <span className="ed-ratio">{props.aspect}</span>
-              <button className="ed-icon" onClick={() => playerRef.current?.requestFullscreen()} title="Xem toàn màn hình" aria-label="Xem toàn màn hình">⛶</button>
+              <button className="ed-icon" onClick={() => playerRef.current?.requestFullscreen()} title="Xem toàn màn hình" aria-label="Xem toàn màn hình"><Maximize size={16} aria-hidden /></button>
             </span>
           </div>
           {cropItem ? (
@@ -1185,8 +1195,8 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
         <div className="ed-modal" role="dialog" aria-modal="true" aria-label="Phím tắt" onClick={() => setShowKeys(false)}>
           <div className="ed-card ed-keys" onClick={(e) => e.stopPropagation()}>
             <div className="ed-keys-head">
-              <h3>⌨ Phím tắt</h3>
-              <button className="ed-icon" onClick={() => setShowKeys(false)} aria-label="Đóng">✕</button>
+              <h3><Keyboard size={18} aria-hidden /> Phím tắt</h3>
+              <button className="ed-icon" onClick={() => setShowKeys(false)} aria-label="Đóng"><X size={16} aria-hidden /></button>
             </div>
             <div className="ed-keys-grid">
               {SHORTCUTS.map(([group, items]) => (
@@ -1223,10 +1233,10 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
               </>
             ) : job.status === "exported" ? (
               <>
-                <h3>✅ Xuất xong</h3>
+                <h3><CircleCheck size={20} aria-hidden /> Xuất xong</h3>
                 <video className="ed-result" src={job.mp4} controls playsInline />
                 <div className="ed-actions">
-                  <a className="ed-btn primary" href={job.mp4.split("?")[0]} download>⬇ Tải xuống</a>
+                  <a className="ed-btn primary" href={job.mp4.split("?")[0]} download><Download size={18} aria-hidden /> Tải xuống</a>
                   <a className="ed-btn" href={`/#/v/${slug}`}>Mở trong chat</a>
                   {job.version !== null ? (
                     <a className="ed-btn ghost" href={`/editor.html#${slug}/v${job.version}`} title="Mở bản vừa xuất để sửa tiếp">Sửa tiếp bản {job.version}</a>

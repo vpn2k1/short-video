@@ -5,6 +5,7 @@
  * Kiểu cuối cùng = mặc định ← `captionLook` của video (chung) ← `style` của câu (riêng).
  */
 import type { Caption, CaptionLook, ShortProps, TextOverlay } from "../compositions/Short/schema";
+import { FONT_CATALOG } from "../fonts/catalog";
 
 export const DEFAULT_CAPTION_LOOK: CaptionLook = {
   font: "sans",
@@ -46,13 +47,9 @@ export const textPatch = (patch: Partial<CaptionLook>): Partial<TextOverlay> => 
   return { ...rest, ...(width !== undefined ? { maxWidth: width } : {}) };
 };
 
-export const CAPTION_FONT_LABELS: Record<CaptionLook["font"], string> = {
-  sans: "Hệ thống",
-  rounded: "Tròn",
-  serif: "Có chân",
-  mono: "Máy chữ",
-  condensed: "Hẹp",
-};
+export const CAPTION_FONT_LABELS = Object.fromEntries(
+  Object.entries(FONT_CATALOG).map(([id, info]) => [id, info.label]),
+) as Record<CaptionLook["font"], string>;
 
 export const CAPTION_PRESET_LABELS: Record<CaptionLook["preset"], string> = {
   plain: "Thường",
@@ -77,10 +74,10 @@ export const CAPTION_TEMPLATES: { label: string; look: Partial<CaptionLook> }[] 
 ];
 
 /**
- * Phong cách dùng phụ đề làm NỘI DUNG (bong bóng chat, thẻ bài đăng, câu hỏi, bảng xếp hạng) — thay
- * bằng phụ đề tuỳ chỉnh sẽ hỏng bố cục, nên ở các phong cách này kiểu tuỳ chỉnh không áp dụng.
+ * Phong cách dùng phụ đề làm NỘI DUNG (bong bóng chat, thẻ bài đăng, câu hỏi, bảng xếp hạng, trang sách,
+ * lá thư viết tay) — thay bằng phụ đề tuỳ chỉnh sẽ hỏng bố cục, nên ở các phong cách này kiểu tuỳ chỉnh không áp dụng.
  */
-export const CONTENT_CAPTION_STYLES = new Set(["chat", "social", "quiz", "ranking"]);
+export const CONTENT_CAPTION_STYLES = new Set(["chat", "social", "quiz", "ranking", "book", "storybook", "pen"]);
 
 export const canCustomizeCaptions = (style: string) => !CONTENT_CAPTION_STYLES.has(style);
 

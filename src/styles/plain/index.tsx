@@ -14,22 +14,11 @@ const VIDEO_EXT = /\.(mp4|mov|webm)$/i;
  * Phong cách "Video gốc": ảnh/video giữ nguyên, vừa khung (không cắt xén), cắt cảnh
  * gọn không chuyển cảnh, không lớp phủ. Dành cho chỉnh sửa clip người dùng tải lên —
  * mọi thứ khác (chữ, âm thanh) thêm trong trình chỉnh sửa.
+ *
+ * Chỉ vẽ hình của cảnh; tiêu đề và phụ đề nằm ở PlainTop, vẽ trên lớp video chồng.
  */
-export const PlainStyle: React.FC<ShortProps> = ({
-  scenes,
-  captions,
-  title,
-  subtitle,
-  accent,
-  background,
-  showTitle,
-  captionPosition,
-}) => {
+export const PlainStyle: React.FC<ShortProps> = ({ scenes, background }) => {
   const frame = useCurrentFrame();
-  const clock = useCaptionClock(captions);
-  const { unit, captionBottom } = useLayout();
-  // Khác các phong cách khác: phụ đề tắt đúng lúc hết câu — video gốc hay có khoảng lặng.
-  const caption = clock.caption && clock.localFrame < clock.durationFrames ? clock.caption : null;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
@@ -55,7 +44,23 @@ export const PlainStyle: React.FC<ShortProps> = ({
           </Sequence>
         );
       })}
+    </AbsoluteFill>
+  );
+};
 
+/**
+ * Tiêu đề mở đầu và phụ đề của "Video gốc". Trình chỉnh sửa gộp mọi cảnh thành video trên hàng
+ * Video 1 (lớp chồng phủ kín khung) — vẽ chung với cảnh thì bị lớp đó che mất, nên Short vẽ phần
+ * này sau MediaOverlays.
+ */
+export const PlainTop: React.FC<ShortProps> = ({ captions, title, subtitle, accent, showTitle, captionPosition }) => {
+  const clock = useCaptionClock(captions);
+  const { unit, captionBottom } = useLayout();
+  // Khác các phong cách khác: phụ đề tắt đúng lúc hết câu — video gốc hay có khoảng lặng.
+  const caption = clock.caption && clock.localFrame < clock.durationFrames ? clock.caption : null;
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
       {!showTitle ? null : (
         <Sequence durationInFrames={TITLE_FRAMES}>
           <AbsoluteFill style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>

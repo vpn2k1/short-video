@@ -1,3 +1,6 @@
+import {
+  BookOpen, Captions, Clapperboard, Clipboard, Download, File as FileIcon, Film, FolderOpen, Gift, Image as ImageIcon, Leaf, Music, Pause, Play, Sparkles, Type, X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Caption, TextOverlay } from "../../src/compositions/Short/schema";
 import { api, fmt, followJob, postJson, type MediaItem } from "./api";
@@ -35,7 +38,7 @@ type Props = {
   aspect: string;
   /** Clip AI vừa tạo xong: làm mới thư viện, gán cho cảnh nếu người dùng chọn. */
   onAiVideo: (path: string, assign: boolean) => void;
-  /** Media vừa tải từ 🆓 Kho miễn phí: "use" = dùng ngay (thay mục đang chọn / thêm tại đầu phát), "music" = nhạc nền, "save" = chỉ lưu. */
+  /** Media vừa tải từ Kho miễn phí: "use" = dùng ngay (thay mục đang chọn / thêm tại đầu phát), "music" = nhạc nền, "save" = chỉ lưu. */
   onStock: (path: string, kind: StockKind, action: "use" | "music" | "save", credit: string) => void;
   selection: ops.Selection;
   uploading: boolean;
@@ -52,7 +55,7 @@ type Props = {
   selectedVideoScene: number | null;
   /** Tách âm thanh của cảnh ra track riêng (tắt tiếng gốc của cảnh). */
   onDetachSceneAudio: (index: number) => void;
-  /** Mục 💬 Phụ đề: danh sách câu, mỗi câu một dòng sửa được. */
+  /** Mục Phụ đề: danh sách câu, mỗi câu một dòng sửa được. */
   captions: Caption[];
   timeMs: number;
   selectedCaption: number | null;
@@ -83,7 +86,7 @@ const AUDIO_GROUPS: { key: string; title: string }[] = [
 
 /**
  * Thư viện kiểu CapCut: thanh biểu tượng dọc chọn Ảnh/Video, Âm thanh, Văn bản.
- * Đặt bên trái hoặc bên phải trình chỉnh sửa (nút ⇄ trên thanh trên cùng).
+ * Đặt bên trái hoặc bên phải trình chỉnh sửa (nút đổi bên trên thanh trên cùng).
  */
 export const MediaPanel: React.FC<Props> = ({
   sectionRequest, media, aspect, selection, uploading, currentMusic, onUse, onUpload, onAddText, onSetMusic, onAppendOverlay, onExtractAudio, onAiVideo, onStock,
@@ -95,7 +98,7 @@ export const MediaPanel: React.FC<Props> = ({
   const [query, setQuery] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  /** File phụ đề vừa thả vào khi đang ở tab 💬 Phụ đề — chuyển xuống danh sách phụ đề để đọc. */
+  /** File phụ đề vừa thả vào khi đang ở tab Phụ đề — chuyển xuống danh sách phụ đề để đọc. */
   const [droppedSubtitle, setDroppedSubtitle] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLAudioElement>(null);
@@ -126,13 +129,13 @@ export const MediaPanel: React.FC<Props> = ({
   const target = selection?.type === "overlay"
     ? "thay video đang chọn"
     : selection?.type === "scene" ? `thay Cảnh ${selection.index + 1}` : "thêm video tại đầu phát";
-  const rail: { id: Section; icon: string; label: string }[] = [
-    { id: "visual", icon: "🖼", label: "Ảnh/Video" },
-    { id: "audio", icon: "🎵", label: "Âm thanh" },
-    { id: "text", icon: "T", label: "Văn bản" },
-    { id: "captions", icon: "💬", label: "Phụ đề" },
-    { id: "ai", icon: "✨", label: "Video AI" },
-    { id: "stock", icon: "🆓", label: "Kho free" },
+  const rail: { id: Section; icon: React.ReactNode; label: string }[] = [
+    { id: "visual", icon: <ImageIcon size={16} aria-hidden />, label: "Ảnh/Video" },
+    { id: "audio", icon: <Music size={16} aria-hidden />, label: "Âm thanh" },
+    { id: "text", icon: <Type size={16} aria-hidden />, label: "Văn bản" },
+    { id: "captions", icon: <Captions size={16} aria-hidden />, label: "Phụ đề" },
+    { id: "ai", icon: <Sparkles size={16} aria-hidden />, label: "Video AI" },
+    { id: "stock", icon: <Gift size={16} aria-hidden />, label: "Kho free" },
   ];
 
   const uploadButton = section === "visual" || section === "audio" ? (
@@ -209,12 +212,12 @@ export const MediaPanel: React.FC<Props> = ({
             </div>
             {selectedVideoScene !== null ? (
               <div className="md-scene-action">
-                <span>🎞 Cảnh {selectedVideoScene + 1} là video</span>
+                <span><Film size={14} aria-hidden /> Cảnh {selectedVideoScene + 1} là video</span>
                 <button
                   onClick={() => onDetachSceneAudio(selectedVideoScene)}
                   title="Âm thanh của cảnh thành một đoạn riêng trên track Âm thanh — cắt, dời, chỉnh độc lập với hình; video tắt tiếng gốc"
                 >
-                  🎵 Tách âm thanh cảnh
+                  <Music size={16} aria-hidden /> Tách âm thanh cảnh
                 </button>
               </div>
             ) : null}
@@ -222,10 +225,9 @@ export const MediaPanel: React.FC<Props> = ({
               Kéo xuống timeline để đặt đúng chỗ · bấm ảnh để {target} · <b>＋</b> nối vào cuối.
             </p>
             <div className="md-grid">
-              <button className="md-import" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              <button className="md-import" onClick={() => fileRef.current?.click()} disabled={uploading} title="Nhập ảnh/video — hoặc kéo thả file vào panel">
                 <b>{uploading ? "…" : "＋"}</b>
                 <span>{uploading ? "Đang tải lên…" : "Nhập ảnh/video"}</span>
-                <small>hoặc kéo thả file vào</small>
               </button>
               {visual.map((m) => (
                 <div key={m.path} className="md-tile" title={m.path} draggable onDragStart={dragMedia(m.path)}>
@@ -233,7 +235,7 @@ export const MediaPanel: React.FC<Props> = ({
                     {m.kind === "video"
                       ? <video src={`/public/${m.path}#t=0.5`} muted playsInline preload="metadata" />
                       : <img src={`/public/${m.path}`} alt="" loading="lazy" draggable={false} />}
-                    {m.kind === "video" ? <i>🎬</i> : null}
+                    {m.kind === "video" ? <i><Clapperboard size={14} aria-hidden /></i> : null}
                     <span>{m.name}</span>
                   </button>
                   <button
@@ -246,7 +248,7 @@ export const MediaPanel: React.FC<Props> = ({
                   </button>
                   {m.kind === "video" ? (
                     <div className="md-tile-actions">
-                      <button onClick={() => onExtractAudio(m)} title="Tách âm thanh của video thành file riêng">🎵</button>
+                      <button onClick={() => onExtractAudio(m)} title="Tách âm thanh của video thành file riêng" aria-label="Tách âm thanh của video thành file riêng"><Music size={14} aria-hidden /></button>
                     </div>
                   ) : null}
                 </div>
@@ -262,7 +264,7 @@ export const MediaPanel: React.FC<Props> = ({
               <b>{uploading ? "…" : "＋"}</b>
               <span>{uploading ? "Đang tải lên…" : "Nhập nhạc / âm thanh"}</span>
             </button>
-            <p className="md-hint">▶ nghe thử · kéo xuống timeline hoặc <b>＋</b> thêm tại đầu phát · ♪ đặt làm nhạc nền.</p>
+            <p className="md-hint"><Play size={12} aria-hidden /> nghe thử · kéo xuống timeline hoặc <b>＋</b> thêm tại đầu phát · <Music size={12} aria-hidden /> đặt làm nhạc nền.</p>
             {AUDIO_GROUPS.map((group) => {
               const items = audio.filter((m) => m.path.split("/")[0] === group.key);
               if (items.length === 0) return null;
@@ -271,9 +273,9 @@ export const MediaPanel: React.FC<Props> = ({
                   <h4>{group.title}</h4>
                   {items.map((m) => (
                     <div key={m.path} className={`md-row ${currentMusic === m.path ? "current" : ""}`} title={m.path} draggable onDragStart={dragMedia(m.path)}>
-                      <button className="md-play" onClick={() => togglePreview(m.path)} aria-label="Nghe thử">{playing === m.path ? "⏸" : "▶"}</button>
+                      <button className="md-play" onClick={() => togglePreview(m.path)} aria-label="Nghe thử">{playing === m.path ? <Pause fill="currentColor" size={14} aria-hidden /> : <Play fill="currentColor" size={14} aria-hidden />}</button>
                       <span><b>{m.name.replace(/\.\w+$/, "")}</b><small>{currentMusic === m.path ? "đang là nhạc nền" : m.path.split("/")[0]}</small></span>
-                      <button className="md-bg" onClick={() => onSetMusic(m.path)} title="Đặt làm nhạc nền">♪</button>
+                      <button className="md-bg" onClick={() => onSetMusic(m.path)} title="Đặt làm nhạc nền" aria-label="Đặt làm nhạc nền"><Music size={14} aria-hidden /></button>
                       <button className="md-add" onClick={() => onUse(m)} title="Thêm vào timeline tại đầu phát">＋</button>
                     </div>
                   ))}
@@ -403,13 +405,13 @@ const CaptionList: React.FC<{
     <div className="cl">
       <div className="cl-bar">
         <button className="cl-add" onClick={() => insert(null)} title="Thêm câu tại đầu phát, ở một hàng phụ đề mới">＋ Thêm phụ đề</button>
-        <button className={pasting ? "on" : ""} onClick={() => setPasting(!pasting)}>📋 Dán nhiều dòng</button>
+        <button className={pasting ? "on" : ""} onClick={() => setPasting(!pasting)}><Clipboard size={16} aria-hidden /> Dán nhiều dòng</button>
         <button
           className={pending ? "on" : ""}
           onClick={() => fileRef.current?.click()}
           title="Nhập file .srt, .vtt, .txt hoặc .json — kéo thả file vào đây cũng được"
         >
-          📂 Nhập file
+          <FolderOpen size={16} aria-hidden /> Nhập file
         </button>
         <input
           ref={fileRef}
@@ -429,7 +431,7 @@ const CaptionList: React.FC<{
       {pending ? (
         <div className="cl-import">
           <p className="cl-import-head">
-            <b>📄 {pending.name}</b>
+            <b><FileIcon size={14} aria-hidden /> {pending.name}</b>
             <small>
               {FORMAT_LABELS[pending.parsed.format]} · {pending.parsed.cues.length} câu
               {range ? ` · ${fmt(range.fromMs)} → ${fmt(range.toMs)}` : ""}
@@ -484,15 +486,15 @@ const CaptionList: React.FC<{
       <p className="md-hint">＋ Thêm phụ đề: tạo hàng phụ đề mới · Enter: câu tiếp theo cùng hàng · ô trống + Backspace: xoá câu · bấm giờ để tua tới.</p>
 
       <details className="cl-help">
-        <summary>📖 File phụ đề viết thế nào? (có file mẫu)</summary>
+        <summary><BookOpen size={16} aria-hidden /> File phụ đề viết thế nào? (có file mẫu)</summary>
         <div className="cl-help-body">
           <p><b>Cách dễ nhất — file .txt, mỗi dòng một câu.</b> Không cần mốc giờ: các câu được rải nối tiếp nhau theo độ dài chữ, kéo trên timeline để chỉnh lại.</p>
           <pre>{EXAMPLE_TXT}</pre>
-          <button onClick={() => downloadSample("phu-de-mau.txt", EXAMPLE_TXT)}>⬇ Tải mẫu .txt</button>
+          <button onClick={() => downloadSample("phu-de-mau.txt", EXAMPLE_TXT)}><Download size={16} aria-hidden /> Tải mẫu .txt</button>
 
           <p><b>Có sẵn thời gian — file .srt hoặc .vtt</b> (xuất từ CapCut, YouTube, Premiere…). Giờ trong file được giữ nguyên.</p>
           <pre>{EXAMPLE_SRT}</pre>
-          <button onClick={() => downloadSample("phu-de-mau.srt", EXAMPLE_SRT)}>⬇ Tải mẫu .srt</button>
+          <button onClick={() => downloadSample("phu-de-mau.srt", EXAMPLE_SRT)}><Download size={16} aria-hidden /> Tải mẫu .srt</button>
 
           <p><b>Gõ tay kèm mốc giờ</b> cũng được — mỗi dòng bắt đầu bằng phút:giây.</p>
           <pre>{EXAMPLE_TXT_TIME}</pre>
@@ -527,7 +529,7 @@ const CaptionList: React.FC<{
                   }
                 }}
               />
-              <button className="cl-del" onClick={() => onDelete(k)} title="Xoá câu này" aria-label={`Xoá phụ đề ${k + 1}`}>✕</button>
+              <button className="cl-del" onClick={() => onDelete(k)} title="Xoá câu này" aria-label={`Xoá phụ đề ${k + 1}`}><X size={14} aria-hidden /></button>
             </div>
           );
         })}
@@ -592,8 +594,8 @@ const AiVideoForm: React.FC<{
     return (
       <div className="ai">
         <p className="ai-note">
-          💚 <b>Chế độ Miễn phí</b> đang bật — video AI tính tiền theo clip nên đã tắt. Dùng ảnh/clip miễn phí trong thư viện,
-          hoặc tắt chế độ này ở trang chính › ⚙ Cài đặt.
+          <Leaf size={14} aria-hidden /> <b>Chế độ Miễn phí</b> đang bật — video AI tính tiền theo clip nên đã tắt. Dùng ảnh/clip miễn phí trong thư viện,
+          hoặc tắt chế độ này ở trang chính › Cài đặt.
         </p>
       </div>
     );
@@ -602,7 +604,7 @@ const AiVideoForm: React.FC<{
     return (
       <div className="ai">
         <p className="ai-note">
-          Chưa có key tạo video. Về trang chính › ⚙ Cài đặt, dán một trong các key:
+          Chưa có key tạo video. Về trang chính › Cài đặt, dán một trong các key:
         </p>
         <ul className="ai-note" style={{ paddingLeft: 18 }}>
           {[...new Map(models.map((m) => [m.env, m.providerLabel])).entries()].map(([env, label]) => (
@@ -683,13 +685,13 @@ const AiVideoForm: React.FC<{
         Mỗi lần bấm là một lượt tính tiền.
       </p>
       <button className="ai-go" onClick={generate} disabled={running || !prompt.trim()}>
-        {running ? "Đang tạo…" : "✨ Tạo video"}
+        {running ? "Đang tạo…" : <><Sparkles size={18} aria-hidden /> Tạo video</>}
       </button>
       {state.status === "running" ? <p className="ai-note">{state.line} — thường mất 1–5 phút.</p> : null}
       {state.status === "error" ? <p className="ai-note err">{state.message}</p> : null}
       {state.status === "done" ? (
         <>
-          <p className="ai-note">Đã lưu vào thư viện 🖼 Ảnh › Video.</p>
+          <p className="ai-note">Đã lưu vào thư viện Ảnh › Video.</p>
           <div className="ai-result">
             <video src={`/public/${state.path}`} controls muted playsInline />
           </div>
@@ -716,7 +718,7 @@ const stockOrientation = (aspect: string) => {
 };
 
 /**
- * 🆓 Kho miễn phí: ảnh, video (Pexels, Pixabay), nhạc và hiệu ứng (Freesound CC0/CC-BY).
+ * Kho miễn phí: ảnh, video (Pexels, Pixabay), nhạc và hiệu ứng (Freesound CC0/CC-BY).
  * Tải về thư viện kèm ghi nguồn — server chỉ nhận (nhà cung cấp, loại, id) rồi tự hỏi lại link tải.
  */
 const StockPanel: React.FC<{
@@ -802,7 +804,7 @@ const StockPanel: React.FC<{
       </div>
       {providers && ready.length === 0 ? (
         <p className="ai-note">
-          Chưa có key {usable.map((p) => p.label).join(" hoặc ")} — lấy key <b>miễn phí</b> rồi điền ở trang chính › ⚙ Cài đặt ›
+          Chưa có key {usable.map((p) => p.label).join(" hoặc ")} — lấy key <b>miễn phí</b> rồi điền ở trang chính › Cài đặt ›
           Miễn phí · Ảnh, clip & nhạc.
         </p>
       ) : (
@@ -828,10 +830,10 @@ const StockPanel: React.FC<{
               <div key={key} className="md-tile" title={`${item.title} — ${item.author} (${item.provider})`}>
                 <button className="md-tile-main" onClick={() => take(item, "use")} disabled={working !== null} aria-label={`Dùng cho ${target}`}>
                   <img src={item.preview} alt="" loading="lazy" draggable={false} />
-                  {item.kind === "video" ? <i>🎬 {item.duration}s</i> : null}
+                  {item.kind === "video" ? <i><Clapperboard size={14} aria-hidden /> {item.duration}s</i> : null}
                   <span>{working === key ? "Đang tải…" : `${item.provider} · ${item.author}`}</span>
                 </button>
-                <button className="md-tile-add" onClick={() => take(item, "save")} disabled={working !== null} title="Chỉ lưu vào thư viện">⬇</button>
+                <button className="md-tile-add" onClick={() => take(item, "save")} disabled={working !== null} title="Chỉ lưu vào thư viện" aria-label="Chỉ lưu vào thư viện"><Download size={14} aria-hidden /></button>
               </div>
             );
           })}
@@ -842,10 +844,10 @@ const StockPanel: React.FC<{
             const key = `${item.provider}-${item.id}`;
             return (
               <div key={key} className="md-row" title={`${item.title} — ${item.author} (${item.license})`}>
-                <button className="md-play" onClick={() => preview(item)} aria-label="Nghe thử">{playing === key ? "⏸" : "▶"}</button>
+                <button className="md-play" onClick={() => preview(item)} aria-label="Nghe thử">{playing === key ? <Pause fill="currentColor" size={14} aria-hidden /> : <Play fill="currentColor" size={14} aria-hidden />}</button>
                 <span><b>{item.title}</b><small>{item.duration}s · {item.author} · {item.license}</small></span>
                 {item.kind === "music" ? (
-                  <button className="md-bg" onClick={() => take(item, "music")} disabled={working !== null} title="Tải và đặt làm nhạc nền">♪</button>
+                  <button className="md-bg" onClick={() => take(item, "music")} disabled={working !== null} title="Tải và đặt làm nhạc nền" aria-label="Tải và đặt làm nhạc nền"><Music size={14} aria-hidden /></button>
                 ) : null}
                 <button className="md-add" onClick={() => take(item, "use")} disabled={working !== null} title="Tải và thêm tại đầu phát">
                   {working === key ? "…" : "＋"}
@@ -859,7 +861,9 @@ const StockPanel: React.FC<{
         <button className="btn-more" onClick={() => void search(page + 1)}>Xem thêm</button>
       ) : null}
       <p className="ai-note">
-        {visual ? `Bấm ô: dùng cho ${target} · ⬇ chỉ lưu vào thư viện.` : "▶ nghe thử · ♪ đặt làm nhạc nền · ＋ thêm tại đầu phát."}
+        {visual
+          ? <>Bấm ô: dùng cho {target} · <Download size={12} aria-hidden /> chỉ lưu vào thư viện.</>
+          : <><Play size={12} aria-hidden /> nghe thử · <Music size={12} aria-hidden /> đặt làm nhạc nền · ＋ thêm tại đầu phát.</>}
       </p>
       <audio ref={audioRef} onEnded={() => setPlaying(null)} hidden />
     </div>

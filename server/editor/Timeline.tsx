@@ -1,3 +1,7 @@
+import {
+  ArrowLeftToLine, ArrowRightToLine, AudioLines, Camera, Captions, Clapperboard, Diamond, Expand, Film, Image as ImageIcon, Mic, Minus, Music,
+  Plus, Redo2, Scissors, SkipBack, SkipForward, Trash2, Type, Undo2, Volume2, type LucideIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ShortProps } from "../../src/compositions/Short/schema";
 import * as ops from "./ops";
@@ -75,42 +79,16 @@ const ZOOM_MAX = 320;
 const tickStep = (pxPerSec: number) => (pxPerSec >= 140 ? 1 : pxPerSec >= 60 ? 2 : pxPerSec >= 30 ? 5 : 10);
 const timecode = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
-const ICONS = {
-  undo: "M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11",
-  redo: "M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13",
-  split: "M12 3v18M8 8l-4 4 4 4M16 8l4 4-4 4",
-  trash: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5",
-  trimL: "M4 4v16M20 12H9M13 8l-4 4 4 4",
-  trimR: "M20 4v16M4 12h11M11 8l4 4-4 4",
-  audio: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
-  fit: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
-  diamond: "M12 3.2 20.8 12 12 20.8 3.2 12z",
-  prevKey: "M5 5v14M11 12l9-7v14z",
-  nextKey: "M19 5v14M13 12l-9-7v14z",
-  camera: "M3 8.5A2 2 0 0 1 5 6.5h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
-  minus: "M5 12h14",
-  plus: "M12 5v14M5 12h14",
-} as const;
-
-const Icon: React.FC<{ name: keyof typeof ICONS; filled?: boolean }> = ({ name, filled }) => (
-  <svg
-    width="16" height="16" viewBox="0 0 24 24"
-    fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-    aria-hidden
-  >
-    <path d={ICONS[name]} />
-  </svg>
-);
-
 const Tool: React.FC<{
-  icon: keyof typeof ICONS;
+  /** Biểu tượng lucide-react (ví dụ Scissors) — cả thanh dùng chung một bộ biểu tượng. */
+  icon: LucideIcon;
   label?: string;
   title: string;
   onClick: () => void;
   disabled?: boolean;
   /** Đang bật (ví dụ đầu phát đứng đúng một mốc chuyển động): tô đặc biểu tượng và đổi màu nút. */
   active?: boolean;
-}> = ({ icon, label, title, onClick, disabled, active }) => (
+}> = ({ icon: Icon, label, title, onClick, disabled, active }) => (
   <button
     className={`tl-tool ${active ? "on" : ""}`}
     onClick={onClick}
@@ -119,7 +97,7 @@ const Tool: React.FC<{
     aria-label={label ?? title}
     aria-pressed={active === undefined ? undefined : active}
   >
-    <Icon name={icon} filled={active} />
+    <Icon size={16} fill={active ? "currentColor" : "none"} aria-hidden />
     {label ? <span>{label}</span> : null}
   </button>
 );
@@ -358,28 +336,28 @@ export const Timeline: React.FC<Props> = (p) => {
   return (
     <div className={`tl ${dropAt !== null ? "dropping" : ""}`} style={{ height }}>
       <div className="tl-bar">
-        <Tool icon="undo" title="Hoàn tác (⌘/Ctrl+Z)" onClick={p.onUndo} disabled={!p.canUndo} />
-        <Tool icon="redo" title="Làm lại (⇧⌘Z / Ctrl+Y)" onClick={p.onRedo} disabled={!p.canRedo} />
+        <Tool icon={Undo2} title="Hoàn tác (⌘/Ctrl+Z)" onClick={p.onUndo} disabled={!p.canUndo} />
+        <Tool icon={Redo2} title="Làm lại (⇧⌘Z / Ctrl+Y)" onClick={p.onRedo} disabled={!p.canRedo} />
         <span className="tl-sep" />
-        <Tool icon="split" label="Tách" title="Tách mục đang chọn (hoặc cảnh) tại đầu phát — phím S hoặc ⌘/Ctrl+B" onClick={p.onSplit} />
-        <Tool icon="trash" label="Xoá" title="Xoá mục đang chọn — phím Delete" onClick={p.onDelete} disabled={!sel} />
-        <Tool icon="trimL" label="Cắt trái" title="Xoá phần từ đầu video tới đầu phát — phím Q" onClick={p.onTrimHead} />
-        <Tool icon="trimR" label="Cắt phải" title="Xoá phần từ đầu phát tới hết video — phím W" onClick={p.onTrimTail} />
+        <Tool icon={Scissors} label="Tách" title="Tách mục đang chọn (hoặc cảnh) tại đầu phát — phím S hoặc ⌘/Ctrl+B" onClick={p.onSplit} />
+        <Tool icon={Trash2} label="Xoá" title="Xoá mục đang chọn — phím Delete" onClick={p.onDelete} disabled={!sel} />
+        <Tool icon={ArrowLeftToLine} label="Cắt trái" title="Xoá phần từ đầu video tới đầu phát — phím Q" onClick={p.onTrimHead} />
+        <Tool icon={ArrowRightToLine} label="Cắt phải" title="Xoá phần từ đầu phát tới hết video — phím W" onClick={p.onTrimTail} />
         <Tool
-          icon="camera"
+          icon={Camera}
           label="Cắt ảnh"
           title="Lấy đúng khung hình đang xem thành ảnh: thêm vào thư viện và chèn thành cảnh mới — phím P"
           onClick={p.onFreezeFrame}
         />
         <span className="tl-sep" />
         <Tool
-          icon="prevKey"
+          icon={SkipBack}
           title={prevKey ? `Về mốc chuyển động trước (${(prevKey.atMs / 1000).toFixed(1)}s)` : "Không có mốc nào phía trước"}
           onClick={() => prevKey && p.onSeek(prevKey.atMs)}
           disabled={!prevKey}
         />
         <Tool
-          icon="diamond"
+          icon={Diamond}
           label={keyHere ? "Bỏ mốc" : "Ghim mốc"}
           active={Boolean(keyHere)}
           title={
@@ -393,14 +371,14 @@ export const Timeline: React.FC<Props> = (p) => {
           disabled={!motionSel}
         />
         <Tool
-          icon="nextKey"
+          icon={SkipForward}
           title={nextKey ? `Tới mốc chuyển động sau (${(nextKey.atMs / 1000).toFixed(1)}s)` : "Không có mốc nào phía sau"}
           onClick={() => nextKey && p.onSeek(nextKey.atMs)}
           disabled={!nextKey}
         />
         {selectedVideo !== null ? (
           <Tool
-            icon="audio"
+            icon={AudioLines}
             label="Tách âm thanh"
             title="Tách âm thanh của cảnh đang chọn ra track riêng — video tắt tiếng gốc"
             onClick={() => p.onDetachAudio(selectedVideo)}
@@ -410,11 +388,11 @@ export const Timeline: React.FC<Props> = (p) => {
         {dropAt !== null ? (
           <span className="tl-drop-note">Thả lên một hàng Video để đặt đúng chỗ · lên một khối có sẵn để thay hình · chỗ khác để nối vào cuối</span>
         ) : null}
-        <Tool icon="fit" label="Vừa khung" title="Thu phóng để thấy cả video — Shift+Z" onClick={fit} />
+        <Tool icon={Expand} label="Vừa khung" title="Thu phóng để thấy cả video — Shift+Z" onClick={fit} />
         <div className="tl-zoom" title="Thu phóng timeline (phím − / +)">
-          <button onClick={() => zoomTo(p.pxPerSec * 0.8)} aria-label="Thu nhỏ timeline"><Icon name="minus" /></button>
+          <button onClick={() => zoomTo(p.pxPerSec * 0.8)} aria-label="Thu nhỏ timeline"><Minus size={16} aria-hidden /></button>
           <input type="range" min={ZOOM_MIN} max={ZOOM_MAX} value={p.pxPerSec} onChange={(e) => zoomTo(Number(e.target.value))} aria-label="Thu phóng" />
-          <button onClick={() => zoomTo(p.pxPerSec * 1.25)} aria-label="Phóng to timeline"><Icon name="plus" /></button>
+          <button onClick={() => zoomTo(p.pxPerSec * 1.25)} aria-label="Phóng to timeline"><Plus size={16} aria-hidden /></button>
         </div>
       </div>
 
@@ -423,18 +401,18 @@ export const Timeline: React.FC<Props> = (p) => {
           <div className="tl-labels" style={{ width: LABEL_W, flexBasis: LABEL_W }}>
             <div className="tl-label ruler" />
             {Array.from({ length: overlayRows }, (_, row) => (
-              <div key={`lo${row}`} className="tl-label overlay"><i>🎬</i><span>Video {rowToTrack(row) + 1}</span></div>
+              <div key={`lo${row}`} className="tl-label overlay"><i><Clapperboard size={14} aria-hidden /></i><span>Video {rowToTrack(row) + 1}</span></div>
             ))}
-            {showScenes ? <div className="tl-label main"><i>🎞</i><span>Cảnh</span></div> : null}
+            {showScenes ? <div className="tl-label main"><i><Film size={14} aria-hidden /></i><span>Cảnh</span></div> : null}
             {Array.from({ length: textRows }, (_, k) => (
-              <div key={`lt${k}`} className="tl-label text"><i>T</i><span>Văn bản {k + 1}</span></div>
+              <div key={`lt${k}`} className="tl-label text"><i><Type size={14} aria-hidden /></i><span>Văn bản {k + 1}</span></div>
             ))}
             {Array.from({ length: captionRows }, (_, k) => (
-              <div key={`lc${k}`} className="tl-label caption"><i>💬</i><span>Phụ đề {k + 1}</span></div>
+              <div key={`lc${k}`} className="tl-label caption"><i><Captions size={14} aria-hidden /></i><span>Phụ đề {k + 1}</span></div>
             ))}
-            <div className="tl-label voice"><i>🎙</i><span>Giọng đọc</span></div>
-            <div className="tl-label music"><i>♪</i><span>Nhạc nền</span></div>
-            <div className="tl-label clip"><i>🔊</i><span>Âm thanh</span></div>
+            <div className="tl-label voice"><i><Mic size={14} aria-hidden /></i><span>Giọng đọc</span></div>
+            <div className="tl-label music"><i><Music size={14} aria-hidden /></i><span>Nhạc nền</span></div>
+            <div className="tl-label clip"><i><Volume2 size={14} aria-hidden /></i><span>Âm thanh</span></div>
           </div>
 
           <div
@@ -517,7 +495,7 @@ export const Timeline: React.FC<Props> = (p) => {
                           />
                         ))}
                         <span>
-                          {ops.isVideo(o.src) ? "🎬 " : "🖼 "}{o.src.split("/").pop()}
+                          {ops.isVideo(o.src) ? <Clapperboard className="blk-ico" size={12} aria-hidden /> : <ImageIcon className="blk-ico" size={12} aria-hidden />} {o.src.split("/").pop()}
                           {ops.clipSpeed(o) !== 1 ? ` · ${ops.clipSpeed(o)}x` : ""} · {Math.round(o.width)}%
                         </span>
                         <div className="h r" onPointerDown={(e) => begin(e, "overlay", k, "r")} />
@@ -566,7 +544,7 @@ export const Timeline: React.FC<Props> = (p) => {
                     />
                   ))}
                   <span className="blk-name">
-                    {ops.isVideo(s.image) ? "🎬 " : ""}Cảnh {k + 1}{s.tag ? ` · ${s.tag}` : ""}
+                    {ops.isVideo(s.image) ? <><Clapperboard className="blk-ico" size={12} aria-hidden /> </> : ""}Cảnh {k + 1}{s.tag ? ` · ${s.tag}` : ""}
                     {ops.clipSpeed(s) !== 1 ? ` · ${ops.clipSpeed(s)}x` : ""}
                     {s.width !== 100 ? ` · ${Math.round(s.width)}%` : ""} · {((s.endMs - s.startMs) / 1000).toFixed(1)}s
                   </span>
@@ -589,7 +567,7 @@ export const Timeline: React.FC<Props> = (p) => {
                       title={`${t.text}\nKéo ngang để dời thời gian, kéo dọc để đổi hàng`}
                     >
                       <div className="h l" onPointerDown={(e) => begin(e, "text", k, "l")} />
-                      <span>T {t.text.replace(/\n/g, " ⏎ ")}</span>
+                      <span><Type className="blk-ico" size={12} aria-hidden /> {t.text.replace(/\n/g, " ⏎ ")}</span>
                       <div className="h r" onPointerDown={(e) => begin(e, "text", k, "r")} />
                     </div>
                   ) : null,
@@ -647,7 +625,7 @@ export const Timeline: React.FC<Props> = (p) => {
                   style={box(0, p.durationMs)}
                   onPointerDown={(e) => { e.stopPropagation(); p.onSelect({ type: "music" }); }}
                 >
-                  <span>♪ {props.music.split("/").pop()} · {Math.round(props.musicVolume * 100)}%</span>
+                  <span><Music className="blk-ico" size={12} aria-hidden /> {props.music.split("/").pop()} · {Math.round(props.musicVolume * 100)}%</span>
                 </div>
               ) : (
                 <button
@@ -669,7 +647,7 @@ export const Timeline: React.FC<Props> = (p) => {
                   title={c.src}
                 >
                   <div className="h l" onPointerDown={(e) => begin(e, "clip", k, "l")} />
-                  <span>🔊 {c.label ?? c.src.split("/").pop()}{ops.clipSpeed(c) !== 1 ? ` · ${ops.clipSpeed(c)}x` : ""}</span>
+                  <span><Volume2 className="blk-ico" size={12} aria-hidden /> {c.label ?? c.src.split("/").pop()}{ops.clipSpeed(c) !== 1 ? ` · ${ops.clipSpeed(c)}x` : ""}</span>
                   <div className="h r" onPointerDown={(e) => begin(e, "clip", k, "r")} />
                 </div>
               ))}

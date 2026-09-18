@@ -1,4 +1,5 @@
 import { ClipVideo } from "../../scenes/ClipVideo";
+import { CropBox } from "../../scenes/CropBox";
 import { AbsoluteFill, Img, Sequence, staticFile, useCurrentFrame } from "remotion";
 import type { Scene } from "../../compositions/Short/schema";
 import { FONTS, useLayout } from "../shared";
@@ -76,10 +77,12 @@ export const SceneCard: React.FC<Props> = ({ scene, index, total, accent, start,
                 />
               </Sequence>
             ) : (
-              <Img
-                src={staticFile(scene.image)}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
+              <CropBox crop={scene.crop}>
+                <Img
+                  src={staticFile(scene.image)}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </CropBox>
             )}
           </div>
         ) : (

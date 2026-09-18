@@ -7,7 +7,8 @@ Tài liệu liên quan:
 
 | Tài liệu | Nội dung |
 |---|---|
-| [README.md](../README.md) | Cài đặt, cách dùng, luồng dữ liệu, cấu trúc thư mục, giới hạn đã đo |
+| [README.md](../README.md) | Tải app, chạy từ mã nguồn, cấu hình API key |
+| [docs/huong-dan-chi-tiet.md](huong-dan-chi-tiet.md) | Từng màn hình, dòng lệnh, luồng dữ liệu, cấu trúc thư mục, giới hạn đã đo |
 | [docs/prompt-to-video.md](prompt-to-video.md) | Chi tiết pipeline prompt → mp4 |
 | [docs/ai-tren-may.md](ai-tren-may.md) | AI chạy trên máy (có sẵn trong app, Ollama), số đo thật |
 | `.claude/skills/*/SKILL.md` | Luật làm video và luật từng phong cách — **cũng là prompt** của app (mục 5) |
@@ -225,7 +226,7 @@ danh sách nhà cung cấp, không cần structured output nặng.
 
 1. `src/styles/meta.ts`: thêm id vào `STYLE_IDS` và mục mô tả trong `STYLES` (nhãn, emoji, mô tả…).
 2. `src/styles/<id>/index.tsx`: component nhận `ShortProps`, tự vẽ mọi lớp. Chép khung từ phong cách
-   gần giống nhất, dùng tiện ích trong `src/styles/shared.tsx`. Giữ đúng thứ tự lớp (README mục 7).
+   gần giống nhất, dùng tiện ích trong `src/styles/shared.tsx`. Giữ đúng thứ tự lớp ([hướng dẫn chi tiết](huong-dan-chi-tiet.md#3-cách-hoạt-động) mục 3).
 3. `src/styles/registry.tsx`: thêm một dòng vào `STYLE_COMPONENTS` (TypeScript báo lỗi nếu quên).
 4. `.claude/skills/style-<id>/SKILL.md`: luật hình ảnh + đoạn `<!-- ai-guide -->…<!-- ai-guide -->`
    hướng dẫn AI viết nội dung. Thiếu đoạn này AI viết không đúng nhịp phong cách.
@@ -375,7 +376,12 @@ Trước khi phát hành:
 2. `npm run lint`, làm một video bằng `npm run desktop`.
 3. Build, cài bản vừa build lên máy sạch nếu được; mở app, tạo một video không cần key (AI có sẵn +
    giọng máy), render xong.
-4. macOS chưa ký (`identity: null`): người dùng phải chuột phải › Open lần đầu.
+4. macOS chưa ký (`identity: null`): lần đầu người dùng phải bấm **Vẫn mở** trong Quyền riêng tư &
+   Bảo mật (macOS 14 trở về trước: chuột phải › Open) — README mục "Mở app lần đầu" hướng dẫn việc này.
+5. Tạo một GitHub Release mới và tải lên `release/AI-Video-Studio-mac-arm64.dmg`,
+   `release/AI-Video-Studio-windows-x64-setup.exe` (và `.AppImage` nếu có). Tên file cố định
+   (`artifactName` trong `package.json`) nên nút tải trong README
+   (`releases/latest/download/<tên file>`) luôn trỏ vào bản mới nhất — **đừng đổi tên file** khi tải lên.
 
 ---
 
@@ -387,7 +393,7 @@ Mỗi dòng dưới đây đã từng gây lỗi thật; code tương ứng có 
 |---|---|---|
 | `bundle()` của Remotion **chép** `public/` lúc bundle | Giọng tạo lại cùng tên → render phát giọng cũ | `scripts/render.ts`: symlink `public/`; Windows bundle lại khi `public/` đổi |
 | `<TransitionSeries>` rút ngắn timeline | Phụ đề lệch tiếng | Chuyển cảnh bằng opacity trong `src/scenes/Scenes.tsx` |
-| Đặt `Background` sau `Scenes` | Nền đục che hết ảnh | Giữ thứ tự lớp (README mục 7) |
+| Đặt `Background` sau `Scenes` | Nền đục che hết ảnh | Giữ thứ tự lớp ([hướng dẫn chi tiết](huong-dan-chi-tiet.md#3-cách-hoạt-động) mục 3) |
 | `-webkit-text-stroke` | Viền ăn vào nét, dính dấu tiếng Việt | Viền bằng vòng `text-shadow` (`CustomCaptions.tsx`) |
 | Ngắt dòng phụ đề theo số từ | Dòng tiếng Việt cụt, cắt giữa cụm | Theo 42 ký tự (`scripts/group-captions.ts`) |
 | `eleven_multilingual_v2` | Không hỗ trợ tiếng Việt | Mặc định `eleven_v3` |

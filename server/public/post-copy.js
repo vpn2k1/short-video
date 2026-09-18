@@ -1,5 +1,5 @@
 /**
- * ✍️ Gợi ý bài đăng: AI viết tiêu đề, caption, hashtag riêng cho TikTok, YouTube, Facebook, Instagram
+ * Gợi ý bài đăng: AI viết tiêu đề, caption, hashtag riêng cho TikTok, YouTube, Facebook, Instagram
  * từ lời của video đã làm xong (scripts/post-copy.ts). Mỗi ô có nút chép.
  *
  * Nạp sau app.js, dùng chung $, api, postJson, escapeHtml, flashNote, scriptProviders của nó.
@@ -11,10 +11,10 @@ let postCopyTab = "tiktok";
 let postCopyBusy = false;
 
 const POST_TABS = [
-  { id: "tiktok", label: "🎵 TikTok" },
-  { id: "youtube", label: "▶️ YouTube" },
-  { id: "facebook", label: "📘 Facebook" },
-  { id: "instagram", label: "📸 Instagram" },
+  { id: "tiktok", label: "TikTok" },
+  { id: "youtube", label: "YouTube" },
+  { id: "facebook", label: "Facebook" },
+  { id: "instagram", label: "Instagram" },
 ];
 
 async function openPostCopy(slug) {
@@ -26,7 +26,7 @@ async function openPostCopy(slug) {
   try {
     const result = await api(`/api/post-copy/${encodeURIComponent(slug)}`);
     if (!result.hasText) {
-      renderPostCopyEmpty("Video này chưa có lời hay phụ đề nào để AI đọc — thêm phụ đề trong ✂️ Chỉnh sửa trước.");
+      renderPostCopyEmpty("Video này chưa có lời hay phụ đề nào để AI đọc — thêm phụ đề trong Chỉnh sửa trước.");
       return;
     }
     postCopyData = result;
@@ -53,7 +53,7 @@ async function generatePostCopy() {
   if (postCopyBusy || !postCopySlug) return;
   postCopyBusy = true;
   $("postCopyRegen").disabled = true;
-  $("postCopyRegen").textContent = "Đang viết…";
+  $("postCopyRegen").innerHTML = `${icon("loader-circle", "spin")} Đang viết…`;
   if (!postCopyData?.copy) $("postCopyBody").innerHTML = `<p class="muted">AI đang đọc lời video và viết gợi ý…</p>`;
   setPostCopyHint("");
   try {
@@ -66,7 +66,7 @@ async function generatePostCopy() {
   } finally {
     postCopyBusy = false;
     $("postCopyRegen").disabled = false;
-    $("postCopyRegen").textContent = "↻ Viết lại";
+    $("postCopyRegen").innerHTML = `${icon("rotate-cw")} Viết lại`;
   }
 }
 
@@ -95,7 +95,7 @@ async function copyText(text) {
 
 function copyField(label, value, key, multiline = false) {
   return `<div class="pc-field">
-    <div class="pc-top"><span>${label}</span><button type="button" class="btn" data-pc-copy="${key}">📋 Chép</button></div>
+    <div class="pc-top"><span>${label}</span><button type="button" class="btn" data-pc-copy="${key}">${icon("copy")} Chép</button></div>
     <div class="pc-text${multiline ? " pc-multi" : ""}">${escapeHtml(value)}</div>
   </div>`;
 }
@@ -115,9 +115,9 @@ function renderPostCopy() {
     ${copyField("Hashtag", part.hashtags.join(" "), "hashtags")}
     <div class="pc-foot">
       <span class="muted">Viết bởi ${escapeHtml(saved.providerLabel)} · ${new Date(saved.generatedAt).toLocaleString("vi-VN")}</span>
-      <button type="button" class="btn primary" data-pc-copy="all">📋 Chép tất cả cho ${POST_TABS.find((t) => t.id === postCopyTab).label.split(" ")[1]}</button>
+      <button type="button" class="btn primary" data-pc-copy="all">${icon("copy")} Chép tất cả cho ${POST_TABS.find((t) => t.id === postCopyTab).label}</button>
     </div>
-    ${postCopyData.stale ? `<p class="hint err">Lời video đã đổi sau lần gợi ý này — bấm ↻ Viết lại để cập nhật.</p>` : ""}`;
+    ${postCopyData.stale ? `<p class="hint err">Lời video đã đổi sau lần gợi ý này — bấm Viết lại để cập nhật.</p>` : ""}`;
 
   $("postCopyBody").querySelectorAll("[data-pc-tab]").forEach((b) =>
     b.addEventListener("click", () => { postCopyTab = b.dataset.pcTab; renderPostCopy(); }));
@@ -128,9 +128,9 @@ function renderPostCopy() {
         : key === "hashtags" ? part.hashtags.join(" ") : part[key];
       try {
         await copyText(text);
-        const old = b.textContent;
-        b.textContent = "✓ Đã chép";
-        setTimeout(() => { b.textContent = old; }, 1500);
+        const old = b.innerHTML;
+        b.innerHTML = `${icon("check")} Đã chép`;
+        setTimeout(() => { b.innerHTML = old; }, 1500);
       } catch {
         flashNote("Không chép được — bôi đen chữ rồi Ctrl/⌘+C.", true);
       }

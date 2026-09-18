@@ -1,3 +1,6 @@
+import {
+  ArrowDown, ArrowRight, ArrowUp, ChevronLeft, Clapperboard, Image as ImageIcon, Scissors, X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ASPECT_IDS, ASPECTS } from "../../src/aspects";
 import { api, mediaDurationMs, postJson, uploadFile, type MediaItem } from "./api";
@@ -7,7 +10,7 @@ type Picked = { path: string; name: string; kind: "image" | "video" };
 const IMAGE_SECONDS = 3;
 
 /**
- * Màn hình ✂️ Edit video mới: chọn tỉ lệ, tải lên / chọn video & ảnh, sắp thứ tự rồi mở
+ * Màn hình Edit video mới: chọn tỉ lệ, tải lên / chọn video & ảnh, sắp thứ tự rồi mở
  * trình chỉnh sửa. Không cần kịch bản hay API key.
  */
 export const NewProject: React.FC = () => {
@@ -91,8 +94,8 @@ export const NewProject: React.FC = () => {
     <div className="np">
       <div className="np-card">
         <header className="np-head">
-          <a className="ed-btn ghost" href="/">‹ Trang chủ</a>
-          <h1>✂️ Dự án chỉnh sửa mới</h1>
+          <a className="ed-btn ghost" href="/"><ChevronLeft size={16} aria-hidden /> Trang chủ</a>
+          <h1><Scissors size={20} aria-hidden /> Dự án chỉnh sửa mới</h1>
         </header>
         <p className="muted">Thêm video hoặc ảnh rồi cắt ghép, thêm chữ, nhạc trên timeline. Không cần API key.</p>
 
@@ -129,10 +132,10 @@ export const NewProject: React.FC = () => {
                   <span className="np-thumb">
                     {p.kind === "video" ? <video src={`/public/${p.path}#t=0.5`} muted preload="metadata" /> : <img src={`/public/${p.path}`} alt="" />}
                   </span>
-                  <span className="np-name">{p.kind === "video" ? "🎬 " : "🖼 "}{p.name}</span>
-                  <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Lên">↑</button>
-                  <button onClick={() => move(i, 1)} disabled={i === picked.length - 1} aria-label="Xuống">↓</button>
-                  <button onClick={() => setPicked((list) => list.filter((x) => x.path !== p.path))} aria-label="Bỏ">✕</button>
+                  <span className="np-name">{p.kind === "video" ? <Clapperboard size={14} aria-hidden /> : <ImageIcon size={14} aria-hidden />} {p.name}</span>
+                  <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Lên"><ArrowUp size={16} aria-hidden /></button>
+                  <button onClick={() => move(i, 1)} disabled={i === picked.length - 1} aria-label="Xuống"><ArrowDown size={16} aria-hidden /></button>
+                  <button onClick={() => setPicked((list) => list.filter((x) => x.path !== p.path))} aria-label="Bỏ"><X size={16} aria-hidden /></button>
                 </li>
               ))}
             </ol>
@@ -147,7 +150,7 @@ export const NewProject: React.FC = () => {
               {visual.map((m) => (
                 <button key={m.path} className={isPicked(m.path) ? "on" : ""} onClick={() => toggle(m)} title={m.path}>
                   {m.kind === "video" ? <video src={`/public/${m.path}#t=0.5`} muted preload="metadata" /> : <img src={`/public/${m.path}`} alt="" loading="lazy" />}
-                  {m.kind === "video" ? <i>🎬</i> : null}
+                  {m.kind === "video" ? <i><Clapperboard size={14} aria-hidden /></i> : null}
                   {isPicked(m.path) ? <em>{picked.findIndex((p) => p.path === m.path) + 1}</em> : null}
                 </button>
               ))}
@@ -181,7 +184,7 @@ export const NewProject: React.FC = () => {
 
         <div className="np-actions">
           <button className="ed-btn primary" onClick={create} disabled={creating || uploading}>
-            {creating ? "Đang tạo…" : picked.length ? `Bắt đầu chỉnh sửa (${picked.length} cảnh) →` : "Bắt đầu với dự án trống →"}
+            {creating ? "Đang tạo…" : <>{picked.length ? `Bắt đầu chỉnh sửa (${picked.length} cảnh)` : "Bắt đầu với dự án trống"} <ArrowRight size={18} aria-hidden /></>}
           </button>
         </div>
       </div>

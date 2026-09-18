@@ -15,6 +15,8 @@
     "@remotion/tailwind-v4": "4.0.523",
     "@remotion/zod-types": "4.0.523",
     "ffmpeg-static": "^5.3.0",
+    "lucide": "^1.47.0",
+    "lucide-react": "^1.47.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.523",
@@ -53,6 +55,7 @@
       "server/**",
       "scripts/**",
       ".claude/skills/style-*/**",
+      "public/fonts/**",
       "public/images/**",
       "public/music/**",
       "public/sfx/**",
@@ -72,7 +75,8 @@
         }
       ],
       "category": "public.app-category.video",
-      "identity": null
+      "identity": null,
+      "artifactName": "AI-Video-Studio-mac-arm64.${ext}"
     },
     "win": {
       "target": [
@@ -99,7 +103,8 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "AI-Video-Studio-windows-x64-setup.${ext}"
     }
   },
   "scripts": {

@@ -1,9 +1,9 @@
 /**
- * 🔤 Thêm phụ đề cho nhiều video.
+ * Thêm phụ đề cho nhiều video.
  *
  * Màn này chỉ là cách nhập gọn cho một loạt "subs" của Hàng loạt: thả video, chọn ngôn ngữ, chỉnh kiểu
  * phụ đề. Chạy, theo dõi, duyệt, tải zip đều dùng lại màn theo dõi loạt (#/batch/<id>). Ở đó nút
- * "🔤 Kiểu phụ đề" mở lại đúng trình chỉnh kiểu này để đổi một lần cho mọi video.
+ * "Kiểu phụ đề" mở lại đúng trình chỉnh kiểu này để đổi một lần cho mọi video.
  *
  * Nạp sau app.js, dùng chung các hàm $, api, postJson, escapeHtml, flashNote, openSettings… của nó.
  */
@@ -136,7 +136,7 @@ function renderSubsCrop() {
 function showSubsCropError(message) {
   const note = $("subsCropNote");
   note.querySelector(".warn")?.remove();
-  note.insertAdjacentHTML("beforeend", `<br><span class="warn">⚠ ${escapeHtml(message)}</span>`);
+  note.insertAdjacentHTML("beforeend", `<br><span class="warn">${icon("triangle-alert")} ${escapeHtml(message)}</span>`);
 }
 
 async function openSubsCrop() {
@@ -183,14 +183,73 @@ function bindSubsCrop() {
   $("subsCropClear").addEventListener("click", () => { subsCrop = null; renderSubsCrop(); renderSubsEditor(); });
 }
 
-/** Giống FONTS trong src/styles/shared.tsx — để khung xem trước khớp chữ trong video. */
-const LK_FONTS = {
-  sans: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
-  rounded: '"Avenir Next", -apple-system, "Helvetica Neue", Arial, sans-serif',
-  serif: 'Georgia, "Times New Roman", serif',
-  mono: '"SF Mono", Menlo, "Courier New", monospace',
-  condensed: '"Avenir Next Condensed", "Helvetica Neue", Arial, sans-serif',
-};
+/** font-family của từng font — lấy từ /api/subs/options (src/fonts/catalog.ts), để xem trước khớp chữ trong video. */
+const lkFontStack = (font) => subsOptions?.fontStacks?.[font] ?? subsOptions?.fontStacks?.sans ?? "sans-serif";
+
+/**
+ * Ô chọn font kiểu trình chỉnh sửa (server/editor/FontPicker.tsx, CSS dùng chung /fontpicker.css): mỗi dòng viết
+ * bằng chính font đó, chia nhóm. Font đóng gói hiện được nhờ /public/fonts/fonts.css — chỉ tải font nào đang hiện.
+ */
+function lkFontPicker(el, { value, onPick }) {
+  const o = subsOptions;
+  let current = value;
+  let open = false;
+  /** Giống fontListPlacement trong server/editor/FontPicker.tsx: fixed theo nút, thiếu chỗ thì lật lên. */
+  const placement = () => {
+    const b = el.querySelector(".fp-btn")?.getBoundingClientRect();
+    if (!b) return "";
+    const below = innerHeight - b.bottom - 12;
+    const above = b.top - 12;
+    const up = below < 260 && above > below;
+    const width = Math.max(240, b.width);
+    const left = Math.min(b.left, innerWidth - width - 8);
+    return `position:fixed;left:${left}px;width:${width}px;max-height:${Math.min(420, up ? above : below)}px;${
+      up ? `top:auto;bottom:${innerHeight - b.top + 4}px` : `top:${b.bottom + 4}px`}`;
+  };
+  const paint = () => {
+    el.innerHTML = `
+      <button type="button" class="fp-btn" aria-haspopup="listbox" aria-expanded="${open}">
+        <span style='font-family:${escapeHtml(lkFontStack(current))}'>${escapeHtml(o.fonts[current] ?? current)}</span><i aria-hidden="true">▾</i>
+      </button>
+      ${open ? `<div class="fp-list" role="listbox" style="${placement()}">${o.fontGroups.map((g) => `
+        <div role="group" aria-label="${escapeHtml(g.label)}"><h5>${escapeHtml(g.label)}</h5>${g.ids.map((id) => `
+          <button type="button" role="option" data-font="${id}" aria-selected="${id === current}" class="${id === current ? "on" : ""}">
+            <span style='font-family:${escapeHtml(lkFontStack(id))}'>${escapeHtml(o.fonts[id] ?? id)}</span>
+            <small style='font-family:${escapeHtml(lkFontStack(id))}'>Ảnh đẹp</small>
+          </button>`).join("")}</div>`).join("")}</div>` : ""}`;
+    if (open) el.querySelector(".fp-list .on")?.scrollIntoView({ block: "nearest" });
+  };
+  const close = () => { if (open) { open = false; paint(); } };
+  const onDown = (e) => { if (!el.contains(e.target)) close(); };
+  const onKey = (e) => { if (open && e.key === "Escape") { e.stopPropagation(); close(); } };
+  const onScroll = (e) => { if (open && !el.querySelector(".fp-list")?.contains(e.target)) close(); };
+  el.addEventListener("click", (e) => {
+    const pick = e.target.closest("[data-font]");
+    if (pick) {
+      current = pick.dataset.font;
+      open = false;
+      paint();
+      onPick(current);
+    } else if (e.target.closest(".fp-btn")) {
+      open = !open;
+      paint();
+    }
+  });
+  window.addEventListener("pointerdown", onDown, true);
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("scroll", onScroll, true);
+  window.addEventListener("resize", close);
+  paint();
+  return {
+    set(value) { if (value !== current) { current = value; paint(); } },
+    destroy() {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", close);
+    },
+  };
+}
 
 const LK_SAMPLE = "Đây là phụ đề mẫu của bạn";
 
@@ -203,7 +262,9 @@ const lkRing = (width, color) =>
 /** Bản JS của captionTextStyle (src/components/CustomCaptions.tsx) — sửa bên đó thì sửa cả đây. */
 function lkTextStyle(look, fontSize) {
   const base = {
-    fontFamily: LK_FONTS[look.font] ?? LK_FONTS.sans,
+    fontFamily: lkFontStack(look.font),
+    // Font một độ đậm: không làm đậm giả (giống captionTextStyle).
+    fontSynthesis: subsOptions?.singleWeight?.includes(look.font) ? "none" : "",
     fontSize: `${fontSize}px`,
     fontWeight: look.weight,
     fontStyle: look.italic ? "italic" : "normal",
@@ -295,7 +356,7 @@ function createLookEditor(root, { tracks, look, media, sample, onChange }) {
             <span class="lk-inline"><input type="range" min="24" max="160" step="2" data-k="size" style="flex:1" /><b data-show="size"></b></span></label>
           <label class="lk-f"><span>Bề rộng tối đa</span>
             <span class="lk-inline"><input type="range" min="30" max="100" step="1" data-k="width" style="flex:1" /><b data-show="width"></b></span></label>
-          <label class="lk-f"><span>Font</span><select data-k="font">${opt(o.fonts, looks[0].font)}</select></label>
+          <div class="lk-f"><span>Font</span><div class="fp" data-font-picker></div></div>
           <label class="lk-f"><span>Hiệu ứng chữ</span><select data-k="preset">${opt(o.presets, looks[0].preset)}</select></label>
           <label class="lk-f"><span>Độ đậm</span><select data-k="weight">${opt({ 400: "Thường", 600: "Hơi đậm", 700: "Đậm vừa", 800: "Đậm", 900: "Rất đậm" }, String(looks[0].weight))}</select></label>
           <div class="lk-f"><span>Màu chữ · màu viền/nền</span>
@@ -307,6 +368,10 @@ function createLookEditor(root, { tracks, look, media, sample, onChange }) {
 
   const stage = root.querySelector(".lk-stage");
   const caps = [...root.querySelectorAll(".lk-cap")];
+  const fontPicker = lkFontPicker(root.querySelector("[data-font-picker]"), {
+    value: looks[0].font,
+    onPick: (font) => set({ font }),
+  });
   const guide = root.querySelector(".lk-guide");
 
   // Nút mẫu nhanh tự vẽ đúng kiểu của mẫu đó — nhìn là biết chọn gì.
@@ -357,6 +422,7 @@ function createLookEditor(root, { tracks, look, media, sample, onChange }) {
       b.classList.toggle("on", Object.entries(t).every(([k, v]) => current[k] === v));
     });
     root.querySelectorAll("[data-row]").forEach((b) => b.setAttribute("aria-selected", String(Number(b.dataset.row) === active)));
+    fontPicker.set(current.font);
   }
 
   const emit = () => onChange?.(looks.map((l) => ({ ...l })), active);
@@ -445,11 +511,11 @@ function createLookEditor(root, { tracks, look, media, sample, onChange }) {
   return {
     get look() { return looks[0]; },
     get looks() { return looks.map((l) => ({ ...l })); },
-    destroy: () => { observer.disconnect(); cropLayer?.close(); },
+    destroy: () => { observer.disconnect(); fontPicker.destroy(); cropLayer?.close(); },
   };
 }
 
-// ---------- màn 🔤 Phụ đề ----------
+// ---------- màn Phụ đề ----------
 
 function bindSubs() {
   $("subsDrop").addEventListener("click", () => $("subsFileInput").click());
@@ -576,9 +642,9 @@ const fmtDuration = (s) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 6
 
 function renderSubsFiles() {
   $("subsFiles").innerHTML = subsFiles.map((f, i) =>
-    `<li><span>${f.video ? "🎬" : "🎙"} ${escapeHtml(f.name)}</span>
+    `<li><span>${f.video ? icon("clapperboard") : icon("mic")} ${escapeHtml(f.name)}</span>
       <span class="sb-file-meta">${[f.width && f.height ? `${f.width}×${f.height}` : "", fmtDuration(f.duration)].filter(Boolean).join(" · ")}</span>
-      <button type="button" class="icon-btn" data-subs-rm="${i}" aria-label="Bỏ ${escapeHtml(f.name)}">✕</button></li>`).join("") +
+      <button type="button" class="icon-btn" data-subs-rm="${i}" aria-label="Bỏ ${escapeHtml(f.name)}">${icon("x")}</button></li>`).join("") +
     (subsUploading ? `<li><span class="muted">Đang tải lên ${subsUploading} file…</span></li>` : "");
   renderSubsSummary();
 }
@@ -590,7 +656,7 @@ function renderSubsLangs() {
   subsLangs = [...new Set(subsLangs.map((c) => (c === subsSpoken ? "" : c)))];
   $("subsLangs").innerHTML = langs.map((l) =>
     `<button type="button" class="bt-pick ${subsLangs.includes(l.code) ? "on" : ""}" data-lang="${l.code}"
-      aria-pressed="${subsLangs.includes(l.code)}">${subsLangs.includes(l.code) ? "✓ " : ""}${escapeHtml(l.label)}</button>`).join("");
+      aria-pressed="${subsLangs.includes(l.code)}">${subsLangs.includes(l.code) ? `${icon("check")} ` : ""}${escapeHtml(l.label)}</button>`).join("");
 
   const layout = $("subsLayout");
   layout.hidden = subsLangs.length < 2;
@@ -598,9 +664,9 @@ function renderSubsLangs() {
 
   const translating = subsLangs.some(Boolean);
   const notes = [];
-  if (subsLangs.length === 0) notes.push(`<span class="warn">⚠ Chọn ít nhất một ngôn ngữ phụ đề.</span>`);
+  if (subsLangs.length === 0) notes.push(`<span class="warn">${icon("triangle-alert")} Chọn ít nhất một ngôn ngữ phụ đề.</span>`);
   if (translating && !subsOptions.canTranslate) {
-    notes.push(`<span class="warn">⚠ Dịch phụ đề cần model dịch — điền key Gemini, Groq hoặc OpenRouter (có gói miễn phí) trong <a href="#" data-open-settings>⚙ Cài đặt</a>.</span>`);
+    notes.push(`<span class="warn">${icon("triangle-alert")} Dịch phụ đề cần model dịch — điền key Gemini, Groq hoặc OpenRouter (có gói miễn phí) trong <a href="#" data-open-settings>Cài đặt</a>.</span>`);
   } else if (translating) {
     notes.push("Nghe lời một lần, rồi dịch sang từng ngôn ngữ đã chọn.");
   }
@@ -614,7 +680,7 @@ function renderSubsLangs() {
 function renderSubsAdvanced() {
   $("subsModel").querySelectorAll("[data-model]").forEach((b) =>
     b.setAttribute("aria-pressed", String(b.dataset.model === subsModel)));
-  $("subsAdvSum").textContent = `${subsModel === "small" ? "⚡ Nghe nhanh" : "🎯 Nghe chuẩn"} · ${
+  $("subsAdvSum").textContent = `${subsModel === "small" ? "Nghe nhanh" : "Nghe chuẩn"} · ${
     $("subsReview").checked ? "dừng cho tôi đọc lại" : "chạy thẳng tới video"}`;
 }
 
@@ -725,7 +791,7 @@ async function loadSubsRecent() {
       const pct = c.total === 0 ? 0 : Math.round(((c.done + c.skipped) / c.total) * 100);
       return `<a href="#/batch/${b.id}">
         <span class="row"><b>${escapeHtml(b.name)}</b><span class="spacer"></span>
-          <span class="muted">${b.state === "running" ? "🔄 đang chạy" : b.state === "done" ? "✅ xong" : b.state === "paused" ? "⏸ tạm dừng" : "○ chưa chạy"}</span></span>
+          <span class="muted">${b.state === "running" ? `${icon("refresh-cw")} đang chạy` : b.state === "done" ? `${icon("circle-check")} xong` : b.state === "paused" ? `${icon("pause")} tạm dừng` : `${icon("circle")} chưa chạy`}</span></span>
         <span class="mini"><i style="width:${pct}%"></i></span>
         <span class="muted">${c.done}/${c.total} xong${c.error ? ` · ${c.error} lỗi` : ""}</span>
       </a>`;

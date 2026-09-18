@@ -1,3 +1,6 @@
+import {
+  FlipHorizontal2, FlipVertical2, RotateCcw, RotateCw,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SceneCrop } from "../../src/compositions/Short/schema";
 import { CropBox, isMediaCrop, type MediaCrop } from "../../src/scenes/CropBox";
@@ -308,10 +311,10 @@ export const CropOverlay: React.FC<Props> = ({ src, trimStartMs, frameAspect, de
             />
             <output>{rotate}°</output>
           </label>
-          <button title="Xoay trái 90°" onClick={() => setRotate(normalizeDeg(rotate - 90))}>⟲ 90°</button>
-          <button title="Xoay phải 90°" onClick={() => setRotate(normalizeDeg(rotate + 90))}>⟳ 90°</button>
-          <button className={flipH ? "on" : ""} aria-pressed={flipH} onClick={() => setFlipH((v) => !v)}>⇋ Lật ngang</button>
-          <button className={flipV ? "on" : ""} aria-pressed={flipV} onClick={() => setFlipV((v) => !v)}>⇵ Lật dọc</button>
+          <button title="Xoay trái 90°" onClick={() => setRotate(normalizeDeg(rotate - 90))}><RotateCcw size={16} aria-hidden /> 90°</button>
+          <button title="Xoay phải 90°" onClick={() => setRotate(normalizeDeg(rotate + 90))}><RotateCw size={16} aria-hidden /> 90°</button>
+          <button className={flipH ? "on" : ""} aria-pressed={flipH} onClick={() => setFlipH((v) => !v)}><FlipHorizontal2 size={16} aria-hidden /> Lật ngang</button>
+          <button className={flipV ? "on" : ""} aria-pressed={flipV} onClick={() => setFlipV((v) => !v)}><FlipVertical2 size={16} aria-hidden /> Lật dọc</button>
           <div className="cr-fit" role="group" aria-label="Cách đặt vào khung">
             <button className={fit === "cover" ? "on" : ""} aria-pressed={fit === "cover"} onClick={() => setFit("cover")} title="Phóng cho kín khung, phần thừa bị cắt">
               Lấp đầy
