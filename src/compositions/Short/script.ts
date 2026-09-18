@@ -102,7 +102,29 @@ export const allLines = (script: VideoScript) =>
 const WORDS_PER_MINUTE = 150;
 const MIN_LINE_MS = 1200;
 const MAX_LINE_MS = 4500;
+/** Khoảng trước câu đầu tiên, sau title card. */
 const GAP_MS = 150;
+
+/**
+ * Nhịp đọc: nghỉ sau mỗi câu theo dấu câu kết thúc câu đó, như người đọc thật lấy hơi. Trước đây mọi câu chỉ cách
+ * nhau 150ms nên video nghe như đọc vội dù giọng nói tốc độ bình thường (~4 âm tiết/giây).
+ */
+export const LINE_PAUSE_MS = { comma: 250, sentence: 450, question: 650 } as const;
+/** Nghỉ thêm khi sang cảnh — hình đổi xong người xem mới nghe câu tiếp. */
+export const SCENE_PAUSE_MS = 400;
+/**
+ * Câu đố: khoảng lặng trước câu đáp án để đồng hồ 3·2·1 chạy đủ 3 giây thật, không đè lên lời đọc
+ * (phong cách quiz đếm đúng trong khoảng lặng này — src/styles/quiz/theme.ts).
+ */
+export const QUIZ_THINK_MS = 3000;
+
+/** Nghỉ bao lâu sau một câu: hết câu hỏi nghỉ lâu nhất, hết câu kể vừa, câu chưa hết ý (dấu phẩy, không dấu) ngắn. */
+export const pauseAfterLine = (text: string) => {
+  const end = text.trim().replace(/["”'’)\]»]+$/, "");
+  if (/\?$/.test(end)) return LINE_PAUSE_MS.question;
+  if (/(\.|!|…)$/.test(end)) return LINE_PAUSE_MS.sentence;
+  return LINE_PAUSE_MS.comma;
+};
 
 export const lineDurationMs = (text: string) => {
   const words = text.trim().split(/\s+/).length;
@@ -177,18 +199,28 @@ export const scriptToProps = (
 
   let cursorMs = Math.round((startAtFrame / FPS) * 1000) + GAP_MS;
   let lineIndex = 0;
+  const finalStyle = isStyleId(style) ? style : script.style ?? DEFAULT_STYLE;
 
   const captions: Caption[] = [];
   const scenes: Scene[] = [];
 
-  for (const scriptScene of script.scenes) {
+  for (const [sceneIndex, scriptScene] of script.scenes.entries()) {
+    // Sang cảnh mới: nghỉ thêm (cảnh đầu thì không — đã có title card).
+    if (sceneIndex > 0) cursorMs += SCENE_PAUSE_MS;
     const sceneStartMs = cursorMs;
+    // Câu đố: câu chứa đáp án (câu nhấn) phải chờ đủ thời gian đếm ngược.
+    const needle = finalStyle === "quiz" ? scriptScene.punch?.toLocaleLowerCase("vi") : undefined;
+    const answerAt = needle ? scriptScene.lines.findIndex((l) => l.toLocaleLowerCase("vi").includes(needle)) : -1;
 
-    for (const text of scriptScene.lines) {
+    for (const [k, text] of scriptScene.lines.entries()) {
       const clip = voiceover?.[lineIndex];
+      if (k > 0 && k === answerAt) {
+        const pause = pauseAfterLine(scriptScene.lines[k - 1]);
+        cursorMs += Math.max(0, QUIZ_THINK_MS - pause);
+      }
       const startMs = cursorMs;
       const endMs = startMs + (clip ? clip.durationMs : lineDurationMs(text));
-      cursorMs = endMs + GAP_MS;
+      cursorMs = endMs + pauseAfterLine(text);
       lineIndex += 1;
       captions.push({ text, startMs, endMs, audio: clip ? clip.src : null });
     }
@@ -227,7 +259,7 @@ export const scriptToProps = (
     background: script.background,
     captions,
     aspect,
-    style: isStyleId(style) ? style : script.style ?? DEFAULT_STYLE,
+    style: finalStyle,
     scenes,
     captionPosition,
     showTitle: true,

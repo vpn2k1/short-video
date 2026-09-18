@@ -277,3 +277,29 @@ export const textToScript = (
     throw new Error(`Kịch bản chưa hợp lệ: ${error instanceof Error ? error.message.slice(0, 200) : error}`);
   }
 };
+
+/**
+ * VideoScript → văn bản theo đúng cú pháp ở đầu file, để người dùng đọc và sửa cả kịch bản rồi dán lại
+ * (textToScript đọc ra đúng các cảnh, nhãn, câu nhấn, con số như cũ). Câu nhấn được đánh ** ** ở lần xuất
+ * hiện đầu tiên trong lời của cảnh; không tìm thấy trong lời thì bỏ — schema bắt câu nhấn phải nằm trong lời.
+ */
+export const scriptToText = (script: VideoScript): string => {
+  const head = [`# ${script.title}`];
+  if (script.subtitle && script.subtitle !== script.title) head.push(`> ${script.subtitle}`);
+  const scenes = script.scenes.map((scene) => {
+    const out: string[] = [];
+    if (scene.tag) out.push(`[${scene.tag}]`);
+    if (scene.visual) out.push(`! ${scene.visual.text}${scene.visual.caption ? ` | ${scene.visual.caption}` : ""}`);
+    const needle = scene.punch?.toLocaleLowerCase("vi");
+    let marked = !needle;
+    for (const line of scene.lines) {
+      const at = marked ? -1 : line.toLocaleLowerCase("vi").indexOf(needle!);
+      if (at < 0) { out.push(line); continue; }
+      marked = true;
+      const end = at + scene.punch!.length;
+      out.push(`${line.slice(0, at)}**${line.slice(at, end)}**${line.slice(end)}`);
+    }
+    return out.join("\n");
+  });
+  return [head.join("\n"), ...scenes].join("\n\n");
+};

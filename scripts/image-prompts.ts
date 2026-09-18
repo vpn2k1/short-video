@@ -229,3 +229,125 @@ export const composeImagePrompt = (scenePrompt: string, look: string) =>
     look ? `${look}.` : "",
     "Tall portrait composition, main subject centered.",
   ].filter(Boolean).join(" ");
+
+/** Kế hoạch tìm ảnh kho (Pexels/Pixabay) cho một cảnh: truy vấn chính, truy vấn dự phòng, từ khoá để chấm ảnh. */
+export type StockPlan = { queries: string[]; keywords: string[] };
+
+const STOCK_RULES = `You choose stock-photo search queries (Pexels, Pixabay) for the background pictures of a vertical short video.
+The narration is usually Vietnamese; queries and keywords are ALWAYS English — the stock sites are searched in English.
+
+For each requested scene return:
+- "query": 2-4 words naming the concrete, photographable main subject of that scene: an object, animal, dish, place,
+  or a person doing a specific action. Examples: "bowl of pho", "snail on leaf", "surgeon in operating room",
+  "Hoi An lantern street", "woman jogging at sunrise".
+- "alternates": 2 backup queries on the SAME subject, a little broader ("vietnamese noodle soup", "noodle soup bowl").
+- "keywords": 3-5 single English words a matching photo's description would contain, MOST IMPORTANT FIRST — the first
+  one is the main subject noun (["pho","noodle","soup","bowl"]).
+
+Rules:
+- The narration often omits the subject — infer it from the title and the other scenes. Every query must be about the
+  video's topic. Never generic words alone: people, concept, idea, question, quiz, thinking, background, happy, success.
+- Prefer what a photographer actually shoots and stock sites actually have. Abstract idea → a concrete scene that shows it.
+- Quiz and riddle videos: show what the question is ABOUT, never the answer. "What is the dipping sauce of banh cuon
+  made from?" (answer: fish sauce) → "banh cuon rice rolls", not "fish sauce". "Which city was the last imperial
+  capital?" (answer: Hue) → "ancient asian palace gate", not "hue citadel". Even when you can guess the answer yourself,
+  show the broader topic of the question: "Which bone is the longest?" → "human skeleton model", not "femur bone".
+- Add "vietnam"/"vietnamese" only when the subject is really Vietnamese (a dish, a place, Vietnamese daily life).
+- No text, digits, brand names or people's names in queries.
+
+Return JSON only: {"scenes":[{"query":"...","alternates":["...","..."],"keywords":["...","..."]}]} with exactly one
+object per requested scene, in the given order.`;
+
+/**
+ * Truy vấn tìm ảnh kho cho các cảnh `indexes`. Trước đây truy vấn là cả câu lời đọc dịch sang tiếng Anh ghép tiêu đề
+ * ("Guess the dish, 90% of people answer wrong… what noodles does pho use?") — kho ảnh tìm theo từ khoá nên trả ảnh
+ * gần như ngẫu nhiên. Giờ AI nêu đúng chủ thể chụp được của từng cảnh, kèm từ khoá để chấm các ảnh tìm được.
+ */
+export const writeStockQueries = async (
+  video: { title: string; subtitle?: string | null; scenes: SceneForPrompt[] },
+  indexes: number[],
+  options: { provider: ProviderChoice },
+): Promise<{ plans: StockPlan[]; provider: ScriptProvider }> => {
+  const outline = video.scenes
+    .map((scene, i) => `Scene ${i + 1}${indexes.includes(i) ? " [NEEDS IMAGE]" : ""}: ${scene.lines.join(" ")}`)
+    .join("\n");
+  const user = [
+    `Video title: ${video.title}`,
+    video.subtitle ? `Subtitle: ${video.subtitle}` : "",
+    "",
+    outline,
+    "",
+    `Write search queries for these scenes, in this order: ${indexes.map((i) => i + 1).join(", ")}.`,
+  ].filter(Boolean).join("\n");
+
+  const words = (value: unknown) => (Array.isArray(value) ? value : [])
+    .map((w) => (typeof w === "string" ? w.trim().toLowerCase() : ""))
+    .filter((w) => w && w.length <= 40);
+  const read = (reply: JsonReply) => {
+    const body = parseJson<{ scenes?: unknown }>(reply);
+    const scenes = Array.isArray(body.scenes) ? body.scenes : [];
+    const plans = scenes.map((raw) => {
+      const s = (raw ?? {}) as { query?: unknown; alternates?: unknown; keywords?: unknown };
+      const query = typeof s.query === "string" ? s.query.trim().toLowerCase() : "";
+      return {
+        queries: [...new Set([query, ...words(s.alternates)].filter(Boolean))].slice(0, 3),
+        keywords: [...new Set(words(s.keywords).flatMap((w) => w.split(/\s+/)))].slice(0, 6),
+      };
+    });
+    if (plans.length !== indexes.length || plans.some((p) => p.queries.length === 0)) {
+      throw new Error(`${reply.who} trả ${plans.length}/${indexes.length} truy vấn ảnh.`);
+    }
+    return plans;
+  };
+
+  const ask = (choice: ProviderChoice) => askJson(
+    choice,
+    {
+      system: STOCK_RULES,
+      user,
+      temperature: 0.2,
+      maxTokens: 200 + indexes.length * 90,
+      schema: {
+        type: "object",
+        properties: {
+          scenes: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                query: { type: "string" },
+                alternates: { type: "array", items: { type: "string" } },
+                keywords: { type: "array", items: { type: "string" } },
+              },
+              required: ["query", "alternates", "keywords"],
+            },
+          },
+        },
+        required: ["scenes"],
+      },
+      slowHint: "chọn ít cảnh hơn",
+    },
+    read,
+    "Chưa có AI nào để chọn từ khoá tìm ảnh.",
+  );
+
+  try {
+    const { value, provider } = await ask(options.provider);
+    return { plans: value, provider };
+  } catch (error) {
+    // Như writeImagePrompts: việc nhẹ — thử các AI trên mạng khác đang có key trước khi lùi về bản dịch thô.
+    const failures = [error instanceof Error ? error.message : String(error)];
+    for (const other of FALLBACK_PROVIDERS) {
+      if (other === options.provider) continue;
+      try {
+        const { value, provider } = await ask(other);
+        return { plans: value, provider };
+      } catch (next) {
+        if (!/Chưa có key|Chưa có AI/.test(next instanceof Error ? next.message : "")) {
+          failures.push(next instanceof Error ? next.message : String(next));
+        }
+      }
+    }
+    throw new Error(failures.join(" · "));
+  }
+};

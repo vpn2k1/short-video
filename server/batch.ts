@@ -49,7 +49,7 @@ import { ASPECT_IDS, ASPECTS, aspectFor, type AspectId } from "../src/aspects";
 import { DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
 import { findVoice } from "../scripts/voices";
 import { slugify } from "../scripts/slug";
-import { textToScript } from "../scripts/text-script";
+import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
@@ -714,6 +714,75 @@ export const editItem = (id: unknown, body: unknown) => {
     log: [], finishedAt: undefined,
   });
   batch.state = "running";
+  save(batch);
+  pump();
+  return summary(batch);
+};
+
+/** Kịch bản đã viết của một mục (script.json) — null nếu mục chưa tới bước viết lời hoặc dựng từ file thu sẵn. */
+const itemScript = (item: BatchItem): VideoScript | null => {
+  if (!item.slug || item.file) return null;
+  const file = path.join(videoDir(item.slug), "script.json");
+  return fs.existsSync(file) ? parseScript(JSON.parse(fs.readFileSync(file, "utf8"))) : null;
+};
+
+/** Toàn bộ lời của một mục dạng văn bản (cú pháp dán sẵn) để sửa ngay trên bảng. */
+export const readItemScript = (id: unknown, itemId: unknown) => {
+  const batch = require_(id);
+  const item = batch.items.find((i) => i.id === String(itemId));
+  if (!item) throw new Error("Không thấy ô này trong loạt.");
+  const script = itemScript(item);
+  return script ? { text: scriptToText(script), title: script.title, scenes: script.scenes.length } : { text: null };
+};
+
+/**
+ * Lưu lời người dùng sửa (hoặc dán đè) cho một mục rồi dựng lại từ lời đó — KHÔNG gọi AI viết lại.
+ * Giữ phong cách, màu, handle của kịch bản cũ và ảnh từng cảnh theo thứ tự (cảnh mới thêm thì tìm ảnh mới).
+ * Mục đang chờ duyệt: `approve` = lưu rồi duyệt luôn; không thì vẫn chờ duyệt. Mục đã xong/lỗi/bỏ qua: dựng lại.
+ */
+export const saveItemScript = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const { itemId, text, settings, approve } = (body ?? {}) as {
+    itemId?: unknown; text?: unknown; settings?: Partial<ChatSettings>; approve?: unknown;
+  };
+  const item = batch.items.find((i) => i.id === String(itemId));
+  if (!item) throw new Error("Không thấy ô này trong loạt.");
+  if (item.status === "preparing" || item.status === "building") {
+    throw new Error("Ô này đang chạy — đợi xong rồi sửa.");
+  }
+  const old = itemScript(item);
+  if (!old || !item.slug) throw new Error("Ô này chưa có lời để sửa — dùng Viết lại từ ý tưởng.");
+
+  const own = settings ? normalizeSettings(settings, batch.settings) : itemSettings(batch, item);
+  const style = own.style === "auto" ? old.style : own.style;
+  // Ảnh đã dùng: props.json (ảnh tìm lúc dựng nằm ở đây) rồi mới tới script.json.
+  const props = readJson(path.join(videoDir(item.slug), "props.json")) as { scenes?: { image?: string | null }[] } | null;
+  const previousImages = old.scenes.map((scene, i) => props?.scenes?.[i]?.image ?? scene.image ?? null);
+  const parsed = textToScript(String(text ?? ""), { style, previousImages }).script;
+  const script = parseScript({
+    ...old, style, title: parsed.title, subtitle: parsed.subtitle,
+    // "! …" đọc lại luôn là con số; cảnh cũ là huy hiệu cùng chữ thì giữ huy hiệu.
+    scenes: parsed.scenes.map((scene, i) => {
+      const was = old.scenes[i]?.visual;
+      return was?.type === "badge" && scene.visual?.type === "stat" && scene.visual.text === was.text
+        ? { ...scene, visual: { ...scene.visual, type: "badge" as const } }
+        : scene;
+    }),
+  });
+  fs.writeFileSync(path.join(videoDir(item.slug), "script.json"), JSON.stringify(script, null, 2));
+
+  if (settings) item.override = own;
+  Object.assign(item, previewOf(script));
+  item.error = undefined;
+  if (item.status === "review") {
+    if (approve === true) item.status = "ready";
+  } else {
+    Object.assign(item, {
+      status: "ready" as ItemStatus, progress: 0, step: undefined,
+      mp4: undefined, images: undefined, poster: undefined, log: [], finishedAt: undefined,
+    });
+  }
+  if (item.status === "ready") batch.state = "running";
   save(batch);
   pump();
   return summary(batch);

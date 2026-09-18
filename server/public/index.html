@@ -756,6 +756,16 @@
   .bt-gen input[type="number"] { width: 68px; }
   .bt-gen input { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line);
                   border-radius: 9px; padding: 7px 10px; }
+  /* Nút chọn AI nghĩ ý tưởng — mở menu các AI đã có key. */
+  .bt-gen-ai { height: 36px; padding: 0 12px; max-width: 220px; }
+  .bt-gen-ai > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Dòng kết quả lượt nghĩ gần nhất: chủ đề đang dùng + Đổi ý tưởng / Hoàn tác. Xuống hàng riêng. */
+  .bt-gen-status { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+                   font-size: 13px; color: var(--muted); }
+  .bt-gen-status .spacer { flex: 1; }
+  .bt-gen-status b { color: var(--text); font-weight: 600; }
+  .bt-gen-status.err > span { color: var(--err); }
+  .bt-gen-status .tool-btn { height: 32px; padding: 0 12px; font-size: 13px; }
   /* Mỗi video một ô chữ nhật — bấm ô ＋ ở cuối để thêm. */
   .bt-cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); }
   .bt-card { display: flex; flex-direction: column; gap: 8px; background: var(--bg);
@@ -844,6 +854,12 @@
   .bt-card.on { border-color: var(--accent); }
   .bt-card.err { border-color: var(--err); }
   .bt-card.editing { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255,122,26,.07); }
+  /* Sửa cả lời: trải hết hàng của lưới để đọc được nguyên kịch bản, không bó trong ô hẹp. */
+  .bt-card.editing.script { grid-column: 1 / -1; }
+  .bt-card.editing.script textarea { min-height: 320px; max-height: 65vh; font-size: 14.5px; line-height: 1.7; }
+  .bt-edit-help { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .bt-edit-help code { font: inherit; color: var(--text); background: var(--panel-2); padding: 0 4px; border-radius: 4px; }
+  .bt-card.editing .bt-actions .spacer { flex: 1; }
   /* Huy hiệu trạng thái ở góc ô */
   .bt-state { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
               text-transform: none; letter-spacing: 0; background: var(--panel-2); color: var(--muted); }
@@ -1257,7 +1273,15 @@ Lưu lại để làm theo nhé!</pre>
         <span class="muted"><i data-icon="sparkles"></i> Chủ đề</span>
         <input type="text" id="batchTopic" placeholder="ví dụ: mẹo tiết kiệm điện trong nhà" />
         <input type="number" id="batchTopicCount" min="1" max="50" value="10" aria-label="Số ý tưởng" />
+        <button type="button" class="tool-btn bt-gen-ai" id="batchIdeaAi" aria-haspopup="listbox" aria-expanded="false"></button>
         <button type="button" class="btn" id="batchTopicGo">Nghĩ ý tưởng</button>
+        <div class="bt-gen-status" id="batchIdeaStatus" hidden>
+          <span id="batchIdeaInfo" role="status"></span>
+          <span class="spacer"></span>
+          <button type="button" class="tool-btn" id="batchIdeaUndo" hidden
+            title="Trả ô danh sách về như trước lần nghĩ ý tưởng vừa rồi"><i data-icon="undo-2"></i> Hoàn tác</button>
+          <button type="button" class="tool-btn" id="batchIdeaAgain"><i data-icon="refresh-cw"></i> Đổi ý tưởng</button>
+        </div>
       </div>
       <div class="composer-foot">
         <button type="button" class="tool-btn" id="batchImport"><i data-icon="file-up"></i> Tải .txt / .csv</button>

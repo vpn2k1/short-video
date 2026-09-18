@@ -7,7 +7,7 @@
 import fs from "fs";
 import path from "path";
 import {
-  allLines, lineDurationMs, parseScript, scriptToProps, type VideoScript, type VoiceoverClip,
+  allLines, lineDurationMs, parseScript, pauseAfterLine, scriptToProps, type VideoScript, type VoiceoverClip,
 } from "../src/compositions/Short/script";
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
@@ -19,13 +19,14 @@ import { moveToAppTrash } from "./app-trash";
 import { FREE_MEDIA_GROUP } from "./keys";
 import { isStyleId, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
+import { reviewScript } from "../scripts/review-script";
 import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
 import { findVoice } from "../scripts/voices";
 import { freeMode } from "../scripts/usage";
 import { RANDOM_MUSIC, randomFreesoundMusic, stockForScene } from "../scripts/stock";
 import { listAudio } from "./api";
 import { cloudflareImageAvailable } from "../scripts/cloudflare-image";
-import { ART_STYLES, composeImagePrompt, imageLookFor, isArtStyle, writeImagePrompts, type ArtStyle } from "../scripts/image-prompts";
+import { ART_STYLES, composeImagePrompt, imageLookFor, isArtStyle, writeImagePrompts, writeStockQueries, type StockPlan, type ArtStyle } from "../scripts/image-prompts";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist } from "../scripts/images";
 import { slugify } from "../scripts/slug";
@@ -570,9 +571,13 @@ export const readEditorProps = (slug: string, requested: number | null = null) =
   }
   const props = shortSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
   const script = readJson(path.join(videoDir(slug), "script.json"));
+  // Giọng đọc gần nhất của video (lúc tạo, hoặc lần "Đổi giọng toàn bộ" sau cùng) — ô chọn giọng mở ra đúng giọng này.
+  // Đọc thẳng chat.json: readChat có ghi lại file, không nên chạy mỗi lần mở trình chỉnh sửa.
+  const voice = readJson(chatPath(slug))?.settings?.voice;
   return {
     slug, props, title: script?.title ?? props.title, running: running.has(slug),
     version, latest, hasDraft: version !== null && fs.existsSync(versionDraftPath(slug, version)),
+    voice: typeof voice === "string" && voice ? voice : null,
   };
 };
 
@@ -617,8 +622,19 @@ export const startEditorRender = (slug: string, requested: number | null = null)
         from: version,
       };
       writeChat(slug, { messages: [...chat.messages, message], settings: chat.settings });
-      // Thay đổi đã thành bản mới — bản gốc trở lại như lúc xuất.
-      if (version !== null) fs.rmSync(versionDraftPath(slug, version), { force: true });
+      // Thay đổi đã thành bản mới — bản gốc trở lại như lúc xuất. Nhưng xuất có thể chạy nền trong khi người dùng sửa
+      // tiếp: bản nháp đã khác lúc bấm xuất thì GIỮ, không thì mất những gì vừa sửa.
+      if (version !== null) {
+        const draft = versionDraftPath(slug, version);
+        const unchanged = (() => {
+          try {
+            return JSON.stringify(shortSchema.parse(JSON.parse(fs.readFileSync(draft, "utf8")))) === JSON.stringify(props);
+          } catch {
+            return true;   // không còn bản nháp / đọc lỗi — xoá như cũ
+          }
+        })();
+        if (unchanged) fs.rmSync(draft, { force: true });
+      }
       return message;
     } finally {
       clearRunning(slug);
@@ -1126,6 +1142,8 @@ export const prepareScript = async (
     log(`Đang viết kịch bản bằng ${providerLabel(scriptProvider(settings.provider) ?? "gemini")}…`);
     script = await generateScript(prompt, slug, undefined, uploads, settings.style, settings.provider,
       { length: settings.length, log });
+    // Lượt soát: bắt dữ kiện sai, câu đố vô lý, số liệu bịa rồi sửa đúng chỗ đó (scripts/review-script.ts).
+    script = await reviewScript(script, prompt, { slug, provider: settings.provider, log });
   }
   fs.mkdirSync(videoDir(slug), { recursive: true });
   fs.writeFileSync(scriptPath, JSON.stringify(script, null, 2));
@@ -1199,11 +1217,12 @@ export const buildFromScript = async (
     log("Không dùng giọng đọc.");
   }
 
+  const music = await resolveMusicChoice(settings.music, log);
   const props = shortSchema.parse(
     scriptToProps(script, {
       startAtFrame: TITLE_FRAMES,
       voiceover,
-      music: await resolveMusicChoice(settings.music, log),
+      music,
       captionPosition: "bottom",
       aspect: settings.aspect,
     }),
@@ -1222,8 +1241,13 @@ export const buildFromScript = async (
     (percent) => log(`__PROGRESS__ ${percent}`));
 
   const seconds = (durationInFrames / 30).toFixed(1);
+  // Ghi rõ giọng và nhạc thật sự đã dùng — chọn nhầm (ví dụ chỉ bấm nghe thử) thì thấy ngay.
+  const audioLine = [
+    voice ? `🎙 giọng ${voice.key}` : "🔇 không giọng đọc",
+    music ? `🎵 ${path.basename(music).replace(/\.\w+$/, "")}${settings.music === RANDOM_MUSIC ? " (ngẫu nhiên)" : ""}` : "không nhạc nền",
+  ].join(" · ");
   return {
-    text: `${existed ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s${aiNote ? `\n${aiNote}` : ""}${voiceNote ? `\n${voiceNote}` : ""}`,
+    text: `${existed ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s\n${audioLine}${aiNote ? `\n${aiNote}` : ""}${voiceNote ? `\n${voiceNote}` : ""}`,
     style: script.style,
     mp4: `/out/${slug}.mp4?t=${Date.now()}`,
     aspect: settings.aspect,
@@ -1294,6 +1318,36 @@ const sceneImageQueries = async (
 };
 
 /**
+ * Truy vấn tìm ảnh/clip kho cho các cảnh: AI nêu chủ thể chụp được của từng cảnh (2-4 từ tiếng Anh) kèm từ khoá để
+ * chấm kết quả (writeStockQueries). AI lỗi thì lùi về bản dịch lời đọc như trước — vẫn chạy được, chỉ kém chính xác.
+ */
+const sceneStockPlans = async (
+  script: VideoScript,
+  indexes: number[],
+  settings: ChatSettings,
+  log: (line: string) => void,
+): Promise<StockPlan[]> => {
+  // Câu đố: chỉ đưa phần hỏi — thấy câu "Đáp án là nước mắm" thì AI tìm luôn ảnh nước mắm, lộ đáp án (đã gặp,
+  // dù đã dặn đừng). Bỏ câu chứa đáp án (punch) và các câu sau nó.
+  const video = script.style !== "quiz" ? script : {
+    ...script,
+    scenes: script.scenes.map((scene) => {
+      const needle = scene.punch?.toLocaleLowerCase("vi");
+      const at = needle ? scene.lines.findIndex((l) => l.toLocaleLowerCase("vi").includes(needle)) : -1;
+      return { lines: at > 0 ? scene.lines.slice(0, at) : scene.lines };
+    }),
+  };
+  try {
+    const { plans, provider } = await writeStockQueries(video, indexes, { provider: settings.provider });
+    log(`Từ khoá tìm hình (${providerLabel(provider)}): ${plans.map((p, k) => `cảnh ${indexes[k] + 1} "${p.queries[0]}"`).join(" · ")}`);
+    return plans;
+  } catch (error) {
+    log(`Không chọn được từ khoá tìm hình (${error instanceof Error ? error.message : error}) — tìm theo bản dịch lời đọc.`);
+    return (await sceneImageQueries(script, indexes, settings, log)).map((query) => ({ queries: [query], keywords: [] }));
+  }
+};
+
+/**
  * Hình cho những cảnh chưa có ảnh, theo nút Hình ảnh. Không tự đổi nguồn: chọn AI vẽ mà lỗi thì
  * báo lỗi chứ không âm thầm lấy Pexels, và ngược lại.
  */
@@ -1319,28 +1373,30 @@ const addSceneImages = async (
   const clips = settings.images === "stock-video";
   const label = ai ? "AI vẽ" : clips ? "kho clip miễn phí" : "kho ảnh miễn phí";
   log(ai ? `Đang để ${cloudflareImageAvailable() ? "FLUX (Cloudflare, miễn phí)" : "Gemini"} vẽ ${need.length} ảnh…` : `Đang tìm ${need.length} ${clips ? "clip" : "ảnh"} miễn phí (Pexels, Pixabay)…`);
-  const queries = await sceneImageQueries(script, need.map(({ i }) => i), settings, log);
   let perQuery: (string | null)[];
   if (ai) {
+    const queries = await sceneImageQueries(script, need.map(({ i }) => i), settings, log);
     perQuery = (await fetchSceneImages(slug, queries, ["gemini"], log)).perQuery;
   } else {
+    const plans = await sceneStockPlans(script, need.map(({ i }) => i), settings, log);
     // Không lặp cùng một ảnh/clip giữa các cảnh; clip hết thì lùi về ảnh cho cảnh đó.
     const used = new Set<string>();
     perQuery = [];
-    for (const [k, query] of queries.entries()) {
+    for (const [k, plan] of plans.entries()) {
       const { scene } = need[k];
       const seconds = Math.ceil((scene.endMs - scene.startMs) / 1000);
       let file: string | null = null;
       for (const kind of clips ? (["video", "image"] as const) : (["image"] as const)) {
         try {
-          const result = await stockForScene(kind, query, seconds, used);
+          const result = await stockForScene(kind, plan, seconds, used);
           if (result) {
             file = result.path;
-            log(`[${kind === "video" ? "clip" : "ảnh"}] cảnh ${need[k].i + 1}: ${result.credit}`);
+            const fit = result.total ? ` · khớp ${result.matched}/${result.total} từ khoá` : "";
+            log(`[${kind === "video" ? "clip" : "ảnh"}] cảnh ${need[k].i + 1} ("${result.query}"${fit}): ${result.credit}`);
             break;
           }
         } catch (error) {
-          log(`Không lấy được ${kind === "video" ? "clip" : "ảnh"} cho "${query}": ${error instanceof Error ? error.message : error}`);
+          log(`Không lấy được ${kind === "video" ? "clip" : "ảnh"} cho "${plan.queries[0]}": ${error instanceof Error ? error.message : error}`);
         }
       }
       perQuery.push(file);
@@ -1571,7 +1627,6 @@ export const startMultiScene = (body: unknown) => {
   return { slug, jobId: job.id };
 };
 
-const MULTI_GAP_MS = 150;
 /** Câu đầu của cảnh vào sau khi hình đã hiện một chút. */
 const MULTI_LEAD_MS = 300;
 
@@ -1599,7 +1654,7 @@ const runMultiScene = async (slug: string, input: MultiInput, log: (line: string
       const clip = voiceover?.[lineIndex++];
       const durationMs = clip ? clip.durationMs : lineDurationMs(text);
       captions.push({ text, startMs: atMs, endMs: atMs + durationMs, audio: clip?.src ?? null });
-      atMs += durationMs + MULTI_GAP_MS;
+      atMs += durationMs + pauseAfterLine(text);
     }
     const endMs = Math.max(startMs + scene.seconds * 1000, sceneLines[i].length ? atMs + MULTI_LEAD_MS : 0);
     cursorMs = endMs;

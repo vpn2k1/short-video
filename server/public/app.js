@@ -1415,20 +1415,25 @@ const imagesIcon = (images, video) => (video ? icon("clapperboard")
 
 const scriptProviders = () => state?.scriptProviders ?? [];
 
-function providerChipLabel() {
-  if (opts.provider === "auto") {
+function providerChipLabel(value = opts.provider) {
+  if (value === "auto") {
     return state?.keys.scriptLabel ? `Tự động · ${state.keys.scriptLabel}` : "Tự động";
   }
-  const provider = scriptProviders().find((p) => p.id === opts.provider);
+  const provider = scriptProviders().find((p) => p.id === value);
   return provider ? provider.label : "AI";
 }
 
-/** Chọn AI viết lời: chỉ những nhà cung cấp đã có key mới bấm được. */
-function providerMenu(onPick) {
-  const list = scriptProviders();
-  const ready = list.filter((p) => p.available);
+/**
+ * Chọn AI viết lời (hoặc AI nghĩ ý tưởng): chỉ những nhà cung cấp đã có key mới bấm được.
+ * AI đã có key đứng trước (giữ thứ tự thử của "Tự động"), để mỗi nhóm chỉ có một tiêu đề.
+ * `styleNote`: ghi chú về prompt gọn — chỉ có nghĩa khi viết lời (đoán phong cách), không phải khi nghĩ ý tưởng.
+ */
+function providerMenu(onPick, value = opts.provider, title = "AI viết lời cho video này", styleNote = true) {
+  const all = scriptProviders();
+  const ready = all.filter((p) => p.available);
+  const list = [...ready, ...all.filter((p) => !p.available)];
   return {
-    id: "provider", title: "AI viết lời cho video này", value: opts.provider, onPick,
+    id: "provider", title, value, onPick,
     options: [
       {
         value: "auto",
@@ -1448,7 +1453,7 @@ function providerMenu(onPick) {
         group: p.available ? "Đã có key" : state?.freeMode && p.paid ? "Tắt trong chế độ Miễn phí" : "Chưa có key — điền trong Cài đặt",
         icon: icon("bot"),
         title: p.label,
-        sub: `${p.model}${p.smallPrompt ? " · prompt gọn: phong cách Tự động đoán bằng từ khoá" : ""}`,
+        sub: `${p.model}${styleNote && p.smallPrompt ? " · prompt gọn: phong cách Tự động đoán bằng từ khoá" : ""}`,
         disabled: !p.available,
       })),
     ],
@@ -1991,6 +1996,8 @@ function bindShortcuts() {
 
 // ---------- menu dùng chung ----------
 let menuAnchor = null;
+/** Menu đang mở — nút nghe thử giọng chọn luôn giọng qua onPick của nó. */
+let menuOpen = null;
 
 // ---------- nghe thử giọng ----------
 /**
@@ -2080,6 +2087,16 @@ document.addEventListener("click", (e) => {
   e.preventDefault();
   e.stopPropagation();
   toggleVoicePreview(button);
+  // Nghe thử giọng nào thì chọn luôn giọng đó, menu vẫn mở để nghe tiếp giọng khác. Trước đây nghe thử không chọn:
+  // người dùng nghe Anh Khôi rồi đóng menu, tưởng đã chọn, video vẫn đọc bằng giọng cũ.
+  const row = button.closest(".opt-wrap")?.querySelector(".opt[data-value]");
+  if (!row || row.disabled || !menuOpen || row.dataset.value === menuOpen.value) return;
+  menuOpen.value = row.dataset.value;
+  $("menu").querySelectorAll(".opt").forEach((o) => {
+    o.classList.toggle("on", o === row);
+    o.setAttribute("aria-selected", String(o === row));
+  });
+  menuOpen.onPick(row.dataset.value);
 }, true);
 
 function openMenu(anchor, menu) {
@@ -2087,6 +2104,7 @@ function openMenu(anchor, menu) {
   if (!el.hidden && menuAnchor === anchor) { closeMenu(); return; }
   closeMenu();
   menuAnchor = anchor;
+  menuOpen = menu;
   anchor.setAttribute("aria-expanded", "true");
 
   let group = null;
@@ -2100,7 +2118,7 @@ function openMenu(anchor, menu) {
       data-value="${escapeHtml(o.value)}" ${o.disabled ? "disabled" : ""}>
       <b>${o.icon ? `${o.icon} ` : ""}${escapeHtml(o.title)}</b>${o.sub ? `<span>${escapeHtml(o.sub)}</span>` : ""}${
       o.hint ? `<i class="opt-hint">${escapeHtml(o.hint)}</i>` : ""}</button>`;
-    // o.preview: mã giọng — thêm nút nghe thử cạnh dòng (nút riêng, bấm không chọn giọng, không đóng menu).
+    // o.preview: mã giọng — thêm nút nghe thử cạnh dòng (bấm là nghe và chọn luôn giọng đó, không đóng menu).
     return heading + (o.preview && !o.disabled ? `<div class="opt-wrap">${opt}${voicePreviewButton(o.preview, o.title)}</div>` : opt);
   }).join("");
   el.hidden = false;
@@ -2137,6 +2155,7 @@ function closeMenu() {
   $("menu").hidden = true;
   menuAnchor?.setAttribute("aria-expanded", "false");
   menuAnchor = null;
+  menuOpen = null;
 }
 
 function bindMenu() {
@@ -2957,6 +2976,13 @@ async function submitMulti() {
  */
 let batchSource = "ideas";
 let batchReview = true;     // chốt duyệt lời trước khi render
+/** AI nghĩ ý tưởng — chọn riêng, không đổi "AI viết lời" của cả loạt. */
+let batchIdeaProvider = "auto";
+/**
+ * Lượt nghĩ ý tưởng gần nhất. `lines`: các dòng AI đã điền — lượt sau thay đúng các dòng này, dòng người dùng
+ * tự gõ hoặc đã sửa thì giữ. `undo`: ô danh sách ngay trước lượt đó, cho nút Hoàn tác.
+ */
+let batchIdea = { topic: "", lines: [], undo: null, busy: false };
 /** Nguồn "mỗi video một ô": [{ id, text, settings }] — settings trống = theo cài đặt chung. */
 let batchCards = [];
 let batchMediaModel = "medium";
@@ -3043,10 +3069,16 @@ function bindBatch() {
     box.hidden = !box.hidden;
     if (!box.hidden) $("batchTopic").focus();
   });
-  $("batchTopicGo").addEventListener("click", askForIdeas);
+  $("batchTopicGo").addEventListener("click", () => askForIdeas());
   $("batchTopic").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); askForIdeas(); }
   });
+  $("batchIdeaAgain").addEventListener("click", () => askForIdeas(true));
+  $("batchIdeaUndo").addEventListener("click", undoIdeas);
+  $("batchIdeaAi").addEventListener("click", (e) => openMenu(e.currentTarget, providerMenu((value) => {
+    batchIdeaProvider = value;
+    paintIdeaGen();
+  }, batchIdeaProvider, "AI nghĩ ý tưởng", false)));
 
   $("batchCards").addEventListener("click", (e) => {
     const remove = e.target.closest("[data-card-rm]");
@@ -3200,6 +3232,7 @@ function renderBatchNew() {
   // Không có key viết lời thì cũng không nghĩ ý tưởng được.
   $("batchTopicToggle").hidden = textMode || !hasScriptKey();
   if ($("batchTopicToggle").hidden) $("batchIdeaGen").hidden = true;
+  paintIdeaGen();
 
   renderBatchFields();
   renderBatchCount();
@@ -3391,28 +3424,79 @@ async function importBatchFile(e) {
   setBatchHint(`Đã nạp ${file.name}.`);
 }
 
-async function askForIdeas() {
+/** Hàng "AI nghĩ ý tưởng": nhãn nút chọn AI, trạng thái bận, dòng kết quả. `note` = chữ cho dòng kết quả. */
+function paintIdeaGen(note, isError = false) {
+  const { busy, topic, undo } = batchIdea;
+  $("batchIdeaAi").innerHTML = `${providerIcon(batchIdeaProvider)}<span>${escapeHtml(providerChipLabel(batchIdeaProvider))}</span>`;
+  $("batchIdeaAi").title = "Chọn AI nghĩ ý tưởng — chỉ AI đã có key trong Cài đặt";
+  $("batchIdeaAi").disabled = busy;
+  $("batchTopicGo").disabled = busy;
+  $("batchTopicGo").textContent = busy ? "Đang nghĩ…" : "Nghĩ ý tưởng";
+  if (note === undefined) return;
+  const status = $("batchIdeaStatus");
+  status.hidden = !note;
+  status.classList.toggle("err", isError);
+  $("batchIdeaInfo").innerHTML = note;
+  $("batchIdeaAgain").hidden = !topic;
+  $("batchIdeaAgain").disabled = busy;
+  $("batchIdeaUndo").hidden = busy || !undo;
+}
+
+/**
+ * AI nghĩ danh sách ý tưởng. Bấm "Nghĩ ý tưởng" thì lấy chủ đề trong ô rồi xoá ô; `again` (nút Đổi ý tưởng)
+ * nghĩ lại đúng chủ đề vừa rồi, dặn AI tránh các ý đã đưa. Kết quả THAY các dòng lượt trước AI điền,
+ * không nối thêm — dòng người dùng tự gõ hoặc đã sửa thì giữ ở đầu danh sách.
+ */
+async function askForIdeas(again = false) {
+  if (batchIdea.busy) return;
   blurTyping();
-  const topic = $("batchTopic").value.trim();
-  if (!topic) { setBatchHint("Gõ chủ đề trước đã.", true); return; }
+  const input = $("batchTopic");
+  const topic = again ? batchIdea.topic : input.value.trim();
+  if (!topic) {
+    paintIdeaGen("Gõ chủ đề trước đã.", true);
+    input.focus();
+    return;
+  }
   const count = Math.max(1, Math.min(50, Number($("batchTopicCount").value) || 10));
-  const btn = $("batchTopicGo");
-  btn.disabled = true;
-  btn.textContent = "Đang nghĩ…";
-  setBatchHint("");
+  if (!again) input.value = "";
+  batchIdea.busy = true;
+  paintIdeaGen(`Đang nghĩ ${count} ý tưởng ${again ? "khác " : ""}cho <b>“${escapeHtml(topic)}”</b>…`);
   try {
-    const { ideas } = await postJson("/api/batch/ideas", { topic, count, provider: opts.provider });
-    const current = $("batchText").value.trim();
-    $("batchText").value = (current ? `${current}\n` : "") + ideas.join("\n");
+    const { ideas, provider } = await postJson("/api/batch/ideas", {
+      topic, count, provider: batchIdeaProvider, avoid: again ? batchIdea.lines : [],
+    });
+    const before = $("batchText").value;
+    const fromAi = new Set(batchIdea.lines);
+    const kept = before.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !fromAi.has(line));
+    const keptSet = new Set(kept);
+    const fresh = ideas.filter((idea) => !keptSet.has(idea));
+    $("batchText").value = [...kept, ...fresh].join("\n");
+    batchIdea = {
+      topic, lines: fresh, busy: false,
+      undo: before.trim() ? { text: before, lines: batchIdea.lines, topic: batchIdea.topic } : null,
+    };
     renderBatchCount();
     renderBatchPlan();
-    setBatchHint(`Đã thêm ${ideas.length} ý tưởng — sửa lại dòng nào chưa ưng rồi bấm Chạy loạt.`);
+    const who = scriptProviders().find((p) => p.id === provider)?.label ?? "AI";
+    paintIdeaGen(`${icon("check")} ${escapeHtml(who)} nghĩ ${fresh.length} ý tưởng cho <b>“${escapeHtml(topic)}”</b>${
+      kept.length ? ` · giữ ${kept.length} dòng bạn tự gõ/sửa` : ""}`);
   } catch (err) {
-    setBatchHint(err.message, true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Nghĩ ý tưởng";
+    batchIdea.busy = false;
+    // Lỗi thì trả chủ đề về ô (nếu người dùng chưa gõ chủ đề khác) để bấm lại ngay.
+    if (!again && !input.value.trim()) input.value = topic;
+    paintIdeaGen(escapeHtml(err.message), true);
   }
+}
+
+/** Trả ô danh sách về như trước lượt nghĩ ý tưởng vừa rồi. */
+function undoIdeas() {
+  const { undo } = batchIdea;
+  if (!undo || batchIdea.busy) return;
+  $("batchText").value = undo.text;
+  batchIdea = { topic: undo.topic, lines: undo.lines, undo: null, busy: false };
+  renderBatchCount();
+  renderBatchPlan();
+  paintIdeaGen(undo.topic ? `Đã trả lại danh sách trước — ý tưởng cho <b>“${escapeHtml(undo.topic)}”</b>` : "Đã trả lại danh sách trước.");
 }
 
 // ---------- nguồn: mỗi video một ô ----------
@@ -3787,6 +3871,9 @@ async function createBatch() {
     $("batchText").value = "";
     batchCards = [];
     batchMedia = [];
+    // Loạt đã chạy: lượt nghĩ ý tưởng cũ không còn gì để thay hay hoàn tác.
+    batchIdea = { topic: "", lines: [], undo: null, busy: false };
+    paintIdeaGen("");
     $("batchName").value = "";
     loadHistory();
     location.hash = `#/batch/${batch.id}`;
@@ -4003,15 +4090,17 @@ function batchItemTile(it, i) {
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
   // Mục dựng từ file thu sẵn hoặc từ video gốc không có "nội dung đã gõ" để sửa lại.
   const editable = !it.file && !it.variant && !busy;
+  // Có kịch bản (script.json) thì sửa được cả lời — kể cả biến thể; file thu sẵn thì không có kịch bản.
+  const scriptEditable = !it.file && !busy && Boolean(it.slug);
 
   const actions = [];
   if (it.status === "review") {
     actions.push(btn("approve", `${icon("check")} Duyệt`, "primary"));
-    if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}" title="Mở video để sửa lời rồi quay lại duyệt">${icon("pencil")} Sửa lời</a>`);
+    if (it.slug) actions.push(btn("edit", `${icon("pencil")} Sửa lời`));
     actions.push(btn("skip", `${icon("skip-forward")} Bỏ`));
   } else if (it.status === "error") {
     actions.push(btn("retry", `${icon("rotate-cw")} Thử lại`));
-    if (editable) actions.push(btn("edit", `${icon("pen-line")} Đổi nội dung`));
+    if (editable || (scriptEditable && it.slug)) actions.push(btn("edit", `${icon("pen-line")} Sửa nội dung`));
     actions.push(`<button type="button" class="btn" data-act="remove" data-id="${it.id}" title="Bỏ khỏi loạt" aria-label="Bỏ khỏi loạt">${icon("trash-2")}</button>`);
   } else if (it.status === "done") {
     if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}">${icon("play")} Mở</a>`);
@@ -4021,7 +4110,7 @@ function batchItemTile(it, i) {
         title="Mở trình chỉnh sửa ở tab mới — sửa xong bấm Xuất video, gói Tải tất cả sẽ lấy bản đã sửa">${icon("scissors")} Chỉnh sửa</a>`);
     }
     if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>${icon("download")} Tải</a>`);
-    if (editable) actions.push(btn("edit", `${icon("pen-line")} Sửa`));
+    if (scriptEditable) actions.push(btn("edit", `${icon("pen-line")} Sửa lời`));
     else actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
   } else if (it.status === "skipped") {
     actions.push(btn("retry", `${icon("undo-2")} Đưa lại`));
@@ -4055,7 +4144,7 @@ function batchItemTile(it, i) {
 
   const stateCls = { done: "done", error: "err", review: "review", preparing: "run", building: "run" }[it.status] ?? "";
   return `<div class="bt-card tile ${busy ? "on" : ""} ${it.status === "error" ? "err" : ""}"
-      ${editable ? `data-item-open="${it.id}" role="button" tabindex="0"` : ""}>
+      ${editable || scriptEditable ? `data-item-open="${it.id}" role="button" tabindex="0"` : ""}>
     <div class="bt-card-head">
       <span>Video ${i + 1}</span><span class="spacer"></span>
       <span class="bt-state ${stateCls}">${BT_BADGE[it.status] ?? "•"} ${BT_LABEL[it.status] ?? it.status}</span>
@@ -4069,19 +4158,42 @@ function batchItemTile(it, i) {
   </div>`;
 }
 
-/** Ô đang mở để sửa: ô nhập + chip cài đặt riêng, lưu là làm lại video đó. */
+/**
+ * Ô đang mở để sửa. Hai kiểu:
+ * - "script": toàn bộ lời đã viết (tiêu đề, cảnh, nhãn, câu nhấn) — sửa hoặc dán đè, lưu là dựng lại từ đúng
+ *   lời đó, không gọi AI. Mục đang chờ duyệt thì Lưu & duyệt.
+ * - "idea": nội dung đã gõ lúc tạo loạt (thường là một câu ý tưởng) — lưu là AI viết lại lời từ đầu.
+ */
 function batchEditTile(it, i) {
-  return `<div class="bt-card editing">
+  const btnAct = (act, label, cls = "") =>
+    `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
+  const script = batchEdit.kind === "script";
+  const actions = script
+    ? [
+      it.status === "review"
+        ? btnAct("save-approve", `${icon("check")} Lưu &amp; duyệt`, "primary") + btnAct("save-script", `${icon("save")} Lưu lời`)
+        : btnAct("save-script", `${icon("save")} Lưu &amp; dựng lại`, "primary"),
+      btnAct("cancel", "Huỷ"),
+      `<span class="spacer"></span>`,
+      it.variant ? "" : btnAct("edit-idea", `${icon("wand-sparkles")} Viết lại từ ý tưởng (AI)`),
+    ]
+    : [btnAct("save", `${icon("save")} Lưu &amp; làm lại`, "primary"), btnAct("cancel", "Huỷ")];
+  const help = script
+    ? `<p class="bt-edit-help">Toàn bộ lời của video — sửa thẳng hoặc dán đè lời mới. Mỗi dòng một câu, dòng trống sang cảnh mới,
+        <code>[nhãn]</code> ở đầu cảnh, <code>**câu nhấn**</code>, <code>! con số | chú thích</code>.
+        ${it.status === "review" ? "" : "Lưu là dựng lại từ đúng lời này, không gọi AI viết lại; ảnh các cảnh cũ được giữ."}
+        ${it.edited ? " Chỉnh sửa trong trình chỉnh sửa sẽ không áp vào bản dựng lại (bản cũ vẫn còn trong lịch sử video)." : ""}</p>`
+    : `<p class="bt-edit-help">${it.slug ? "Đổi nội dung rồi lưu: AI viết lại lời từ đầu cho video này." : "Sửa nội dung rồi lưu để làm lại video này."}</p>`;
+  return `<div class="bt-card editing${script ? " script" : ""}">
     <div class="bt-card-head">
-      <span>Video ${i + 1}</span><span class="spacer"></span>
+      <span>Video ${i + 1} · ${script ? "Sửa lời" : "Sửa nội dung"}</span><span class="spacer"></span>
       <button type="button" class="icon-btn" data-act="cancel" data-id="${it.id}" aria-label="Đóng">${icon("x")}</button>
     </div>
-    <textarea data-edit-text spellcheck="false" aria-label="Nội dung video ${i + 1}"></textarea>
+    ${help}
+    <textarea data-edit-text spellcheck="false" aria-label="${script ? "Lời" : "Nội dung"} video ${i + 1}"></textarea>
     ${cardChipsHtml(it.id, batchEdit.settings)}
-    <div class="bt-actions">
-      <button type="button" class="btn primary" data-act="save" data-id="${it.id}">${icon("save")} Lưu &amp; làm lại</button>
-      <button type="button" class="btn" data-act="cancel" data-id="${it.id}">Huỷ</button>
-    </div>
+    ${batchEdit.error ? `<p class="bt-err">${escapeHtml(batchEdit.error)}</p>` : ""}
+    <div class="bt-actions">${actions.join("")}</div>
   </div>`;
 }
 
@@ -4091,8 +4203,11 @@ function bindBatchTiles() {
   if (!box || !batchEdit) return;
   box.value = batchEdit.text;
   box.addEventListener("input", () => { batchEdit.text = box.value; });
-  box.focus();
-  box.setSelectionRange(box.value.length, box.value.length);
+  box.focus({ preventScroll: true });
+  // Cả kịch bản thì đặt con trỏ ở đầu để đọc từ tiêu đề; một câu ý tưởng thì đặt cuối để gõ tiếp.
+  const at = batchEdit.kind === "script" ? 0 : box.value.length;
+  box.setSelectionRange(at, at);
+  box.closest(".bt-card")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 /**
@@ -4146,12 +4261,52 @@ function ownSettings(it) {
   return own;
 }
 
-function openBatchEdit(itemId) {
+/**
+ * Mở ô sửa của một mục. Mục đã có kịch bản thì hiện TOÀN BỘ lời để sửa/thay; chưa có (lỗi trước bước viết lời)
+ * hoặc `kind` = "idea" thì hiện nội dung đã gõ lúc tạo loạt.
+ */
+async function openBatchEdit(itemId, kind = "script") {
+  const batchId = batchCur?.id;
   const it = batchCur?.items.find((item) => item.id === itemId);
-  if (!it || it.file || it.variant) return;
-  batchEdit = { itemId, text: it.input, settings: ownSettings(it) };
+  if (!it || it.file) return;
+  let text = null;
+  if (kind === "script" && it.slug) {
+    try {
+      ({ text } = await api(`/api/batch/${batchId}/script?item=${encodeURIComponent(itemId)}`));
+    } catch {
+      text = null;
+    }
+    if (batchCur?.id !== batchId) return;   // đã sang loạt khác trong lúc chờ
+  }
+  if (text == null && it.variant) {
+    $("batchRunHint").textContent = "Video này chưa có lời để sửa — bấm Thử lại.";
+    return;
+  }
+  batchEdit = text != null
+    ? { itemId, kind: "script", text, settings: ownSettings(it) }
+    : { itemId, kind: "idea", text: it.input, settings: ownSettings(it) };
   $("batchItems").innerHTML = batchCur.items.map(batchItemTile).join("");
   bindBatchTiles();
+}
+
+/** Lưu lời đã sửa. Lỗi (cú pháp, đang chạy…) thì ô vẫn mở, giữ nguyên chữ để sửa tiếp. */
+async function saveBatchScript(itemId, approve) {
+  if (!batchEdit || !batchCur || batchEdit.kind !== "script") return;
+  const edit = batchEdit;
+  const text = edit.text.trim();
+  const redraw = () => {
+    $("batchItems").innerHTML = batchCur.items.map(batchItemTile).join("");
+    bindBatchTiles();
+  };
+  if (!text) { edit.error = "Lời đang trống — dán hoặc gõ lời trước đã."; return redraw(); }
+  try {
+    await postJson(`/api/batch/${batchCur.id}/script`, { itemId, text, settings: cardSettings(edit), approve });
+    if (batchEdit === edit) batchEdit = null;
+    await loadBatch(batchCur.id);
+  } catch (e) {
+    edit.error = e.message;
+    if (batchEdit === edit) redraw();
+  }
 }
 
 function closeBatchEdit() {
@@ -4201,6 +4356,9 @@ async function onBatchItemClick(e) {
   }
   const { act, id } = button.dataset;
   if (act === "edit") return openBatchEdit(id);
+  if (act === "edit-idea") return openBatchEdit(id, "idea");
+  if (act === "save-script") return saveBatchScript(id, false);
+  if (act === "save-approve") return saveBatchScript(id, true);
   if (act === "cancel") return closeBatchEdit();
   if (act === "save") return saveBatchEdit(id);
   if (act === "remove") {

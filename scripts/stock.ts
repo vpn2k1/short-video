@@ -331,20 +331,94 @@ export const downloadStock = async (provider: StockProvider, kind: StockKind, id
  * Hình cho cảnh trong pipeline: tìm theo truy vấn (tiếng Anh), lấy kết quả đầu tiên chưa dùng trong video này.
  * `kind` video: ưu tiên clip dài ít nhất bằng cảnh (ngắn hơn thì ClipVideo tự lặp). Hết cách thì trả null.
  */
+/** Từ không mang nghĩa khi so mô tả ảnh với chủ đề cảnh. */
+const STOP_WORDS = new Set(("a an the of on in at to for with and or by from into over under near its his her their " +
+  "is are was were be being this that these those some very close up closeup view photo image picture stock free").split(" "));
+
+/** Gốc từ thô: "noodles" → "noodle", "dishes" → "dish" — đủ để so mô tả ảnh tiếng Anh. */
+const stem = (word: string) =>
+  word.length > 4 && word.endsWith("es") && /(sh|ch|x|s|z)es$/.test(word) ? word.slice(0, -2)
+    : word.length > 3 && word.endsWith("s") && !word.endsWith("ss") ? word.slice(0, -1)
+      : word;
+
+const wordsOf = (text: string) =>
+  text.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !STOP_WORDS.has(w)).map(stem);
+
+/**
+ * Mức khớp của một kết quả với cảnh, theo mô tả ảnh (alt của Pexels, thẻ của Pixabay, tên trang video Pexels). Kho ảnh
+ * xếp kết quả theo độ phổ biến, không theo độ đúng — ảnh đầu tiên hay là ảnh "đẹp" lệch chủ đề.
+ * - Tỉ lệ từ khoá có mặt; từ khoá đầu (chủ thể chính) nặng gấp đôi.
+ * - Cộng điểm khi mô tả chứa nguyên một cụm hai từ của truy vấn ("fish sauce" liền nhau): "fish sticks … with sauce"
+ *   có đủ hai chữ nhưng là món khác.
+ */
+export const stockRelevance = (item: StockItem, keywords: string[], phrases: string[] = []) => {
+  const want = [...new Set(keywords.flatMap(wordsOf))];
+  const seq = wordsOf(item.title);
+  const have = new Set(seq);
+  const weight = (k: number) => (k === 0 ? 2 : 1);
+  const totalWeight = want.reduce((sum, _w, k) => sum + weight(k), 0);
+  const hitWeight = want.reduce((sum, w, k) => sum + (have.has(w) ? weight(k) : 0), 0);
+  const pairs = new Set(seq.slice(1).map((w, k) => `${seq[k]} ${w}`));
+  const phraseHits = [...new Set(phrases.flatMap((p) => {
+    const words = wordsOf(p);
+    return words.slice(1).map((w, k) => `${words[k]} ${w}`);
+  }))].filter((pair) => pairs.has(pair)).length;
+  const score = (totalWeight ? hitWeight / totalWeight : 0) + Math.min(2, phraseHits) * 0.25;
+  return { score, matched: want.filter((w) => have.has(w)).length, total: want.length };
+};
+
+/**
+ * Ảnh/clip kho cho một cảnh. `plan`: truy vấn theo thứ tự ưu tiên + từ khoá chấm điểm (writeStockQueries), hoặc một
+ * truy vấn trơn (khi không có AI chọn từ khoá — chấm theo chính các từ của truy vấn).
+ * Thử truy vấn chính trước; chỉ tìm tiếp bằng truy vấn dự phòng khi chưa có ảnh khớp tốt, để đỡ tốn lượt gọi.
+ */
 export const stockForScene = async (
   kind: "image" | "video",
-  query: string,
+  plan: string | { queries: string[]; keywords: string[] },
   minSeconds: number,
   used: Set<string>,
 ) => {
-  const { items } = await searchStock(kind, query, "portrait");
-  const fresh = items.filter((i) => !used.has(`${i.provider}-${i.id}`));
-  const pick = kind === "video"
-    ? fresh.find((i) => (i.duration ?? 0) >= minSeconds) ?? fresh[0]
-    : fresh[0];
-  if (!pick) return null;
-  used.add(`${pick.provider}-${pick.id}`);
-  return downloadStock(pick.provider, pick.kind, pick.id);
+  const best = await pickStock(kind, plan, minSeconds, used);
+  if (!best) return null;
+  used.add(`${best.item.provider}-${best.item.id}`);
+  const file = await downloadStock(best.item.provider, best.item.kind, best.item.id);
+  return { ...file, query: best.query, matched: best.matched, total: best.total };
+};
+
+type StockPick = { item: StockItem; rank: number; matched: number; total: number; query: string };
+
+/** Tìm và chấm điểm, chưa tải — chọn kết quả khớp cảnh nhất qua các truy vấn của `plan`. */
+export const pickStock = async (
+  kind: "image" | "video",
+  plan: string | { queries: string[]; keywords: string[] },
+  minSeconds: number,
+  used: Set<string>,
+): Promise<StockPick | null> => {
+  const { queries, keywords } = typeof plan === "string" ? { queries: [plan], keywords: [] } : plan;
+  let best = null as StockPick | null;
+  let firstError: unknown = null;
+  for (const [qi, query] of queries.entries()) {
+    let items: StockItem[];
+    try {
+      ({ items } = await searchStock(kind, query, "portrait"));
+    } catch (error) {
+      firstError ??= error;
+      continue;
+    }
+    const words = keywords.length ? keywords : [query];
+    for (const [i, item] of items.entries()) {
+      if (used.has(`${item.provider}-${item.id}`)) continue;
+      const { score, matched, total } = stockRelevance(item, words, queries);
+      // Khớp là chính; cùng mức khớp thì ưu tiên truy vấn chính và thứ hạng của kho. Clip ngắn hơn cảnh bị trừ nhẹ.
+      const short = kind === "video" && (item.duration ?? 0) < minSeconds ? 0.15 : 0;
+      const rank = score - qi * 0.05 - i * 0.004 - short;
+      if (!best || rank > best.rank) best = { item, rank, matched, total, query };
+    }
+    // Đủ tốt (khớp ≥ 2/3 từ khoá, hoặc hết từ khoá nếu ít) thì thôi tìm tiếp.
+    if (best && best.total > 0 && best.matched >= Math.min(best.total, Math.max(2, Math.ceil(best.total * 0.6)))) break;
+  }
+  if (!best && firstError) throw firstError;
+  return best;
 };
 
 /** Giá trị nhạc nền "🎲 Nhạc ngẫu nhiên" — mỗi lần dựng video chọn một bản khác (xem resolveMusicChoice ở server/chat.ts). */

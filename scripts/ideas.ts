@@ -44,21 +44,30 @@ const readIdeas = (reply: JsonReply) => {
   return [...new Set(ideas)];
 };
 
+/** So khớp ý tưởng trùng: bỏ hoa thường, dấu câu và khoảng trắng thừa. */
+const sameIdea = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
 /**
  * Chủ đề → danh sách ý tưởng. Nhà cung cấp nào hết lượt thì thử cái tiếp theo có key,
  * giống hệt lúc viết kịch bản.
+ *
+ * `avoid`: ý tưởng đã đưa ra ở lượt trước (nút "Đổi ý tưởng") — dặn model nghĩ ý khác và bỏ câu trùng.
  */
 export const generateIdeas = async (
   topic: string,
   count: number,
   provider: ProviderChoice = "auto",
+  avoid: string[] = [],
 ): Promise<{ ideas: string[]; provider: ScriptProvider }> => {
   const want = Math.max(1, Math.min(MAX_IDEAS, Math.round(count)));
+  const avoidList = avoid.map((line) => line.trim()).filter(Boolean).slice(0, MAX_IDEAS);
   const { value, provider: chosen } = await askJson(
     provider,
     {
       system: systemPrompt(want),
-      user: `Chủ đề: ${topic}`,
+      user: avoidList.length
+        ? `Chủ đề: ${topic}\n\nNhững ý tưởng dưới đây đã có — nghĩ ${want} ý tưởng KHÁC hẳn, không lặp lại, không diễn đạt lại:\n${avoidList.map((line) => `- ${line}`).join("\n")}`
+        : `Chủ đề: ${topic}`,
       schema: {
         type: "object",
         properties: { ideas: { type: "array", items: { type: "string" } } },
@@ -69,6 +78,9 @@ export const generateIdeas = async (
     readIdeas,
     "Chưa có AI nào để nghĩ ý tưởng. Điền key trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí), hoặc tự gõ mỗi dòng một ý tưởng.",
   );
+  // Model nhỏ hay chép lại ý cũ dù đã dặn: bỏ câu trùng, trừ khi bỏ xong không còn gì.
+  const seen = new Set(avoidList.map(sameIdea));
+  const fresh = value.filter((idea) => !seen.has(sameIdea(idea)));
   // Model trả dư thì cắt; trả thiếu vẫn dùng — người dùng thấy danh sách và tự thêm được.
-  return { ideas: value.slice(0, want), provider: chosen };
+  return { ideas: (fresh.length ? fresh : value).slice(0, want), provider: chosen };
 };

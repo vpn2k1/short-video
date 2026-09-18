@@ -36,7 +36,7 @@ import {
 } from "./chat";
 import {
   approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
-  listBatches, pauseBatch, readBatch, removeItems, restyleSubs, retryItems, skipItems, startBatch,
+  listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
   SPOKEN_LANGUAGES,
 } from "./batch";
 import {
@@ -606,7 +606,7 @@ const server = http.createServer(async (req, res) => {
     // AI nghĩ danh sách ý tưởng từ một chủ đề — đặt trước /api/batch/<id> để không bị nuốt.
     if (route === "/api/batch/ideas" && req.method === "POST") {
       try {
-        const body = await readJson<{ topic?: string; count?: number; provider?: string }>(req);
+        const body = await readJson<{ topic?: string; count?: number; provider?: string; avoid?: unknown }>(req);
         if (!body.topic?.trim()) {
           return send(res, 400, { error: "Nhập chủ đề trước đã." });
         }
@@ -614,6 +614,7 @@ const server = http.createServer(async (req, res) => {
           body.topic.trim(),
           Number(body.count) || 10,
           isScriptProvider(body.provider) ? body.provider : "auto",
+          Array.isArray(body.avoid) ? body.avoid.filter((line): line is string => typeof line === "string").map((line) => line.slice(0, 300)) : [],
         ));
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
@@ -664,6 +665,10 @@ const server = http.createServer(async (req, res) => {
           }
           return res.end();
         }
+        // Toàn bộ lời của một mục — ô "Sửa lời" trên bảng theo dõi.
+        if (action === "script" && req.method === "GET") {
+          return send(res, 200, readItemScript(id, url.searchParams.get("item")));
+        }
         if (action === "csv" && req.method === "GET") {
           return send(res, 200, batchCsv(id), {
             "Content-Type": "text/csv; charset=utf-8",
@@ -674,6 +679,7 @@ const server = http.createServer(async (req, res) => {
           const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown }>(req);
           if (action === "restyle") return send(res, 200, restyleSubs(id, body.look, body.looks));
           if (action === "edit") return send(res, 200, editItem(id, body));
+          if (action === "script") return send(res, 200, saveItemScript(id, body));
           if (action === "start") return send(res, 200, startBatch(id));
           if (action === "pause") return send(res, 200, pauseBatch(id));
           if (action === "approve") return send(res, 200, approveItems(id, body.ids));
