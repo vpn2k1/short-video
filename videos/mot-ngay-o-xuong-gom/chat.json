@@ -1,0 +1,65 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "# Một ngày ở xưởng gốm\n> Clip tự quay, chỉ cắt gọn\n\nSáng sớm, lò vẫn còn ấm từ đêm qua.\nMẻ men mới pha trước khi trời nắng.\n\nBàn xoay chạy, đất lên hình trong ba phút.\nTay ướt, nhịp đều, không vội.\n\nChiều nay ra lò mười hai chiếc.\nHỏng hai, còn mười.",
+      "at": 1789705507521,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789705554889,
+      "text": "Đã tạo \"Một ngày ở xưởng gốm\" · 🎬 Video gốc · 3 cảnh · 18.8s\n🖼 3/3 cảnh có hình từ kho ảnh miễn phí · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "plain",
+      "mp4": "/out/versions/mot-ngay-o-xuong-gom/v1.mp4?t=1789705554899",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Sáng sớm, lò vẫn còn ấm từ đêm qua.",
+            "Mẻ men mới pha trước khi trời nắng."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bàn xoay chạy, đất lên hình trong ba phút.",
+            "Tay ướt, nhịp đều, không vội."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Chiều nay ra lò mười hai chiếc.",
+            "Hỏng hai, còn mười."
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    },
+    {
+      "role": "assistant",
+      "at": 1789705782045,
+      "text": "Đã xuất từ trình chỉnh sửa (chỉnh từ bản 1) · 18.8s",
+      "mp4": "/out/versions/mot-ngay-o-xuong-gom/v2.mp4?t=1789705782068",
+      "aspect": "9:16",
+      "style": "plain",
+      "edited": true,
+      "from": 1,
+      "version": 2
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "plain",
+    "mode": "text",
+    "aspect": "9:16",
+    "voice": "ngoc-huyen",
+    "music": "random",
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "length": "auto"
+  }
+}
