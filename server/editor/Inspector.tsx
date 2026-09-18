@@ -1,14 +1,20 @@
-import { Children, isValidElement, useCallback, useEffect, useState } from "react";
-import { CAPTION_FONTS, CAPTION_PRESETS, type CaptionLook, type MediaOverlay, type Scene, type ShortProps } from "../../src/compositions/Short/schema";
+import {
+  ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Captions, Clapperboard, Crop, FileText, Film, Gift, Image as ImageIcon, Maximize, Mic, MoveHorizontal, Music, Palette, Pointer, Repeat, RotateCcw, RotateCw, Scissors, Search, Sparkles, Tag, Trash2, Type, Upload, Volume2, VolumeX, X,
+} from "lucide-react";
+import { Children, isValidElement, useCallback, useEffect, useRef, useState } from "react";
+import { CAPTION_PRESETS, type CaptionLook, type MediaOverlay, type Scene, type ShortProps } from "../../src/compositions/Short/schema";
 import { overlayTransformAt } from "../../src/compositions/Short/overlayMotion";
 import { ASPECT_IDS, ASPECTS } from "../../src/aspects";
 import { STYLE_IDS, STYLES } from "../../src/styles/meta";
 import {
-  CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, canCustomizeCaptions, resolveCaptionLook, textLook, usesCustomCaptions,
+  CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, canCustomizeCaptions, resolveCaptionLook, textLook, usesCustomCaptions,
 } from "../../src/components/captionLook";
 import { captionTextStyle } from "../../src/components/CustomCaptions";
-import { api, fmt, type MediaItem, type SubtitleOptions, type TranslateCatalog, type TranslateEngine, type TranslateEngineInfo, type VoiceOption } from "./api";
+import { api, fmt, mediaAspect, type MediaItem, type SubtitleOptions, type TranslateCatalog, type TranslateEngine, type TranslateEngineInfo, type VoiceOption } from "./api";
+import type { LibrarySection } from "./MediaPanel";
 import * as ops from "./ops";
+import { FontPicker } from "./FontPicker";
+import { VoicePreviewButton } from "./VoicePreview";
 
 type Props = {
   props: ShortProps;
@@ -35,6 +41,103 @@ type Props = {
   onSeek: (ms: number) => void;
   /** Chạy một thao tác ops (giữ nguyên thông báo và lựa chọn nó trả về). */
   onRun: (result: ops.Result) => void;
+  /** Đang tải file lên thư viện. */
+  uploading: boolean;
+  /** Thay ảnh/video của khối video `index` bằng một mục trong thư viện — giữ nguyên chỗ trên timeline. */
+  onReplaceMedia: (index: number, item: MediaItem) => void;
+  /** Thay bằng file chọn từ máy (tải lên thư viện rồi thay). */
+  onReplaceFile: (index: number, file: File) => void;
+  /** Mở một mục của thư viện bên cạnh (Kho free, Video AI…). */
+  onOpenLibrary: (section: LibrarySection) => void;
+};
+
+/**
+ * Thay thế hình của khối đang chọn: chọn file từ máy (bấm hoặc kéo thả vào), chọn trong thư viện,
+ * hoặc mở Kho free / Video AI — kết quả ở đó bấm "Dùng" cũng thay đúng khối này. Không phải xoá rồi thêm lại.
+ */
+const ReplaceMedia: React.FC<{
+  current: string;
+  media: MediaItem[];
+  uploading: boolean;
+  onPick: (item: MediaItem) => void;
+  onFile: (file: File) => void;
+  onOpenLibrary: (section: LibrarySection) => void;
+  /** Panel gom khối theo prop này của phần tử con — đặt ở đây để mục có tab riêng. */
+  "data-tab"?: string;
+}> = ({ current, media, uploading, onPick, onFile, onOpenLibrary, "data-tab": tab }) => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [filter, setFilter] = useState<"all" | "image" | "video">("all");
+  const [query, setQuery] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const q = query.trim().toLowerCase();
+  const items = media
+    .filter((m) => m.kind !== "audio" && (filter === "all" || m.kind === filter))
+    .filter((m) => !q || m.name.toLowerCase().includes(q) || m.path.toLowerCase().includes(q));
+  const firstFile = (files: FileList | null) => {
+    const file = files?.[0];
+    if (file) onFile(file);
+  };
+  return (
+    <section
+      className={`in-sec in-replace ${dragging ? "drop" : ""}`}
+      data-tab={tab}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        setDragging(false);
+        firstFile(e.dataTransfer.files);
+      }}
+    >
+      <h3><Repeat size={16} aria-hidden /> Thay ảnh/video</h3>
+      <p className="in-note">Giữ nguyên chỗ trên timeline, vị trí, thu phóng và chuyển động — chỉ đổi hình.</p>
+      <input ref={fileRef} type="file" hidden accept="image/*,video/*" onChange={(e) => {
+        firstFile(e.target.files);
+        e.target.value = "";
+      }} />
+      <div className="in-actions">
+        <button className="primary" disabled={uploading} onClick={() => fileRef.current?.click()}>
+          {uploading ? "Đang tải lên…" : <><Upload size={16} aria-hidden /> Chọn từ máy</>}
+        </button>
+        <button onClick={() => onOpenLibrary("stock")} title="Tìm ảnh/video miễn phí — bấm Dùng để thay khối này"><Gift size={16} aria-hidden /> Kho free</button>
+        <button onClick={() => onOpenLibrary("ai")} title="Tạo video AI — bật “gán vào mục đang chọn” để thay khối này"><Sparkles size={16} aria-hidden /> Video AI</button>
+      </div>
+      <small className="in-hint">Hoặc kéo file từ máy thả vào đây.</small>
+
+      <div className="in-replace-bar">
+        <input type="search" placeholder="Tìm trong thư viện…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="md-filter">
+          {(["all", "image", "video"] as const).map((f) => (
+            <button key={f} className={filter === f ? "on" : ""} onClick={() => setFilter(f)}>
+              {f === "all" ? "Tất cả" : f === "image" ? "Ảnh" : "Video"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="in-replace-grid">
+        {items.map((m) => (
+          <button
+            key={m.path}
+            className={m.path === current ? "on" : ""}
+            onClick={() => onPick(m)}
+            title={m.path === current ? `${m.name} (đang dùng)` : `Thay bằng ${m.name}`}
+          >
+            {m.kind === "video"
+              ? <video src={`/public/${m.path}#t=0.5`} muted playsInline preload="metadata" />
+              : <img src={`/public/${m.path}`} alt="" loading="lazy" />}
+            {m.kind === "video" ? <i><Clapperboard size={14} aria-hidden /></i> : null}
+            <span>{m.name}</span>
+          </button>
+        ))}
+        {items.length === 0 ? <p className="in-note">{q ? `Không có file khớp “${query}”.` : "Thư viện chưa có ảnh/video — chọn từ máy."}</p> : null}
+      </div>
+    </section>
+  );
 };
 
 const Field: React.FC<{ label: string; children: React.ReactNode; hint?: string }> = ({ label, children, hint }) => (
@@ -68,19 +171,34 @@ const Slider: React.FC<{ value: number; min?: number; max: number; step?: number
   </div>
 );
 
-const VoiceSelect: React.FC<{ voices: VoiceOption[]; value: string; onChange: (key: string) => void }> = ({ voices, value, onChange }) => (
-  <select value={value} onChange={(e) => onChange(e.target.value)}>
-    {(["vi", "en"] as const).map((lang) => (
-      <optgroup key={lang} label={lang === "vi" ? "Tiếng Việt" : "Tiếng Anh"}>
-        {voices.filter((v) => v.lang === lang).map((v) => (
-          <option key={v.key} value={v.key} disabled={v.paidPlan}>
-            {v.key} — {v.label.split("—")[1]?.trim()} · {v.engineLabel}{v.paidPlan ? " (trả phí)" : ""}
-          </option>
-        ))}
-      </optgroup>
-    ))}
-  </select>
-);
+/** Ô chọn giọng + nút ▶ nghe thử giọng đang chọn (VoicePreview.tsx). */
+const VoiceSelect: React.FC<{ voices: VoiceOption[]; value: string; onChange: (key: string) => void }> = ({ voices, value, onChange }) => {
+  const [error, setError] = useState<string | null>(null);
+  /** Giọng vừa nghe thử xong lần đầu trong phiên này — danh sách giọng từ server chưa biết. */
+  const [sampled, setSampled] = useState<Set<string>>(() => new Set());
+  const current = voices.find((v) => v.key === value);
+  const costs = current?.online && !current.sampled && !sampled.has(value) ? current.engineLabel : null;
+  return (
+    <>
+      <div className="voice-pick">
+        <select value={value} onChange={(e) => onChange(e.target.value)}>
+          {(["vi", "en"] as const).map((lang) => (
+            <optgroup key={lang} label={lang === "vi" ? "Tiếng Việt" : "Tiếng Anh"}>
+              {voices.filter((v) => v.lang === lang).map((v) => (
+                <option key={v.key} value={v.key} disabled={v.paidPlan}>
+                  {v.key} — {v.label.split("—")[1]?.trim()} · {v.engineLabel}{v.paidPlan ? " (trả phí)" : ""}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <VoicePreviewButton voice={value} costs={costs} onError={setError}
+          onSampled={() => setSampled((s) => (s.has(value) ? s : new Set(s).add(value)))} />
+      </div>
+      {error ? <p className="voice-err">{error}</p> : null}
+    </>
+  );
+};
 
 /** Lựa chọn dịch phụ đề — nhớ trong trình duyệt. `to` rỗng = không dịch; `engine` rỗng = tự chọn model đã có key. */
 type TranslateChoice = { to: string; engine: TranslateEngine | ""; keepOriginal: boolean };
@@ -186,11 +304,11 @@ const OllamaGuide: React.FC<{
       </ol>
       <small className="in-hint">
         {os === "win32" ? "Máy không có card đồ hoạ rời vẫn chạy được bằng CPU, chỉ chậm hơn. " : ""}
-        Cần máy 8 GB RAM trở lên. Máy 16 GB RAM: điền translategemma:12b ở trang chính › ⚙ Cài đặt › Dịch phụ đề để dịch tốt hơn.
+        Cần máy 8 GB RAM trở lên. Máy 16 GB RAM: điền translategemma:12b ở trang chính › Cài đặt › Dịch phụ đề để dịch tốt hơn.
       </small>
-      <small className="in-hint">Không muốn cài: thêm key miễn phí Gemini, Groq hoặc OpenRouter ở trang chính › ⚙ Cài đặt.</small>
+      <small className="in-hint">Không muốn cài: thêm key miễn phí Gemini, Groq hoặc OpenRouter ở trang chính › Cài đặt.</small>
       <div className="in-actions">
-        <button type="button" onClick={onRefresh} disabled={checking}>{checking ? "Đang kiểm tra…" : "↻ Kiểm tra lại"}</button>
+        <button type="button" onClick={onRefresh} disabled={checking}>{checking ? "Đang kiểm tra…" : <><RotateCw size={16} aria-hidden /> Kiểm tra lại</>}</button>
       </div>
     </div>
   );
@@ -291,7 +409,7 @@ type LookScope = "all" | "selected" | "checked";
  * Chọn mục khác trên timeline vẫn giữ phạm vi và dấu tích.
  */
 const LookPanel: React.FC<{
-  title: string;
+  title: React.ReactNode;
   /** "phụ đề" | "văn bản" — dùng trong nhãn. */
   noun: string;
   items: string[];
@@ -399,11 +517,7 @@ const LookPanel: React.FC<{
         </div>
 
         <Field label="Font chữ">
-          <select value={look.font} onChange={(e) => set({ font: e.target.value as CaptionLook["font"] })}>
-            {CAPTION_FONTS.map((font) => (
-              <option key={font} value={font}>{CAPTION_FONT_LABELS[font]}</option>
-            ))}
-          </select>
+          <FontPicker value={look.font} onChange={(font) => set({ font })} />
         </Field>
         <Field label="Cỡ chữ (px, tính ở khung 1080)">
           <div className="in-size">
@@ -457,7 +571,11 @@ const LookPanel: React.FC<{
 
         <span className="in-label">Căn chữ</span>
         <div className="in-seg" role="radiogroup" aria-label="Căn chữ">
-          {([["left", "⇤ Trái"], ["center", "↔ Giữa"], ["right", "Phải ⇥"]] as const).map(([value, label]) => (
+          {([
+            ["left", <><ArrowLeftToLine size={16} aria-hidden /> Trái</>],
+            ["center", <><MoveHorizontal size={16} aria-hidden /> Giữa</>],
+            ["right", <>Phải <ArrowRightToLine size={16} aria-hidden /></>],
+          ] as const).map(([value, label]) => (
             <button key={value} role="radio" aria-checked={look.align === value} className={look.align === value ? "on" : ""} onClick={() => set({ align: value })}>
               {label}
             </button>
@@ -502,10 +620,10 @@ const CaptionLookSection: React.FC<{
   if (!canCustomizeCaptions(props.style)) {
     return (
       <section className="in-sec">
-        <h3>🎨 Kiểu phụ đề</h3>
+        <h3><Palette size={16} aria-hidden /> Kiểu phụ đề</h3>
         <p className="in-note">
           Phong cách “{STYLES[props.style as keyof typeof STYLES]?.label ?? props.style}” dùng phụ đề làm nội dung
-          (bong bóng, thẻ bài đăng, câu hỏi, bảng xếp hạng) nên không đổi kiểu chữ được.
+          (bong bóng, thẻ bài đăng, câu hỏi, bảng xếp hạng, trang sách, lá thư) nên không đổi kiểu chữ được.
         </p>
       </section>
     );
@@ -513,7 +631,7 @@ const CaptionLookSection: React.FC<{
   const custom = usesCustomCaptions(props);
   return (
     <LookPanel
-      title="🎨 Kiểu phụ đề"
+      title={<><Palette size={16} aria-hidden /> Kiểu phụ đề</>}
       noun="phụ đề"
       items={props.captions.map((c) => c.text)}
       selected={selected}
@@ -534,7 +652,7 @@ const CaptionLookSection: React.FC<{
       footer={
         custom ? (
           <div className="in-actions">
-            <button onClick={() => onChange(ops.clearCaptionLooks(props))}>↺ Về kiểu của phong cách</button>
+            <button onClick={() => onChange(ops.clearCaptionLooks(props))}><RotateCcw size={16} aria-hidden /> Về kiểu của phong cách</button>
           </div>
         ) : null
       }
@@ -549,7 +667,7 @@ type TabChild = React.ReactElement<{ "data-tab"?: string; className?: string }>;
  * Con có `data-tab` mở một tab mới (trùng tên thì gộp vào tab đó); con không có thì thuộc tab ngay trước;
  * con có class `in-foot` nằm ở đáy, luôn thấy.
  */
-const Panel: React.FC<{ icon: string; title: string; onClose?: () => void; children: React.ReactNode }> = ({
+const Panel: React.FC<{ icon: React.ReactNode; title: string; onClose?: () => void; children: React.ReactNode }> = ({
   icon, title, onClose, children,
 }) => {
   const [active, setActive] = useState<string | null>(null);
@@ -572,7 +690,7 @@ const Panel: React.FC<{ icon: string; title: string; onClose?: () => void; child
     <div className="in">
       <header className="in-head">
         <b><i>{icon}</i>{title}</b>
-        {onClose ? <button className="in-close" onClick={onClose} title="Bỏ chọn (Esc)" aria-label="Bỏ chọn">✕</button> : null}
+        {onClose ? <button className="in-close" onClick={onClose} title="Bỏ chọn (Esc)" aria-label="Bỏ chọn"><X size={16} aria-hidden /></button> : null}
       </header>
       {groups.length > 1 ? (
         <nav className="in-tabs" role="tablist">
@@ -594,8 +712,12 @@ export const Inspector: React.FC<Props> = ({
   props, selection, media, voices, onChange, onSelect, onDelete, onSplit, onDuplicateText, onVoice, onRemoveAllVoice, onDetachAudio,
   timeMs, onSeek, onRun,
   onStartCrop, onLiftScene, onAutoSubtitles,
+  uploading, onReplaceMedia, onReplaceFile, onOpenLibrary,
 }) => {
   const [voice, setVoice] = useState("linh");
+  /** Lỗi khi đổi Lấp đầy/Vừa khung của cảnh (không đọc được kích thước file). */
+  const [fitError, setFitError] = useState<string | null>(null);
+  useEffect(() => setFitError(null), [selection]);
   const [subLanguage, setSubLanguage] = useState<SubtitleOptions["language"]>("vi");
   const [subQuality, setSubQuality] = useState<SubtitleOptions["quality"]>("accurate");
   const [subReplace, setSubReplace] = useState(true);
@@ -668,7 +790,7 @@ export const Inspector: React.FC<Props> = ({
 
   const musicSection = (
     <section className="in-sec" data-tab="Nhạc nền">
-      <h3>♪ Nhạc nền</h3>
+      <h3><Music size={16} aria-hidden /> Nhạc nền</h3>
       <Field label="File nhạc">
         <select value={props.music ?? ""} onChange={(e) => onChange({ ...props, music: e.target.value || null })}>
           <option value="">Không nhạc</option>
@@ -689,9 +811,9 @@ export const Inspector: React.FC<Props> = ({
     const i = selection.index;
     const set = (patch: Parameters<typeof ops.updateText>[2], key?: string) => onChange(ops.updateText(props, i, patch), key);
     return (
-      <Panel key="text" icon="T" title={`Văn bản ${i + 1}`} onClose={() => onSelect(null)}>
+      <Panel key="text" icon={<Type size={14} aria-hidden />} title={`Văn bản ${i + 1}`} onClose={() => onSelect(null)}>
         <section className="in-sec" data-tab="Nội dung">
-          <h3>🅣 Văn bản</h3>
+          <h3><Type size={16} aria-hidden /> Văn bản</h3>
           <Field label="Nội dung" hint="Enter để xuống dòng">
             <textarea rows={3} value={t.text} onChange={(e) => set({ text: e.target.value }, `text-content-${i}`)} />
           </Field>
@@ -708,7 +830,7 @@ export const Inspector: React.FC<Props> = ({
         <LookPanel
           key="text-style"
           data-tab="Kiểu chữ"
-          title="🎨 Kiểu chữ"
+          title={<><Palette size={16} aria-hidden /> Kiểu chữ</>}
           noun="văn bản"
           items={props.texts.map((x) => x.text)}
           selected={i}
@@ -720,7 +842,7 @@ export const Inspector: React.FC<Props> = ({
         />
 
         <section className="in-sec" data-tab="Hiệu ứng">
-          <h3>✨ Hiệu ứng</h3>
+          <h3><Sparkles size={16} aria-hidden /> Hiệu ứng</h3>
           <Field label="Hiệu ứng hiện">
             <select value={t.animation} onChange={(e) => set({ animation: e.target.value as typeof t.animation })}>
               <option value="pop">Bật lên</option>
@@ -735,8 +857,8 @@ export const Inspector: React.FC<Props> = ({
         <section className="in-sec in-foot">
           <div className="in-actions">
             <button onClick={onDuplicateText}>⧉ Nhân đôi</button>
-            <button onClick={onSplit}>✂️ Tách</button>
-            <button className="danger" onClick={onDelete}>🗑 Xoá</button>
+            <button onClick={onSplit}><Scissors size={16} aria-hidden /> Tách</button>
+            <button className="danger" onClick={onDelete}><Trash2 size={16} aria-hidden /> Xoá</button>
           </div>
         </section>
       </Panel>
@@ -749,9 +871,9 @@ export const Inspector: React.FC<Props> = ({
     if (!c) return null;
     const i = selection.index;
     return (
-      <Panel key="caption" icon="💬" title={`Phụ đề ${i + 1}`} onClose={() => onSelect(null)}>
+      <Panel key="caption" icon={<Captions size={14} aria-hidden />} title={`Phụ đề ${i + 1}`} onClose={() => onSelect(null)}>
         <section className="in-sec" data-tab="Nội dung">
-          <h3>💬 Phụ đề {i + 1}</h3>
+          <h3><Captions size={16} aria-hidden /> Phụ đề {i + 1}</h3>
           <Field label="Nội dung">
             <textarea
               rows={3}
@@ -768,15 +890,15 @@ export const Inspector: React.FC<Props> = ({
             </Field>
           </div>
           <div className="in-actions">
-            <button onClick={onSplit}>✂️ Tách tại đầu phát</button>
-            <button className="danger" onClick={onDelete}>🗑 Xoá</button>
+            <button onClick={onSplit}><Scissors size={16} aria-hidden /> Tách tại đầu phát</button>
+            <button className="danger" onClick={onDelete}><Trash2 size={16} aria-hidden /> Xoá</button>
           </div>
         </section>
 
         <CaptionLookSection key="caption-style" data-tab="Kiểu chữ" props={props} selected={i} onChange={onChange} />
 
         <section className="in-sec" data-tab="Giọng đọc">
-          <h3>🎙 Giọng đọc của câu</h3>
+          <h3><Mic size={16} aria-hidden /> Giọng đọc của câu</h3>
           <p className="in-note">
             {c.audio ? "Câu này có giọng đọc — dời phụ đề thì giọng dời theo. Sửa chữ xong nên đọc lại cho khớp." : "Câu này chưa có giọng đọc."}
           </p>
@@ -785,8 +907,8 @@ export const Inspector: React.FC<Props> = ({
             <VoiceSelect voices={voices} value={voice} onChange={setVoice} />
           </Field>
           <div className="in-actions">
-            <button onClick={() => onVoice(voice, i)} disabled={!c.text.trim()}>🎙 {c.audio ? "Đọc lại câu này" : "Tạo giọng cho câu này"}</button>
-            {c.audio ? <button onClick={() => onChange(ops.updateCaption(props, i, { audio: null }))}>🔇 Bỏ giọng câu này</button> : null}
+            <button onClick={() => onVoice(voice, i)} disabled={!c.text.trim()}><Mic size={16} aria-hidden /> {c.audio ? "Đọc lại câu này" : "Tạo giọng cho câu này"}</button>
+            {c.audio ? <button onClick={() => onChange(ops.updateCaption(props, i, { audio: null }))}><VolumeX size={16} aria-hidden /> Bỏ giọng câu này</button> : null}
           </div>
         </section>
       </Panel>
@@ -812,7 +934,7 @@ export const Inspector: React.FC<Props> = ({
 
     return (
       <section className="in-sec" data-tab={tab}>
-        <h3>🔍 Vị trí & thu phóng</h3>
+        <h3><Search size={16} aria-hidden /> Vị trí & thu phóng</h3>
         <small className="in-hint">
           Kéo thẳng trên khung xem trước cũng được: kéo thân để dời, tay nắm góc để thu phóng, tay nắm trên để xoay.
           {sel.type === "scene" ? " Khung của cảnh hiện khi cảnh đang được chọn." : ""}
@@ -859,12 +981,12 @@ export const Inspector: React.FC<Props> = ({
               title="Phủ kín khung hình — như một cảnh thường"
               onClick={() => setOverlay({ x: 50, y: 50, width: 100, rotate: 0, aspect: Math.round(frameAspect * 1000) / 1000, fit: "cover", keyframes: [] })}
             >
-              ⛶ Phủ kín khung
+              <Maximize size={16} aria-hidden /> Phủ kín khung
             </button>
           ) : null}
           <button onClick={() => move({ x: 50, y: 50 }, "center")}>⊕ Về giữa khung</button>
-          <button disabled={at.rotate === 0} onClick={() => move({ rotate: 0 }, "rot0")}>↺ Bỏ xoay</button>
-          <button onClick={() => onRun(ops.resetMotion(props, sel))}>↺ Về đúng khung</button>
+          <button disabled={at.rotate === 0} onClick={() => move({ rotate: 0 }, "rot0")}><RotateCcw size={16} aria-hidden /> Bỏ xoay</button>
+          <button onClick={() => onRun(ops.resetMotion(props, sel))}><RotateCcw size={16} aria-hidden /> Về đúng khung</button>
         </div>
       </section>
     );
@@ -877,9 +999,38 @@ export const Inspector: React.FC<Props> = ({
       onChange(sel.type === "scene"
         ? ops.updateScene(props, sel.index, { crop: null })
         : ops.updateOverlay(props, sel.index, { crop: null }));
+    // Cảnh: lấp đầy / vừa khung ô ảnh của phong cách (lớp video đã có nút riêng ở mục Vị trí & thu phóng).
+    // Chưa crop thì tạo crop "toàn bộ ảnh"; lấp đầy toàn bộ ảnh giống hệt không crop nên lưu null cho gọn.
+    const fit = crop && "w" in crop ? crop.fit : "cover";
+    const setFit = async (next: "cover" | "contain") => {
+      if (sel.type !== "scene" || next === fit) return;
+      if (crop && !("w" in crop)) return onStartCrop(sel); // crop kiểu cũ: mở khung crop để chuyển sang kiểu mới
+      const src = ops.mediaSrcOf(item);
+      if (!src) return;
+      try {
+        const base = crop && "w" in crop ? crop : {
+          x: 0, y: 0, w: 1, h: 1, ratio: "original", rotate: 0, flipH: false, flipV: false,
+          mediaAspect: Math.round((await mediaAspect(`/public/${src}`, ops.isVideo(src) ? "video" : "image")) * 10000) / 10000,
+        };
+        const whole = base.x === 0 && base.y === 0 && base.w === 1 && base.h === 1 && !base.rotate && !base.flipH && !base.flipV;
+        onChange(ops.updateScene(props, sel.index, { crop: next === "cover" && whole ? null : { ...base, fit: next } }));
+        setFitError(null);
+      } catch (e) {
+        setFitError(e instanceof Error ? e.message : String(e));
+      }
+    };
     return (
       <section className="in-sec" data-tab={tab}>
-        <h3>🔲 Crop khung hình</h3>
+        <h3><Crop size={16} aria-hidden /> Crop khung hình</h3>
+        {sel.type === "scene" ? (
+          <div className="in-seg" role="radiogroup" aria-label="Cách đặt ảnh vào khung">
+            <button role="radio" aria-checked={fit === "cover"} className={fit === "cover" ? "on" : ""} onClick={() => setFit("cover")}
+              title="Phủ kín ô ảnh của phong cách, cắt bớt phần thừa">Lấp đầy</button>
+            <button role="radio" aria-checked={fit === "contain"} className={fit === "contain" ? "on" : ""} onClick={() => setFit("contain")}
+              title="Thấy trọn ảnh trong ô ảnh của phong cách">Vừa khung</button>
+          </div>
+        ) : null}
+        {fitError ? <p className="voice-err">{fitError}</p> : null}
         <p className="in-note">
           {!crop
             ? "Chưa crop — đang dùng toàn bộ ảnh/video."
@@ -889,7 +1040,7 @@ export const Inspector: React.FC<Props> = ({
               : `Crop kiểu cũ: lấy ${Math.round(crop.size * 100)}% khung. Mở khung crop để chỉnh theo kiểu mới.`}
         </p>
         <div className="in-actions">
-          <button onClick={() => onStartCrop(sel)}>🔲 Mở khung crop</button>
+          <button onClick={() => onStartCrop(sel)}><Crop size={16} aria-hidden /> Mở khung crop</button>
           {crop ? <button onClick={clear}>Bỏ crop</button> : null}
         </div>
         <small className="in-hint">Giống CapCut: chọn tỉ lệ, kéo 8 điểm, xoay, lật, lấp đầy hoặc vừa khung.</small>
@@ -955,9 +1106,9 @@ export const Inspector: React.FC<Props> = ({
     const sceneSel: ops.MotionSel = { type: "scene", index: i };
     const video = ops.isVideo(s.image);
     return (
-      <Panel key="scene" icon={video ? "🎬" : "🖼"} title={`Cảnh ${i + 1}`} onClose={() => onSelect(null)}>
+      <Panel key="scene" icon={video ? <Clapperboard size={14} aria-hidden /> : <ImageIcon size={14} aria-hidden />} title={`Cảnh ${i + 1}`} onClose={() => onSelect(null)}>
         <section className="in-sec" data-tab="Cơ bản">
-          <h3>🎞 Cảnh {i + 1}</h3>
+          <h3><Film size={16} aria-hidden /> Cảnh {i + 1}</h3>
           <div className="in-media">
             {s.image ? (
               video ? <video src={`/public/${s.image}`} muted playsInline preload="metadata" /> : <img src={`/public/${s.image}`} alt="" />
@@ -974,7 +1125,7 @@ export const Inspector: React.FC<Props> = ({
                 onClick={() => onLiftScene(i)}
                 title="Hình của cảnh thành một video riêng trên timeline — kéo, thu phóng, xoay và đè lên video khác được; chỗ cũ trên hàng Cảnh để trống"
               >
-                ⬆ Tách thành video riêng
+                <Upload size={16} aria-hidden /> Tách thành video riêng
               </button>
               <button onClick={() => onChange(ops.setSceneMedia(props, i, null))}>Bỏ ảnh</button>
             </div>
@@ -983,7 +1134,7 @@ export const Inspector: React.FC<Props> = ({
 
         {video ? (
           <section className="in-sec" data-tab="Âm thanh & tốc độ">
-            <h3>✂️ Clip video</h3>
+            <h3><Scissors size={16} aria-hidden /> Clip video</h3>
             <div className="in-2">
               <Field label="Lấy từ giây" hint="Mốc trong clip gốc">
                 <Seconds value={s.trimStartMs} onChange={(ms) => onChange(ops.updateScene(props, i, { trimStartMs: ms }), `scene-trim-${i}`)} />
@@ -1005,7 +1156,7 @@ export const Inspector: React.FC<Props> = ({
             />
             <div className="in-actions">
               <button onClick={() => onDetachAudio(i)} title="Âm thanh thành một đoạn riêng trên track Âm thanh — cắt, dời, chỉnh, xoá độc lập với hình">
-                🎵 Tách âm thanh ra track riêng
+                <Music size={16} aria-hidden /> Tách âm thanh ra track riêng
               </button>
             </div>
           </section>
@@ -1018,16 +1169,16 @@ export const Inspector: React.FC<Props> = ({
 
         {video ? (
           <section className="in-sec" data-tab="Phụ đề AI">
-            <h3>📝 Phụ đề tự động</h3>
+            <h3><FileText size={16} aria-hidden /> Phụ đề tự động</h3>
             {subtitleSettings}
             <div className="in-actions">
-              <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("scene", i))}>📝 Tạo phụ đề từ tiếng của cảnh này</button>
+              <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("scene", i))}><FileText size={16} aria-hidden /> Tạo phụ đề từ tiếng của cảnh này</button>
             </div>
           </section>
         ) : null}
 
         <section className="in-sec" data-tab="Chữ trên cảnh">
-          <h3>🏷 Chữ của phong cách</h3>
+          <h3><Tag size={16} aria-hidden /> Chữ của phong cách</h3>
           <Field label="Nhãn (tag)" hint="Hiện suốt cảnh — năm, con số, “Bước 1”…">
             <input
               value={s.tag ?? ""}
@@ -1091,8 +1242,8 @@ export const Inspector: React.FC<Props> = ({
 
         <section className="in-sec in-foot">
           <div className="in-actions">
-            <button onClick={onSplit}>✂️ Tách tại đầu phát</button>
-            <button className="danger" onClick={onDelete} disabled={props.scenes.length <= 1}>🗑 Xoá cảnh</button>
+            <button onClick={onSplit}><Scissors size={16} aria-hidden /> Tách tại đầu phát</button>
+            <button className="danger" onClick={onDelete} disabled={props.scenes.length <= 1}><Trash2 size={16} aria-hidden /> Xoá cảnh</button>
           </div>
         </section>
       </Panel>
@@ -1109,9 +1260,9 @@ export const Inspector: React.FC<Props> = ({
     const set = (patch: Parameters<typeof ops.updateOverlay>[2], key?: string) => onChange(ops.updateOverlay(props, i, patch), key);
     const overlaySel: ops.MotionSel = { type: "overlay", index: i };
     return (
-      <Panel key="overlay" icon={video ? "🎬" : "🖼"} title={ops.overlayName(o)} onClose={() => onSelect(null)}>
+      <Panel key="overlay" icon={video ? <Clapperboard size={14} aria-hidden /> : <ImageIcon size={14} aria-hidden />} title={ops.overlayName(o)} onClose={() => onSelect(null)}>
         <section className="in-sec" data-tab="Cơ bản">
-          <h3>{video ? "🎬" : "🖼"} {ops.overlayName(o)} trên timeline</h3>
+          <h3>{video ? <Clapperboard size={16} aria-hidden /> : <ImageIcon size={16} aria-hidden />} {ops.overlayName(o)} trên timeline</h3>
           <div className="in-media">
             {video
               ? <video src={`/public/${o.src}`} muted playsInline preload="metadata" />
@@ -1129,11 +1280,21 @@ export const Inspector: React.FC<Props> = ({
             </Field>
           </div>
           <div className="in-actions">
-            <button onClick={() => set({ track: o.track + 1 })} title="Hàng cao hơn vẽ trên khi hai video đè nhau">▲ Lên hàng Video {o.track + 2}</button>
-            <button disabled={o.track === 0} onClick={() => set({ track: o.track - 1 })}>▼ Xuống hàng Video {o.track}</button>
+            <button onClick={() => set({ track: o.track + 1 })} title="Hàng cao hơn vẽ trên khi hai video đè nhau"><ArrowUp size={16} aria-hidden /> Lên hàng Video {o.track + 2}</button>
+            <button disabled={o.track === 0} onClick={() => set({ track: o.track - 1 })}><ArrowDown size={16} aria-hidden /> Xuống hàng Video {o.track}</button>
           </div>
           <small className="in-hint">Kéo khối lên/xuống trên timeline cũng đổi hàng. Hàng cao vẽ trên hàng thấp.</small>
         </section>
+
+        <ReplaceMedia
+          data-tab="Thay thế"
+          current={o.src}
+          media={media}
+          uploading={uploading}
+          onPick={(item) => onReplaceMedia(i, item)}
+          onFile={(file) => onReplaceFile(i, file)}
+          onOpenLibrary={onOpenLibrary}
+        />
 
         {motionKeySection(overlaySel, o)}
 
@@ -1143,7 +1304,7 @@ export const Inspector: React.FC<Props> = ({
 
         {video ? (
           <section className="in-sec" data-tab="Âm thanh & tốc độ">
-            <h3>✂️ Clip video</h3>
+            <h3><Scissors size={16} aria-hidden /> Clip video</h3>
             <Field label="Lấy từ giây" hint="Mốc trong clip gốc">
               <Seconds value={o.trimStartMs} onChange={(ms) => set({ trimStartMs: ms }, `overlay-trim-${i}`)} />
             </Field>
@@ -1160,8 +1321,8 @@ export const Inspector: React.FC<Props> = ({
 
         <section className="in-sec in-foot">
           <div className="in-actions">
-            <button onClick={onSplit}>✂️ Tách tại đầu phát</button>
-            <button className="danger" onClick={onDelete}>🗑 Xoá video này</button>
+            <button onClick={onSplit}><Scissors size={16} aria-hidden /> Tách tại đầu phát</button>
+            <button className="danger" onClick={onDelete}><Trash2 size={16} aria-hidden /> Xoá video này</button>
           </div>
         </section>
       </Panel>
@@ -1174,9 +1335,9 @@ export const Inspector: React.FC<Props> = ({
     if (!c) return null;
     const i = selection.index;
     return (
-      <Panel key="clip" icon="🔊" title={c.label ?? "Âm thanh"} onClose={() => onSelect(null)}>
+      <Panel key="clip" icon={<Volume2 size={14} aria-hidden />} title={c.label ?? "Âm thanh"} onClose={() => onSelect(null)}>
         <section className="in-sec" data-tab="Cơ bản">
-          <h3>🔊 Âm thanh</h3>
+          <h3><Volume2 size={16} aria-hidden /> Âm thanh</h3>
           <Field label="Tên">
             <input value={c.label ?? ""} onChange={(e) => onChange(ops.updateClip(props, i, { label: e.target.value || null }), `clip-label-${i}`)} />
           </Field>
@@ -1202,15 +1363,15 @@ export const Inspector: React.FC<Props> = ({
             onChange={(v, key) => onChange(ops.setClipSpeed(props, i, v), key ? `clip-speed-${i}` : undefined)}
           />
           <div className="in-actions">
-            <button onClick={onSplit}>✂️ Tách tại đầu phát</button>
-            <button className="danger" onClick={onDelete}>🗑 Xoá âm thanh</button>
+            <button onClick={onSplit}><Scissors size={16} aria-hidden /> Tách tại đầu phát</button>
+            <button className="danger" onClick={onDelete}><Trash2 size={16} aria-hidden /> Xoá âm thanh</button>
           </div>
         </section>
         <section className="in-sec" data-tab="Phụ đề AI">
-          <h3>📝 Phụ đề tự động</h3>
+          <h3><FileText size={16} aria-hidden /> Phụ đề tự động</h3>
           {subtitleSettings}
           <div className="in-actions">
-            <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("clip", i))}>📝 Tạo phụ đề từ đoạn âm thanh này</button>
+            <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("clip", i))}><FileText size={16} aria-hidden /> Tạo phụ đề từ đoạn âm thanh này</button>
           </div>
         </section>
       </Panel>
@@ -1219,10 +1380,10 @@ export const Inspector: React.FC<Props> = ({
 
   if (selection?.type === "music") {
     return (
-      <Panel key="music" icon="♪" title="Nhạc nền" onClose={() => onSelect(null)}>
+      <Panel key="music" icon={<Music size={14} aria-hidden />} title="Nhạc nền" onClose={() => onSelect(null)}>
         {musicSection}
         {props.music ? (
-          <section className="in-sec in-foot"><div className="in-actions"><button className="danger" onClick={onDelete}>🗑 Bỏ nhạc</button></div></section>
+          <section className="in-sec in-foot"><div className="in-actions"><button className="danger" onClick={onDelete}><Trash2 size={16} aria-hidden /> Bỏ nhạc</button></div></section>
         ) : null}
       </Panel>
     );
@@ -1230,31 +1391,12 @@ export const Inspector: React.FC<Props> = ({
 
   // ---------- không chọn gì: cài đặt chung ----------
   return (
-    <Panel key="project" icon="🎬" title="Dự án">
+    <Panel key="project" icon={<Clapperboard size={14} aria-hidden />} title="Dự án">
       <p className="in-tip" data-tab="Dự án">
-        👆 Bấm một khối trên timeline để sửa riêng khối đó. Kéo ảnh, video, nhạc từ thư viện thả xuống timeline.
+        <Pointer size={14} aria-hidden /> Bấm một khối trên timeline để sửa riêng khối đó. Kéo ảnh, video, nhạc từ thư viện thả xuống timeline.
       </p>
-      {ops.hasSceneMedia(props) ? (
-        <section className="in-sec" data-tab="Dự án">
-          <h3>🎞 Hàng Cảnh</h3>
-          <p className="in-note">
-            Dự án này còn {props.scenes.filter((s) => s.image).length} cảnh do phong cách vẽ (hàng <b>Cảnh</b>).
-            Gộp thành video để mọi clip trên timeline là một loại: dời, thu nhỏ, đè lên nhau và chỉnh y như nhau.
-          </p>
-          <div className="in-actions">
-            <button onClick={() => onRun(ops.unifyScenes(props))}>⬆ Gộp cảnh thành video trên timeline</button>
-          </div>
-          {props.style !== "plain" ? (
-            <small className="in-hint">
-              Phong cách “{STYLES[props.style as keyof typeof STYLES].label}” đang lồng ảnh vào khung riêng của nó
-              (ô truyện tranh, ảnh polaroid, phóng chậm…) — gộp xong sẽ mất phần khung đó, đổi lại clip nào cũng chỉnh như nhau.
-            </small>
-          ) : null}
-        </section>
-      ) : null}
-
       <section className="in-sec">
-        <h3>🎬 Video</h3>
+        <h3><Clapperboard size={16} aria-hidden /> Video</h3>
         <Field label="Tiêu đề">
           <input value={props.title} onChange={(e) => onChange({ ...props, title: e.target.value }, "title")} />
         </Field>
@@ -1291,7 +1433,7 @@ export const Inspector: React.FC<Props> = ({
       </section>
 
       <section className="in-sec" data-tab="Giọng đọc">
-        <h3>🎙 Giọng đọc</h3>
+        <h3><Mic size={16} aria-hidden /> Giọng đọc</h3>
         <p className="in-note">{voiceCount > 0 ? `${voiceCount}/${props.captions.length} câu có giọng đọc.` : "Video chưa có giọng đọc."}</p>
         <Field label="Âm lượng giọng" hint="0% = tắt tiếng giọng mà vẫn giữ file">
           <Slider value={props.voiceVolume} max={2} onChange={(v) => onChange({ ...props, voiceVolume: v }, "voiceVolume")} />
@@ -1300,8 +1442,8 @@ export const Inspector: React.FC<Props> = ({
           <VoiceSelect voices={voices} value={voice} onChange={setVoice} />
         </Field>
         <div className="in-actions">
-          <button onClick={() => onVoice(voice)} disabled={props.captions.length === 0}>🎙 {voiceCount > 0 ? "Đổi giọng toàn bộ" : "Tạo giọng cho mọi câu"}</button>
-          <button className="danger" onClick={onRemoveAllVoice} disabled={voiceCount === 0 && !props.voiceoverTrack}>🔇 Bỏ toàn bộ giọng</button>
+          <button onClick={() => onVoice(voice)} disabled={props.captions.length === 0}><Mic size={16} aria-hidden /> {voiceCount > 0 ? "Đổi giọng toàn bộ" : "Tạo giọng cho mọi câu"}</button>
+          <button className="danger" onClick={onRemoveAllVoice} disabled={voiceCount === 0 && !props.voiceoverTrack}><VolumeX size={16} aria-hidden /> Bỏ toàn bộ giọng</button>
         </div>
         <label className="in-check">
           <input type="checkbox" checked={props.sfx} onChange={(e) => onChange({ ...props, sfx: e.target.checked })} />
@@ -1310,13 +1452,13 @@ export const Inspector: React.FC<Props> = ({
       </section>
 
       <section className="in-sec" data-tab="Phụ đề AI">
-        <h3>📝 Phụ đề tự động</h3>
+        <h3><FileText size={16} aria-hidden /> Phụ đề tự động</h3>
         <p className="in-note">
           Nghe tiếng trong video (cảnh còn tiếng gốc) và âm thanh tải lên, tạo phụ đề khớp thời gian. Chạy trên máy, không cần API key.
         </p>
         {subtitleSettings}
         <div className="in-actions">
-          <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("all"))}>📝 Tạo phụ đề cho cả video</button>
+          <button disabled={translateBlocked} onClick={() => onAutoSubtitles(subtitleOptions("all"))}><FileText size={16} aria-hidden /> Tạo phụ đề cho cả video</button>
         </div>
         <small className="in-hint">Mất khoảng ⅓–1 lần thời lượng video. Chọn riêng một cảnh hoặc đoạn âm thanh để tạo phụ đề cho phần đó.</small>
       </section>

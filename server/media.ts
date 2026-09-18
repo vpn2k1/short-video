@@ -91,12 +91,17 @@ const mediaUsage = () => {
     const slug = entry.name;
     let text = "";
     let title = slug;
-    for (const file of ["props.json", "script.json", "multi.json", "ai-clips.json"]) {
+    // Các bản đã lưu (versions/v<n>.json, bản nháp) cũng dùng tài nguyên — xoá đi thì mở lại bản cũ bị thiếu hình.
+    const versionsDir = path.join(videosDir, slug, "versions");
+    const versionFiles = fs.existsSync(versionsDir)
+      ? fs.readdirSync(versionsDir).filter((name) => name.endsWith(".json")).map((name) => path.join("versions", name))
+      : [];
+    for (const file of ["props.json", "script.json", "multi.json", "ai-clips.json", ...versionFiles]) {
       const abs = path.join(videosDir, slug, file);
       if (!fs.existsSync(abs)) continue;
       const raw = fs.readFileSync(abs, "utf8");
       text += raw;
-      if (file !== "ai-clips.json") {
+      if (file === "props.json" || file === "script.json" || file === "multi.json") {
         try {
           title = (JSON.parse(raw) as { title?: string }).title || title;
         } catch {

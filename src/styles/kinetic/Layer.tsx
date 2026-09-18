@@ -1,4 +1,5 @@
 import { ClipVideo } from "../../scenes/ClipVideo";
+import { CropBox } from "../../scenes/CropBox";
 import { AbsoluteFill, Easing, Img, interpolate, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Caption, Scene, SceneVisual } from "../../compositions/Short/schema";
@@ -39,7 +40,9 @@ const Texture: React.FC<{ scene: Scene; swatch: Swatch }> = ({ scene, swatch }) 
           <ClipVideo src={scene.image} trimStartMs={scene.trimStartMs} speed={scene.speed} volume={scene.volume} crop={scene.crop} style={media} />
         </Sequence>
       ) : (
-        <Img src={staticFile(scene.image)} style={media} />
+        <CropBox crop={scene.crop}>
+          <Img src={staticFile(scene.image)} style={media} />
+        </CropBox>
       )}
     </AbsoluteFill>
   );

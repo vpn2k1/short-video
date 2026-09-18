@@ -14,6 +14,7 @@ cp -R package.json package-lock.json tsconfig.json remotion.config.ts desktop sr
 cp -R .claude/skills/style-* "$STAGE/.claude/skills/"
 cp -R public/images public/music public/sfx "$STAGE/public/"
 bash desktop/fetch-local-ai.sh linux-x64 "$STAGE"
+bash desktop/fetch-vieneu.sh linux-x64 "$STAGE"
 bash desktop/fetch-yt-dlp.sh linux-x64 "$STAGE"
 
 echo "→ Cài node_modules cho linux-x64"
@@ -35,6 +36,8 @@ unzip -q "$ZIP" -d "$CHROME/linux64"
 printf "%s" "$CHROME_VERSION" > "$CHROME/VERSION"
 
 for required in \
+  "$STAGE/vendor/vieneu/linux-x64/python/bin/python3.11" \
+  "$STAGE/vendor/models/vieneu-v3-turbo/onnx/vieneu_backbone_shared.data" \
   "$STAGE/node_modules/ffmpeg-static/ffmpeg" \
   "$STAGE/node_modules/@remotion/compositor-linux-x64-gnu/ffprobe" \
   "$STAGE/node_modules/@esbuild/linux-x64/bin/esbuild" \

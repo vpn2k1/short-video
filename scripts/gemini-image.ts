@@ -2,6 +2,9 @@ import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
 import { HEIGHT, WIDTH } from "../src/constants";
+import { describeProviderError } from "./provider-error";
+import { freeMode, recordCall } from "./usage";
+import { cloudflareImageAvailable, generateFluxImage } from "./cloudflare-image";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -14,6 +17,11 @@ const defaultModel = () =>
  * Model trả ảnh dạng inline base64 trong parts của response.
  */
 export const generateImage = async (prompt: string, destination: string) => {
+  // Có key Cloudflare thì vẽ bằng FLUX (miễn phí ~100 ảnh/ngày) thay cho Gemini (tính tiền theo ảnh).
+  if (cloudflareImageAvailable()) return generateFluxImage(prompt, destination);
+  if (freeMode()) {
+    throw new Error("💚 Chế độ Miễn phí đang bật — Gemini vẽ ảnh tính tiền nên đã tắt. Thêm key Cloudflare (vẽ ảnh FLUX miễn phí) trong ⚙ Cài đặt, hoặc chọn ảnh/clip miễn phí.");
+  }
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new Error("Thiếu GEMINI_API_KEY trong .env");
@@ -28,10 +36,10 @@ export const generateImage = async (prompt: string, destination: string) => {
     }),
   });
 
+  recordCall("Gemini vẽ ảnh", response.ok);
   if (!response.ok) {
-    throw new Error(
-      `Gemini trả về ${response.status}: ${(await response.text()).slice(0, 300)}`,
-    );
+    throw new Error(describeProviderError("Gemini vẽ ảnh", response.status, (await response.text()).slice(0, 600),
+      "hoặc chọn nguồn hình khác (Pexels, thư viện)"));
   }
 
   const body = (await response.json()) as {

@@ -1,0 +1,111 @@
+{
+  "title": "Một ngày ở xưởng gốm",
+  "subtitle": "Clip tự quay, chỉ cắt gọn",
+  "handle": "@kenh",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "captions": [
+    {
+      "text": "Sáng sớm, lò vẫn còn ấm từ đêm qua.",
+      "startMs": 2483,
+      "endMs": 5516,
+      "audio": "voices/mot-ngay-o-xuong-gom/line-01.mp3"
+    },
+    {
+      "text": "Mẻ men mới pha trước khi trời nắng.",
+      "startMs": 5666,
+      "endMs": 8086,
+      "audio": "voices/mot-ngay-o-xuong-gom/line-02.mp3"
+    },
+    {
+      "text": "Bàn xoay chạy, đất lên hình trong ba phút.",
+      "startMs": 8236,
+      "endMs": 11133,
+      "audio": "voices/mot-ngay-o-xuong-gom/line-03.mp3"
+    },
+    {
+      "text": "Tay ướt, nhịp đều, không vội.",
+      "startMs": 11283,
+      "endMs": 13640,
+      "audio": "voices/mot-ngay-o-xuong-gom/line-04.mp3"
+    },
+    {
+      "text": "Chiều nay ra lò mười hai chiếc.",
+      "startMs": 13790,
+      "endMs": 15793,
+      "audio": "voices/mot-ngay-o-xuong-gom/line-05.mp3"
+    },
+    {
+      "text": "Hỏng hai, còn mười.",
+      "startMs": 15943,
+      "endMs": 17621,
+      "audio": "voices/mot-ngay-o-xuong-gom/line-06.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "plain",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-7276945.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 8236
+    },
+    {
+      "image": "uploads/stock/pexels-image-38428358.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 8236,
+      "endMs": 13790
+    },
+    {
+      "image": "uploads/stock/pexels-image-8066112.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 13790,
+      "endMs": 17771
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": "music/stock/freesound-music-259312.mp3",
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

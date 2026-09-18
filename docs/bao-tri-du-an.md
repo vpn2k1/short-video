@@ -7,7 +7,8 @@ Tài liệu liên quan:
 
 | Tài liệu | Nội dung |
 |---|---|
-| [README.md](../README.md) | Cài đặt, cách dùng, luồng dữ liệu, cấu trúc thư mục, giới hạn đã đo |
+| [README.md](../README.md) | Tải app, chạy từ mã nguồn, cấu hình API key |
+| [docs/huong-dan-chi-tiet.md](huong-dan-chi-tiet.md) | Từng màn hình, dòng lệnh, luồng dữ liệu, cấu trúc thư mục, giới hạn đã đo |
 | [docs/prompt-to-video.md](prompt-to-video.md) | Chi tiết pipeline prompt → mp4 |
 | [docs/ai-tren-may.md](ai-tren-may.md) | AI chạy trên máy (có sẵn trong app, Ollama), số đo thật |
 | `.claude/skills/*/SKILL.md` | Luật làm video và luật từng phong cách — **cũng là prompt** của app (mục 5) |
@@ -111,8 +112,9 @@ Tất cả đường dẫn tính từ **thư mục làm việc** (`process.cwd()
 |---|---|---|---|
 | `videos/<slug>/script.json` | chat, batch, CLI | Nguồn sự thật của **nội dung** | theo dõi (tuỳ bạn) |
 | `videos/<slug>/props.json` | pipeline, trình chỉnh sửa | Nguồn sự thật để **render** | theo dõi |
-| `videos/<slug>/chat.json` | `server/chat.ts` | Lịch sử tin nhắn + lựa chọn của video | theo dõi |
-| `videos/<slug>/multi.json` | tab 🎬 Nhiều cảnh | Danh sách prompt từng cảnh | theo dõi |
+| `videos/<slug>/chat.json` | `server/chat.ts` | Lịch sử tin nhắn + lựa chọn của video; `draft` = lời gõ dở chưa gửi | theo dõi |
+| `videos/<slug>/.running.json` | `markRunning` trong `server/chat.ts` | Có mặt khi một lượt đang chạy; còn sót sau khi server tắt = lượt bị gián đoạn | bỏ qua |
+| `videos/<slug>/multi.json` | tab 🎬 Nhiều cảnh | Danh sách cảnh — lưu liên tục cả khi chưa bấm Tạo (bản nháp) | theo dõi |
 | `videos/<slug>/post-copy.json` | `scripts/post-copy.ts` | Gợi ý bài đăng, kèm vân tay lời video | theo dõi |
 | `out/<slug>.mp4`, `out/scenes/` | `scripts/render.ts` | Sinh lại được | bỏ qua |
 | `public/voices/<slug>/` | `scripts/tts.ts` | Giọng đọc, sinh lại được | bỏ qua |
@@ -149,7 +151,23 @@ Log là chuỗi thường, cộng mấy dòng đánh dấu cho giao diện: `__S
 `__PROGRESS__ <0-100>` đổi phần trăm, `__DONE__` / `__ERROR__ <lỗi>` kết thúc. Thêm bước mới vào
 pipeline thì thêm cả vào `STEPS` và `follow` trong `app.js`.
 
-### 4.2. Trình chỉnh sửa
+### 4.2. Bản nháp và lượt bị gián đoạn
+
+- **Lời đang gõ** ở ô chat và **danh sách cảnh** đang soạn được lưu lên server sau ~0,8 giây ngừng gõ
+  (`POST /api/chat/draft`, `/api/multi/draft`; đóng tab thì gửi nốt bằng `sendBeacon`). Màn tạo mới
+  chưa có video thì lần lưu đầu tạo một video nháp — hiện trong lịch sử là "✏️ Bản nháp". Xoá hết lời
+  thì video nháp (chưa có tin nhắn nào) bị xoá theo.
+- **Mọi job theo video** (`startTurn`, `startMultiScene`, xuất/phụ đề/đổi giọng trong trình chỉnh sửa)
+  đặt cờ bằng `markRunning` / `clearRunning`, không gọi thẳng `running.set/delete`. Cờ ghi ra
+  `.running.json` kèm `pid`. Đọc video mà còn cờ và tiến trình đó đã chết → thêm tin báo
+  `interrupted` vào chat, lịch sử hiện "⚠ Bị gián đoạn" kèm nút chạy lại. Tiến trình còn sống (bản web
+  và bản desktop dùng chung thư mục) → coi là đang chạy.
+- `writeChat` không truyền `draft` thì **giữ** bản nháp đang có trên đĩa — job chạy xong ghi chat không
+  xoá lời người dùng gõ trong lúc chờ. Muốn xoá thì truyền `draft: null` (như `startTurn`).
+- Thêm một loại job mới chạy theo video: dùng `markRunning(slug, jobId, kind)`, và thêm câu báo vào
+  `INTERRUPT_NOTICE` nếu người dùng cần biết để chạy lại.
+
+### 4.3. Trình chỉnh sửa
 
 - `/editor.html#<slug>` tải `/editor/app.js`, do `server/editor-build.ts` bundle bằng esbuild **lúc
   chạy** (có cache) — không có bước build. Tailwind cũng dựng lúc chạy cho các class composition dùng.
@@ -158,14 +176,14 @@ pipeline thì thêm cả vào `STEPS` và `follow` trong `app.js`.
   giữ danh sách props.
 - Lưu và render qua các route `/api/editor/...`.
 
-### 4.3. Hàng loạt và phụ đề nhiều video
+### 4.4. Hàng loạt và phụ đề nhiều video
 
 `server/batch.ts` giữ hàng đợi trong `data/batches/<id>.json`, chạy từng video bằng đúng các bước của
 chat; bật "chốt duyệt" thì cả loạt dừng sau bước chuẩn bị lời để người duyệt rồi mới dựng. Màn 🔤 Phụ đề (`server/public/subs.js`) chỉ là cách nhập
 gọn cho một loạt kiểu `subs`: phiên âm bằng whisper.cpp (`scripts/transcribe.ts`), khớp mép câu với
 khoảng lặng thật (`scripts/subtitle-align.ts`), dịch tuỳ chọn (`scripts/translate.ts`).
 
-### 4.4. AI viết lời
+### 4.5. AI viết lời
 
 ```
 scriptProviders(choice)  →  danh sách nhà cung cấp có key, theo PROVIDER_ORDER
@@ -208,7 +226,7 @@ danh sách nhà cung cấp, không cần structured output nặng.
 
 1. `src/styles/meta.ts`: thêm id vào `STYLE_IDS` và mục mô tả trong `STYLES` (nhãn, emoji, mô tả…).
 2. `src/styles/<id>/index.tsx`: component nhận `ShortProps`, tự vẽ mọi lớp. Chép khung từ phong cách
-   gần giống nhất, dùng tiện ích trong `src/styles/shared.tsx`. Giữ đúng thứ tự lớp (README mục 7).
+   gần giống nhất, dùng tiện ích trong `src/styles/shared.tsx`. Giữ đúng thứ tự lớp ([hướng dẫn chi tiết](huong-dan-chi-tiet.md#3-cách-hoạt-động) mục 3).
 3. `src/styles/registry.tsx`: thêm một dòng vào `STYLE_COMPONENTS` (TypeScript báo lỗi nếu quên).
 4. `.claude/skills/style-<id>/SKILL.md`: luật hình ảnh + đoạn `<!-- ai-guide -->…<!-- ai-guide -->`
    hướng dẫn AI viết nội dung. Thiếu đoạn này AI viết không đúng nhịp phong cách.
@@ -236,6 +254,11 @@ qua `scriptProviderCatalog()`.
 Thêm mục vào `KEY_FIELDS` (`server/keys.ts`): `secret` (key), `text`, hoặc `select`; `showIf` để ẩn
 theo ô khác. Giao diện tự vẽ; giá trị có trong `process.env.<NAME>` ngay sau khi lưu. Ô chữ tự do
 (có dấu cách, tiếng Việt) cần `freeText: true`, không thì bị chặn như key.
+
+Thứ tự trong mảng là thứ tự hiện; ô liền nhau cùng `group` gộp dưới một tiêu đề. Key có gói miễn phí
+xếp vào nhóm `🆓 Miễn phí · …` ở đầu, key chỉ trả phí vào `💳 Trả phí · …` phía dưới. Key miễn phí
+giúp video đẹp hơn thì thêm cả vào `KEY_TIPS` (`server/public/app.js`) — popup gợi ý hiện một lần
+khi người mới (chưa có video render xong) bấm tạo video; cờ đã hiện lưu ở `data/key-tips-seen`.
 
 ### 6.4. Thêm/đổi trường trong props.json hoặc script.json
 
@@ -353,7 +376,12 @@ Trước khi phát hành:
 2. `npm run lint`, làm một video bằng `npm run desktop`.
 3. Build, cài bản vừa build lên máy sạch nếu được; mở app, tạo một video không cần key (AI có sẵn +
    giọng máy), render xong.
-4. macOS chưa ký (`identity: null`): người dùng phải chuột phải › Open lần đầu.
+4. macOS chưa ký (`identity: null`): lần đầu người dùng phải bấm **Vẫn mở** trong Quyền riêng tư &
+   Bảo mật (macOS 14 trở về trước: chuột phải › Open) — README mục "Mở app lần đầu" hướng dẫn việc này.
+5. Tạo một GitHub Release mới và tải lên `release/AI-Video-Studio-mac-arm64.dmg`,
+   `release/AI-Video-Studio-windows-x64-setup.exe` (và `.AppImage` nếu có). Tên file cố định
+   (`artifactName` trong `package.json`) nên nút tải trong README
+   (`releases/latest/download/<tên file>`) luôn trỏ vào bản mới nhất — **đừng đổi tên file** khi tải lên.
 
 ---
 
@@ -365,7 +393,7 @@ Mỗi dòng dưới đây đã từng gây lỗi thật; code tương ứng có 
 |---|---|---|
 | `bundle()` của Remotion **chép** `public/` lúc bundle | Giọng tạo lại cùng tên → render phát giọng cũ | `scripts/render.ts`: symlink `public/`; Windows bundle lại khi `public/` đổi |
 | `<TransitionSeries>` rút ngắn timeline | Phụ đề lệch tiếng | Chuyển cảnh bằng opacity trong `src/scenes/Scenes.tsx` |
-| Đặt `Background` sau `Scenes` | Nền đục che hết ảnh | Giữ thứ tự lớp (README mục 7) |
+| Đặt `Background` sau `Scenes` | Nền đục che hết ảnh | Giữ thứ tự lớp ([hướng dẫn chi tiết](huong-dan-chi-tiet.md#3-cách-hoạt-động) mục 3) |
 | `-webkit-text-stroke` | Viền ăn vào nét, dính dấu tiếng Việt | Viền bằng vòng `text-shadow` (`CustomCaptions.tsx`) |
 | Ngắt dòng phụ đề theo số từ | Dòng tiếng Việt cụt, cắt giữa cụm | Theo 42 ký tự (`scripts/group-captions.ts`) |
 | `eleven_multilingual_v2` | Không hỗ trợ tiếng Việt | Mặc định `eleven_v3` |

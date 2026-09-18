@@ -1,21 +1,26 @@
 import { execFileSync } from "child_process";
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import type { VoiceoverClip } from "../src/compositions/Short/script";
+import { geminiTtsToWavs } from "./gemini-tts";
+import { LOCAL_DEFAULT_VOICE, LOCAL_VOICE_MODEL, localTtsToWavs, localVoiceAvailable } from "./vieneu-tts";
 import { VOICES } from "./voices";
+import { describeProviderError, ProviderError, shouldFallBack } from "./provider-error";
 
-export type TtsEngine = "elevenlabs" | "everai" | "say";
+export type TtsEngine = "elevenlabs" | "gemini" | "say" | "local";
 
 /** Tên hiển thị của từng nguồn giọng — dùng chung cho CLI, API, giao diện. */
 export const ENGINE_LABELS: Record<TtsEngine, string> = {
   elevenlabs: "ElevenLabs",
-  everai: "EverAI",
+  gemini: "Gemini",
   say: "miễn phí",
+  local: "có sẵn trong app",
 };
 
 const ENGINE_KEYS: Partial<Record<TtsEngine, string>> = {
   elevenlabs: "ELEVENLABS_API_KEY",
-  everai: "EVERAI_API_KEY",
+  gemini: "GEMINI_API_KEY",
 };
 
 /** Tên biến key còn thiếu cho engine này, hoặc null nếu dùng được ngay. */
@@ -26,6 +31,47 @@ export const missingEngineKey = (engine: TtsEngine) => {
 
 /** Public dir is where Remotion's staticFile() resolves from. */
 const publicDir = () => path.resolve(process.cwd(), "public");
+
+/** Bộ nhớ câu đã đọc: public/voices/.cache/<hash>.mp3 — thư mục bắt đầu bằng dấu chấm nên thư viện không hiện. */
+const CACHE_MAX_FILES = 3000;
+const cacheDir = () => path.join(publicDir(), "voices", ".cache");
+const cachePath = (engine: TtsEngine, voiceTag: string, text: string) =>
+  path.join(cacheDir(), `${createHash("sha1").update([engine, voiceTag, text.replace(/\s+/g, " ").trim()].join("\u0000")).digest("hex")}.mp3`);
+
+/**
+ * Nhãn giọng trong khoá bộ nhớ — cùng giọng, cùng model, cùng chữ thì dùng lại file đã đọc.
+ * ElevenLabs cần voice_id đã biết (giọng mặc định của tài khoản chỉ biết sau khi gọi API).
+ */
+const voiceCacheTag = (engine: TtsEngine, voiceOverride: string | undefined, elevenVoiceId = voiceOverride ?? "") => {
+  const modelId = process.env.ELEVENLABS_MODEL_ID ?? "eleven_v3";
+  const sayVoice = voiceOverride ?? process.env.SAY_VOICE ?? "Linh";
+  return engine === "elevenlabs" ? `${elevenVoiceId}|${modelId}`
+    : engine === "gemini" ? `${voiceOverride}|${process.env.GEMINI_TTS_MODEL ?? ""}|${process.env.GEMINI_TTS_STYLE ?? ""}`
+      : engine === "say" ? `${sayVoice}|${process.platform}`
+        : `${LOCAL_VOICE_MODEL}|${voiceOverride ?? LOCAL_DEFAULT_VOICE}`;
+};
+
+/** Câu này đã được giọng này đọc và còn trong bộ nhớ chưa — đọc lại sẽ không gọi dịch vụ ngoài. */
+export const isVoiceCached = (engine: TtsEngine, voiceOverride: string | undefined, text: string) =>
+  fs.existsSync(cachePath(engine, voiceCacheTag(engine, voiceOverride), text));
+
+const rememberClip = (file: string, target: string) => {
+  try {
+    fs.mkdirSync(cacheDir(), { recursive: true });
+    fs.copyFileSync(file, target, fs.constants.COPYFILE_FICLONE);
+    const entries = fs.readdirSync(cacheDir());
+    if (entries.length > CACHE_MAX_FILES) {
+      // Quá nhiều thì bỏ bớt những câu lâu không dùng nhất.
+      entries
+        .map((name) => ({ name, at: fs.statSync(path.join(cacheDir(), name)).mtimeMs }))
+        .sort((a, b) => a.at - b.at)
+        .slice(0, entries.length - CACHE_MAX_FILES)
+        .forEach(({ name }) => fs.rmSync(path.join(cacheDir(), name), { force: true }));
+    }
+  } catch {
+    // bộ nhớ đệm hỏng thì lần sau đọc lại, không ảnh hưởng video đang làm
+  }
+};
 
 const durationMs = (file: string) => {
   const seconds = execFileSync(
@@ -121,89 +167,11 @@ const elevenLabsToFile = async (
           "Dùng một giọng premade, hoặc nâng cấp gói.",
       );
     }
-    throw new Error(`ElevenLabs trả về ${response.status}: ${detail}`);
+    throw new Error(describeProviderError("ElevenLabs", response.status, detail, "hoặc chọn giọng miễn phí có sẵn trong máy"));
   }
 
   const raw = `${output}.raw.mp3`;
   fs.writeFileSync(raw, Buffer.from(await response.arrayBuffer()));
-  toMp3(raw, output);
-  fs.unlinkSync(raw);
-};
-
-const EVERAI_API = "https://www.everai.vn/api/v1/tts";
-const EVERAI_POLL_MS = 1000;
-const EVERAI_TIMEOUT_MS = 180_000;
-
-type EverAiResponse = {
-  status: number;
-  error_code?: string | number;
-  error_message?: string;
-  result?: { request_id: string; status: string; audio_link?: string; audio_expired?: boolean };
-};
-
-const everAiCall = async (url: string, init?: RequestInit) => {
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${process.env.EVERAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-  });
-  const text = await response.text();
-  let body: EverAiResponse | undefined;
-  try {
-    body = JSON.parse(text) as EverAiResponse;
-  } catch {
-    // body lỗi dạng HTML/chữ thường — báo nguyên văn bên dưới.
-  }
-  if (!response.ok || !body || body.status !== 1 || !body.result) {
-    const detail = body?.error_message ?? text.slice(0, 200);
-    throw new Error(`EverAI trả về ${response.status}: ${detail}`);
-  }
-  return body.result;
-};
-
-/**
- * EverAI xử lý bất đồng bộ: POST tạo yêu cầu, rồi hỏi lại theo request_id tới khi
- * "done" mới có audio_link. Không dùng callback_url vì server chạy local.
- */
-const everAiToFile = async (text: string, output: string, voiceCode: string) => {
-  const created = await everAiCall(EVERAI_API, {
-    method: "POST",
-    body: JSON.stringify({
-      response_type: "indirect",
-      input_text: text,
-      voice_code: voiceCode,
-      model_id: process.env.EVERAI_MODEL_ID || "everai-v1.6",
-      audio_type: "mp3",
-      bitrate: 128,
-      speed_rate: 1.0,
-      pitch_rate: 1.0,
-    }),
-  });
-
-  const deadline = Date.now() + EVERAI_TIMEOUT_MS;
-  let job = created;
-  while (job.status !== "done") {
-    if (/fail|error/i.test(job.status)) {
-      throw new Error(`EverAI không đọc được câu này (trạng thái ${job.status}).`);
-    }
-    if (Date.now() > deadline) {
-      throw new Error(`EverAI xử lý quá ${EVERAI_TIMEOUT_MS / 1000}s — thử lại sau.`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, EVERAI_POLL_MS));
-    job = await everAiCall(`${EVERAI_API}/${created.request_id}`);
-  }
-  if (!job.audio_link || job.audio_expired) {
-    throw new Error("EverAI báo xong nhưng không có file audio.");
-  }
-
-  const audio = await fetch(job.audio_link);
-  if (!audio.ok) {
-    throw new Error(`Không tải được audio EverAI: ${audio.status}`);
-  }
-  const raw = `${output}.raw.mp3`;
-  fs.writeFileSync(raw, Buffer.from(await audio.arrayBuffer()));
   toMp3(raw, output);
   fs.unlinkSync(raw);
 };
@@ -241,11 +209,57 @@ const resolveElevenLabsVoice = async () => {
   return first.voice_id;
 };
 
+export type VoiceoverOptions = {
+  log?: (line: string) => void;
+  /** Giọng đã chọn hết lượt/lỗi hạn mức nên đọc bằng giọng miễn phí khác — câu báo cho người dùng. */
+  onFallback?: (note: string) => void;
+};
+
+/**
+ * Giọng miễn phí thay thế khi giọng trên mạng hết lượt: giọng có sẵn trong app (VieNeu, tiếng Việt)
+ * → giọng của hệ điều hành. null = không có gì thay được.
+ */
+const fallbackVoice = (lang: "vi" | "en"): { engine: TtsEngine; id: string; label: string } | null => {
+  if (lang === "vi" && localVoiceAvailable()) return { engine: "local", id: LOCAL_DEFAULT_VOICE, label: `giọng ${LOCAL_DEFAULT_VOICE} có sẵn trong app` };
+  if (process.platform === "darwin") return lang === "vi"
+    ? { engine: "say", id: "Linh", label: "giọng Linh của macOS" }
+    : { engine: "say", id: "Samantha", label: "giọng Samantha của macOS" };
+  if (process.platform === "win32") return { engine: "say", id: "", label: "giọng đọc của Windows" };
+  return null;
+};
+
 export const generateVoiceover = async (
   lines: string[],
   slug: string,
   engine: TtsEngine,
-  /** Ghi đè lựa chọn giọng: voice_id của ElevenLabs, hoặc tên giọng của `say`. */
+  /** Ghi đè lựa chọn giọng: voice_id của ElevenLabs, tên giọng của Gemini/`say`, hoặc tên giọng VieNeu có sẵn trong app. */
+  voiceOverride?: string,
+  options: VoiceoverOptions = {},
+): Promise<VoiceoverClip[]> => {
+  if (engine === "gemini") {
+    try {
+      return await synthesizeVoiceover(lines, slug, engine, voiceOverride);
+    } catch (error) {
+      const lang = VOICES.find((v) => v.engine === "gemini" && v.id === voiceOverride)?.lang ?? "vi";
+      const fallback = shouldFallBack(error) ? fallbackVoice(lang) : null;
+      if (!fallback) throw error;
+      const reason = {
+        rate_limit: "hết lượt theo phút", daily_quota: "hết lượt miễn phí trong ngày", credit: "hết tiền/credit",
+        auth: "key bị từ chối", overloaded: "máy chủ quá tải", too_large: "yêu cầu quá lớn", other: "lỗi",
+      }[(error as ProviderError).kind];
+      const note = `↪ Giọng Gemini ${reason} — đã đọc bằng ${fallback.label}. Chi tiết trong ⚙ Cài đặt › 📊 Hôm nay.`;
+      (options.log ?? ((line: string) => process.stdout.write(`${line}\n`)))(note);
+      options.onFallback?.(note);
+      return synthesizeVoiceover(lines, slug, fallback.engine, fallback.id || undefined);
+    }
+  }
+  return synthesizeVoiceover(lines, slug, engine, voiceOverride);
+};
+
+export const synthesizeVoiceover = async (
+  lines: string[],
+  slug: string,
+  engine: TtsEngine,
   voiceOverride?: string,
 ): Promise<VoiceoverClip[]> => {
   const relDir = path.join("voices", slug);
@@ -258,8 +272,8 @@ export const generateVoiceover = async (
       `Thiếu ${missing}. Điền trong Cài đặt, hoặc chạy với --tts say để dùng giọng macOS.`,
     );
   }
-  if (engine === "everai" && !voiceOverride) {
-    throw new Error("Giọng EverAI cần voice_code — chọn một giọng EverAI trong danh sách.");
+  if (engine === "gemini" && !voiceOverride) {
+    throw new Error("Giọng Gemini cần tên giọng (ví dụ Kore) — chọn một giọng Gemini trong danh sách.");
   }
 
   const voiceId =
@@ -272,17 +286,48 @@ export const generateVoiceover = async (
   const sayVoice = voiceOverride ?? process.env.SAY_VOICE ?? "Linh";
 
   const clips: VoiceoverClip[] = [];
+  const clipName = (i: number) => `line-${String(i + 1).padStart(2, "0")}.mp3`;
+
+  // Câu đã đọc trước đó (cùng giọng, cùng model, cùng chữ) lấy lại từ bộ nhớ — sửa một câu không phải
+  // đọc lại cả video, không tốn thêm lượt gọi giọng trên mạng.
+  const voiceTag = voiceCacheTag(engine, voiceOverride, voiceId);
+  const cached = lines.map((text) => cachePath(engine, voiceTag, text));
+  const todo = lines.map((_, i) => i).filter((i) => !fs.existsSync(cached[i]));
+  if (todo.length < lines.length) {
+    process.stdout.write(`     Dùng lại ${lines.length - todo.length}/${lines.length} câu đã đọc trước đó.\n`);
+  }
+
+  // Giọng trong app đọc cả loạt trong một tiến trình con (nạp model một lần), rồi đổi sang mp3 ở vòng dưới.
+  if (engine === "local" && todo.length > 0) {
+    await localTtsToWavs(todo.map((i) => ({ text: lines[i], out: path.join(absDir, `${clipName(i)}.wav`) })), voiceOverride);
+  }
+  // Gemini đọc các câu còn thiếu trong một lượt gọi rồi tự tách câu (tiết kiệm hạn mức gói miễn phí) — xem gemini-tts.ts.
+  if (engine === "gemini" && todo.length > 0) {
+    await geminiTtsToWavs(todo.map((i) => ({ text: lines[i], out: path.join(absDir, `${clipName(i)}.wav`) })), voiceOverride as string);
+  }
 
   for (let i = 0; i < lines.length; i++) {
-    const name = `line-${String(i + 1).padStart(2, "0")}.mp3`;
+    const name = clipName(i);
     const abs = path.join(absDir, name);
 
-    if (engine === "say") {
-      sayToFile(lines[i], abs, sayVoice);
-    } else if (engine === "everai") {
-      await everAiToFile(lines[i], abs, voiceOverride as string);
+    if (!todo.includes(i)) {
+      fs.copyFileSync(cached[i], abs, fs.constants.COPYFILE_FICLONE);
+      try {
+        const now = new Date();
+        fs.utimesSync(cached[i], now, now); // đánh dấu vừa dùng — dọn bộ nhớ thì bỏ câu lâu không dùng trước
+      } catch {
+        // không quan trọng
+      }
     } else {
-      await elevenLabsToFile(lines[i], abs, voiceId, modelId);
+      if (engine === "local" || engine === "gemini") {
+        toMp3(`${abs}.wav`, abs);
+        fs.unlinkSync(`${abs}.wav`);
+      } else if (engine === "say") {
+        sayToFile(lines[i], abs, sayVoice);
+      } else {
+        await elevenLabsToFile(lines[i], abs, voiceId, modelId);
+      }
+      rememberClip(abs, cached[i]);
     }
 
     const ms = durationMs(abs);

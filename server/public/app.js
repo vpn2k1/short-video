@@ -21,6 +21,15 @@ const fold = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 const matches = (p, q) => !q || fold(p.title).includes(q) || p.slug.includes(q);
 
+/**
+ * Bấm Enter hoặc nút Tạo/Chạy: bỏ focus ô đang gõ — bàn phím điện thoại cụp xuống, phím tắt một chữ
+ * của app dùng lại được, và không lỡ tay gõ thêm vào ô trong lúc đang tạo.
+ */
+const blurTyping = () => {
+  const el = document.activeElement;
+  if (el instanceof HTMLElement && el.matches("input, textarea, select, [contenteditable]")) el.blur();
+};
+
 const isVideoFile = (p) => /\.(mp4|mov|webm)(\?|$)/i.test(p);
 const ratioCss = (aspect) => (aspect || "9:16").replace(":", " / ");
 const isWide = (aspect) => { const [w, h] = (aspect || "9:16").split(":").map(Number); return w / h > 1; };
@@ -35,9 +44,9 @@ const IDEAS = [
 
 /** Gợi ý sửa nhanh dưới kết quả — chỉ điền sẵn vào ô nhập, người dùng tự bấm gửi. */
 const QUICK_EDITS = [
-  { label: "✂️ Ngắn hơn", prompt: "Rút gọn còn khoảng 15 giây, giữ ý chính." },
-  { label: "😄 Vui hơn", prompt: "Viết lại với giọng vui, gần gũi hơn." },
-  { label: "🔁 Phiên bản khác", prompt: "Làm một phiên bản khác cùng chủ đề, với hook mới." },
+  { label: `${icon("scissors")} Ngắn hơn`, prompt: "Rút gọn còn khoảng 15 giây, giữ ý chính." },
+  { label: `${icon("smile")} Vui hơn`, prompt: "Viết lại với giọng vui, gần gũi hơn." },
+  { label: `${icon("repeat")} Phiên bản khác`, prompt: "Làm một phiên bản khác cùng chủ đề, với hook mới." },
 ];
 
 // Ô nhập nhiều dòng — placeholder kèm luôn một ví dụ để người mới biết gõ gì.
@@ -51,7 +60,7 @@ const TEXT_PLACEHOLDER = {
   edit: "Dán lời mới vào đây để dựng lại video",
 };
 
-const DEFAULT_OPTS = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: "", video: "", provider: "auto", images: "library", length: "auto" };
+const DEFAULT_OPTS = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: "", video: "", provider: "auto", images: "library", art: "auto", length: "auto" };
 const AUTO_STYLE = { id: "auto", emoji: "✨", label: "Tự động", summary: "AI đọc nội dung và chọn phong cách hợp nhất." };
 
 // ---------- trạng thái ----------
@@ -96,6 +105,7 @@ async function boot() {
   bindMulti();
   bindBatch();
   bindSubs();
+  bindBili();
   loadHistory();
   renderKeyNotice();
   window.addEventListener("hashchange", route);
@@ -116,11 +126,14 @@ function route() {
   // Tiến độ loạt hiện trên tiêu đề tab; rời màn đó thì trả lại tên app.
   document.title = BASE_TITLE;
   renderHistory();
+  // Màn Bilibili nằm ở bili.js — các màn khác không biết tới nó, nên ẩn ở đây.
+  $("view-bili").hidden = true;
   const hash = location.hash.replace(/^#\/?/, "");
   if (hash === "library") return showLibrary("videos");
   if (hash === "library/media") return showLibrary("media");
   if (hash === "library/trash") return showLibrary("trash");
   if (hash === "subs") return showSubs();
+  if (hash === "bili") return showBili();
   if (hash === "batch") return showBatch(null);
   const batchMatch = hash.match(/^batch\/([a-z0-9-]+)$/);
   if (batchMatch) return showBatch(batchMatch[1]);
@@ -136,6 +149,7 @@ function setNav(which) {
   $("nav-lib").classList.toggle("on", which === "lib");
   $("nav-batch").classList.toggle("on", which === "batch");
   $("nav-subs").classList.toggle("on", which === "subs");
+  $("nav-bili").classList.toggle("on", which === "bili");
 }
 
 async function showChat(slug) {
@@ -147,6 +161,17 @@ async function showChat(slug) {
   setNav(slug ? "" : "new");
   stopFollowing();
 
+  flushChatDraft();
+  // Ô nhập thuộc về một video: rời video đó (hoặc từ video sang tạo mới) thì dọn ô, lời gõ dở đã được lưu.
+  const switching = composerOwner !== (slug ?? null);
+  if (switching) {
+    if (composerOwner !== null || slug) {
+      $("input").value = ""; autosize();
+      pending = []; renderPending();
+    }
+    if (!slug) newDraftSlug = null;
+  }
+  composerOwner = slug ?? null;
   current = slug;
   project = null;
   messages = [];
@@ -180,9 +205,11 @@ async function showChat(slug) {
       video: chat.settings.video ?? "",
       provider: chat.settings.provider ?? "auto",
       images: chat.settings.images ?? "library",
+      art: chat.settings.art ?? "auto",
       length: chat.settings.length ?? "auto",
     });
     project = projects.find((p) => p.slug === slug) ?? null;
+    if (switching && chat.draft) restoreChatDraft(chat.draft);
     renderProjectBar();
     renderComposer();
     renderThread();
@@ -206,7 +233,8 @@ async function showLibrary(tab = "videos") {
   selecting = false;
   selectedSlugs.clear();
   selectedMedia.clear();
-  $("libSelect").hidden = tab === "trash";
+  selectedTrash.clear();
+  $("libSelect").hidden = false;
   $("trashEmpty").hidden = true;
   $("libSelectBar").hidden = true;
   document.querySelectorAll("[data-libtab]").forEach((b) => {
@@ -218,7 +246,7 @@ async function showLibrary(tab = "videos") {
   $("trashGrid").hidden = tab !== "trash";
   $("libFilter").hidden = tab !== "media";
   $("search").placeholder = { media: "Tìm tài nguyên…", trash: "Tìm trong thùng rác…" }[tab] ?? "Tìm video…";
-  $("libSelect").textContent = tab === "media" ? "☑️ Chọn để dọn" : "☑️ Chọn để xoá";
+  $("libSelect").innerHTML = `${icon("square-check")} ${tab === "media" ? "Chọn để dọn" : tab === "trash" ? "Chọn nhiều" : "Chọn để xoá"}`;
 
   const target = { media: $("mediaGrid"), trash: $("trashGrid") }[tab] ?? $("grid");
   target.innerHTML = `<p class="empty-lib">Đang tải…</p>`;
@@ -258,6 +286,7 @@ function renderProjectBar() {
   // Trình chỉnh sửa cần props.json — có kết quả (video hoặc ảnh) là có.
   const editable = Boolean(lastVideo) || messages.some((m) => m.images?.length) || Boolean(project?.editable);
   $("projectEdit").hidden = !editable;
+  // Không ghi số bản: trình chỉnh sửa tự mở bản mới nhất. Bản cũ mở từ nút "Chỉnh sửa bản n" dưới từng video.
   $("projectEdit").href = `/editor.html#${encodeURIComponent(current)}`;
   $("projectDelete").hidden = busy;
   $("projectDelete").onclick = () => deleteProjects([current]);
@@ -361,16 +390,17 @@ function renderHistory() {
     const img = p.kind === "image" ? p.cover : p.thumb;
     const status = {
       running: `<span class="h-status running">Đang dựng…</span>`,
+      interrupted: `<span class="h-status error">${icon("triangle-alert")} Bị gián đoạn</span> · ${historyTime(p.updated)}`,
       error: `<span class="h-status error">Lỗi</span> · ${historyTime(p.updated)}`,
-      draft: `Chưa có kết quả · ${historyTime(p.updated)}`,
+      draft: `${p.hasDraft || (p.multi && p.edits === 0) ? `${icon("pencil")} Bản nháp` : "Chưa có kết quả"} · ${historyTime(p.updated)}`,
       done: `${style.emoji} ${p.kind === "image" ? `${p.images} ảnh` : "Video"} · ${historyTime(p.updated)}`,
     }[p.status] ?? historyTime(p.updated);
     return `${heading}
-      <a class="h-item ${p.slug === activeSlug ? "on" : ""}" href="#/v/${p.slug}"
+      <a class="h-item ${p.slug === activeSlug ? "on" : ""}" href="${p.multi && p.edits === 0 ? `#/multi/${p.slug}` : `#/v/${p.slug}`}"
          ${p.slug === activeSlug ? 'aria-current="page"' : ""} title="${escapeHtml(p.title)}">
         <span class="h-thumb">${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" />` : style.emoji}</span>
         <span class="h-text"><b>${escapeHtml(p.title)}</b><small>${status}</small></span>
-        ${p.running ? "" : `<button type="button" class="h-del" data-del="${p.slug}" title="Xoá video này" aria-label="Xoá ${escapeHtml(p.title)}">🗑</button>`}
+        ${p.running ? "" : `<button type="button" class="h-del" data-del="${p.slug}" title="Xoá video này" aria-label="Xoá ${escapeHtml(p.title)}">${icon("trash-2")}</button>`}
       </a>`;
   }).join("");
 }
@@ -408,12 +438,12 @@ function projectCard(p, selectable = false) {
         ${cover}
         <span class="badge">${escapeHtml(badge)}</span>
         ${p.running ? `<span class="badge live">Đang xử lý…</span>` : ""}
-        ${selectable ? `<span class="check" aria-hidden="true">${picked ? "✓" : ""}</span>` : ""}
+        ${selectable ? `<span class="check" aria-hidden="true">${picked ? icon("check") : ""}</span>` : ""}
       </div>
       <div class="meta">
         <div class="t" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</div>
         <div class="m"><span>${new Date(p.updated).toLocaleDateString("vi-VN")}${selectable ? ` · ${fmtBytes(p.bytes)}` : ""}</span>
-          ${!selectable && p.kind === "video" && p.mp4 ? `<button type="button" data-dl="${escapeHtml(p.mp4)}">⬇ Tải</button>` : ""}</div>
+          ${!selectable && p.kind === "video" && p.mp4 ? `<button type="button" data-dl="${escapeHtml(p.mp4)}">${icon("download")} Tải</button>` : ""}</div>
       </div>
     </a>`;
 }
@@ -445,7 +475,7 @@ function bindCards(container) {
 function renderLibrary() {
   const q = fold($("search").value.trim());
   const items = libraryItems.filter((p) => matches(p, q));
-  const newCard = q || selecting ? "" : `<a class="card new" href="#/"><div><b>＋</b>Tạo video mới</div></a>`;
+  const newCard = q || selecting ? "" : `<a class="card new" href="#/"><div><b>${icon("plus")}</b>Tạo video mới</div></a>`;
   $("grid").innerHTML = newCard + items.map((p) => projectCard(p, selecting)).join("") +
     (q && items.length === 0 ? `<p class="empty-lib">Không tìm thấy video nào.</p>` : "");
   bindCards($("grid"));
@@ -463,24 +493,26 @@ function download(url) {
 let selecting = false;
 const selectedSlugs = new Set();
 
-// ---------- thư viện: tab 🗂 Tài nguyên ----------
+// ---------- thư viện: tab Tài nguyên ----------
 let libTab = "videos";     // "videos" | "media"
 let mediaItems = [];       // /api/library/media
 let mediaFilter = "all";   // all | image | video | audio | voices | unused
 const selectedMedia = new Set();
+/** Tab Thùng rác, chế độ chọn: id các mục đã chọn. */
+const selectedTrash = new Set();
 
 const MEDIA_GROUPS = [
-  ["uploads", "📤 Tải lên"],
-  ["images", "🖼 Ảnh"],
-  ["videos", "🎞 Clip video"],
-  ["music", "🎵 Nhạc nền"],
-  ["sfx", "🔊 Hiệu ứng âm thanh"],
-  ["voices", "🎙 Giọng đọc"],
+  ["uploads", `${icon("upload")} Tải lên`],
+  ["images", `${icon("image")} Ảnh`],
+  ["videos", `${icon("film")} Clip video`],
+  ["music", `${icon("music")} Nhạc nền`],
+  ["sfx", `${icon("volume-2")} Hiệu ứng âm thanh`],
+  ["voices", `${icon("mic")} Giọng đọc`],
 ];
 
 const renderCurrentLib = () => (libTab === "media" ? renderMedia() : libTab === "trash" ? renderTrash() : renderLibrary());
 
-// ---------- thư viện: tab 🗑 Thùng rác ----------
+// ---------- thư viện: tab Thùng rác ----------
 let trashItems = [];   // /api/trash
 let trashDays = 30;
 
@@ -492,42 +524,54 @@ async function loadTrash() {
 }
 
 function trashCard(t) {
-  const icon = t.kind === "video" ? "🎬" : { image: "🖼", video: "🎞", audio: "🎵" }[t.mediaKind] ?? "📄";
+  const trashIcon = t.kind === "video" ? icon("clapperboard")
+    : { image: icon("image"), video: icon("film"), audio: icon("music") }[t.mediaKind] ?? icon("file");
   let cover = "";
   if (t.preview?.video) cover = `<video src="${escapeHtml(t.preview.url)}#t=1" muted playsinline preload="metadata"></video>`;
   else if (t.preview) cover = `<img src="${escapeHtml(t.preview.url)}" alt="" loading="lazy" />`;
   const daysLeft = Math.max(0, Math.ceil((t.expiresAt - Date.now()) / 86_400_000));
+  const picked = selecting && selectedTrash.has(t.id);
   return `
-    <div class="card trash-card" data-trash="${escapeHtml(t.id)}">
+    <div class="card trash-card${selecting ? " selectable" : ""}${picked ? " picked" : ""}" data-trash="${escapeHtml(t.id)}"
+      ${selecting ? `role="checkbox" aria-checked="${picked}" tabindex="0"` : ""}>
       <div class="thumb">
-        <div class="none">${icon}</div>
+        <div class="none">${trashIcon}</div>
         ${cover}
-        <span class="badge">${t.kind === "video" ? "🎬 Video" : `${icon} Tài nguyên`}</span>
+        ${selecting ? `<span class="check" aria-hidden="true">${picked ? icon("check") : ""}</span>` : ""}
+        <span class="badge">${t.kind === "video" ? `${icon("clapperboard")} Video` : `${trashIcon} Tài nguyên`}</span>
         <span class="badge days${daysLeft <= 3 ? " soon" : ""}" title="Tự xoá sau ${trashDays} ngày">còn ${daysLeft} ngày</span>
       </div>
       <div class="meta">
         <div class="t" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
         <div class="m"><span>Xoá ${new Date(t.deletedAt).toLocaleDateString("vi-VN")} · ${fmtBytes(t.bytes)}</span></div>
-        ${t.conflict ? `<span class="m warn" title="Chỗ cũ đã có file khác — khôi phục sẽ bị bỏ qua để không ghi đè">⚠️ Đã có mục cùng tên</span>` : ""}
-        <div class="trash-actions">
-          <button type="button" class="btn primary" data-restore="${escapeHtml(t.id)}">↩ Khôi phục</button>
-          <button type="button" class="btn danger" data-forever="${escapeHtml(t.id)}" title="Xoá vĩnh viễn" aria-label="Xoá vĩnh viễn ${escapeHtml(t.title)}">🗑</button>
-        </div>
+        ${t.conflict ? `<span class="m warn" title="Chỗ cũ đã có file khác — khôi phục sẽ bị bỏ qua để không ghi đè">${icon("triangle-alert")} Đã có mục cùng tên</span>` : ""}
+        ${selecting ? "" : `<div class="trash-actions">
+          <button type="button" class="btn primary" data-restore="${escapeHtml(t.id)}">${icon("undo-2")} Khôi phục</button>
+          <button type="button" class="btn danger" data-forever="${escapeHtml(t.id)}" title="Xoá vĩnh viễn" aria-label="Xoá vĩnh viễn ${escapeHtml(t.title)}">${icon("trash-2")}</button>
+        </div>`}
       </div>
     </div>`;
 }
 
-function renderTrash() {
+function visibleTrash() {
   const q = fold($("search").value.trim());
-  const items = trashItems.filter((t) => !q || fold(t.title).includes(q));
-  $("trashEmpty").hidden = trashItems.length === 0;
+  return trashItems.filter((t) => !q || fold(t.title).includes(q));
+}
+
+function renderTrash() {
+  const items = visibleTrash();
+  // Mục đã khôi phục/xoá ở chỗ khác thì bỏ khỏi lựa chọn.
+  for (const id of [...selectedTrash]) if (!trashItems.some((t) => t.id === id)) selectedTrash.delete(id);
+  $("trashEmpty").hidden = trashItems.length === 0 || selecting;
+  $("libSelect").hidden = selecting || trashItems.length === 0;
   const total = fmtBytes(trashItems.reduce((sum, t) => sum + t.bytes, 0));
   $("trashGrid").innerHTML = trashItems.length === 0
-    ? `<p class="empty-lib">🗑 Thùng rác trống.<br>Video và tài nguyên bạn xoá sẽ nằm ở đây ${trashDays} ngày, khôi phục được bất cứ lúc nào.</p>`
-    : `<p class="trash-note">${trashItems.length} mục · ${total}. Mục ở đây tự xoá sau ${trashDays} ngày — bấm <b>↩ Khôi phục</b> để trả về chỗ cũ.</p>` +
+    ? `<p class="empty-lib">${icon("trash-2")} Thùng rác trống.<br>Video và tài nguyên bạn xoá sẽ nằm ở đây ${trashDays} ngày, khôi phục được bất cứ lúc nào.</p>`
+    : `<p class="trash-note">${trashItems.length} mục · ${total}. Mục ở đây tự xoá sau ${trashDays} ngày — bấm <b>${icon("undo-2")} Khôi phục</b> để trả về chỗ cũ.</p>` +
       (items.length ? items.map(trashCard).join("") : `<p class="empty-lib">Không có mục nào khớp.</p>`);
   // Ảnh bìa đã bị xoá theo cách khác: bỏ ảnh hỏng, để lộ biểu tượng bên dưới.
   $("trashGrid").querySelectorAll("img").forEach((img) => img.addEventListener("error", () => img.remove(), { once: true }));
+  renderSelectBar();
 }
 
 /** Thêm/bớt mục trong thùng rác: cập nhật số đếm, lịch sử và tab Thư viện đang mở. */
@@ -553,37 +597,50 @@ async function restoreTrash(ids) {
     const one = result.restored.length === 1 ? `“${result.restored[0].title}”` : `${result.restored.length} mục`;
     flashNote(result.restored.length ? `Đã khôi phục ${one}${skipped}.` : `Không khôi phục được${skipped}.`, result.restored.length === 0);
     await refreshAfterTrashChange();
+    return result.restored.length > 0;
   } catch (e) {
     flashNote(`Không khôi phục được: ${e.message}`, true);
+    return false;
   }
 }
 
 /** ids = "all" để dọn sạch. */
 async function deleteTrashForever(ids) {
   const picked = ids === "all" ? trashItems : trashItems.filter((t) => ids.includes(t.id));
-  if (picked.length === 0) return;
+  if (picked.length === 0) return false;
   const bytes = picked.reduce((sum, t) => sum + t.bytes, 0);
   const ok = await confirmDialog({
     title: ids === "all" ? `Dọn sạch thùng rác (${picked.length} mục)?` : `Xoá vĩnh viễn ${picked.length === 1 ? "mục này" : `${picked.length} mục`}?`,
     message: `${fmtBytes(bytes)} sẽ bị xoá khỏi app, không khôi phục trong Thư viện được nữa. ` +
       "File được chuyển sang Thùng rác của máy — dọn Thùng rác của máy mới thật sự giải phóng dung lượng.",
     items: picked.slice(0, 8).map((t) => t.title).concat(picked.length > 8 ? [`…và ${picked.length - 8} mục khác`] : []),
-    okText: ids === "all" ? "🧹 Dọn sạch" : "🗑 Xoá vĩnh viễn",
+    okText: ids === "all" ? `${icon("eraser")} Dọn sạch` : `${icon("trash-2")} Xoá vĩnh viễn`,
   });
-  if (!ok) return;
+  if (!ok) return false;
   try {
     const result = await postJson("/api/trash/delete", ids === "all" ? { all: true } : { ids });
-    const skipped = result.skipped.length ? ` · bỏ qua ${result.skipped.length}` : "";
+    const reasons = [...new Set(result.skipped.map((s) => s.reason))].slice(0, 2).join("; ");
+    const skipped = result.skipped.length ? ` · bỏ qua ${result.skipped.length} (${reasons})` : "";
     flashNote(`Đã xoá vĩnh viễn ${result.deleted.length} mục (${fmtBytes(result.freedBytes)})${skipped}.`, result.deleted.length === 0);
     await refreshAfterTrashChange();
+    return result.deleted.length > 0;
   } catch (e) {
     flashNote(`Không xoá được: ${e.message}`, true);
+    return false;
   }
 }
 
 function bindTrash() {
   $("trashEmpty").addEventListener("click", () => deleteTrashForever("all"));
   $("trashGrid").addEventListener("click", (ev) => {
+    if (selecting) {
+      const card = ev.target.closest(".trash-card[data-trash]");
+      if (!card) return;
+      const id = card.dataset.trash;
+      if (selectedTrash.has(id)) selectedTrash.delete(id); else selectedTrash.add(id);
+      renderTrash();
+      return;
+    }
     const restore = ev.target.closest("[data-restore]");
     if (restore) { restore.disabled = true; restoreTrash([restore.dataset.restore]); return; }
     const forever = ev.target.closest("[data-forever]");
@@ -607,16 +664,16 @@ function mediaCard(m) {
   const used = m.usedBy.length;
   const locked = selecting && m.builtIn;
   const picked = selecting && !m.builtIn && selectedMedia.has(m.path);
-  let cover = `<div class="none audio">${m.root === "voices" ? "🎙" : "🎵"}</div>`;
+  let cover = `<div class="none audio">${m.root === "voices" ? icon("mic") : icon("music")}</div>`;
   if (m.kind === "image") cover = `<img src="${escapeHtml(url)}" alt="" loading="lazy" />`;
   else if (m.kind === "video") cover = `<video src="${escapeHtml(url)}#t=1" muted playsinline preload="metadata"></video>`;
   const thumb = `
       <div class="thumb">
         ${cover}
         ${m.builtIn
-          ? `<span class="badge builtin">🔒 Mặc định của app</span>`
+          ? `<span class="badge builtin">${icon("lock")} Mặc định của app</span>`
           : `<span class="badge ${used ? "used" : "unused"}">${used ? `Dùng trong ${used} video` : "Chưa dùng"}</span>`}
-        ${selecting && !m.builtIn ? `<span class="check" aria-hidden="true">${picked ? "✓" : ""}</span>` : ""}
+        ${selecting && !m.builtIn ? `<span class="check" aria-hidden="true">${picked ? icon("check") : ""}</span>` : ""}
       </div>`;
   const sub = m.folder !== m.root ? `${m.folder.slice(m.root.length + 1)} · ` : "";
   const users = m.usedBy.map((v) => v.title).join(", ");
@@ -629,7 +686,7 @@ function mediaCard(m) {
       <div class="meta">
         <div class="t">${escapeHtml(m.name)}</div>
         <div class="m"><span>${escapeHtml(sub)}${fmtBytes(m.bytes)}</span></div>
-        ${used ? `<span class="m used-by" title="${escapeHtml(users)}">🎬 ${escapeHtml(users)}</span>` : ""}
+        ${used ? `<span class="m used-by" title="${escapeHtml(users)}">${icon("clapperboard")} ${escapeHtml(users)}</span>` : ""}
       </div>
     </div>`;
 }
@@ -653,13 +710,14 @@ function renderMedia() {
  * webview) và Chrome sau khi người dùng tick "chặn hộp thoại" trả false ngay lập tức mà không hiện gì —
  * bấm Xoá trông như không có gì xảy ra.
  */
+/** okText là HTML (để kèm icon) — chỉ truyền chuỗi cố định, không đưa dữ liệu người dùng vào. */
 function confirmDialog({ title, message, items = [], okText = "Xoá" }) {
   const dlg = $("confirmDlg");
   $("confirmTitle").textContent = title;
   $("confirmMessage").textContent = message;
   $("confirmList").innerHTML = items.map((t) => `<li>${escapeHtml(t)}</li>`).join("");
   $("confirmList").hidden = items.length === 0;
-  $("confirmOk").textContent = okText;
+  $("confirmOk").innerHTML = okText;
   return new Promise((resolve) => {
     dlg.returnValue = "";
     dlg.addEventListener("close", () => resolve(dlg.returnValue === "ok"), { once: true });
@@ -679,15 +737,15 @@ async function deleteMedia(paths) {
   const inUse = picked.filter((m) => m.usedBy.length > 0);
   const hurt = [...new Set(inUse.flatMap((m) => m.usedBy.map((v) => v.title)))];
   const warning = inUse.length
-    ? ` ⚠️ ${inUse.length} file đang dùng trong: ${hurt.slice(0, 4).join(", ")}${hurt.length > 4 ? ` và ${hurt.length - 4} video khác` : ""}. ` +
+    ? ` Chú ý: ${inUse.length} file đang dùng trong: ${hurt.slice(0, 4).join(", ")}${hurt.length > 4 ? ` và ${hurt.length - 4} video khác` : ""}. ` +
       "Các video này sẽ thiếu hình/tiếng khi xem trước hoặc dựng lại — bản mp4 đã render thì vẫn giữ nguyên."
     : "";
   const ok = await confirmDialog({
     title: `Chuyển ${picked.length} tài nguyên vào Thùng rác?`,
     message: `${fmtBytes(bytes)} sẽ vào Thư viện › Thùng rác — khôi phục được trong ${trashDays} ngày.${warning}`,
-    items: picked.slice(0, 8).map((m) => `${m.usedBy.length ? "⚠️ " : ""}${m.path}`)
+    items: picked.slice(0, 8).map((m) => `${m.path}${m.usedBy.length ? " — đang dùng" : ""}`)
       .concat(picked.length > 8 ? [`…và ${picked.length - 8} file khác`] : []),
-    okText: inUse.length ? `🗑 Vẫn chuyển ${picked.length} tài nguyên` : `🗑 Chuyển vào Thùng rác`,
+    okText: inUse.length ? `${icon("trash-2")} Vẫn chuyển ${picked.length} tài nguyên` : `${icon("trash-2")} Chuyển vào Thùng rác`,
   });
   if (!ok) return false;
   try {
@@ -699,7 +757,7 @@ async function deleteMedia(paths) {
     const reasons = [...new Set(result.skipped.map((s) => s.reason))].slice(0, 2).join("; ");
     const skipped = result.skipped.length ? ` · giữ lại ${result.skipped.length} (${reasons})` : "";
     flashNote(`Đã chuyển ${result.deleted.length} tài nguyên vào Thùng rác${skipped}.`, result.deleted.length === 0,
-      result.trashIds?.length ? { label: "↩ Hoàn tác", onClick: () => restoreTrash(result.trashIds) } : null);
+      result.trashIds?.length ? { label: "Hoàn tác", onClick: () => restoreTrash(result.trashIds) } : null);
     loadTrash().catch(() => {});
     return result.deleted.length > 0;
   } catch (e) {
@@ -715,7 +773,7 @@ const fmtBytes = (n) => {
   return `${(n / 1024 ** 3).toFixed(1)} GB`;
 };
 
-/** Thông báo nhỏ ở đáy màn hình; `action` = { label, onClick } thêm một nút (vd "↩ Hoàn tác"). */
+/** Thông báo nhỏ ở đáy màn hình; `action` = { label, onClick } thêm một nút (vd "Hoàn tác"). */
 function flashNote(text, isError = false, action = null) {
   let el = $("flashNote");
   if (!el) {
@@ -747,6 +805,7 @@ function setSelecting(on) {
   selecting = on;
   selectedSlugs.clear();
   selectedMedia.clear();
+  selectedTrash.clear();
   $("libSelect").hidden = on;
   renderCurrentLib();
 }
@@ -754,7 +813,20 @@ function setSelecting(on) {
 function renderSelectBar() {
   const bar = $("libSelectBar");
   bar.hidden = !selecting;
+  $("libRestore").hidden = libTab !== "trash";
   if (!selecting) return;
+  if (libTab === "trash") {
+    const chosen = trashItems.filter((t) => selectedTrash.has(t.id));
+    const size = chosen.reduce((sum, t) => sum + t.bytes, 0);
+    $("libSelectCount").textContent = chosen.length
+      ? `Đã chọn ${chosen.length} mục · ${fmtBytes(size)}`
+      : "Bấm vào mục để chọn, hoặc chọn nhanh:";
+    $("libRestore").disabled = chosen.length === 0;
+    $("libRestore").innerHTML = `${icon("undo-2")} ${chosen.length ? `Khôi phục ${chosen.length} mục` : "Khôi phục"}`;
+    $("libDelete").disabled = chosen.length === 0;
+    $("libDelete").innerHTML = `${icon("trash-2")} ${chosen.length ? `Xoá vĩnh viễn ${chosen.length} mục` : "Xoá vĩnh viễn"}`;
+    return;
+  }
   if (libTab === "media") {
     const chosen = mediaItems.filter((m) => selectedMedia.has(m.path));
     const size = chosen.reduce((sum, m) => sum + m.bytes, 0);
@@ -762,7 +834,7 @@ function renderSelectBar() {
       ? `Đã chọn ${chosen.length} tài nguyên · ${fmtBytes(size)}`
       : "Bấm vào tài nguyên để chọn, hoặc chọn nhanh (chỉ lấy file chưa dùng):";
     $("libDelete").disabled = chosen.length === 0;
-    $("libDelete").textContent = chosen.length ? `🗑 Xoá ${chosen.length} tài nguyên` : "🗑 Xoá";
+    $("libDelete").innerHTML = `${icon("trash-2")} ${chosen.length ? `Xoá ${chosen.length} tài nguyên` : "Xoá"}`;
     return;
   }
   const picked = libraryItems.filter((p) => selectedSlugs.has(p.slug));
@@ -771,12 +843,24 @@ function renderSelectBar() {
     ? `Đã chọn ${picked.length} video · ${fmtBytes(bytes)}`
     : "Bấm vào video để chọn, hoặc chọn nhanh:";
   $("libDelete").disabled = picked.length === 0;
-  $("libDelete").textContent = picked.length ? `🗑 Xoá ${picked.length} video` : "🗑 Xoá";
+  $("libDelete").innerHTML = `${icon("trash-2")} ${picked.length ? `Xoá ${picked.length} video` : "Xoá"}`;
 }
 
 /** Chọn nhanh: video không mở/sửa từ N ngày trước (Infinity = tất cả). */
 function selectOlderThan(days) {
   const cutoff = Date.now() - days * 86_400_000;
+  if (libTab === "trash") {
+    // Trong thùng rác, "cũ" tính theo ngày bị xoá.
+    selectedTrash.clear();
+    visibleTrash()
+      .filter((t) => days === Infinity || t.deletedAt < cutoff)
+      .forEach((t) => selectedTrash.add(t.id));
+    renderTrash();
+    if (selectedTrash.size === 0) {
+      flashNote(days === Infinity ? "Thùng rác không có mục nào để chọn." : `Không có mục nào bị xoá cách đây hơn ${days} ngày.`);
+    }
+    return;
+  }
   if (libTab === "media") {
     // Chỉ chọn file chưa video nào dùng — file đang dùng server cũng không xoá.
     selectedMedia.clear();
@@ -806,10 +890,18 @@ function bindLibrarySelect() {
     b.addEventListener("click", () => selectOlderThan(b.dataset.older === "all" ? Infinity : Number(b.dataset.older))));
   $("libSelectNone").addEventListener("click", () => { selectedSlugs.clear(); selectedMedia.clear(); renderCurrentLib(); });
   $("libDelete").addEventListener("click", async () => {
-    const done = libTab === "media"
-      ? await deleteMedia([...selectedMedia])
-      : await deleteProjects([...selectedSlugs]);
+    const done = libTab === "trash"
+      ? await deleteTrashForever([...selectedTrash])
+      : libTab === "media"
+        ? await deleteMedia([...selectedMedia])
+        : await deleteProjects([...selectedSlugs]);
     if (done) setSelecting(false);
+  });
+  $("libRestore").addEventListener("click", async () => {
+    if (libTab !== "trash" || selectedTrash.size === 0) return;
+    $("libRestore").disabled = true;
+    if (await restoreTrash([...selectedTrash])) setSelecting(false);
+    else renderSelectBar();
   });
   document.querySelectorAll("[data-libtab]").forEach((b) =>
     b.addEventListener("click", () => {
@@ -859,7 +951,7 @@ async function deleteProjects(slugs) {
     message: `Bản render, ảnh cảnh, giọng đọc và lịch sử chat (${fmtBytes(bytes)}) sẽ vào Thư viện › Thùng rác — ` +
       `khôi phục được trong ${trashDays} ngày. File bạn tải lên vẫn giữ trong thư viện.`,
     items: info.slice(0, 8).map((p) => p.title).concat(info.length > 8 ? [`…và ${info.length - 8} video khác`] : []),
-    okText: info.length === 1 ? "🗑 Chuyển vào Thùng rác" : `🗑 Chuyển ${info.length} video vào Thùng rác`,
+    okText: `${icon("trash-2")} ${info.length === 1 ? "Chuyển vào Thùng rác" : `Chuyển ${info.length} video vào Thùng rác`}`,
   });
   if (!ok) return false;
   try {
@@ -871,7 +963,7 @@ async function deleteProjects(slugs) {
     renderLibrary();
     const skipped = result.skipped.length ? ` · bỏ qua ${result.skipped.length} (${result.skipped.map((s) => s.reason).join(", ")})` : "";
     flashNote(`Đã chuyển ${result.deleted.length} video vào Thùng rác${skipped}.`, result.deleted.length === 0,
-      result.trashIds?.length ? { label: "↩ Hoàn tác", onClick: () => restoreTrash(result.trashIds) } : null);
+      result.trashIds?.length ? { label: "Hoàn tác", onClick: () => restoreTrash(result.trashIds) } : null);
     loadTrash().catch(() => {});
     if (current && gone.has(current)) location.hash = "#/";
     else if (!current && $("view-library").hidden) loadRecent();
@@ -906,10 +998,20 @@ function renderMessage(m, isLatest) {
     return `<div class="msg-user">${atts ? `<div class="atts">${atts}</div>` : ""}
       <div class="bubble">${escapeHtml(m.text)}</div></div>`;
   }
+  if (m.interrupted) {
+    const retry = m.interruptedKind === "multi"
+      ? `<a class="btn" href="#/multi/${current}">${icon("clapperboard")} Sửa cảnh và tạo lại</a>`
+      : m.interruptedKind === "render"
+        ? `<a class="btn" href="/editor.html#${encodeURIComponent(current)}">${icon("scissors")} Mở chỉnh sửa</a>`
+        : `<button type="button" class="btn" data-retry>${icon("rotate-cw")} Thử lại</button>`;
+    return `<div class="msg-bot error"><div class="text">${icon("triangle-alert")} ${escapeHtml(m.text)}</div>
+      ${isLatest ? `<div class="actions">${retry}</div>` : ""}
+    </div>`;
+  }
   if (m.error) {
     return `<div class="msg-bot error"><div class="text">Không làm được: ${escapeHtml(m.text)}</div>
-      ${isLatest ? `<div class="actions"><button type="button" class="btn" data-retry>↻ Thử lại</button>
-        ${/API key/i.test(m.text) ? `<button type="button" class="btn" data-open-settings>🔑 Mở cài đặt</button>` : ""}</div>` : ""}
+      ${isLatest ? `<div class="actions"><button type="button" class="btn" data-retry>${icon("rotate-cw")} Thử lại</button>
+        ${/API key|Cài đặt/i.test(m.text) ? `<button type="button" class="btn" data-open-settings>${icon("settings")} Mở cài đặt</button>` : ""}</div>` : ""}
     </div>`;
   }
   const scenes = m.scenes?.length
@@ -923,38 +1025,47 @@ function renderMessage(m, isLatest) {
     <div class="shots ${isWide(m.aspect) ? "wide" : ""}">${m.images.map((src, i) => `
       <div class="shot" style="aspect-ratio:${ratioCss(m.aspect)}">
         <img src="${escapeHtml(src)}" alt="Ảnh ${i + 1}" loading="lazy" data-zoom="${escapeHtml(src)}" />
-        <button type="button" data-dl="${escapeHtml(src)}" aria-label="Tải ảnh ${i + 1}">⬇</button>
+        <button type="button" data-dl="${escapeHtml(src)}" aria-label="Tải ảnh ${i + 1}">${icon("download")}</button>
       </div>`).join("")}
     </div>
     ${m.images.length > 1 ? `<div class="actions">
-      <button type="button" class="btn" data-dl-all="${escapeHtml(m.images.join("|"))}">⬇ Tải cả ${m.images.length} ảnh</button></div>` : ""}`;
+      <button type="button" class="btn" data-dl-all="${escapeHtml(m.images.join("|"))}">${icon("download")} Tải cả ${m.images.length} ảnh</button></div>` : ""}`;
+  } else if (m.mp4 && m.stale) {
+    // Video làm trước khi app lưu riêng từng bản: file đã bị bản sau ghi đè.
+    result = `<p class="version-stale">Bản ${m.version ?? ""} · video đã bị bản sau ghi đè (làm trước khi app lưu riêng từng bản).</p>`;
   } else if (m.mp4) {
-    result = `
+    // Mỗi kết quả là một bản riêng (server/versions.ts): xem, tải, sửa đúng bản đó.
+    const label = m.version
+      ? `<div class="version-tag">Bản ${m.version}${m.edited ? ` · chỉnh tay${m.from ? ` từ bản ${m.from}` : ""}` : ""}</div>`
+      : "";
+    result = `${label}
     <div class="player" style="aspect-ratio:${ratioCss(m.aspect)};width:${playerWidth(m.aspect)}">
       <video src="${escapeHtml(m.mp4)}" controls playsinline preload="metadata"></video>
     </div>
-    ${isLatest ? "" : `<div class="actions">
-      <button type="button" class="btn" data-dl="${escapeHtml(m.mp4)}">⬇ Tải bản này</button>
-    </div>`}`;
+    <div class="actions">
+      ${isLatest ? "" : `<button type="button" class="btn" data-dl="${escapeHtml(m.mp4)}">${icon("download")} Tải bản này</button>`}
+      ${m.version ? `<a class="btn" href="/editor.html#${encodeURIComponent(current)}/v${m.version}"
+        title="Mở đúng bản ${m.version} trong trình chỉnh sửa — xuất ra thành bản mới, bản ${m.version} giữ nguyên">${icon("scissors")} Chỉnh sửa bản ${m.version}</a>` : ""}
+    </div>`;
   }
   // Sửa nhanh bằng câu lệnh cần AI — ở chế độ nguyên văn thì không hiện.
   const hasResult = isLatest && (m.mp4 || m.images?.length);
   const aiEdit = opts.mode === "ai" && hasScriptKey();
   const quick = hasResult && aiEdit ? `
     <div class="quick">
-      <button type="button" data-quick-style>🎨 Đổi phong cách</button>
+      <button type="button" data-quick-style>${icon("palette")} Đổi phong cách</button>
       ${QUICK_EDITS.map((q, i) => `<button type="button" data-quick="${i}">${q.label}</button>`).join("")}
     </div>` : "";
   // Video xong: mời AI viết sẵn nội dung bài đăng.
   const postCopy = isLatest && m.mp4 && hasScriptKey() ? `
     <div class="post-copy-cta">
-      <button type="button" class="btn" data-post-copy>✍️ Gợi ý bài đăng</button>
+      <button type="button" class="btn" data-post-copy>${icon("pen-line")} Gợi ý bài đăng</button>
       <span>Tiêu đề, caption, hashtag cho TikTok, YouTube, Facebook, Instagram</span>
     </div>` : "";
   const tip = hasResult
     ? `<p class="result-tip">${aiEdit
-      ? "💬 Muốn sửa? Bấm một gợi ý ở trên hoặc gõ yêu cầu vào ô bên dưới."
-      : "📝 Muốn sửa? Dán lời mới vào ô bên dưới để dựng lại, hoặc bấm ✂️ Chỉnh sửa ở thanh trên cùng."}</p>`
+      ? "Muốn sửa? Bấm một gợi ý ở trên hoặc gõ yêu cầu vào ô bên dưới."
+      : "Muốn sửa? Dán lời mới vào ô bên dưới để dựng lại, hoặc bấm Chỉnh sửa ở thanh trên cùng."}</p>`
     : "";
   return `<div class="msg-bot"><div class="text">${escapeHtml(m.text)}</div>${result}${postCopy}${quick}${tip}${scenes}</div>`;
 }
@@ -1041,9 +1152,11 @@ function prefill(text) {
 
 // ---------- gửi & theo dõi ----------
 async function send() {
+  blurTyping();
   const prompt = $("input").value.trim();
   // sending: chặn bấm/Enter liên tục trong lúc chờ server trả lời — nếu không sẽ tạo trùng nhiều video.
   if (!prompt || busy || sending || pending.some((f) => !f.path)) return;
+  if (!(await keyTipsBeforeFirstVideo({ needsScript: opts.mode === "ai" }))) return;
   if (opts.mode === "ai" && !hasScriptKey()) {
     openSettings();
     return;
@@ -1051,17 +1164,34 @@ async function send() {
   setHint("");
   closeMenu();
 
+  // Bản mới nhất có chỉnh tay: AI viết lại từ kịch bản nên phần chỉnh tay không được giữ — báo trước.
+  const latestResult = [...messages].reverse().find((m) => m.role === "assistant" && m.mp4 && !m.error);
+  if (current && opts.mode === "ai" && latestResult?.edited) {
+    const ok = await confirmDialog({
+      title: "Sửa bằng AI từ kịch bản?",
+      message: `Bản ${latestResult.version ?? "mới nhất"} có chỉnh tay trong trình chỉnh sửa. AI sẽ dựng lại từ kịch bản — ` +
+        "phần chỉnh tay (cắt, chữ, crop, phụ đề sửa tay…) không có trong bản mới. Bản cũ vẫn được giữ để xem hoặc sửa tiếp.",
+      okText: "Vẫn sửa bằng AI",
+    });
+    if (!ok) return;
+  }
+
   const attachments = pending.map((f) => f.path);
   sending = true;
   updateSend();
+  clearTimeout(chatDraftTimer);
   try {
+    await chatDraftSaving;
     const { slug, jobId } = await postJson("/api/chat", {
-      slug: current ?? undefined,
+      // Lời gõ ở màn tạo mới đã thành một video nháp — gửi vào đúng video đó, không tạo thêm.
+      slug: current ?? newDraftSlug ?? undefined,
       prompt,
       attachments,
       settings: { ...opts, music: opts.music || null },
     });
 
+    newDraftSlug = null;
+    composerOwner = slug;
     messages.push({ role: "user", text: prompt, attachments, at: Date.now() });
     $("input").value = ""; autosize();
     beforeNormalize = null; syncNormalize();
@@ -1158,28 +1288,28 @@ function setOpt(key, value) {
 function renderComposer() {
   const style = styleMeta(opts.style);
   const voice = state.voices.catalog.find((v) => v.key === opts.voice);
-  const music = state.audio.music.find((m) => m.path === opts.music);
   const textMode = opts.mode === "text";
   // [khoá, nhãn, giá trị đang chọn, tooltip] — mọi tuỳ chọn hiện sẵn, không giấu sau nút nào.
   const chips = [];
   // AI nào viết lời — chỉ hiện khi đang để AI viết.
-  if (!textMode) chips.push(["provider", "AI", providerChipLabel(), "Chọn AI viết lời trong số key đã cài"]);
+  if (!textMode) chips.push(["provider", "AI", providerChipLabel(), "Chọn AI viết lời trong số key đã cài", providerIcon(opts.provider)]);
   // Độ dài chỉ có nghĩa khi AI viết lời — lời dán vào thì dài đúng bằng lời đó.
-  if (!textMode) chips.push(["length", "Độ dài", lengthChipLabel(), "Độ dài video AI viết. Tự động = theo câu prompt (\"video 5 phút\"), không nêu thì video ngắn"]);
+  if (!textMode) chips.push(["length", "Độ dài", lengthChipLabel(), "Độ dài video AI viết. Tự động = theo câu prompt (\"video 5 phút\"), không nêu thì video ngắn", lengthIcon(opts.length)]);
   chips.push(
-    ["kind", "Tạo ra", opts.kind === "image" ? "🖼 Bộ ảnh" : "🎬 Video", "Làm video hay bộ ảnh"],
+    ["kind", "Tạo ra", opts.kind === "image" ? "Bộ ảnh" : "Video", "Làm video hay bộ ảnh", kindIcon(opts.kind)],
     ["style", "Phong cách", `${style.emoji} ${style.label}`, "Kiểu hình ảnh và chữ của video"],
     ["aspect", "Khung", `▭ ${opts.aspect}`, "Tỉ lệ khung hình — 9:16 cho TikTok, Reels, Shorts"],
   );
-  chips.push(["images", "Hình ảnh", imageChipLabel(), "Hình cho từng cảnh: không hình, ảnh của bạn, Pexels, AI vẽ hay clip video AI"]);
+  chips.push(["images", "Hình ảnh", imageChipLabel(), "Hình cho từng cảnh: không hình, ảnh của bạn, Pexels, AI vẽ hay clip video AI", imagesIcon(opts.images, opts.video)]);
+  if (aiDraws()) chips.push(["art", "Kiểu vẽ", artChipLabel(), "Kiểu hình AI vẽ: ảnh thật, 3D, 2D, hoạt hình, anime… — ghép với phong cách nào cũng được", artIcon(opts.art)]);
   // Ảnh tĩnh không có tiếng — ẩn giọng và nhạc.
   if (opts.kind === "video") {
-    chips.push(["voice", "Giọng", voice ? `🎙 ${voice.key}` : "🔇 Không giọng", "Giọng đọc"]);
-    chips.push(["music", "Nhạc", music ? `♪ ${music.name.replace(/\.\w+$/, "")}` : "♪ Không nhạc", "Nhạc nền"]);
+    chips.push(["voice", "Giọng", voice ? voice.key : "Không giọng", "Giọng đọc", voiceIcon(voice?.key)]);
+    chips.push(["music", "Nhạc", musicLabel(opts.music), "Nhạc nền", musicIcon(opts.music)]);
   }
-  $("chips").innerHTML = chips.map(([key, name, label, title]) =>
+  $("chips").innerHTML = chips.map(([key, name, label, title, ic]) =>
     `<button type="button" class="chip" data-chip="${key}" title="${title}" aria-haspopup="listbox" aria-expanded="false">` +
-    `<span class="chip-k">${name}:</span><span class="chip-v">${escapeHtml(label)}</span>${CARET}</button>`).join("");
+    `<span class="chip-k">${name}:</span><span class="chip-v">${ic ? `${ic} ` : ""}${escapeHtml(label)}</span>${CARET}</button>`).join("");
   $("chips").querySelectorAll("[data-chip]").forEach((b) =>
     b.addEventListener("click", () => openMenu(b, menuFor(b.dataset.chip))));
   renderPresets();
@@ -1194,7 +1324,7 @@ function renderComposer() {
   // Ví dụ dành cho video mới; đang mở một video thì gửi là sửa video đó nên ẩn đi.
   const example = examplePrompt();
   $("exampleBtn").hidden = Boolean(current) || (!textMode && !example);
-  $("exampleBtn").textContent = textMode ? "📖 Điền lời mẫu" : "✨ Điền ví dụ";
+  $("exampleBtn").innerHTML = textMode ? `${icon("book-open")} Điền lời mẫu` : `${icon("sparkles")} Điền ví dụ`;
   $("exampleBtn").title = textMode
     ? styleMeta(opts.style).exampleScript
       ? `Điền lời mẫu viết theo đúng kiểu ${style.label}`
@@ -1241,7 +1371,7 @@ function schedulePreview() {
       if (seq !== previewSeq) return;   // đã gõ tiếp — bỏ kết quả cũ
       const style = styleMeta(p.style);
       box.className = "text-preview ok";
-      box.innerHTML = `<b>✓</b> «${escapeHtml(p.title)}» · ${p.scenes} cảnh · ${p.lines} câu` +
+      box.innerHTML = `<b>${icon("check")}</b> «${escapeHtml(p.title)}» · ${p.scenes} cảnh · ${p.lines} câu` +
         (p.punches ? ` · ${p.punches} câu nhấn` : "") + ` · ${style.emoji} ${escapeHtml(style.label)}` +
         (p.notes.length ? `<br>${p.notes.map(escapeHtml).join(" · ")}` : "");
     } catch (e) {
@@ -1255,28 +1385,42 @@ function schedulePreview() {
 
 /** Ô độ dài: giá trị gửi lên server (scripts/video-length.ts) → nhãn. */
 const LENGTHS = [
-  { value: "auto", title: "✨ Tự động", sub: "Theo câu prompt (\"video 5 phút\", \"tầm 90 giây\"). Không nêu thì video ngắn 15–30 giây" },
-  { value: "15", title: "⏱ 15 giây", sub: "~4 câu · short" },
-  { value: "30", title: "⏱ 30 giây", sub: "~9 câu · short" },
-  { value: "60", title: "⏱ 1 phút", sub: "~19 câu" },
-  { value: "180", title: "⏱ 3 phút", sub: "~60 câu · AI viết theo 3 chương" },
-  { value: "300", title: "⏱ 5 phút", sub: "~100 câu · AI viết theo 5 chương, render ~6 phút" },
-  { value: "600", title: "⏱ 10 phút", sub: "~200 câu · AI viết theo 10 chương, render ~11 phút" },
-  { value: "free", title: "♾ Không giới hạn", sub: "AI lập dàn ý rồi viết đủ ý từng chương, không nhắm số giây nào" },
+  { value: "auto", icon: icon("sparkles"), title: "Tự động", sub: "Theo câu prompt (\"video 5 phút\", \"tầm 90 giây\"). Không nêu thì video ngắn 15–30 giây" },
+  { value: "15", icon: icon("timer"), title: "15 giây", sub: "~4 câu · short" },
+  { value: "30", icon: icon("timer"), title: "30 giây", sub: "~9 câu · short" },
+  { value: "60", icon: icon("timer"), title: "1 phút", sub: "~19 câu" },
+  { value: "180", icon: icon("timer"), title: "3 phút", sub: "~60 câu · AI viết theo 3 chương" },
+  { value: "300", icon: icon("timer"), title: "5 phút", sub: "~100 câu · AI viết theo 5 chương, render ~6 phút" },
+  { value: "600", icon: icon("timer"), title: "10 phút", sub: "~200 câu · AI viết theo 10 chương, render ~11 phút" },
+  { value: "free", icon: icon("infinity"), title: "Không giới hạn", sub: "AI lập dàn ý rồi viết đủ ý từng chương, không nhắm số giây nào" },
 ];
 
 function lengthChipLabel() {
-  return LENGTHS.find((l) => l.value === opts.length)?.title ?? "✨ Tự động";
+  return LENGTHS.find((l) => l.value === opts.length)?.title ?? "Tự động";
 }
+
+/**
+ * Icon trước nhãn của từng lựa chọn (chip, ô cài đặt, menu). Tên icon luôn viết cố định —
+ * server quét mã nguồn tìm icon("…") để chỉ gửi những icon được dùng.
+ */
+const lengthIcon = (value) => (value === "free" ? icon("infinity") : !value || value === "auto" ? icon("sparkles") : icon("timer"));
+const providerIcon = (id) => (id === "auto" ? icon("sparkles") : icon("bot"));
+const kindIcon = (kind) => (kind === "image" ? icon("image") : icon("clapperboard"));
+const modeIcon = (mode) => (mode === "text" ? icon("file-text") : icon("bot"));
+const voiceIcon = (voice) => (voice && voice !== "none" ? icon("mic") : icon("volume-x"));
+const musicIcon = (music) => (music === RANDOM_MUSIC ? icon("dices") : icon("music"));
+/** Nguồn hình: có clip video AI thì icon phim, còn lại theo nguồn ảnh tĩnh. */
+const imagesIcon = (images, video) => (video ? icon("clapperboard")
+  : { none: icon("ban"), pexels: icon("search"), "stock-video": icon("film"), ai: icon("palette") }[images] ?? icon("image"));
 
 const scriptProviders = () => state?.scriptProviders ?? [];
 
 function providerChipLabel() {
   if (opts.provider === "auto") {
-    return state?.keys.scriptLabel ? `✨ Tự động · ${state.keys.scriptLabel}` : "✨ Tự động";
+    return state?.keys.scriptLabel ? `Tự động · ${state.keys.scriptLabel}` : "Tự động";
   }
   const provider = scriptProviders().find((p) => p.id === opts.provider);
-  return provider ? `🤖 ${provider.label}` : "🤖 AI";
+  return provider ? provider.label : "AI";
 }
 
 /** Chọn AI viết lời: chỉ những nhà cung cấp đã có key mới bấm được. */
@@ -1288,7 +1432,8 @@ function providerMenu(onPick) {
     options: [
       {
         value: "auto",
-        title: "✨ Tự động",
+        icon: icon("sparkles"),
+        title: "Tự động",
         // Cài đặt có thể đang ghim một nhà cung cấp — khi đó "Tự động" nghĩa là dùng đúng cái đó.
         sub: state?.keys.scriptSetting !== "auto"
           ? `Theo Cài đặt: chỉ dùng ${state?.keys.scriptLabel ?? "?"}`
@@ -1300,8 +1445,9 @@ function providerMenu(onPick) {
       },
       ...list.map((p) => ({
         value: p.id,
-        group: p.available ? "Đã có key" : "Chưa có key — điền trong Cài đặt",
-        title: `🤖 ${p.label}`,
+        group: p.available ? "Đã có key" : state?.freeMode && p.paid ? "Tắt trong chế độ Miễn phí" : "Chưa có key — điền trong Cài đặt",
+        icon: icon("bot"),
+        title: p.label,
         sub: `${p.model}${p.smallPrompt ? " · prompt gọn: phong cách Tự động đoán bằng từ khoá" : ""}`,
         disabled: !p.available,
       })),
@@ -1317,22 +1463,29 @@ const videoModels = () => state?.videoModels ?? [];
  */
 const PRESETS = [
   {
-    id: "fast", label: "⚡ Nhanh", hint: "chỉ chữ",
+    id: "fast", label: `${icon("zap")} Nhanh`, hint: "chỉ chữ",
     title: "Video chỉ có chữ trên nền màu, giọng máy — miễn phí, nhanh nhất",
     apply: () => ({ images: "none", video: "", voice: "linh", music: "" }),
     ready: () => true,
   },
   {
-    id: "photo", label: "🖼 Có ảnh thật", hint: "Pexels",
-    title: "Tự tìm ảnh thật trên Pexels cho từng cảnh, có giọng đọc và nhạc nền",
-    apply: () => ({ images: "pexels", video: "", voice: "linh", music: state?.audio.music[0]?.path ?? "" }),
+    id: "photo", label: `${icon("image")} Có ảnh thật`, hint: "miễn phí",
+    title: "Tự tìm ảnh thật (Pexels, Pixabay) cho từng cảnh, có giọng đọc và nhạc nền",
+    apply: () => ({ images: "pexels", video: "", voice: "linh", music: state?.keys.freesound ? RANDOM_MUSIC : state?.audio.music[0]?.path ?? "" }),
     ready: () => Boolean(state?.keys.pexels),
-    why: "Cần key Pexels — lấy miễn phí ở pexels.com/api rồi điền trong Cài đặt",
+    why: "Cần key Pexels hoặc Pixabay — lấy miễn phí rồi điền trong Cài đặt",
   },
   {
-    id: "clip", label: "🎬 Có clip AI", hint: "tốn phí",
+    id: "stock-clip", label: `${icon("film")} Có clip thật`, hint: "miễn phí",
+    title: "Tự tìm clip video thật (Pexels, Pixabay) cho từng cảnh, có giọng đọc và nhạc nền",
+    apply: () => ({ images: "stock-video", video: "", voice: "linh", music: state?.keys.freesound ? RANDOM_MUSIC : state?.audio.music[0]?.path ?? "" }),
+    ready: () => Boolean(state?.keys.pexels),
+    why: "Cần key Pexels hoặc Pixabay — lấy miễn phí rồi điền trong Cài đặt",
+  },
+  {
+    id: "clip", label: `${icon("clapperboard")} Có clip AI`, hint: "tốn phí",
     title: "Mỗi cảnh một clip video do AI tạo — tính tiền theo clip",
-    apply: () => ({ images: "library", video: "auto", voice: "linh", music: state?.audio.music[0]?.path ?? "" }),
+    apply: () => ({ images: "library", video: "auto", voice: "linh", music: state?.keys.freesound ? RANDOM_MUSIC : state?.audio.music[0]?.path ?? "" }),
     ready: () => Boolean(state?.videoDefault),
     why: "Cần key tạo video: Gemini đã bật thanh toán, fal.ai hoặc Replicate",
   },
@@ -1367,22 +1520,24 @@ function renderPlan() {
   const warn = [];
   parts.push(opts.kind === "image" ? "bộ ảnh" : `video ${opts.aspect}`);
   if (opts.mode !== "text" && opts.length && opts.length !== "auto") {
-    parts.push(opts.length === "free" ? "dài không giới hạn" : `dài ${lengthChipLabel().replace("⏱ ", "")}`);
+    parts.push(opts.length === "free" ? "dài không giới hạn" : `dài ${lengthChipLabel()}`);
     if (Number(opts.length) >= 180 && opts.video) warn.push("video dài + clip AI = rất nhiều clip tính tiền");
   }
+  if (aiDraws() && opts.art && opts.art !== "auto") parts.push(`kiểu vẽ ${artChipLabel()}`);
   if (opts.video) {
     parts.push("clip AI cho từng cảnh");
     warn.push("clip AI tính tiền theo clip");
-  } else if (opts.images === "pexels") parts.push("ảnh thật từ Pexels");
+  } else if (opts.images === "pexels") parts.push("ảnh thật miễn phí (Pexels, Pixabay)");
+  else if (opts.images === "stock-video") parts.push("clip thật miễn phí (Pexels, Pixabay)");
   else if (opts.images === "ai") {
-    parts.push("ảnh do AI vẽ");
-    warn.push("AI vẽ ảnh tính tiền theo ảnh");
+    parts.push(state?.keys.flux ? "ảnh do FLUX vẽ (miễn phí)" : "ảnh do AI vẽ");
+    if (!state?.keys.flux) warn.push("AI vẽ ảnh tính tiền theo ảnh");
   } else if (opts.images === "none") parts.push("chỉ chữ, không hình");
   else {
     parts.push("ảnh của bạn");
     if (pending.length === 0) {
       warn.push(state?.keys.pexels
-        ? "chưa đính kèm ảnh nào — video sẽ chỉ có chữ; chọn Hình ảnh › 🔍 Ảnh Pexels để tự lấy hình"
+        ? "chưa đính kèm ảnh nào — video sẽ chỉ có chữ; chọn Hình ảnh › Ảnh miễn phí hoặc Clip miễn phí để tự lấy hình"
         : "chưa đính kèm ảnh nào — video sẽ chỉ có chữ");
     }
   }
@@ -1392,22 +1547,48 @@ function renderPlan() {
     if (voice && voice.lang !== "vi") warn.push(`giọng ${voice.key} là giọng ${voice.lang === "en" ? "tiếng Anh" : voice.lang}`);
   }
   $("plan").innerHTML = `Sẽ tạo: <b>${escapeHtml(parts.join(" · "))}</b>` +
-    (warn.length ? `<br><span class="warn">⚠ ${warn.map(escapeHtml).join(" · ")}</span>` : "");
+    (warn.length ? `<br><span class="warn">${icon("triangle-alert")} ${warn.map(escapeHtml).join(" · ")}</span>` : "");
 }
 
 const IMAGE_SOURCES = {
-  none: "🚫 Không hình",
-  library: "🖼 Ảnh của tôi",
-  pexels: "🔍 Ảnh Pexels",
-  ai: "🎨 AI vẽ ảnh",
+  none: "Không hình",
+  library: "Ảnh của tôi",
+  pexels: "Ảnh miễn phí",
+  "stock-video": "Clip miễn phí",
+  ai: "AI vẽ ảnh",
 };
+
+/** AI tự vẽ hình (ảnh AI hoặc clip AI) — chỉ khi đó mới chọn được kiểu vẽ; ảnh Pexels hay ảnh của bạn thì giữ nguyên. */
+const aiDraws = () => Boolean(opts.video) || opts.images === "ai";
+
+const artIcon = (art) => (!art || art === "auto" ? icon("sparkles") : art === "photo" ? icon("camera") : icon("paintbrush"));
+
+function artChipLabel() {
+  if (!opts.art || opts.art === "auto") return "Theo phong cách";
+  return state?.artStyles?.find((a) => a.id === opts.art)?.label ?? opts.art;
+}
+
+/** Kiểu vẽ cho ảnh/clip AI: thắng kiểu ảnh cố định của phong cách (hiệu ứng dựng của phong cách vẫn giữ). */
+function artMenu(onPick) {
+  const style = styleMeta(opts.style);
+  return {
+    id: "art", title: "Kiểu vẽ cho ảnh/clip AI", layout: "grid", value: opts.art || "auto", onPick,
+    options: [
+      {
+        value: "auto", icon: icon("sparkles"), title: "Theo phong cách",
+        sub: opts.style === "auto" ? "Mỗi phong cách một kiểu — đa số là ảnh chụp thật" : `Kiểu ảnh của ${style.label}`,
+      },
+      ...(state?.artStyles ?? []).map((a) => ({ value: a.id, icon: artIcon(a.id), title: a.label, sub: a.summary })),
+    ],
+  };
+}
 
 function imageChipLabel() {
   // Chọn clip video AI thì nhãn hiện model đó; còn lại hiện nguồn ảnh tĩnh.
   if (opts.video) {
-    if (opts.video === "auto") return "🎬 Video AI: tự động";
+    if (opts.video === "auto") return "Video AI: tự động";
     const model = videoModels().find((m) => m.key === opts.video);
-    return model ? `🎬 ${model.label}` : "🎬 Video AI";
+    return model ? model.label : "Video AI";
   }
   return IMAGE_SOURCES[opts.images] ?? IMAGE_SOURCES.library;
 }
@@ -1434,39 +1615,56 @@ function imageMenu() {
   const videoOptions = opts.kind === "image" ? [] : [
     {
       value: "video:auto", group: "Clip video AI — mỗi cảnh một clip, tính tiền theo clip",
-      title: "🎬 Tự động", sub: anyVideoKey ? "Model rẻ nhất có key (đổi trong Cài đặt)" : "Cần key Gemini (đã bật thanh toán), fal.ai hoặc Replicate",
+      icon: icon("clapperboard"), title: "Tự động", sub: anyVideoKey ? "Model rẻ nhất có key (đổi trong Cài đặt)"
+        : state?.freeMode ? "Tắt trong chế độ Miễn phí" : "Cần key Gemini (đã bật thanh toán), fal.ai hoặc Replicate",
       disabled: !anyVideoKey,
     },
     ...models.map((m) => ({
       value: `video:${m.key}`,
       group: m.providerLabel,
-      title: `🎬 ${m.label}`,
+      icon: icon("clapperboard"),
+      title: m.label,
       sub: m.available
         ? `${m.durations[0]}–${m.durations.at(-1)}s/clip${m.usdPerSecond ? ` · ~$${m.usdPerSecond}/giây` : ""}`
-        : `Cần ${m.env} — điền trong Cài đặt`,
+        : state?.freeMode ? "Tắt trong chế độ Miễn phí" : `Cần ${m.env} — điền trong Cài đặt`,
       disabled: !m.available,
     })),
   ];
   return {
     id: "images", title: "Hình cho từng cảnh", value: current, onPick,
     options: [
-      { value: "none", title: IMAGE_SOURCES.none, sub: "Video chỉ có chữ trên nền màu — miễn phí, nhanh nhất" },
-      { value: "library", title: IMAGE_SOURCES.library, sub: "Ảnh/video bạn đính kèm hoặc đã có trong thư viện — miễn phí" },
+      { value: "none", icon: icon("ban"), title: IMAGE_SOURCES.none, sub: "Video chỉ có chữ trên nền màu — miễn phí, nhanh nhất" },
+      { value: "library", icon: icon("image"), title: IMAGE_SOURCES.library, sub: "Ảnh/video bạn đính kèm hoặc đã có trong thư viện — miễn phí" },
       {
         value: "pexels", group: "Tự lấy hình cho cảnh chưa có ảnh",
+        icon: icon("search"),
         title: IMAGE_SOURCES.pexels,
         sub: state?.keys.pexels
-          ? "Ảnh thật, miễn phí — tự ghi công tác giả vào CREDITS.txt"
-          : "Cần key Pexels: lấy miễn phí ở pexels.com/api rồi điền trong ⚙ Cài đặt",
+          ? "Ảnh thật từ Pexels, Pixabay — miễn phí, tự ghi nguồn"
+          : "Cần key Pexels hoặc Pixabay (miễn phí) — điền trong Cài đặt",
+        disabled: !state?.keys.pexels,
+      },
+      {
+        value: "stock-video",
+        icon: icon("film"),
+        title: IMAGE_SOURCES["stock-video"],
+        sub: state?.keys.pexels
+          ? "Clip video thật cho từng cảnh từ Pexels, Pixabay — miễn phí, không lặp clip"
+          : "Cần key Pexels hoặc Pixabay (miễn phí) — điền trong Cài đặt",
         disabled: !state?.keys.pexels,
       },
       {
         value: "ai",
+        icon: icon("palette"),
         title: IMAGE_SOURCES.ai,
-        sub: state?.keys.gemini
-          ? "Gemini vẽ ảnh theo nội dung từng cảnh — tính tiền theo ảnh"
-          : "Cần key Gemini — điền trong ⚙ Cài đặt",
-        disabled: !state?.keys.gemini,
+        sub: state?.keys.flux
+          ? "FLUX vẽ ảnh qua Cloudflare — miễn phí khoảng 100 ảnh/ngày"
+          : state?.freeMode
+            ? "Gemini vẽ ảnh tính tiền — thêm key Cloudflare để vẽ FLUX miễn phí"
+            : state?.keys.gemini
+              ? "Gemini vẽ ảnh theo nội dung từng cảnh — tính tiền theo ảnh (thêm key Cloudflare để vẽ miễn phí)"
+              : "Cần key Cloudflare (miễn phí) hoặc Gemini — điền trong Cài đặt",
+        disabled: !state?.keys.flux && (!state?.keys.gemini || state?.freeMode),
       },
       ...videoOptions,
     ],
@@ -1529,7 +1727,7 @@ function useExample() {
   if (!styleMeta(opts.style).examplePrompt) exampleTurn++;
 }
 
-// ---------- 🪄 chuẩn hoá lời bằng AI ----------
+// ---------- chuẩn hoá lời bằng AI ----------
 /** Đoạn ngay trước lần chuẩn hoá gần nhất — giữ để bấm "Hoàn tác" lấy lại. */
 let beforeNormalize = null;
 let normalizing = false;
@@ -1547,7 +1745,7 @@ function syncNormalize() {
   const ready = hasScriptKey();
   btn.disabled = normalizing || (empty && ready);
   btn.classList.toggle("working", normalizing);
-  btn.textContent = normalizing ? "🪄 Đang chuẩn hoá…" : ready ? "🪄 Chuẩn hoá lời" : "🔑 Chuẩn hoá lời";
+  btn.innerHTML = normalizing ? `${icon("wand-sparkles")} Đang chuẩn hoá…` : ready ? `${icon("wand-sparkles")} Chuẩn hoá lời` : `${icon("key-round")} Chuẩn hoá lời`;
   btn.title = !ready
     ? "Cần 1 API key viết lời (Gemini, Groq, OpenRouter có gói miễn phí) — bấm để mở Cài đặt"
     : empty
@@ -1558,7 +1756,7 @@ function syncNormalize() {
 async function normalizeText() {
   if (normalizing) return;
   if (!hasScriptKey()) {
-    setHint("🪄 Chuẩn hoá lời cần 1 API key viết lời — Gemini, Groq, OpenRouter có gói miễn phí, hoặc chọn Ollama chạy trên máy.", true);
+    setHint("Chuẩn hoá lời cần 1 API key viết lời — Gemini, Groq, OpenRouter có gói miễn phí, hoặc chọn Ollama chạy trên máy.", true);
     openSettings();
     return;
   }
@@ -1576,7 +1774,7 @@ async function normalizeText() {
       beforeNormalize = $("input").value;
       prefill(res.text);
       const notes = res.notes?.length ? ` · ${res.notes.join(" · ")}` : "";
-      setHint(`✨ Đã chuẩn hoá bằng ${providerName(res.provider)} — không ưng thì bấm ↩︎ Hoàn tác.${notes}`);
+      setHint(`Đã chuẩn hoá bằng ${providerName(res.provider)} — không ưng thì bấm Hoàn tác.${notes}`);
     }
   } catch (e) {
     setHint(e.message, true);
@@ -1595,10 +1793,29 @@ function undoNormalize() {
   syncNormalize();
 }
 
+/** Nhạc nền "Nhạc ngẫu nhiên": server bốc một bản trên Freesound mỗi lần dựng video (server/chat.ts, resolveMusicChoice). */
+const RANDOM_MUSIC = "random";
+
+/** Nhãn hiển thị của một lựa chọn nhạc nền. */
+function musicLabel(value) {
+  if (!value || value === "none") return "Không nhạc";
+  if (value === RANDOM_MUSIC) return "Nhạc ngẫu nhiên";
+  const track = state?.audio.music.find((m) => m.path === value);
+  return track ? track.name.replace(/\.\w+$/, "") : value;
+}
+
+/** Lựa chọn "Nhạc ngẫu nhiên" — chỉ hiện khi đã có key Freesound. */
+function randomMusicOption() {
+  return state?.keys.freesound
+    ? [{ value: RANDOM_MUSIC, icon: icon("dices"), title: "Nhạc ngẫu nhiên", sub: "Mỗi lần dựng bốc một bản nhạc nền khác trên Freesound (CC0/CC-BY, tự ghi nguồn)" }]
+    : [];
+}
+
 function menuFor(key) {
   const pick = (value) => setOpt(key, value);
   if (key === "style") return styleMenu(pick);
   if (key === "images") return imageMenu();
+  if (key === "art") return artMenu(pick);
   if (key === "provider") return providerMenu(pick);
   if (key === "length") {
     return {
@@ -1612,12 +1829,12 @@ function menuFor(key) {
       onPick: (value) => { setOpt("mode", value); $("input").focus(); },
       options: [
         {
-          value: "ai", title: "🤖 AI viết lời",
+          value: "ai", icon: icon("bot"), title: "AI viết lời",
           sub: hasScriptKey()
             ? `Gõ yêu cầu, ${state.keys.scriptLabel ?? "AI"} viết lại nội dung.`
             : "Cần thêm 1 API key (Gemini, Groq, OpenRouter có gói miễn phí)",
         },
-        { value: "text", title: "📝 Lời có sẵn", sub: "Dán kịch bản của bạn, dựng đúng từng câu. Không cần API key." },
+        { value: "text", icon: icon("file-text"), title: "Lời có sẵn", sub: "Dán kịch bản của bạn, dựng đúng từng câu. Không cần API key." },
       ],
     };
   }
@@ -1625,8 +1842,8 @@ function menuFor(key) {
     return {
       id: "kind", title: "Tạo ra", value: opts.kind, onPick: pick,
       options: [
-        { value: "video", title: "🎬 Video", sub: "Có giọng đọc và nhạc, xuất file mp4" },
-        { value: "image", title: "🖼 Bộ ảnh", sub: "Mỗi cảnh một ảnh PNG, hợp làm carousel" },
+        { value: "video", icon: icon("clapperboard"), title: "Video", sub: "Có giọng đọc và nhạc, xuất file mp4" },
+        { value: "image", icon: icon("image"), title: "Bộ ảnh", sub: "Mỗi cảnh một ảnh PNG, hợp làm carousel" },
       ],
     };
   }
@@ -1643,12 +1860,14 @@ function menuFor(key) {
     return {
       id: "voice", title: "Giọng đọc", value: opts.voice, onPick: pick,
       options: [
-        { value: "", title: "🔇 Không giọng", sub: "Chỉ có chữ, thời lượng tính theo độ dài câu" },
+        { value: "", icon: icon("volume-x"), title: "Không giọng", sub: "Chỉ có chữ, thời lượng tính theo độ dài câu" },
         ...state.voices.catalog.map((v) => ({
           value: v.key, group: langs[v.lang] ?? v.lang,
-          title: `🎙 ${v.key}`,
+          icon: icon("mic"),
+          title: v.key,
           sub: `${v.label.split("—")[1]?.trim() ?? ""} · ${v.engineLabel}${v.paidPlan ? " · cần gói trả phí" : ""}`,
           disabled: v.paidPlan,
+          preview: v.key,
         })),
       ],
     };
@@ -1657,7 +1876,8 @@ function menuFor(key) {
     id: "music", title: "Nhạc nền", value: opts.music, onPick: pick,
     options: [
       { value: "", title: "Không nhạc" },
-      ...state.audio.music.map((m) => ({ value: m.path, title: `♪ ${m.name.replace(/\.\w+$/, "")}` })),
+      ...randomMusicOption(),
+      ...state.audio.music.map((m) => ({ value: m.path, icon: icon("music"), title: m.name.replace(/\.\w+$/, "") })),
     ],
   };
 }
@@ -1772,6 +1992,96 @@ function bindShortcuts() {
 // ---------- menu dùng chung ----------
 let menuAnchor = null;
 
+// ---------- nghe thử giọng ----------
+/**
+ * Nút ▶ nghe thử một giọng — dùng trong menu chọn giọng (trang chính, Hàng loạt). Bấm lần đầu thì server đọc
+ * một câu mẫu (POST /api/voice/sample, giọng trong app lần đầu mất vài giây), lần sau phát ngay.
+ * Một trình phát cho cả trang: bấm giọng khác thì dừng giọng đang phát, bấm lại chính nó thì dừng.
+ */
+const voicePreviewButton = (key, name) => {
+  const label = voicePlayLabel(key, name);
+  return `<button type="button" class="voice-play${voicePreviewCost(key) ? " costs" : ""}" data-voice-play="${escapeHtml(key)}"
+    data-voice-name="${escapeHtml(name)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${voicePlayFace(key)}</button>`;
+};
+
+const voicePlayLabel = (key, name) => {
+  const note = voicePreviewCost(key);
+  return `Nghe thử giọng ${name}${note ? ` — lần đầu gọi ${note}, tốn 1 lượt; nghe lại sau đó miễn phí` : ""}`;
+};
+
+/** Giọng trên mạng (Gemini, ElevenLabs) chưa có câu mẫu trong bộ nhớ → tên dịch vụ sẽ bị gọi; còn lại null (miễn phí). */
+const voicePreviewCost = (key) => {
+  const v = state?.voices.catalog.find((x) => x.key === key);
+  return v?.online && !v.sampled ? v.engineLabel : null;
+};
+
+/** Mặt nút lúc nghỉ: ▶, kèm "tốn 1 lượt" nếu lần nghe này sẽ gọi dịch vụ trên mạng. */
+const voicePlayFace = (key) => `${icon("play")}${voicePreviewCost(key) ? `<span>tốn 1 lượt</span>` : ""}`;
+
+let voicePreview = { key: null, audio: null, button: null, token: 0 };
+
+function paintVoiceButton(button, mode) {
+  if (!button) return;
+  const key = button.dataset.voicePlay;
+  button.classList.toggle("busy", mode === "loading");
+  button.classList.toggle("playing", mode === "playing");
+  button.classList.toggle("costs", mode === "idle" && Boolean(voicePreviewCost(key)));
+  button.innerHTML = mode === "loading" ? icon("loader-circle", "spin") : mode === "playing" ? icon("square") : voicePlayFace(key);
+  const label = mode === "idle" ? voicePlayLabel(key, button.dataset.voiceName ?? key) : "Dừng nghe thử";
+  button.title = label;
+  button.setAttribute("aria-label", label);
+}
+
+function stopVoicePreview() {
+  voicePreview.token += 1;
+  voicePreview.audio?.pause();
+  paintVoiceButton(voicePreview.button, "idle");
+  voicePreview = { key: null, audio: null, button: null, token: voicePreview.token };
+}
+
+async function toggleVoicePreview(button) {
+  const key = button.dataset.voicePlay;
+  const again = voicePreview.key === key;
+  stopVoicePreview();
+  if (again) return;
+  const token = voicePreview.token;
+  voicePreview = { key, audio: null, button, token };
+  paintVoiceButton(button, "loading");
+  try {
+    const { url } = await postJson("/api/voice/sample", { voice: key });
+    // Đã có câu mẫu trong bộ nhớ: mọi nút của giọng này thôi ghi "tốn 1 lượt".
+    const entry = state.voices.catalog.find((v) => v.key === key);
+    if (entry && !entry.sampled) {
+      entry.sampled = true;
+      document.querySelectorAll(`[data-voice-play="${CSS.escape(key)}"]`).forEach((b) => {
+        if (b !== button) paintVoiceButton(b, "idle");
+      });
+    }
+    if (voicePreview.token !== token) return; // đã bấm giọng khác trong lúc chờ
+    const audio = new Audio(url);
+    voicePreview.audio = audio;
+    audio.addEventListener("ended", () => { if (voicePreview.token === token) stopVoicePreview(); });
+    await audio.play();
+    paintVoiceButton(button, "playing");
+  } catch (e) {
+    if (voicePreview.token !== token) return;
+    stopVoicePreview();
+    // "not found": server bật từ trước khi có tính năng này — server không tự nạp code mới.
+    flashNote(e.message === "not found"
+      ? "Server đang chạy bản cũ chưa có nghe thử giọng — tắt rồi mở lại app (hoặc chạy lại npm start)."
+      : `Không nghe thử được giọng ${key}: ${e.message}`, true);
+  }
+}
+
+// Bắt ở document: nút nằm trong menu vẽ lại bằng innerHTML. stopPropagation để menu không đóng.
+document.addEventListener("click", (e) => {
+  const button = e.target.closest?.("[data-voice-play]");
+  if (!button) return;
+  e.preventDefault();
+  e.stopPropagation();
+  toggleVoicePreview(button);
+}, true);
+
 function openMenu(anchor, menu) {
   const el = $("menu");
   if (!el.hidden && menuAnchor === anchor) { closeMenu(); return; }
@@ -1786,14 +2096,16 @@ function openMenu(anchor, menu) {
     const heading = o.group && o.group !== group ? `<div class="menu-group">${escapeHtml(o.group)}</div>` : "";
     group = o.group ?? group;
     const on = o.value === menu.value;
-    return `${heading}<button type="button" class="opt ${on ? "on" : ""}" role="option" aria-selected="${on}"
+    const opt = `<button type="button" class="opt ${on ? "on" : ""}" role="option" aria-selected="${on}"
       data-value="${escapeHtml(o.value)}" ${o.disabled ? "disabled" : ""}>
-      <b>${escapeHtml(o.title)}</b>${o.sub ? `<span>${escapeHtml(o.sub)}</span>` : ""}${
+      <b>${o.icon ? `${o.icon} ` : ""}${escapeHtml(o.title)}</b>${o.sub ? `<span>${escapeHtml(o.sub)}</span>` : ""}${
       o.hint ? `<i class="opt-hint">${escapeHtml(o.hint)}</i>` : ""}</button>`;
+    // o.preview: mã giọng — thêm nút nghe thử cạnh dòng (nút riêng, bấm không chọn giọng, không đóng menu).
+    return heading + (o.preview && !o.disabled ? `<div class="opt-wrap">${opt}${voicePreviewButton(o.preview, o.title)}</div>` : opt);
   }).join("");
   el.hidden = false;
   el.querySelectorAll(".opt").forEach((b) =>
-    b.addEventListener("click", () => { closeMenu(); menu.onPick(b.dataset.value); }));
+    b.addEventListener("click", () => { stopVoicePreview(); closeMenu(); menu.onPick(b.dataset.value); }));
 
   positionMenu(el, anchor, menu.layout === "grid" ? 720 : 340, menu.layout === "grid");
   (el.querySelector(".opt.on:not(:disabled)") ?? el.querySelector(".opt:not(:disabled)"))?.focus({ preventScroll: true });
@@ -1821,6 +2133,7 @@ function positionMenu(el, anchor, maxWidth, tall = false) {
 }
 
 function closeMenu() {
+  if (!$("menu").hidden) stopVoicePreview();
   $("menu").hidden = true;
   menuAnchor?.setAttribute("aria-expanded", "false");
   menuAnchor = null;
@@ -1886,7 +2199,7 @@ function bindComposerCollapse() {
 function bindComposer() {
   bindComposerCollapse();
   const input = $("input");
-  input.addEventListener("input", () => { autosize(); updateSend(); schedulePreview(); syncNormalize(); });
+  input.addEventListener("input", () => { autosize(); updateSend(); schedulePreview(); syncNormalize(); scheduleChatDraft(); });
   input.addEventListener("keydown", (e) => {
     // Ô trống + ↑: điền lại tin vừa gửi để sửa rồi gửi lại, như các app chat.
     if (e.key === "ArrowUp" && !e.isComposing && !input.value) {
@@ -1958,6 +2271,7 @@ async function upload(file, item) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error);
     item.path = body.path;
+    scheduleChatDraft();
   } catch (e) {
     pending = pending.filter((f) => f !== item);
     setHint(`Không tải lên được ${file.name}: ${e.message}`, true);
@@ -1969,16 +2283,140 @@ function renderPending() {
   $("pending").innerHTML = pending.map((f) => `
     <div class="chip-file ${f.path ? "" : "loading"}" title="${escapeHtml(f.name)}">
       ${f.video ? `<video src="${f.url}" muted></video><span class="tag">video</span>` : `<img src="${f.url}" alt="" />`}
-      <button type="button" data-rm="${f.id}" aria-label="Bỏ ${escapeHtml(f.name)}">✕</button>
+      <button type="button" data-rm="${f.id}" aria-label="Bỏ ${escapeHtml(f.name)}">${icon("x")}</button>
     </div>`).join("");
   renderPlan();
   $("pending").querySelectorAll("[data-rm]").forEach((b) =>
     b.addEventListener("click", () => {
       pending = pending.filter((f) => f.id !== b.dataset.rm);
       renderPending();
+      scheduleChatDraft();
     }));
   updateSend();
 }
+
+// ---------- bản nháp: lời gõ dở và danh sách cảnh được lưu lên server ----------
+// Mất điện, tắt app hay mất kết nối vẫn còn — hiện trong lịch sử là "Bản nháp".
+
+/** Video mà ô nhập đang thuộc về: slug, hoặc null = màn tạo mới. */
+let composerOwner = null;
+/** Màn tạo mới: video nháp server đã tạo cho lời đang gõ. */
+let newDraftSlug = null;
+let chatDraftTimer = null;
+let chatDraftSaving = Promise.resolve();
+const DRAFT_DELAY_MS = 800;
+
+function chatDraftPayload() {
+  return {
+    slug: composerOwner ?? newDraftSlug ?? undefined,
+    text: $("input").value,
+    // File chưa tải lên xong thì chưa có đường dẫn — lần lưu sau (khi tải xong) sẽ có.
+    attachments: pending.filter((f) => f.path).map((f) => f.path),
+    settings: { ...opts, music: opts.music || null },
+  };
+}
+
+function scheduleChatDraft() {
+  if (sending) return;
+  clearTimeout(chatDraftTimer);
+  chatDraftTimer = setTimeout(saveChatDraft, DRAFT_DELAY_MS);
+}
+
+function saveChatDraft() {
+  clearTimeout(chatDraftTimer);
+  chatDraftTimer = null;
+  // Chụp nội dung NGAY LÚC NÀY — đợi tới lượt gửi thì người dùng có thể đã sang video khác.
+  const owner = composerOwner;
+  const payload = chatDraftPayload();
+  // Nối tiếp: lần lưu đầu ở màn tạo mới tạo video nháp, các lần sau phải đợi có slug đó.
+  chatDraftSaving = chatDraftSaving.then(async () => {
+    if (owner === null) payload.slug = newDraftSlug ?? undefined;
+    if (!payload.slug && !payload.text.trim() && payload.attachments.length === 0) return;
+    try {
+      const { slug } = await postJson("/api/chat/draft", payload);
+      // Chỉ nhận slug khi ô nhập vẫn là màn tạo mới đó — đã sang video khác thì bản nháp nằm trong lịch sử.
+      if (owner === null && composerOwner === null) newDraftSlug = slug;
+      // Vừa tạo hoặc vừa xoá video nháp: lịch sử đổi.
+      if (payload.slug !== (slug ?? undefined)) loadHistory();
+      // Đang mở đúng video nháp mà xoá hết lời thì video đó không còn — về màn tạo mới.
+      if (owner !== null && !slug && composerOwner === owner) {
+        composerOwner = null;
+        location.hash = "#/";
+      }
+    } catch {
+      // lưu nháp hỏng không chặn việc gõ — lần gõ sau thử lại
+    }
+  });
+  return chatDraftSaving;
+}
+
+/** Rời màn hình / đóng tab: gửi ngay phần chưa lưu, không đợi hẹn giờ. */
+function flushChatDraft() {
+  if (!chatDraftTimer) return;
+  clearTimeout(chatDraftTimer);
+  chatDraftTimer = null;
+  saveChatDraft();
+}
+
+function restoreChatDraft(draft) {
+  $("input").value = draft.text ?? "";
+  autosize();
+  pending = (draft.attachments ?? []).map((p) => ({
+    id: Math.random().toString(36).slice(2),
+    name: p.split("/").pop(), path: p, url: `/public/${p}`,
+    video: isVideoFile(p),
+  }));
+  renderPending();
+  updateSend();
+  syncNormalize();
+}
+
+let multiDraftTimer = null;
+
+function scheduleMultiDraft() {
+  if (!multi) return;
+  clearTimeout(multiDraftTimer);
+  multiDraftTimer = setTimeout(saveMultiDraft, DRAFT_DELAY_MS);
+}
+
+async function saveMultiDraft() {
+  clearTimeout(multiDraftTimer);
+  multiDraftTimer = null;
+  const draft = multi;
+  if (!draft) return;
+  const { draftSlug, ...data } = draft;
+  try {
+    const { slug } = await postJson("/api/multi/draft", { ...data, slug: draft.slug ?? draftSlug ?? undefined });
+    if (!draft.slug) {
+      if (!draftSlug && slug) loadHistory();
+      draft.draftSlug = slug ?? undefined;
+      if (!slug) loadHistory();
+    }
+  } catch {
+    // như bản nháp chat: không chặn việc soạn
+  }
+}
+
+function sendDraftBeacon() {
+  // Tab đóng/ẩn: fetch thường có thể bị huỷ, sendBeacon thì trình duyệt gửi nốt.
+  if (chatDraftTimer) {
+    clearTimeout(chatDraftTimer);
+    chatDraftTimer = null;
+    const payload = chatDraftPayload();
+    if (payload.slug || payload.text.trim()) {
+      navigator.sendBeacon("/api/chat/draft", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+    }
+  }
+  if (multiDraftTimer && multi) {
+    clearTimeout(multiDraftTimer);
+    multiDraftTimer = null;
+    const { draftSlug, ...data } = multi;
+    navigator.sendBeacon("/api/multi/draft",
+      new Blob([JSON.stringify({ ...data, slug: multi.slug ?? draftSlug ?? undefined })], { type: "application/json" }));
+  }
+}
+window.addEventListener("pagehide", sendDraftBeacon);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") sendDraftBeacon(); });
 
 function autosize() {
   const el = $("input");
@@ -2017,19 +2455,42 @@ function bindSettings() {
   $("settingsForm").addEventListener("submit", saveSettings);
 }
 
-async function openSettings() {
+const LIMIT_LABELS = {
+  rate_limit: `${icon("hourglass")} hết lượt theo phút`, daily_quota: `${icon("calendar")} hết lượt trong ngày`,
+  credit: `${icon("credit-card")} hết tiền/credit`, auth: `${icon("key-round")} key bị từ chối`,
+  overloaded: `${icon("flame")} quá tải`, too_large: `${icon("ruler")} yêu cầu quá lớn`,
+};
+
+/** Lượt gọi AI hôm nay + lần gần nhất bị chặn vì hạn mức (scripts/usage.ts). */
+async function renderUsage() {
+  const box = $("usageBox");
+  try {
+    const u = await api("/api/usage");
+    const rows = u.today.map((r) => `<li><b>${escapeHtml(r.provider)}</b> ${r.calls} lượt${r.errors ? ` · ${r.errors} lỗi` : ""}</li>`).join("");
+    const limits = u.limits.map((l) => `<li class="limit"><b>${escapeHtml(l.provider)}</b> ${LIMIT_LABELS[l.kind] ?? escapeHtml(l.kind)} lúc ${
+      new Date(l.at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</li>`).join("");
+    box.innerHTML = `<div class="usage-head">${icon("chart-column")} Hôm nay${u.freeMode ? ` · <span class="free-on">${icon("leaf")} Chế độ Miễn phí đang bật</span>` : ""}</div>
+      ${rows || limits ? `<ul>${limits}${rows}</ul>` : `<p class="muted">Chưa gọi dịch vụ AI nào hôm nay.</p>`}`;
+  } catch {
+    box.innerHTML = "";
+  }
+}
+
+/** focusName: ô cần đưa con trỏ vào (gợi ý key gọi); bấm nút thì tham số là Event — bỏ qua. */
+async function openSettings(focusName) {
   closeMenu();
   removals = new Set();
   $("settingsHint").textContent = "";
   $("keyFields").innerHTML = `<p class="muted">Đang tải…</p>`;
   if (!$("settingsDlg").open) $("settingsDlg").showModal();
+  renderUsage();
   try {
     const { keys } = await api("/api/keys");
     let group = "";
     $("keyFields").innerHTML = keys.map((k) => {
       const heading = k.group !== group ? `<h3 class="group">${escapeHtml(k.group)}</h3>` : "";
       group = k.group;
-      const link = k.url ? ` <a href="${k.url}" target="_blank" rel="noopener">Lấy key ↗</a>` : "";
+      const link = k.url ? ` <a href="${k.url}" target="_blank" rel="noopener">Lấy key ${icon("external-link")}</a>` : "";
       let control;
       let status = "";
       if (k.type === "select") {
@@ -2040,8 +2501,8 @@ async function openSettings() {
         control = `<input id="key-${k.name}" name="${k.name}" data-type="text" type="text" spellcheck="false"${k.maxLength ? ` maxlength="${k.maxLength}"` : ""}
                           value="${escapeHtml(k.value)}" placeholder="${escapeHtml(k.placeholder ?? "")}" />`;
       } else {
-        status = `<span class="state ${k.set ? "on" : ""}">${k.set ? `✓ đã có ${escapeHtml(k.preview)}` : "chưa có"}</span>`;
-        control = `<input id="key-${k.name}" name="${k.name}" data-type="secret" type="password" spellcheck="false"
+        status = `<span class="state ${k.set ? "on" : ""}">${k.set ? `${icon("check")} đã có ${escapeHtml(k.preview)}` : "chưa có"}</span>`;
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="secret" type="password" spellcheck="false"${k.set ? "" : " data-empty"}
                           placeholder="${k.set ? "Dán key mới để thay" : "Dán key vào đây"}" />
           ${k.set ? `<button type="button" class="btn" data-remove="${k.name}">Xoá</button>` : ""}`;
       }
@@ -2074,11 +2535,81 @@ async function openSettings() {
           removals.add(name); b.textContent = "Hoàn tác"; field.classList.add("removing");
         }
       }));
-    // Chưa có key viết kịch bản thì đưa con trỏ thẳng vào ô key đầu tiên.
-    ($("keyFields").querySelector('[data-type="secret"]'))?.focus();
+    // Con trỏ vào ô được nhờ, không thì ô key đầu tiên còn trống — key miễn phí xếp đầu nên người mới điền chúng trước.
+    ((typeof focusName === "string" && $(`key-${focusName}`))
+      || $("keyFields").querySelector('[data-type="secret"][data-empty]')
+      || $("keyFields").querySelector('[data-type="secret"]'))?.focus();
   } catch (e) {
     $("keyFields").innerHTML = `<p class="hint err">Lỗi: ${escapeHtml(e.message)}</p>`;
   }
+}
+
+// ---------- gợi ý key lúc tạo video lần đầu ----------
+/**
+ * Key miễn phí làm video đẹp hơn, xếp theo mức đáng có. `links`: chữ trên link → tên ô trong Cài đặt
+ * (lấy url và trạng thái từ /api/keys). `needs`: phải có đủ các ô này mới tính là có (mặc định: một trong `links`).
+ */
+const KEY_TIPS = [
+  { icon: icon("pen-line"), title: "Google Gemini", what: "AI viết lời hay hơn và giọng đọc AI tự nhiên — một key dùng cho cả hai.",
+    links: { "Lấy key": "GEMINI_API_KEY" } },
+  { icon: icon("image"), title: "Pexels hoặc Pixabay", what: "Ảnh và clip quay thật cho từng cảnh, thay cho nền trơn.",
+    links: { Pexels: "PEXELS_API_KEY", Pixabay: "PIXABAY_API_KEY" } },
+  { icon: icon("music"), title: "Freesound", what: "Nhạc nền và hiệu ứng âm thanh được phép dùng.",
+    links: { "Lấy key": "FREESOUND_API_KEY" } },
+  { icon: icon("palette"), title: "Cloudflare Workers AI", what: "AI vẽ ảnh minh hoạ, khoảng 100 ảnh mỗi ngày.",
+    links: { "Lấy key": "CLOUDFLARE_ACCOUNT_ID" }, needs: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"] },
+  { icon: icon("zap"), title: "Groq hoặc OpenRouter", what: "AI viết lời dự phòng khi Gemini hết lượt trong ngày.",
+    links: { Groq: "GROQ_API_KEY", OpenRouter: "OPENROUTER_API_KEY" } },
+];
+
+/**
+ * Người mới (chưa có video nào render xong) bấm tạo video lần đầu: gợi ý các key miễn phí còn thiếu.
+ * Hiện một lần duy nhất. needsScript: lần tạo này cần AI viết lời — thiếu key thì không cho "tạo luôn".
+ * true = tạo tiếp; false = người dùng đóng hoặc đi điền key (lời đang gõ vẫn giữ nguyên).
+ */
+async function keyTipsBeforeFirstVideo({ needsScript = false } = {}) {
+  if (state.keyTipsSeen || state.videos.some((v) => v.mp4)) return true;
+  // Kiểm tra một lần mỗi phiên — đủ key rồi thì khỏi hỏi lại server ở lần bấm sau.
+  state.keyTipsSeen = true;
+  let fields;
+  try {
+    fields = Object.fromEntries((await api("/api/keys")).keys.map((k) => [k.name, k]));
+  } catch {
+    return true; // không đọc được trạng thái key: bỏ qua gợi ý, đừng chặn tạo video
+  }
+  const has = (tip) => tip.needs
+    ? tip.needs.every((name) => fields[name]?.set)
+    : Object.values(tip.links).some((name) => fields[name]?.set);
+  const missing = KEY_TIPS.filter((tip) => !has(tip));
+  if (missing.length === 0) return true;
+  postJson("/api/key-tips/seen", {}).catch(() => {});
+
+  $("keyTipsList").innerHTML = KEY_TIPS.map((tip) => {
+    const done = has(tip);
+    const links = Object.entries(tip.links)
+      .filter(([, name]) => fields[name]?.url)
+      .map(([text, name]) => `<a href="${escapeHtml(fields[name].url)}" target="_blank" rel="noopener">${escapeHtml(text)} ${icon("external-link")}</a>`)
+      .join(" · ");
+    return `<li${done ? ` class="done"` : ""}>
+      <span class="tip-icon" aria-hidden="true">${tip.icon}</span>
+      <div class="tip-body"><b>${escapeHtml(tip.title)}</b><span class="muted">${escapeHtml(tip.what)}</span></div>
+      <span class="tip-act">${done ? `<span class="tip-on">${icon("check")} đã có</span>` : links}</span>
+    </li>`;
+  }).join("");
+  $("keyTipsPaid").hidden = Boolean(state.freeMode);
+  const blocked = needsScript && !hasScriptKey();
+  $("keyTipsNeed").hidden = !blocked;
+  $("keyTipsLater").hidden = blocked;
+
+  const dlg = $("keyTipsDlg");
+  const choice = await new Promise((resolve) => {
+    dlg.returnValue = "";
+    dlg.addEventListener("close", () => resolve(dlg.returnValue), { once: true });
+    dlg.showModal();
+    $("keyTipsSettings").focus();
+  });
+  if (choice === "settings") openSettings(Object.values(missing[0].links)[0]);
+  return choice === "later";
 }
 
 async function saveSettings(event) {
@@ -2148,6 +2679,8 @@ function setMultiHint(text, isError = false) {
 
 async function showMulti(slug) {
   stopFollowing();
+  // Chuyển sang danh sách cảnh khác: lưu ngay bản đang soạn trước khi thay `multi`.
+  if (multiDraftTimer) saveMultiDraft();
   $("view-chat").hidden = true;
   $("view-library").hidden = true;
   $("view-batch").hidden = true;
@@ -2183,13 +2716,20 @@ function renderMulti() {
   $("multiTitle").value = multi.title;
   $("multiAspect").innerHTML = aspects.map((a) =>
     `<option value="${a.id}"${a.id === multi.aspect ? " selected" : ""}>${escapeHtml(a.label)}</option>`).join("");
-  $("multiVoice").innerHTML = `<option value="">🔇 Không giọng — chỉ phụ đề</option>` +
+  $("multiVoice").innerHTML = `<option value="">Không giọng — chỉ phụ đề</option>` +
     state.voices.catalog.map((v) =>
-      `<option value="${v.key}"${v.key === multi.voice ? " selected" : ""}${v.paidPlan ? " disabled" : ""}>🎙 ${escapeHtml(v.label)}</option>`).join("");
+      `<option value="${v.key}"${v.key === multi.voice ? " selected" : ""}${v.paidPlan ? " disabled" : ""}>${escapeHtml(v.label)}</option>`).join("");
+  renderMultiVoicePlay();
   $("multiMusic").innerHTML = `<option value="">Không nhạc</option>` +
+    (state.keys.freesound ? `<option value="${RANDOM_MUSIC}"${multi.music === RANDOM_MUSIC ? " selected" : ""}>Nhạc ngẫu nhiên (Freesound)</option>` : "") +
     state.audio.music.map((m) =>
-      `<option value="${escapeHtml(m.path)}"${m.path === multi.music ? " selected" : ""}>♪ ${escapeHtml(m.name.replace(/\.\w+$/, ""))}</option>`).join("");
+      `<option value="${escapeHtml(m.path)}"${m.path === multi.music ? " selected" : ""}>${escapeHtml(m.name.replace(/\.\w+$/, ""))}</option>`).join("");
   renderMultiScenes();
+}
+
+/** Nút nghe thử cạnh ô giọng của màn Dựng từng cảnh — đọc thử đúng giọng đang chọn. */
+function renderMultiVoicePlay() {
+  $("multiVoicePlay").innerHTML = multi.voice ? voicePreviewButton(multi.voice, multi.voice) : "";
 }
 
 function modelOptions(value) {
@@ -2200,8 +2740,8 @@ function modelOptions(value) {
     if (!groups.has(m.providerLabel)) groups.set(m.providerLabel, []);
     groups.get(m.providerLabel).push(m);
   }
-  return `<option value=""${value === "" ? " selected" : ""}>🚫 Không dùng model</option>` +
-    `<option value="auto"${value === "auto" ? " selected" : ""}${anyKey ? "" : " disabled"}>✨ Tự động${auto ? ` (${escapeHtml(auto.label)})` : " — chưa có key"}</option>` +
+  return `<option value=""${value === "" ? " selected" : ""}>Không dùng model</option>` +
+    `<option value="auto"${value === "auto" ? " selected" : ""}${anyKey ? "" : " disabled"}>Tự động${auto ? ` (${escapeHtml(auto.label)})` : " — chưa có key"}</option>` +
     [...groups].map(([label, models]) => `<optgroup label="${escapeHtml(label)}">${models.map((m) =>
       `<option value="${m.key}"${m.key === value ? " selected" : ""}${m.available ? "" : " disabled"}>${escapeHtml(m.label)}${m.available ? "" : ` — cần ${m.env}`}</option>`).join("")}</optgroup>`).join("");
 }
@@ -2218,7 +2758,7 @@ function sceneCard(scene, i, total) {
   const upload = `<div class="ms-drop">
       ${media ? `<div class="ms-thumb">${media}</div>` : ""}
       <span class="muted">${fileName || (ai ? "Không bắt buộc — dùng khi AI lỗi" : "Chưa có — cảnh sẽ là nền trơn")}</span>
-      <button type="button" class="btn${!scene.media && !ai ? " primary" : ""}" data-act="file">${scene.media ? "Đổi file" : "⬆ Chọn ảnh/video"}</button>
+      <button type="button" class="btn${!scene.media && !ai ? " primary" : ""}" data-act="file">${scene.media ? "Đổi file" : `${icon("upload")} Chọn ảnh/video`}</button>
       ${scene.media ? `<button type="button" class="btn" data-act="clear">Bỏ</button>` : ""}
     </div>`;
   const seconds = `<label class="ms-field"><span>Độ dài cảnh</span><select data-f="seconds">${durations.map((d) =>
@@ -2227,10 +2767,10 @@ function sceneCard(scene, i, total) {
     <header class="ms-card-head">
       <b>Cảnh ${i + 1}</b>
       <span class="spacer"></span>
-      <button type="button" data-act="up" title="Đưa lên" aria-label="Đưa cảnh ${i + 1} lên"${i === 0 ? " disabled" : ""}>↑</button>
-      <button type="button" data-act="down" title="Đưa xuống" aria-label="Đưa cảnh ${i + 1} xuống"${i === total - 1 ? " disabled" : ""}>↓</button>
-      <button type="button" data-act="dup" title="Nhân đôi cảnh" aria-label="Nhân đôi cảnh ${i + 1}"${total >= MAX_MULTI_SCENES ? " disabled" : ""}>⧉</button>
-      <button type="button" data-act="del" title="Xoá cảnh" aria-label="Xoá cảnh ${i + 1}"${total === 1 ? " disabled" : ""}>✕</button>
+      <button type="button" data-act="up" title="Đưa lên" aria-label="Đưa cảnh ${i + 1} lên"${i === 0 ? " disabled" : ""}>${icon("arrow-up")}</button>
+      <button type="button" data-act="down" title="Đưa xuống" aria-label="Đưa cảnh ${i + 1} xuống"${i === total - 1 ? " disabled" : ""}>${icon("arrow-down")}</button>
+      <button type="button" data-act="dup" title="Nhân đôi cảnh" aria-label="Nhân đôi cảnh ${i + 1}"${total >= MAX_MULTI_SCENES ? " disabled" : ""}>${icon("copy")}</button>
+      <button type="button" data-act="del" title="Xoá cảnh" aria-label="Xoá cảnh ${i + 1}"${total === 1 ? " disabled" : ""}>${icon("x")}</button>
     </header>
     <div class="ms-grid">
       <label class="ms-field ms-wide"><span>Lời đọc</span>
@@ -2238,9 +2778,9 @@ function sceneCard(scene, i, total) {
       <div class="ms-field ms-wide"><span>Hình</span>
         <div class="ms-src-row">
           <div class="seg">
-            <button type="button" data-act="src-own" aria-pressed="${!ai}" title="Dùng ảnh/video bạn tải lên — miễn phí">🖼 Của tôi</button>
+            <button type="button" data-act="src-own" aria-pressed="${!ai}" title="Dùng ảnh/video bạn tải lên — miễn phí">${icon("image")} Của tôi</button>
             <button type="button" data-act="src-ai" aria-pressed="${ai}" title="${
-              state?.videoDefault ? "Mô tả cảnh, AI dựng clip — tính phí theo clip" : "Cần thêm key video AI trong Cài đặt"}">✨ AI tạo clip</button>
+              state?.videoDefault ? "Mô tả cảnh, AI dựng clip — tính phí theo clip" : "Cần thêm key video AI trong Cài đặt"}">${icon("sparkles")} AI tạo clip</button>
           </div>
           <span class="muted">${ai ? "tính phí theo clip" : "miễn phí"}</span>
         </div>
@@ -2284,13 +2824,13 @@ function renderMultiFoot() {
       (unpriced ? ` · ${unpriced} clip giá theo nhà cung cấp` : "");
   $("multiSummary").textContent = `${total} cảnh${cost}`;
   $("multiAdd").disabled = total >= MAX_MULTI_SCENES;
-  $("multiSubmit").textContent = multi.slug ? "🎬 Dựng lại video" : "🎬 Tạo video";
+  $("multiSubmit").innerHTML = `${icon("clapperboard")} ${multi.slug ? "Dựng lại video" : "Tạo video"}`;
 }
 
 function bindMulti() {
   $("multiTitle").addEventListener("input", (e) => { if (multi) multi.title = e.target.value; });
   $("multiAspect").addEventListener("change", (e) => { multi.aspect = e.target.value; });
-  $("multiVoice").addEventListener("change", (e) => { multi.voice = e.target.value; });
+  $("multiVoice").addEventListener("change", (e) => { multi.voice = e.target.value; stopVoicePreview(); renderMultiVoicePlay(); });
   $("multiMusic").addEventListener("change", (e) => { multi.music = e.target.value; });
   $("multiAdd").addEventListener("click", () => {
     if (multi.scenes.length >= MAX_MULTI_SCENES) return;
@@ -2299,6 +2839,13 @@ function bindMulti() {
     $("multiScenes").lastElementChild?.querySelector("textarea")?.focus();
   });
   $("multiSubmit").addEventListener("click", submitMulti);
+  // Mọi thay đổi trong màn Nhiều cảnh (gõ, chọn, thêm/xoá/đổi chỗ cảnh) đều lưu nháp.
+  for (const type of ["input", "change", "click"]) {
+    $("view-multi").addEventListener(type, (e) => {
+      if (e.target.closest?.("#multiSubmit")) return;
+      scheduleMultiDraft();
+    });
+  }
 
   const box = $("multiScenes");
   // Ô chữ: chỉ ghi vào state, không vẽ lại — vẽ lại sẽ làm mất con trỏ đang gõ.
@@ -2360,6 +2907,7 @@ function bindMulti() {
       if (!res.ok) throw new Error(body.error);
       scene.media = body.path;
       setMultiHint("");
+      scheduleMultiDraft();
     } catch (err) {
       setMultiHint(`Không tải lên được ${file.name}: ${err.message}`, true);
     } finally {
@@ -2370,16 +2918,22 @@ function bindMulti() {
 }
 
 async function submitMulti() {
+  blurTyping();
   if (multiUploads > 0) {
     setMultiHint("Đợi tải file lên xong đã.", true);
     return;
   }
+  if (!(await keyTipsBeforeFirstVideo())) return;
   setMultiHint("");
   $("multiSubmit").disabled = true;
   try {
+    clearTimeout(multiDraftTimer);
+    multiDraftTimer = null;
+    const { draftSlug, ...data } = multi;
     const { slug } = await postJson("/api/multi", {
-      ...multi,
-      slug: multi.slug ?? undefined,
+      ...data,
+      // Danh sách đang soạn đã lưu thành video nháp — tạo vào đúng video đó.
+      slug: multi.slug ?? draftSlug ?? undefined,
       music: multi.music || null,
     });
     multi = null;
@@ -2419,14 +2973,21 @@ let batchEdit = null;
 /** Lần vẽ trước loạt có đang chạy không — để biết lúc nào nó vừa xong mà báo. */
 let batchWasRunning = false;
 
-const BT_BADGE = { queued: "⏳", preparing: "✍️", review: "👀", ready: "⏳", building: "🎬", done: "✅", error: "⚠️", skipped: "⏭" };
+/** Icon trạng thái của từng mục (chỉ dùng trong innerHTML). */
+const BT_BADGE = {
+  queued: icon("hourglass"), preparing: icon("pen-line"), review: icon("eye"), ready: icon("hourglass"),
+  building: icon("clapperboard"), done: icon("circle-check"), error: icon("triangle-alert"), skipped: icon("skip-forward"),
+};
 const BT_LABEL = {
   queued: "Chờ tới lượt", preparing: "Đang chuẩn bị", review: "Chờ bạn duyệt",
   ready: "Đã duyệt · chờ dựng", building: "Đang dựng", done: "Xong", error: "Lỗi", skipped: "Đã bỏ qua",
 };
 const BT_STEP = { script: "viết lời", voice: "giọng đọc", images: "tìm hình", render: "render" };
 const BT_SOURCE_LABEL = {
-  ideas: "💡 Ý tưởng", custom: "🧩 Từng ô", media: "🎙 File thu sẵn", variants: "🔁 Biến thể", subs: "🔤 Phụ đề",
+  ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề",
+};
+const BT_SOURCE_ICON = {
+  ideas: icon("lightbulb"), custom: icon("puzzle"), media: icon("mic"), variants: icon("repeat"), subs: icon("captions"),
 };
 const BT_SOURCE_DESC = {
   ideas: "Mỗi dòng một video. Gõ tay, tải file .txt/.csv, hoặc để AI nghĩ ý tưởng giúp.",
@@ -2443,6 +3004,24 @@ const BT_BUSY = ["queued", "preparing", "ready", "building"];
 const BASE_TITLE = document.title;
 
 function bindBatch() {
+  // Tải tất cả: còn video sửa dở chưa xuất thì hỏi trước — gói chỉ có bản đã xuất.
+  $("batchZip").addEventListener("click", async (e) => {
+    const pending = (batchCur?.items ?? []).filter((it) => it.status === "done" && it.draft);
+    if (pending.length === 0) return;
+    e.preventDefault();
+    const ok = await confirmDialog({
+      title: `${pending.length} video còn chỉnh sửa chưa xuất`,
+      message: "Gói tải về chỉ có bản đã xuất gần nhất của các video này. Mở Chỉnh sửa và bấm Xuất video nếu muốn tải bản mới.",
+      items: pending.map((it) => it.title || it.input),
+      okText: `${icon("download")} Vẫn tải bản đã xuất`,
+    });
+    if (ok) location.href = $("batchZip").href;
+  });
+  // Quay lại tab loạt sau khi sửa ở tab trình chỉnh sửa: nạp lại để thấy bản mới, nhãn đã sửa/chưa xuất.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && batchCur && !$("view-batch").hidden) loadBatch(batchCur.id);
+  });
+
   document.querySelectorAll("[data-source]").forEach((b) =>
     b.addEventListener("click", () => {
       batchSource = b.dataset.source;
@@ -2564,7 +3143,7 @@ async function showBatch(id) {
   $("view-multi").hidden = true;
   $("view-subs").hidden = true;
   $("view-batch").hidden = false;
-  // Loạt thêm phụ đề mở từ màn 🔤 Phụ đề — giữ nút đó sáng.
+  // Loạt thêm phụ đề mở từ màn Phụ đề — giữ nút đó sáng.
   setNav(id && batchCur?.source === "subs" ? "subs" : "batch");
   current = null;
 
@@ -2635,17 +3214,16 @@ function renderBatchFields() {
   if (!state) return;
   const style = styleMeta(opts.style);
   const voice = state.voices.catalog.find((v) => v.key === opts.voice);
-  const music = state.audio.music.find((m) => m.path === opts.music);
   const fields = [];
 
   // Nguồn "mỗi video một ô" dùng chung bộ cài đặt này làm MẶC ĐỊNH — ô nào đặt riêng thì thắng.
   const byCard = batchSource === "custom";
   const def = (label) => (byCard || batchSource === "variants" ? `${label} mặc định` : label);
   if (batchSource === "ideas" || byCard) {
-    fields.push(["mode", def("Lời video"), opts.mode === "text" ? "📝 Có sẵn" : "🤖 AI viết"]);
-    if (opts.mode !== "text") fields.push(["provider", "AI viết lời", providerChipLabel()]);
+    fields.push(["mode", def("Lời video"), opts.mode === "text" ? "Có sẵn" : "AI viết", modeIcon(opts.mode)]);
+    if (opts.mode !== "text") fields.push(["provider", "AI viết lời", providerChipLabel(), providerIcon(opts.provider)]);
     fields.push(
-      ["kind", "Tạo ra", opts.kind === "image" ? "🖼 Bộ ảnh" : "🎬 Video"],
+      ["kind", "Tạo ra", opts.kind === "image" ? "Bộ ảnh" : "Video", kindIcon(opts.kind)],
       ["style", def("Phong cách"), `${style.emoji} ${style.label}`],
     );
   }
@@ -2654,27 +3232,29 @@ function renderBatchFields() {
     fields.push(["variantFrom", "Video gốc", from ? from.title : batchProjects ? "Chọn video…" : "Đang tải…"]);
   }
   if (batchSource === "media") {
-    fields.push(["mediaModel", "Độ chính xác", batchMediaModel === "small" ? "⚡ Nhanh (small)" : "🎯 Chuẩn (medium)"]);
+    fields.push(["mediaModel", "Độ chính xác", batchMediaModel === "small" ? "Nhanh (small)" : "Chuẩn (medium)",
+      batchMediaModel === "small" ? icon("zap") : icon("target")]);
   }
 
   fields.push(["aspect", def("Khung hình"), `▭ ${opts.aspect}`]);
-  if (batchSource !== "media") fields.push(["images", "Hình ảnh", imageChipLabel()]);
+  if (batchSource !== "media") fields.push(["images", "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
+  if (batchSource !== "media" && aiDraws()) fields.push(["art", "Kiểu vẽ", artChipLabel(), artIcon(opts.art)]);
   if (opts.kind === "video" && batchSource !== "media") {
-    fields.push(["voice", def("Giọng đọc"), voice ? `🎙 ${voice.key}` : "🔇 Không giọng"]);
+    fields.push(["voice", def("Giọng đọc"), voice ? voice.key : "Không giọng", voiceIcon(voice?.key)]);
   }
   if (opts.kind === "video") {
-    fields.push(["music", "Nhạc nền", music ? `♪ ${music.name.replace(/\.\w+$/, "")}` : "♪ Không nhạc"]);
+    fields.push(["music", "Nhạc nền", musicLabel(opts.music), musicIcon(opts.music)]);
   }
-  fields.push(["review", "Duyệt lời", batchReview ? "✓ Dừng cho tôi đọc" : "⏩ Chạy thẳng"]);
+  fields.push(["review", "Duyệt lời", batchReview ? "Dừng cho tôi đọc" : "Chạy thẳng", batchReview ? icon("check") : icon("fast-forward")]);
 
   // Dòng tóm tắt khi thu gọn: giá trị của vài cài đặt chính.
   const SUM_KEYS = { variantFrom: "Gốc", style: "Phong cách", aspect: "Khung", voice: "Giọng", images: "Hình", review: "Duyệt" };
   $("batchSettingsSum").textContent = fields.filter(([key]) => SUM_KEYS[key])
     .map(([key, , value]) => `${SUM_KEYS[key]}: ${value}`).join(" · ");
-  $("batchFields").innerHTML = fields.map(([key, label, value]) =>
+  $("batchFields").innerHTML = fields.map(([key, label, value, ic]) =>
     `<button type="button" class="bt-field ${key === "review" && batchReview ? "on" : ""}" data-field="${key}"
        aria-haspopup="listbox" aria-expanded="false">
-      <span>${escapeHtml(label)}</span><b><i>${escapeHtml(value)}</i>${CARET}</b>
+      <span>${escapeHtml(label)}</span><b><i>${ic ? `${ic} ` : ""}${escapeHtml(value)}</i>${CARET}</b>
     </button>`).join("");
 }
 
@@ -2685,9 +3265,9 @@ function batchMenuFor(key) {
       id: "review", title: "Duyệt lời trước khi render", value: batchReview ? "yes" : "no",
       onPick: (value) => { batchReview = value === "yes"; renderBatchNew(); },
       options: [
-        { value: "yes", title: "✓ Dừng cho tôi đọc",
+        { value: "yes", icon: icon("check"), title: "Dừng cho tôi đọc",
           sub: "Viết lời cả loạt xong thì dừng. Đọc lại, sửa cái nào cần, rồi bấm Duyệt để render." },
-        { value: "no", title: "⏩ Chạy thẳng",
+        { value: "no", icon: icon("fast-forward"), title: "Chạy thẳng",
           sub: "Viết lời xong render luôn, không hỏi lại. Nhanh nhất, nhưng lời sai thì phải làm lại cả video." },
       ],
     };
@@ -2697,8 +3277,8 @@ function batchMenuFor(key) {
       id: "mediaModel", title: "Độ chính xác khi phiên âm", value: batchMediaModel,
       onPick: (value) => { batchMediaModel = value; renderBatchNew(); },
       options: [
-        { value: "medium", title: "🎯 Chuẩn (medium)", sub: "Đúng hơn với tiếng Việt. Đo thật: audio 41 giây → ~15 giây." },
-        { value: "small", title: "⚡ Nhanh (small)", sub: "Nhanh hơn nhiều, nhưng sai tên riêng và từ ghép nhiều hơn." },
+        { value: "medium", icon: icon("target"), title: "Chuẩn (medium)", sub: "Đúng hơn với tiếng Việt. Đo thật: audio 41 giây → ~15 giây." },
+        { value: "small", icon: icon("zap"), title: "Nhanh (small)", sub: "Nhanh hơn nhiều, nhưng sai tên riêng và từ ghép nhiều hơn." },
       ],
     };
   }
@@ -2780,18 +3360,18 @@ function renderBatchPlan() {
     : batchSource === "custom" &&
       batchCards.some((c) => c.text.trim() && (c.settings.mode ?? opts.mode) === "ai");
   if (needsAi && !hasScriptKey()) {
-    warn.push("Chưa có AI viết lời — đổi ô “Lời video” sang 📝 Có sẵn, hoặc thêm key trong Cài đặt.");
+    warn.push("Chưa có AI viết lời — đổi ô “Lời video” sang Có sẵn, hoặc thêm key trong Cài đặt.");
   }
-  if (batchSource !== "media" && opts.images === "pexels" && !state?.keys.pexels) {
-    warn.push("Chưa có key Pexels — đổi ô “Hình ảnh” sang 🚫 Không hình hoặc 🖼 Ảnh của tôi.");
+  if (batchSource !== "media" && (opts.images === "pexels" || opts.images === "stock-video") && !state?.keys.pexels) {
+    warn.push("Chưa có key Pexels/Pixabay — đổi ô “Hình ảnh” sang Không hình hoặc Ảnh của tôi.");
   }
-  if (batchSource !== "media" && opts.images === "ai" && !state?.keys.gemini) {
+  if (batchSource !== "media" && opts.images === "ai" && !state?.keys.gemini && !state?.keys.flux) {
     warn.push("Chưa có key Gemini để vẽ ảnh — đổi ô “Hình ảnh”.");
   }
   // Cảnh báo về cài đặt (thiếu key…): mở phần cài đặt để thấy ngay ô cần đổi.
   if (warn.length > (n === 0 ? 1 : 0)) $("batchSettings").open = true;
   $("batchPlan").innerHTML = `${parts.join(" · ")}. Máy dựng lần lượt từng ${unit}.` +
-    warn.map((w) => `<br><span class="warn">⚠ ${escapeHtml(w)}</span>`).join("");
+    warn.map((w) => `<br><span class="warn">${icon("triangle-alert")} ${escapeHtml(w)}</span>`).join("");
 }
 
 async function importBatchFile(e) {
@@ -2812,6 +3392,7 @@ async function importBatchFile(e) {
 }
 
 async function askForIdeas() {
+  blurTyping();
   const topic = $("batchTopic").value.trim();
   if (!topic) { setBatchHint("Gõ chủ đề trước đã.", true); return; }
   const count = Math.max(1, Math.min(50, Number($("batchTopicCount").value) || 10));
@@ -2859,21 +3440,28 @@ function cardChipLabel(settings, key) {
   if (key === "images") {
     if (settings.video) {
       const model = videoModels().find((m) => m.key === settings.video);
-      return settings.video === "auto" ? "🎬 Video AI" : `🎬 ${model?.label ?? "Video AI"}`;
+      return settings.video === "auto" ? "Video AI" : model?.label ?? "Video AI";
     }
     return settings.images ? IMAGE_SOURCES[settings.images] ?? settings.images : "Theo chung";
   }
   const value = settings[key];
   if (!value) return "Theo chung";
-  if (key === "mode") return value === "text" ? "📝 Có sẵn" : "🤖 AI viết";
+  if (key === "mode") return value === "text" ? "Có sẵn" : "AI viết";
   if (key === "style") return `${styleMeta(value).emoji} ${styleMeta(value).label}`;
   if (key === "aspect") return `▭ ${value}`;
-  if (key === "music") {
-    if (value === "none") return "♪ Không nhạc";
-    const track = state?.audio.music.find((m) => m.path === value);
-    return `♪ ${track ? track.name.replace(/\.\w+$/, "") : value}`;
-  }
-  return value === "none" ? "🔇 Không giọng" : `🎙 ${value}`;
+  if (key === "music") return musicLabel(value);
+  return value === "none" ? "Không giọng" : value;
+}
+
+/** Icon trước nhãn chip của ô; chưa đặt riêng ("Theo chung") thì không có icon. */
+function cardChipIcon(settings, key) {
+  if (key === "images") return settings.video || settings.images ? imagesIcon(settings.images, settings.video) : "";
+  const value = settings[key];
+  if (!value) return "";
+  if (key === "mode") return modeIcon(value);
+  if (key === "voice") return voiceIcon(value);
+  if (key === "music") return musicIcon(value);
+  return "";
 }
 
 /** Hàng chip cài đặt riêng của một ô (dùng chung cho màn soạn và ô đang sửa ở màn theo dõi). */
@@ -2881,7 +3469,7 @@ const cardChipsHtml = (id, settings) => `<div class="chips">${BT_CARD_KEYS.map((
   <button type="button" class="chip ${settings[key] ? "own" : ""}" data-card-chip="${key}" data-card-id="${id}"
     aria-haspopup="listbox" aria-expanded="false" title="${escapeHtml(BT_CARD_LABEL[key])} riêng cho video này">
     <span class="chip-k">${BT_CARD_LABEL[key]}:</span>
-    <span class="chip-v">${escapeHtml(cardChipLabel(settings, key))}</span>${CARET}</button>`).join("")}</div>`;
+    <span class="chip-v">${cardChipIcon(settings, key)}${cardChipIcon(settings, key) ? " " : ""}${escapeHtml(cardChipLabel(settings, key))}</span>${CARET}</button>`).join("")}</div>`;
 
 function renderBatchCustom() {
   if (batchSource !== "custom") return;
@@ -2891,8 +3479,8 @@ function renderBatchCustom() {
   $("batchCards").innerHTML = batchCards.map((card, i) => {
     const head = `<div class="bt-card-head">
         <span>Video ${i + 1}</span><span class="spacer"></span>
-        ${card.open ? `<button type="button" class="icon-btn" data-card-close="${card.id}" aria-label="Thu gọn ô ${i + 1}">⌃</button>` : ""}
-        <button type="button" class="icon-btn" data-card-rm="${card.id}" aria-label="Bỏ ô ${i + 1}">✕</button>
+        ${card.open ? `<button type="button" class="icon-btn" data-card-close="${card.id}" aria-label="Thu gọn ô ${i + 1}">${icon("chevron-up")}</button>` : ""}
+        <button type="button" class="icon-btn" data-card-rm="${card.id}" aria-label="Bỏ ô ${i + 1}">${icon("x")}</button>
       </div>`;
     if (!card.open) {
       const own = BT_CARD_KEYS.filter((k) => card.settings[k]).map((k) => cardChipLabel(card.settings, k));
@@ -2912,7 +3500,7 @@ function renderBatchCustom() {
       ${cardChipsHtml(card.id, card.settings)}
     </div>`;
   }).join("") + `
-    <button type="button" class="bt-add-card" id="batchAddCard"><b>＋</b>Thêm ô</button>`;
+    <button type="button" class="bt-add-card" id="batchAddCard"><b>${icon("plus")}</b>Thêm ô</button>`;
 
   // Gán value bằng JS (khỏi lo escape), và gõ thì chỉ cập nhật state — không vẽ lại kẻo mất con trỏ.
   $("batchCards").querySelectorAll("[data-card-text]").forEach((el) => {
@@ -2953,30 +3541,28 @@ function cardMenuFor(key, target, onChange) {
     onChange();
   };
   const shared = {
-    mode: opts.mode === "text" ? "📝 Lời có sẵn" : "🤖 AI viết lời",
+    mode: opts.mode === "text" ? "Lời có sẵn" : "AI viết lời",
     style: `${styleMeta(opts.style).emoji} ${styleMeta(opts.style).label}`,
     aspect: opts.aspect,
-    voice: opts.voice ? `🎙 ${opts.voice}` : "🔇 Không giọng",
+    voice: opts.voice || "Không giọng",
     images: imageChipLabel(),
-    music: opts.music
-      ? `♪ ${state?.audio.music.find((m) => m.path === opts.music)?.name.replace(/\.\w+$/, "") ?? opts.music}`
-      : "♪ Không nhạc",
+    music: musicLabel(opts.music),
   }[key];
-  const inherit = { value: "", title: "↩ Theo cài đặt chung", sub: `Đang là ${shared}` };
+  const inherit = { value: "", icon: icon("undo-2"), title: "Theo cài đặt chung", sub: `Đang là ${shared}` };
 
   if (key === "mode") {
     return {
       id: "cardMode", title: "Lời của video này", value: target.settings.mode ?? "", onPick: pick,
       options: [inherit,
-        { value: "ai", title: "🤖 AI viết lời", sub: "Gõ ý tưởng, AI viết nội dung cho riêng video này." },
-        { value: "text", title: "📝 Lời có sẵn", sub: "Dán lời của bạn, dựng đúng từng câu. Không cần key." }],
+        { value: "ai", icon: icon("bot"), title: "AI viết lời", sub: "Gõ ý tưởng, AI viết nội dung cho riêng video này." },
+        { value: "text", icon: icon("file-text"), title: "Lời có sẵn", sub: "Dán lời của bạn, dựng đúng từng câu. Không cần key." }],
     };
   }
   if (key === "style") {
     return {
       id: "cardStyle", title: "Phong cách của video này", value: target.settings.style ?? "", onPick: pick,
       options: [inherit,
-        { value: "auto", title: "✨ Tự động", sub: "AI đọc nội dung và chọn phong cách hợp nhất." },
+        { value: "auto", icon: icon("sparkles"), title: "Tự động", sub: "AI đọc nội dung và chọn phong cách hợp nhất." },
         ...(state?.styles ?? []).map((st) => ({
           value: st.id, title: `${st.emoji} ${st.label}`, sub: st.summary,
         }))],
@@ -3010,14 +3596,15 @@ function cardMenuFor(key, target, onChange) {
         onChange();
       },
       options: [inherit,
-        { value: "none", title: IMAGE_SOURCES.none, sub: "Chỉ có chữ trên nền màu" },
-        { value: "library", title: IMAGE_SOURCES.library, sub: "Ảnh đã có trong thư viện" },
-        { value: "pexels", title: IMAGE_SOURCES.pexels, sub: state?.keys.pexels ? "Ảnh thật, miễn phí" : "Cần key Pexels", disabled: !state?.keys.pexels },
-        { value: "ai", title: IMAGE_SOURCES.ai, sub: state?.keys.gemini ? "Gemini vẽ từng cảnh" : "Cần key Gemini", disabled: !state?.keys.gemini },
-        { value: "video:auto", group: "Clip video AI — tính tiền theo clip", title: "🎬 Tự động",
+        { value: "none", icon: icon("ban"), title: IMAGE_SOURCES.none, sub: "Chỉ có chữ trên nền màu" },
+        { value: "library", icon: icon("image"), title: IMAGE_SOURCES.library, sub: "Ảnh đã có trong thư viện" },
+        { value: "pexels", icon: icon("search"), title: IMAGE_SOURCES.pexels, sub: state?.keys.pexels ? "Ảnh thật, miễn phí" : "Cần key Pexels/Pixabay", disabled: !state?.keys.pexels },
+        { value: "stock-video", icon: icon("film"), title: IMAGE_SOURCES["stock-video"], sub: state?.keys.pexels ? "Clip thật, miễn phí" : "Cần key Pexels/Pixabay", disabled: !state?.keys.pexels },
+        { value: "ai", icon: icon("palette"), title: IMAGE_SOURCES.ai, sub: state?.keys.flux ? "FLUX miễn phí (Cloudflare)" : state?.freeMode ? "Cần key Cloudflare" : state?.keys.gemini ? "Gemini vẽ từng cảnh" : "Cần key Cloudflare/Gemini", disabled: !state?.keys.flux && (!state?.keys.gemini || state?.freeMode) },
+        { value: "video:auto", group: "Clip video AI — tính tiền theo clip", icon: icon("clapperboard"), title: "Tự động",
           sub: anyVideoKey ? "Model rẻ nhất đang có key" : "Chưa có key tạo video", disabled: !anyVideoKey },
         ...models.map((m) => ({
-          value: `video:${m.key}`, group: m.providerLabel, title: `🎬 ${m.label}`,
+          value: `video:${m.key}`, group: m.providerLabel, icon: icon("clapperboard"), title: m.label,
           sub: m.available ? `${m.durations[0]}–${m.durations.at(-1)}s/clip` : `Cần ${m.env}`,
           disabled: !m.available,
         }))],
@@ -3027,9 +3614,10 @@ function cardMenuFor(key, target, onChange) {
     return {
       id: "cardMusic", title: "Nhạc nền của video này", value: target.settings.music ?? "", onPick: pick,
       options: [inherit,
-        { value: "none", title: "♪ Không nhạc" },
+        { value: "none", icon: icon("music"), title: "Không nhạc" },
+        ...randomMusicOption(),
         ...(state?.audio.music ?? []).map((m) => ({
-          value: m.path, title: `♪ ${m.name.replace(/\.\w+$/, "")}`,
+          value: m.path, icon: icon("music"), title: m.name.replace(/\.\w+$/, ""),
         }))],
     };
   }
@@ -3037,11 +3625,12 @@ function cardMenuFor(key, target, onChange) {
   return {
     id: "cardVoice", title: "Giọng đọc của video này", value: target.settings.voice ?? "", onPick: pick,
     options: [inherit,
-      { value: "none", title: "🔇 Không giọng", sub: "Chỉ có chữ, thời lượng tính theo độ dài câu" },
+      { value: "none", icon: icon("volume-x"), title: "Không giọng", sub: "Chỉ có chữ, thời lượng tính theo độ dài câu" },
       ...state.voices.catalog.map((v) => ({
-        value: v.key, group: langs[v.lang] ?? v.lang, title: `🎙 ${v.key}`,
+        value: v.key, group: langs[v.lang] ?? v.lang, icon: icon("mic"), title: v.key,
         sub: `${v.label.split("—")[1]?.trim() ?? ""} · ${v.engineLabel}${v.paidPlan ? " · cần gói trả phí" : ""}`,
         disabled: v.paidPlan,
+        preview: v.key,
       }))],
   };
 }
@@ -3095,7 +3684,7 @@ function renderBatchMedia() {
     : batchMedia.length ? `${batchMedia.length} video` : "";
   $("batchMediaList").innerHTML = batchMedia.map((f, i) =>
     `<li><span>${escapeHtml(f.name)}</span>
-      <button type="button" class="icon-btn" data-media="${i}" aria-label="Bỏ ${escapeHtml(f.name)}">✕</button></li>`).join("");
+      <button type="button" class="icon-btn" data-media="${i}" aria-label="Bỏ ${escapeHtml(f.name)}">${icon("x")}</button></li>`).join("");
   $("batchMediaList").querySelectorAll("[data-media]").forEach((b) =>
     b.addEventListener("click", () => {
       batchMedia.splice(Number(b.dataset.media), 1);
@@ -3123,16 +3712,17 @@ async function loadBatchVariantData() {
 
 const pickChips = (items, selected, attr) => items.map((item) =>
   `<button type="button" class="bt-pick ${selected.includes(item.value) ? "on" : ""}"
-    data-${attr}="${escapeHtml(item.value)}">${escapeHtml(item.label)}</button>`).join("");
+    data-${attr}="${escapeHtml(item.value)}">${item.icon ? `${item.icon} ` : ""}${escapeHtml(item.label)}</button>`).join("");
 
 function renderBatchVariant() {
   if (batchSource !== "variants") return;
   $("batchVariantAspects").innerHTML = pickChips(
     aspects.map((a) => ({ value: a.id, label: a.id })), batchVariant.aspects, "aspect");
-  $("batchVariantVoices").innerHTML = pickChips(
-    [{ value: "", label: "🔇 Không giọng" },
-      ...state.voices.catalog.filter((v) => !v.paidPlan).map((v) => ({ value: v.key, label: `🎙 ${v.key}` }))],
-    batchVariant.voices, "voice");
+  // Giọng: mỗi chip kèm nút nghe thử ngay bên cạnh (nút riêng — bấm nghe không bật/tắt chip).
+  $("batchVariantVoices").innerHTML = pickChips([{ value: "", icon: icon("volume-x"), label: "Không giọng" }], batchVariant.voices, "voice") +
+    state.voices.catalog.filter((v) => !v.paidPlan).map((v) =>
+      `<span class="pick-wrap">${pickChips([{ value: v.key, icon: icon("mic"), label: v.key }], batchVariant.voices, "voice")}${
+        voicePreviewButton(v.key, v.key)}</span>`).join("");
   $("batchVariantLangs").innerHTML = pickChips(
     (batchLangs ?? []).map((l) => ({ value: l.code, label: l.label })), batchVariant.langs, "lang");
 
@@ -3149,13 +3739,15 @@ function renderBatchVariant() {
   $("batchVariantLangs").querySelectorAll("[data-lang]").forEach((b) =>
     b.addEventListener("click", () => toggle(batchVariant.langs, b.dataset.lang)));
 
-  $("batchVariantCount").textContent = batchVariant.from ? `${batchTotal()} video` : "Chọn video gốc trong ⚙ Cài đặt cho cả loạt";
+  $("batchVariantCount").textContent = batchVariant.from ? `${batchTotal()} video` : "Chọn video gốc trong Cài đặt cho cả loạt";
 }
 
 // ---------- tạo loạt ----------
 
 async function createBatch() {
+  blurTyping();
   if (batchUploading > 0) { setBatchHint("Đợi tải file lên xong đã.", true); return; }
+  if (!(await keyTipsBeforeFirstVideo())) return;
   const body = {
     source: batchSource,
     name: $("batchName").value,
@@ -3211,14 +3803,14 @@ async function loadBatchList() {
     $("batchRecent").hidden = batches.length === 0;
     $("batchRecentList").innerHTML = batches.slice(0, 12).map((b) => {
       const c = b.counts;
-      const state = b.state === "running" ? "🔄 đang chạy" : b.state === "paused" ? "⏸ tạm dừng"
-        : b.state === "done" ? "✅ xong" : "○ chưa chạy";
+      const state = b.state === "running" ? `${icon("refresh-cw")} đang chạy` : b.state === "paused" ? `${icon("pause")} tạm dừng`
+        : b.state === "done" ? `${icon("circle-check")} xong` : `${icon("circle")} chưa chạy`;
       const pct = c.total === 0 ? 0 : Math.round(((c.done + c.skipped) / c.total) * 100);
       return `<a href="#/batch/${b.id}">
         <span class="row"><b>${escapeHtml(b.name)}</b><span class="spacer"></span>
           <span class="muted">${state}</span></span>
         <span class="mini"><i style="width:${pct}%"></i></span>
-        <span class="muted">${BT_SOURCE_LABEL[b.source] ?? ""} · ${c.done}/${c.total} xong${
+        <span class="muted">${BT_SOURCE_ICON[b.source] ?? ""} ${BT_SOURCE_LABEL[b.source] ?? ""} · ${c.done}/${c.total} xong${
           c.error ? ` · ${c.error} lỗi` : ""}${c.review ? ` · ${c.review} chờ duyệt` : ""}</span>
       </a>`;
     }).join("");
@@ -3265,12 +3857,13 @@ function renderBatchRun() {
     `${c.total} video`,
     b.review ? "dừng cho bạn đọc lại phụ đề" : "chạy thẳng",
     "giữ khung của video gốc",
-  ] : [
+    b.subs?.tracks?.length > 1 ? `${b.subs.tracks.length} hàng phụ đề mỗi video` : "",
+  ].filter(Boolean) : [
     BT_SOURCE_LABEL[b.source] ?? b.source,
     `${c.total} video`,
     b.review ? "có chốt duyệt lời" : "chạy thẳng",
     `▭ ${b.settings.aspect}`,
-    b.settings.voice ? `🎙 ${b.settings.voice}` : "🔇 không giọng",
+    b.settings.voice ? `giọng ${b.settings.voice}` : "không giọng",
   ]).join(" · ");
   $("batchSubsLook").hidden = !subs;
   setNav(subs ? "subs" : "batch");
@@ -3285,25 +3878,25 @@ function renderBatchRun() {
   const stat = (cls, label, value, show = true) =>
     show ? `<span class="bt-stat ${cls}">${label} <b>${value}</b></span>` : "";
   $("batchStats").innerHTML = [
-    stat("done", "✅ Xong", `${c.done}/${c.total}`),
-    stat("run", "🔄 Đang chạy", c.running, c.running > 0),
-    stat("review", "👀 Chờ duyệt", c.review, c.review > 0),
-    stat("", "⏳ Chờ", c.waiting, c.waiting > 0),
-    stat("err", "⚠️ Lỗi", c.error, c.error > 0),
-    stat("", "⏭ Bỏ qua", c.skipped, c.skipped > 0),
+    stat("done", `${icon("circle-check")} Xong`, `${c.done}/${c.total}`),
+    stat("run", `${icon("refresh-cw")} Đang chạy`, c.running, c.running > 0),
+    stat("review", `${icon("eye")} Chờ duyệt`, c.review, c.review > 0),
+    stat("", `${icon("hourglass")} Chờ`, c.waiting, c.waiting > 0),
+    stat("err", `${icon("triangle-alert")} Lỗi`, c.error, c.error > 0),
+    stat("", `${icon("skip-forward")} Bỏ qua`, c.skipped, c.skipped > 0),
   ].join("");
   $("batchEta").textContent = batchEta(b);
 
   const pause = $("batchPause");
   pause.hidden = c.waiting === 0 && c.running === 0 && c.review === 0;
-  pause.textContent = b.state === "running" ? "⏸ Tạm dừng" : "▶ Chạy tiếp";
+  pause.innerHTML = b.state === "running" ? `${icon("pause")} Tạm dừng` : `${icon("play")} Chạy tiếp`;
   $("batchApproveAll").hidden = c.review === 0;
-  $("batchApproveAll").textContent = `✓ Duyệt tất cả (${c.review})`;
+  $("batchApproveAll").innerHTML = `${icon("check")} Duyệt tất cả (${c.review})`;
   $("batchRetryAll").hidden = c.error === 0;
-  $("batchRetryAll").textContent = `⟳ Chạy lại ${c.error} lỗi`;
+  $("batchRetryAll").innerHTML = `${icon("rotate-cw")} Chạy lại ${c.error} lỗi`;
   $("batchZip").hidden = c.done === 0;
   $("batchZip").href = `/api/batch/${b.id}/zip`;
-  $("batchZip").textContent = subs ? `⬇ Tải tất cả (${c.done} video + .srt)` : `⬇ Tải tất cả (${c.done})`;
+  $("batchZip").innerHTML = `${icon("download")} ${subs ? `Tải tất cả (${c.done} video + .srt)` : `Tải tất cả (${c.done})`}`;
   $("batchCsv").hidden = c.total === 0;
   $("batchCsv").href = `/api/batch/${b.id}/csv`;
 
@@ -3393,7 +3986,7 @@ const shorten = (text, max = 90) => {
 
 /**
  * Một mục = một ô chữ nhật giống hệt ô lúc soạn. Xong thì chính ô đó hiện video;
- * bấm vào ô (hoặc nút ✎) là ra lại ô nhập để sửa nội dung rồi làm lại.
+ * bấm vào ô (hoặc nút Sửa) là ra lại ô nhập để sửa nội dung rồi làm lại.
  */
 function batchItemTile(it, i) {
   if (batchEdit?.itemId === it.id) return batchEditTile(it, i);
@@ -3404,6 +3997,7 @@ function batchItemTile(it, i) {
   if (busy && it.step) bits.push(`bước ${BT_STEP[it.step] ?? it.step}`);
   if (it.scenes) bits.push(`${it.scenes} cảnh`);
   if (it.title && it.input && it.input !== it.title) bits.push(shorten(it.input, 60));
+  if (it.edited) bits.push("đã chỉnh sửa");
 
   const btn = (act, label, cls = "") =>
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
@@ -3412,22 +4006,27 @@ function batchItemTile(it, i) {
 
   const actions = [];
   if (it.status === "review") {
-    actions.push(btn("approve", "✓ Duyệt", "primary"));
-    if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}" title="Mở video để sửa lời rồi quay lại duyệt">✏️ Sửa lời</a>`);
-    actions.push(btn("skip", "⏭ Bỏ"));
+    actions.push(btn("approve", `${icon("check")} Duyệt`, "primary"));
+    if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}" title="Mở video để sửa lời rồi quay lại duyệt">${icon("pencil")} Sửa lời</a>`);
+    actions.push(btn("skip", `${icon("skip-forward")} Bỏ`));
   } else if (it.status === "error") {
-    actions.push(btn("retry", "⟳ Thử lại"));
-    if (editable) actions.push(btn("edit", "✎ Đổi nội dung"));
-    actions.push(btn("remove", "🗑"));
+    actions.push(btn("retry", `${icon("rotate-cw")} Thử lại`));
+    if (editable) actions.push(btn("edit", `${icon("pen-line")} Đổi nội dung`));
+    actions.push(`<button type="button" class="btn" data-act="remove" data-id="${it.id}" title="Bỏ khỏi loạt" aria-label="Bỏ khỏi loạt">${icon("trash-2")}</button>`);
   } else if (it.status === "done") {
-    if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}">▶ Mở</a>`);
-    if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>⬇ Tải</a>`);
-    if (editable) actions.push(btn("edit", "✎ Sửa"));
-    else actions.push(btn("retry", "⟳ Làm lại"));
+    if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}">${icon("play")} Mở</a>`);
+    // Sửa từng video rồi mới tải cả loạt: mở tab mới để bảng theo dõi vẫn còn; bấm "Xuất video" là gói tải về lấy bản đã sửa.
+    if (it.slug) {
+      actions.push(`<a class="btn" href="/editor.html#${encodeURIComponent(it.slug)}" target="_blank" rel="noopener"
+        title="Mở trình chỉnh sửa ở tab mới — sửa xong bấm Xuất video, gói Tải tất cả sẽ lấy bản đã sửa">${icon("scissors")} Chỉnh sửa</a>`);
+    }
+    if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>${icon("download")} Tải</a>`);
+    if (editable) actions.push(btn("edit", `${icon("pen-line")} Sửa`));
+    else actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
   } else if (it.status === "skipped") {
-    actions.push(btn("retry", "↩ Đưa lại"));
+    actions.push(btn("retry", `${icon("undo-2")} Đưa lại`));
   } else if (!busy) {
-    actions.push(btn("skip", "⏭ Bỏ"));
+    actions.push(btn("skip", `${icon("skip-forward")} Bỏ`));
   }
 
   // Thân ô: video khi xong, khung chờ + tiến độ khi đang chạy, lời để duyệt khi chờ duyệt.
@@ -3440,7 +4039,7 @@ function batchItemTile(it, i) {
     body = it.poster
       ? `<div class="bt-frame" style="aspect-ratio:${w}/${h};--arn:${(w / h).toFixed(4)}"
            data-play="${escapeHtml(it.mp4)}" role="button" tabindex="0" title="Bấm để xem">
-           <img src="/public/${escapeHtml(it.poster)}" alt="" loading="lazy" /><span class="bt-play">▶</span></div>`
+           <img src="/public/${escapeHtml(it.poster)}?t=${escapeHtml(it.mp4.split("?t=")[1] ?? "")}" alt="" loading="lazy" /><span class="bt-play">${icon("play")}</span></div>`
       : frame(` data-video="${escapeHtml(it.mp4)}"`, "bt-lazy");
   } else if (it.status === "done" && it.images?.length) {
     body = `<div class="bt-frame" style="aspect-ratio:${w}/${h};--arn:${(w / h).toFixed(4)}">
@@ -3465,6 +4064,7 @@ function batchItemTile(it, i) {
     <p class="bt-card-preview">${escapeHtml(title)}</p>
     ${bits.length ? `<p class="bt-card-own">${escapeHtml(bits.join(" · "))}</p>` : ""}
     ${it.error ? `<p class="bt-err">${escapeHtml(it.error)}</p>` : ""}
+    ${it.draft ? `<p class="bt-err" title="Gói Tải tất cả dùng bản đã xuất gần nhất">${icon("triangle-alert")} Có chỉnh sửa chưa xuất — mở Chỉnh sửa, bấm Xuất video để tải bản mới.</p>` : ""}
     <div class="bt-actions">${actions.join("")}</div>
   </div>`;
 }
@@ -3474,12 +4074,12 @@ function batchEditTile(it, i) {
   return `<div class="bt-card editing">
     <div class="bt-card-head">
       <span>Video ${i + 1}</span><span class="spacer"></span>
-      <button type="button" class="icon-btn" data-act="cancel" data-id="${it.id}" aria-label="Đóng">✕</button>
+      <button type="button" class="icon-btn" data-act="cancel" data-id="${it.id}" aria-label="Đóng">${icon("x")}</button>
     </div>
     <textarea data-edit-text spellcheck="false" aria-label="Nội dung video ${i + 1}"></textarea>
     ${cardChipsHtml(it.id, batchEdit.settings)}
     <div class="bt-actions">
-      <button type="button" class="btn primary" data-act="save" data-id="${it.id}">💾 Lưu &amp; làm lại</button>
+      <button type="button" class="btn primary" data-act="save" data-id="${it.id}">${icon("save")} Lưu &amp; làm lại</button>
       <button type="button" class="btn" data-act="cancel" data-id="${it.id}">Huỷ</button>
     </div>
   </div>`;
@@ -3504,7 +4104,7 @@ function notifyBatchDone(b) {
   const text = `${c.done}/${c.total} video xong${c.error ? ` · ${c.error} lỗi` : ""}`;
   try {
     if (window.Notification && Notification.permission === "granted") {
-      new Notification(`✅ Xong loạt “${b.name}”`, { body: text, tag: `batch-${b.id}` });
+      new Notification(`Xong loạt “${b.name}”`, { body: text, tag: `batch-${b.id}` });
     }
   } catch {
     // Trình duyệt nhúng có thể chặn — không sao, vẫn còn tiếng chuông và tiêu đề tab.

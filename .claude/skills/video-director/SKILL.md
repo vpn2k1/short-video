@@ -75,6 +75,9 @@ Danh sách ở `src/styles/meta.ts`, bản vẽ ở `src/styles/<id>/`, luật t
 | `social` | `style-social` | Reddit story, tâm sự ẩn danh, drama ngôi thứ nhất |
 | `quiz` | `style-quiz` | đố vui, trắc nghiệm, kêu gọi bình luận |
 | `ranking` | `style-ranking` | top list, xếp hạng, đếm ngược |
+| `book` | `style-book` | tóm tắt sách, lịch sử, truyền thuyết, chuyện có chương hồi |
+| `storybook` | `style-storybook` | truyện cổ tích, truyện thiếu nhi, kể chuyện trước giờ ngủ |
+| `pen` | `style-pen` | lá thư, tâm sự, nhật ký, lời cảm ơn, kỷ niệm |
 
 Mỗi phong cách có `examplePrompt` trong `meta.ts` — hiện trong menu chọn phong cách của web
 và được điền sẵn vào ô chat khi chọn phong cách cho video mới.

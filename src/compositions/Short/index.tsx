@@ -8,9 +8,10 @@ import { TextOverlays } from "../../components/TextOverlays";
 import { CustomCaptions } from "../../components/CustomCaptions";
 import { usesCustomCaptions } from "../../components/captionLook";
 import { WatermarkOverlay } from "../../components/WatermarkOverlay";
-import { STYLE_COMPONENTS } from "../../styles/registry";
+import { STYLE_COMPONENTS, STYLE_TOP_LAYERS } from "../../styles/registry";
 import { CaptionStyle } from "../../styles/caption";
 import { FONTS } from "../../styles/shared";
+import { ensureFonts, fontsUsedBy } from "../../fonts/load";
 import type { StyleId } from "../../styles/meta";
 
 /** Duration follows the caption track, so editing captions in the Studio resizes the video. */
@@ -47,13 +48,18 @@ export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
  */
 export const Short: React.FC<ShortProps> = (props) => {
   const Style = STYLE_COMPONENTS[props.style as StyleId] ?? CaptionStyle;
+  const StyleTop = STYLE_TOP_LAYERS[props.style as StyleId];
   // Phụ đề tuỳ chỉnh: phong cách vẽ hình như thường nhưng không vẽ phụ đề của nó; lớp chung vẽ thay.
   // Âm thanh và độ dài video vẫn theo props.captions đầy đủ.
   const custom = usesCustomCaptions(props);
+  // Font đóng gói mà phụ đề/văn bản dùng — Remotion đợi nạp xong mới chụp khung hình.
+  ensureFonts(fontsUsedBy(props));
+  const styleProps = custom ? { ...props, captions: [] } : props;
   return (
     <AbsoluteFill style={{ fontFamily: FONTS.sans }}>
-      <Style {...(custom ? { ...props, captions: [] } : props)} />
+      <Style {...styleProps} />
       <MediaOverlays overlays={props.overlays ?? []} />
+      {StyleTop ? <StyleTop {...styleProps} /> : null}
       {custom ? <CustomCaptions props={props} /> : null}
       <TextOverlays texts={props.texts ?? []} />
       {props.watermark ? <WatermarkOverlay watermark={props.watermark} /> : null}

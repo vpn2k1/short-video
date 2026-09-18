@@ -3,6 +3,7 @@
  * hoặc mẩu báo cắt khi cảnh không có ảnh. Kích thước khung do index.tsx tính.
  */
 import { ClipVideo } from "../../scenes/ClipVideo";
+import { CropBox } from "../../scenes/CropBox";
 import type { SceneCrop } from "../../compositions/Short/schema";
 import { Img, Sequence, staticFile } from "remotion";
 import { FONTS, seeded } from "../shared";
@@ -191,7 +192,9 @@ export const Hero: React.FC<Props> = ({ image, kind, w, h, unit, sceneIndex, sce
             <ClipVideo src={image} trimStartMs={trimStartMs} speed={speed} volume={volume} crop={crop} />
           </Sequence>
         ) : image ? (
-          <Img src={staticFile(image)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <CropBox crop={crop}>
+            <Img src={staticFile(image)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </CropBox>
         ) : null}
       </div>
       <Tape unit={unit} rotate={tapeRot} style={{ left: w / 2 - 95 * unit, top: -26 * unit }} />

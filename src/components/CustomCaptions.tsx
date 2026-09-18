@@ -2,6 +2,7 @@ import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion"
 import { msToFrames } from "../constants";
 import type { Caption, CaptionLook, ShortProps } from "../compositions/Short/schema";
 import { FONTS } from "../styles/shared";
+import { fontInfo } from "../fonts/catalog";
 import { activeCaptionIndices, captionDisplayText, resolveCaptionLook } from "./captionLook";
 
 /** Viền chữ bằng một vòng text-shadow — -webkit-text-stroke ăn vào nét và làm dính dấu tiếng Việt. */
@@ -18,6 +19,8 @@ const ring = (width: number, color: string) =>
 export const captionTextStyle = (look: CaptionLook, fontSize: number): React.CSSProperties => {
   const base: React.CSSProperties = {
     fontFamily: FONTS[look.font],
+    // Font một độ đậm (Anton, Pacifico…): không tự làm đậm giả — nét dày lên sẽ dính dấu tiếng Việt.
+    ...(fontInfo(look.font).singleWeight ? { fontSynthesis: "none" } : {}),
     fontSize,
     fontWeight: look.weight,
     fontStyle: look.italic ? "italic" : "normal",

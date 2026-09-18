@@ -4,6 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AI Video Studio</title>
+<link rel="stylesheet" href="/crop.css" />
+<link rel="stylesheet" href="/fontpicker.css" />
+<!-- Font đóng gói (src/fonts/catalog.ts): @font-face tải theo nhu cầu — font nào hiện mới tải -->
+<link rel="stylesheet" href="/public/fonts/fonts.css" />
 <style>
   :root {
     --bg: #0b0d11; --panel: #14171d; --panel-2: #1b1f27; --line: #262b35; --line-2: #343b47;
@@ -125,6 +129,9 @@
             max-height: 72vh; max-width: 100%; display: block; }
   .player video { width: 100%; height: 100%; display: block; }
   .actions, .quick { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .actions:not(:has(*)) { display: none; }
+  .version-tag { display: inline-block; font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin-bottom: 8px; }
+  .version-stale { margin: 0; font-size: 13px; color: var(--muted); font-style: italic; }
   .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--panel);
          border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px;
          font-size: 13px; text-decoration: none; white-space: nowrap; }
@@ -456,6 +463,28 @@
   kbd { font: 11.5px ui-monospace, Menlo, monospace; background: var(--panel-2); border: 1px solid var(--line-2);
         border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--text); }
   .keys-dlg { width: min(680px, calc(100vw - 32px)); }
+  .tips-dlg { width: min(560px, calc(100vw - 32px)); }
+  .tips-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .tips-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+                  background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .tips-list li.done { opacity: .55; }
+  .tips-list .tip-icon { font-size: 20px; text-align: center; }
+  .tips-list .tip-body b { display: block; font-size: 14px; }
+  .tips-list .tip-body .muted { display: block; margin-top: 1px; }
+  .tips-list .tip-act { font-size: 13px; text-align: right; white-space: nowrap; }
+  .tips-list .tip-act a { color: var(--accent); }
+  .tips-list .tip-on { color: var(--ok); }
+  .tips-paid { margin: 12px 0 0; }
+  @media (max-width: 480px) {
+    .tips-list li { grid-template-columns: 24px minmax(0, 1fr); }
+    .tips-list .tip-act { grid-column: 2; text-align: left; }
+  }
+  .usage-box { margin: 12px 0 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 13px; }
+  .usage-box:empty { display: none; }
+  .usage-head { font-weight: 600; margin-bottom: 4px; }
+  .usage-box ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .usage-box li.limit { color: var(--err); flex-basis: 100%; }
+  .usage-box .free-on { color: var(--ok); font-weight: 500; }
   .keys-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 24px; }
   .keys-grid h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 16px 0 6px; font-weight: 600; }
   .keys-grid ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
@@ -548,6 +577,10 @@
   .sb-block h2 { font-size: 14.5px; margin: 0 0 10px; font-weight: 600; }
   .sb-block h2 i, .sb-field > span i { font-style: normal; font-weight: 400; font-size: 12.5px; }
   .sb-block .bt-files { margin-top: 10px; }
+  .sb-crop-frames { flex-wrap: wrap; border-radius: 14px; }
+  .sb-crop { margin-top: 10px; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .sb-crop-preview:empty { aspect-ratio: 9 / 16; background: var(--bg); border: 1px dashed var(--line); border-radius: 8px; }
+  .sb-crop-side { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .sb-block .bt-drop { width: 100%; min-height: 110px; }
   .sb-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-size: 13px; }
   .sb-field > span { color: var(--muted); }
@@ -570,10 +603,27 @@
               touch-action: none; user-select: none; }
   .lk-stage.wide { height: auto; width: 100%; }
   .lk-stage video, .lk-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .lk-media { position: absolute; inset: 0; pointer-events: none; }
+  .lk-media > div { height: 100%; border-radius: 0 !important; }
   .lk-cap { position: absolute; transform: translate(-50%, -50%); width: max-content; white-space: pre-wrap;
             overflow-wrap: break-word; cursor: grab; outline: 1px dashed rgba(62,230,255,.0); outline-offset: 5px; }
   .lk-stage:hover .lk-cap { outline-color: rgba(62,230,255,.8); }
   .lk-cap.drag { cursor: grabbing; outline-color: #3ee6ff; }
+  /* Nhiều hàng: hàng đang chỉnh viền liền, số hàng ở góc để khớp với chip bên bảng */
+  .lk.multi .lk-cap { outline-color: rgba(255,255,255,.35); }
+  .lk.multi .lk-cap.on { outline: 2px solid #3ee6ff; }
+  .lk-cap-n { position: absolute; top: -9px; left: -9px; min-width: 18px; height: 18px; border-radius: 9px; background: #3ee6ff;
+              color: #06222a; font: 700 11px/18px -apple-system, system-ui, sans-serif; text-align: center; text-shadow: none;
+              padding: 0 4px; pointer-events: none; }
+  .lk-cap:not(.on) .lk-cap-n { background: rgba(255,255,255,.75); }
+  .lk-rows { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lk-rows button { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--line);
+                    border-radius: 999px; padding: 4px 11px 4px 5px; font-size: 12.5px; color: var(--text); }
+  .lk-rows button b { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--line); font-size: 11px; }
+  .lk-rows button[aria-selected="true"] { border-color: #3ee6ff; box-shadow: 0 0 0 1px #3ee6ff; }
+  .lk-rows button[aria-selected="true"] b { background: #3ee6ff; color: #06222a; }
+  .lk-copy { align-self: flex-start; margin-top: 6px; background: transparent; border: 0; padding: 0; color: var(--accent);
+             font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
   .lk-guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #3ee6ff; opacity: 0; pointer-events: none; }
   .lk-guide.on { opacity: .8; }
   .lk-tip { font-size: 12px; color: var(--muted); text-align: center; margin: 6px 0 0; }
@@ -597,6 +647,72 @@
   @media (max-width: 720px) {
     .lk-dlg .lk { flex-direction: column; }
     .lk-dlg .lk-stage-wrap { max-width: 100%; }
+  }
+
+  /* ===== 📺 Tư liệu Bilibili ===== */
+  .bl-wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; }
+  .bl-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 20px; align-items: start; margin-top: 16px; }
+  .bl-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .bl-search { display: flex; gap: 8px; }
+  .bl-search input, .bl-search select, .bl-side input, .bl-side select {
+    font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-width: 0; }
+  .bl-search input { flex: 1; }
+  .bl-search input:focus, .bl-side input:focus { outline: 0; border-color: var(--line-2); }
+  .bl-search .send { padding: 0 20px; }
+  .bl-under { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .bl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bl-chip { background: transparent; border: 1px dashed var(--line-2); border-radius: 999px; padding: 4px 11px; font-size: 13px; color: var(--muted); }
+  .bl-chip:hover { color: var(--text); border-color: var(--accent); }
+  .bl-link { background: transparent; border: 0; padding: 0; color: var(--accent); font-size: 13px; text-decoration: underline; }
+  .bl-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .bl-card { display: flex; flex-direction: column; gap: 8px; text-align: left; background: var(--panel); border: 1px solid var(--line);
+             border-radius: 14px; padding: 8px; color: var(--text); }
+  .bl-card:hover, .bl-card.on { border-color: var(--accent); }
+  .bl-cover { position: relative; aspect-ratio: 16 / 10; border-radius: 9px; overflow: hidden; background: #000; }
+  .bl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bl-cover i { position: absolute; right: 5px; bottom: 5px; font-style: normal; font-size: 11.5px; background: rgba(0,0,0,.72); color: #fff; padding: 1px 5px; border-radius: 4px; }
+  .bl-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .bl-meta b { font-size: 13.5px; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .bl-meta small { color: var(--muted); font-size: 12px; }
+  .bl-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .bl-tags em { font-style: normal; font-size: 11.5px; color: #7ee2a8; background: rgba(63,185,80,.13); border-radius: 5px; padding: 1px 6px; }
+  .bl-tags em.pending { color: var(--muted); background: var(--panel-2); }
+  .bl-empty { grid-column: 1 / -1; text-align: center; padding: 24px 0; }
+  .bl-more { align-self: center; }
+  .bl-tool { margin-top: 8px; }
+  .bl-side { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--panel);
+             border: 1px solid var(--line); border-radius: 16px; padding: 14px; max-height: calc(100vh - 110px); overflow-y: auto; }
+  .bl-placeholder { text-align: center; padding: 40px 10px; }
+  .bl-player { aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+  .bl-player iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .bl-title { margin: 0; font-size: 16px; line-height: 1.35; }
+  .bl-side > p { margin: 0; }
+  .bl-side a { color: var(--muted); }
+  .bl-permit { display: flex; flex-direction: column; gap: 8px; border: 1px solid rgba(63,185,80,.4); border-radius: 12px; padding: 10px 12px; }
+  .bl-permit blockquote { margin: 0; padding: 2px 0 2px 10px; border-left: 3px solid var(--ok); font-size: 14px; }
+  .bl-permit details { font-size: 13px; color: var(--muted); }
+  .bl-permit details p { margin: 6px 0 0; white-space: pre-wrap; max-height: 180px; overflow-y: auto; }
+  .bl-permit > p { margin: 0; }
+  .bl-range { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 8px; }
+  .bl-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+  .bl-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+  .bl-check input { margin-top: 3px; }
+  .bl-side .send { width: 100%; justify-content: center; }
+  .bl-side .hint { margin: 0; text-align: left; }
+  #biliRangeNote.err { color: var(--err); }
+  .bl-downloads { margin-top: 28px; }
+  .bl-downloads h3 { font-size: 15px; margin: 0 0 10px; }
+  .bl-dl { display: flex; gap: 14px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-bottom: 10px; }
+  .bl-dl video { width: 220px; max-width: 40%; border-radius: 9px; background: #000; }
+  .bl-dl-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .bl-dl-body small { color: var(--muted); overflow-wrap: anywhere; }
+  @media (max-width: 900px) {
+    .bl-grid { grid-template-columns: 1fr; }
+    .bl-side { position: static; max-height: none; }
+    .bl-search { flex-wrap: wrap; }
+    .bl-search input { flex-basis: 100%; }
+    .bl-dl { flex-direction: column; }
+    .bl-dl video { width: 100%; max-width: none; }
   }
 
   /* ===== Làm nhiều video một lượt ===== */
@@ -778,6 +894,10 @@
     .bt-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 </style>
+<!-- Bộ thiết kế chung (màu, font, nút, ô nhập…) — nạp sau CSS riêng của trang để ghi đè. -->
+<link rel="stylesheet" href="/ui.css" />
+<!-- Icon Lucide: <i data-icon="tên"> hoặc icon("tên") — xem server/icons.ts -->
+<script src="/icons.js"></script>
 </head>
 <body>
 
@@ -787,12 +907,13 @@
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
   </button>
   <a class="brand" href="#/"><i></i><span>AI Video Studio</span></a>
-  <a class="nav-link" id="nav-new" href="#/">✨ <span class="label">Tạo video</span></a>
-  <a class="nav-link" id="nav-batch" href="#/batch">🏭 <span class="label">Hàng loạt</span></a>
-  <a class="nav-link" id="nav-subs" href="#/subs">🔤 <span class="label">Phụ đề</span></a>
-  <a class="nav-link" id="nav-lib" href="#/library">📁 <span class="label">Thư viện</span></a>
+  <a class="nav-link" id="nav-new" href="#/"><i data-icon="sparkles"></i> <span class="label">Tạo video</span></a>
+  <a class="nav-link" id="nav-batch" href="#/batch"><i data-icon="layers"></i> <span class="label">Hàng loạt</span></a>
+  <a class="nav-link" id="nav-subs" href="#/subs"><i data-icon="captions"></i> <span class="label">Phụ đề</span></a>
+  <a class="nav-link" id="nav-bili" href="#/bili" title="Tìm và tải tư liệu Bilibili tác giả cho phép dùng"><i data-icon="monitor-play"></i> <span class="label">Bilibili</span></a>
+  <a class="nav-link" id="nav-lib" href="#/library"><i data-icon="folder"></i> <span class="label">Thư viện</span></a>
   <span class="spacer"></span>
-  <button type="button" class="nav-link" id="openShortcuts" title="Phím tắt (? hoặc Ctrl/⌘+/)" aria-label="Phím tắt">⌨</button>
+  <button type="button" class="nav-link" id="openShortcuts" title="Phím tắt (? hoặc Ctrl/⌘+/)" aria-label="Phím tắt"><i data-icon="keyboard"></i></button>
   <button type="button" class="nav-link" id="openSettings" title="Cài đặt API key (Ctrl/⌘+,)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     <span class="label">Cài đặt</span>
@@ -804,7 +925,7 @@
 <!-- ===== Lịch sử ===== -->
 <aside class="history" id="history" aria-label="Lịch sử">
   <div class="h-top">
-    <a class="btn primary h-new" href="#/">＋ Tạo mới</a>
+    <a class="btn primary h-new" href="#/"><i data-icon="plus"></i> Tạo mới</a>
     <input id="historySearch" type="search" placeholder="Tìm trong lịch sử…" aria-label="Tìm trong lịch sử" />
   </div>
   <nav class="h-list" id="historyList"></nav>
@@ -820,11 +941,11 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </a>
       <div class="pb-title"><b id="projectTitle"></b><span id="projectMeta"></span></div>
-      <a class="btn" id="projectMulti" href="#" hidden title="Mở lại danh sách cảnh để sửa prompt, model, lời đọc">🎬 <span class="label">Sửa cảnh</span></a>
-      <a class="btn" id="projectEdit" href="#" hidden title="Mở trình chỉnh sửa timeline">✂️ <span class="label">Chỉnh sửa</span></a>
-      <button type="button" class="btn" id="projectPostCopy" hidden title="AI gợi ý tiêu đề, caption, hashtag để đăng video">✍️ <span class="label">Bài đăng</span></button>
-      <button type="button" class="btn primary" id="projectDownload" hidden>⬇ <span class="label">Tải video</span></button>
-      <button type="button" class="icon-btn" id="projectDelete" hidden title="Xoá video này" aria-label="Xoá video này">🗑</button>
+      <a class="btn" id="projectMulti" href="#" hidden title="Mở lại danh sách cảnh để sửa prompt, model, lời đọc"><i data-icon="clapperboard"></i> <span class="label">Sửa cảnh</span></a>
+      <a class="btn" id="projectEdit" href="#" hidden title="Mở bản mới nhất trong trình chỉnh sửa — bản cũ mở từ nút dưới từng video"><i data-icon="scissors"></i> <span class="label">Chỉnh sửa</span></a>
+      <button type="button" class="btn" id="projectPostCopy" hidden title="AI gợi ý tiêu đề, caption, hashtag để đăng video"><i data-icon="pen-line"></i> <span class="label">Bài đăng</span></button>
+      <button type="button" class="btn primary" id="projectDownload" hidden><i data-icon="download"></i> <span class="label">Tải video</span></button>
+      <button type="button" class="icon-btn" id="projectDelete" hidden title="Xoá video này" aria-label="Xoá video này"><i data-icon="trash-2"></i></button>
     </div>
   </header>
 
@@ -835,13 +956,13 @@
     <div class="ideas" id="ideas"></div>
     <div class="other-ways" aria-label="Cách làm khác">
       <span>Hoặc</span>
-      <a href="#/multi" title="Tự sắp từng cảnh: hình, lời đọc, độ dài">🎬 Dựng từng cảnh</a>
-      <a href="/editor.html#new" title="Tải clip lên, cắt ghép, thêm chữ và nhạc">✂️ Sửa video có sẵn</a>
-      <a href="#/batch" title="Làm nhiều video một lượt">🏭 Làm hàng loạt</a>
-      <a href="#/subs" title="Gắn phụ đề cho nhiều video có sẵn, nhiều ngôn ngữ">🔤 Thêm phụ đề cho video</a>
+      <a href="#/multi" title="Tự sắp từng cảnh: hình, lời đọc, độ dài"><i data-icon="clapperboard"></i> Dựng từng cảnh</a>
+      <a href="/editor.html#new" title="Tải clip lên, cắt ghép, thêm chữ và nhạc"><i data-icon="scissors"></i> Sửa video có sẵn</a>
+      <a href="#/batch" title="Làm nhiều video một lượt"><i data-icon="layers"></i> Làm hàng loạt</a>
+      <a href="#/subs" title="Gắn phụ đề cho nhiều video có sẵn, nhiều ngôn ngữ"><i data-icon="captions"></i> Thêm phụ đề cho video</a>
     </div>
     <div class="recent" id="recentWrap" hidden>
-      <div class="recent-head"><h2>Gần đây</h2><a href="#/library">Xem tất cả →</a></div>
+      <div class="recent-head"><h2>Gần đây</h2><a href="#/library">Xem tất cả <i data-icon="arrow-right"></i></a></div>
       <div class="recent-grid" id="recent"></div>
     </div>
   </div>
@@ -858,16 +979,16 @@
     <form class="composer" id="composer" autocomplete="off">
       <div class="composer-top expand-only">
         <div class="seg" role="radiogroup" aria-label="Lời video lấy từ đâu">
-          <button type="button" role="radio" data-start="ai" aria-checked="false" title="Gõ 1 câu, AI viết lời và dựng video">🤖 AI viết lời</button>
-          <button type="button" role="radio" data-start="text" aria-checked="false" title="Dán kịch bản của bạn, dựng đúng từng câu">📝 Lời có sẵn</button>
+          <button type="button" role="radio" data-start="ai" aria-checked="false" title="Gõ 1 câu, AI viết lời và dựng video"><i data-icon="bot"></i> AI viết lời</button>
+          <button type="button" role="radio" data-start="text" aria-checked="false" title="Dán kịch bản của bạn, dựng đúng từng câu"><i data-icon="file-text"></i> Lời có sẵn</button>
         </div>
         <span class="spacer"></span>
         <span class="kbd-hint" id="kbdHint"></span>
       </div>
       <div class="notice expand-only" id="keyNotice" hidden>
-        <span>🔑 AI viết lời cần 1 API key (Gemini, Groq, OpenRouter có gói miễn phí). Chưa có thì dùng <b>Lời có sẵn</b>.</span>
-        <button type="button" class="btn" id="noticeText">📝 Dùng lời có sẵn</button>
-        <button type="button" class="btn primary" id="noticeSettings">🔑 Thêm key</button>
+        <span><i data-icon="key-round"></i> AI viết lời cần 1 API key (Gemini, Groq, OpenRouter có gói miễn phí). Chưa có thì dùng <b>Lời có sẵn</b>.</span>
+        <button type="button" class="btn" id="noticeText"><i data-icon="file-text"></i> Dùng lời có sẵn</button>
+        <button type="button" class="btn primary" id="noticeSettings"><i data-icon="key-round"></i> Thêm key</button>
       </div>
       <div class="pending" id="pending"></div>
       <div class="composer-main" id="composerMain">
@@ -888,10 +1009,10 @@
         <p class="plan" id="plan"></p>
       </div>
       <div class="composer-foot expand-only" id="composerFoot">
-        <button type="button" class="tool-btn" id="attachBtn" title="Thêm ảnh hoặc video — hoặc kéo thả / dán vào ô trên">📎 Thêm ảnh/video</button>
-        <button type="button" class="tool-btn" id="exampleBtn">✨ Điền ví dụ</button>
-        <button type="button" class="tool-btn" id="normalizeBtn" hidden>🪄 Chuẩn hoá lời</button>
-        <button type="button" class="tool-btn" id="undoNormalize" hidden title="Trả lại đoạn trước khi chuẩn hoá">↩︎ Hoàn tác</button>
+        <button type="button" class="tool-btn" id="attachBtn" title="Thêm ảnh hoặc video — hoặc kéo thả / dán vào ô trên"><i data-icon="paperclip"></i> Thêm ảnh/video</button>
+        <button type="button" class="tool-btn" id="exampleBtn"><i data-icon="sparkles"></i> Điền ví dụ</button>
+        <button type="button" class="tool-btn" id="normalizeBtn" hidden><i data-icon="wand-sparkles"></i> Chuẩn hoá lời</button>
+        <button type="button" class="tool-btn" id="undoNormalize" hidden title="Trả lại đoạn trước khi chuẩn hoá"><i data-icon="undo-2"></i> Hoàn tác</button>
         <span class="spacer"></span>
       </div>
       <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden />
@@ -899,7 +1020,7 @@
     <p class="text-preview expand-only" id="textPreview" hidden></p>
     <p class="hint" id="hint"></p>
     <details class="syntax expand-only" id="syntaxHelp" hidden>
-      <summary>📖 Xem cách viết lời (có mẫu)</summary>
+      <summary><i data-icon="book-open"></i> Xem cách viết lời (có mẫu)</summary>
       <div class="syntax-body">
         <pre id="syntaxExample"># Pin iPhone tụt nhanh?
 &gt; 5 mẹo chỉnh được ngay
@@ -917,7 +1038,7 @@ Lưu lại để làm theo nhé!</pre>
           <li><code># …</code> tiêu đề · <code>&gt; …</code> dòng phụ · <code>[…]</code> nhãn của cảnh.</li>
           <li><code>**…**</code> cụm được nhấn nổi bật · <code>! 80% | chú thích</code> con số lớn.</li>
           <li>Không có cú pháp cũng được: dán đoạn văn, câu dài tự tách. Ảnh đính kèm gán lần lượt cho từng cảnh.</li>
-          <li><b>🪄 Chuẩn hoá lời</b>: dán đoạn văn thô rồi bấm nút — AI sửa lại đúng mẫu trên (đặt tiêu đề, chia cảnh, cắt câu dài, đánh dấu câu nhấn) mà không thêm ý mới. Cần 1 API key viết lời trong ⚙ Cài đặt — Gemini, Groq, OpenRouter có gói miễn phí; hoặc chọn Ollama chạy ngay trên máy. Không ưng thì bấm <b>↩︎ Hoàn tác</b>.</li>
+          <li><b>Chuẩn hoá lời</b>: dán đoạn văn thô rồi bấm nút — AI sửa lại đúng mẫu trên (đặt tiêu đề, chia cảnh, cắt câu dài, đánh dấu câu nhấn) mà không thêm ý mới. Cần 1 API key viết lời trong Cài đặt — Gemini, Groq, OpenRouter có gói miễn phí; hoặc chọn Ollama chạy ngay trên máy. Không ưng thì bấm <b>Hoàn tác</b>.</li>
         </ul>
         <button type="button" class="btn" id="useExample">Dùng mẫu này</button>
       </div>
@@ -930,14 +1051,14 @@ Lưu lại để làm theo nhé!</pre>
   <div class="lib-head">
     <h1>Thư viện</h1>
     <input id="search" type="search" placeholder="Tìm video…" />
-    <button type="button" class="btn" id="libSelect">☑️ Chọn để xoá</button>
-    <button type="button" class="btn danger" id="trashEmpty" hidden>🧹 Dọn sạch thùng rác</button>
-    <a class="btn primary" href="#/">＋ Tạo video</a>
+    <button type="button" class="btn" id="libSelect"><i data-icon="square-check"></i> Chọn để xoá</button>
+    <button type="button" class="btn danger" id="trashEmpty" hidden><i data-icon="eraser"></i> Dọn sạch thùng rác</button>
+    <a class="btn primary" href="#/"><i data-icon="plus"></i> Tạo video</a>
   </div>
   <div class="lib-tabs" role="tablist">
-    <button type="button" role="tab" data-libtab="videos" class="on">🎬 Video</button>
-    <button type="button" role="tab" data-libtab="media">🗂 Tài nguyên</button>
-    <button type="button" role="tab" data-libtab="trash">🗑 Thùng rác <span class="tab-count" id="trashCount"></span></button>
+    <button type="button" role="tab" data-libtab="videos" class="on"><i data-icon="clapperboard"></i> Video</button>
+    <button type="button" role="tab" data-libtab="media"><i data-icon="folder-open"></i> Tài nguyên</button>
+    <button type="button" role="tab" data-libtab="trash"><i data-icon="trash-2"></i> Thùng rác <span class="tab-count" id="trashCount"></span></button>
     <div class="lib-filter" id="libFilter" hidden>
       <button type="button" data-mfilter="all" class="on">Tất cả</button>
       <button type="button" data-mfilter="image">Ảnh</button>
@@ -954,7 +1075,8 @@ Lưu lại để làm theo nhé!</pre>
       <button type="button" class="btn" data-older="30">Cũ hơn 30 ngày</button>
       <button type="button" class="btn" data-older="all">Chọn tất cả</button>
       <button type="button" class="btn" id="libSelectNone">Bỏ chọn</button>
-      <button type="button" class="btn danger" id="libDelete" disabled>🗑 Xoá</button>
+      <button type="button" class="btn" id="libRestore" hidden disabled><i data-icon="undo-2"></i> Khôi phục</button>
+      <button type="button" class="btn danger" id="libDelete" disabled><i data-icon="trash-2"></i> Xoá</button>
       <button type="button" class="btn" id="libSelectDone">Xong</button>
     </div>
   </div>
@@ -966,7 +1088,7 @@ Lưu lại để làm theo nhé!</pre>
 <!-- ===== Video nhiều cảnh ===== -->
 <section class="multi" id="view-multi" hidden>
   <div class="ms-wrap">
-    <a class="back-link" href="#/">← Tạo video</a>
+    <a class="back-link" href="#/"><i data-icon="arrow-left"></i> Tạo video</a>
     <div class="page-head">
       <h1 id="multiHeading">Tạo video từng cảnh</h1>
       <p class="muted">Mỗi cảnh một khối: lời đọc, hình, độ dài. Xong bấm <b>Tạo video</b> ở cuối trang.</p>
@@ -975,15 +1097,16 @@ Lưu lại để làm theo nhé!</pre>
       <label class="ms-field ms-wide"><span>Tên video</span>
         <input id="multiTitle" type="text" maxlength="60" placeholder="Một ngày ở Hạ Long" /></label>
       <label class="ms-field"><span>Tỉ lệ khung</span><select id="multiAspect"></select></label>
-      <label class="ms-field"><span>Giọng đọc</span><select id="multiVoice"></select></label>
+      <div class="ms-field"><span>Giọng đọc</span>
+        <div class="voice-pick"><select id="multiVoice" aria-label="Giọng đọc"></select><span id="multiVoicePlay"></span></div></div>
       <label class="ms-field"><span>Nhạc nền</span><select id="multiMusic"></select></label>
     </div>
     <div class="ms-scenes" id="multiScenes"></div>
     <div class="ms-foot">
-      <button type="button" class="btn" id="multiAdd">＋ Thêm cảnh</button>
+      <button type="button" class="btn" id="multiAdd"><i data-icon="plus"></i> Thêm cảnh</button>
       <span class="muted" id="multiSummary"></span>
       <span class="spacer"></span>
-      <button type="button" class="btn primary" id="multiSubmit">🎬 Tạo video</button>
+      <button type="button" class="btn primary" id="multiSubmit"><i data-icon="clapperboard"></i> Tạo video</button>
     </div>
     <p class="hint" id="multiHint"></p>
     <input type="file" id="multiFile" accept="image/*,video/*" hidden />
@@ -991,10 +1114,42 @@ Lưu lại để làm theo nhé!</pre>
 </section>
 
 <!-- ===== Thêm phụ đề cho nhiều video ===== -->
+<section class="batch" id="view-bili" hidden>
+  <div class="bl-wrap">
+    <div class="page-head">
+      <h1>📺 Tư liệu Bilibili</h1>
+      <p class="muted">Chỉ hiện video <b>tác giả ghi rõ cho phép dùng</b> (可商用, 免费使用, CC0…). Video đăng lại, trả phí hay có câu cấm đều bị loại.
+        Tải đoạn cần dùng vào thư viện, kèm bằng chứng cho phép để ghi nguồn khi đăng.</p>
+    </div>
+    <div class="bl-grid">
+      <div class="bl-col">
+        <form class="bl-search" id="biliForm">
+          <input type="search" id="biliQuery" placeholder="Chủ đề bằng tiếng Việt — ví dụ: cảnh biển, nấu ăn, thành phố về đêm" autocomplete="off" />
+          <select id="biliOrder" aria-label="Sắp xếp"></select>
+          <button type="submit" class="send" id="biliSearch">Tìm</button>
+        </form>
+        <div class="bl-under">
+          <div class="bl-chips" id="biliChips"></div>
+        </div>
+        <p class="hint" id="biliHint"></p>
+        <p class="muted" id="biliStats"></p>
+        <div class="bl-results" id="biliResults"></div>
+        <button type="button" class="btn bl-more" id="biliMore" hidden>Tìm trang sau</button>
+        <p class="muted bl-tool" id="biliTool"></p>
+      </div>
+      <aside class="bl-side" id="biliDetail"></aside>
+    </div>
+    <div class="bl-downloads" id="biliDownloads" hidden>
+      <h3>Đã tải trong phiên này</h3>
+      <div id="biliDownloadList"></div>
+    </div>
+  </div>
+</section>
+
 <section class="batch" id="view-subs" hidden>
   <div class="bt-wrap sb-wrap">
     <div class="page-head">
-      <h1>🔤 Thêm phụ đề cho nhiều video</h1>
+      <h1><i data-icon="captions"></i> Thêm phụ đề cho nhiều video</h1>
       <p class="muted">Thả video vào, chọn ngôn ngữ phụ đề, chỉnh kiểu chữ một lần cho tất cả. Xong tải cả loạt một lượt, kèm file .srt.</p>
     </div>
 
@@ -1003,17 +1158,38 @@ Lưu lại để làm theo nhé!</pre>
         <div class="sb-block">
           <h2>Video</h2>
           <button type="button" class="bt-drop" id="subsDrop">
-            <b>⬆ Kéo thả video vào đây</b>
+            <b><i data-icon="upload"></i> Kéo thả video vào đây</b>
             <span>hoặc bấm để chọn nhiều file · mp4, mov, webm (mp3, wav, m4a cũng được)</span>
           </button>
           <ul class="bt-files" id="subsFiles"></ul>
         </div>
 
         <div class="sb-block">
+          <h2><i data-icon="scissors"></i> Cắt khung <i class="muted">— áp dụng cho tất cả video</i></h2>
+          <div class="sb-field"><span>Khung video ra</span>
+            <div class="seg sb-crop-frames" id="subsCropFrame" role="radiogroup" aria-label="Khung video ra"></div>
+          </div>
+          <div class="sb-crop">
+            <div class="sb-crop-preview" id="subsCropPreview"></div>
+            <div class="sb-crop-side">
+              <button type="button" class="btn" id="subsCropEdit"><i data-icon="scissors"></i> Chỉnh vùng cắt</button>
+              <button type="button" class="btn" id="subsCropClear" hidden>Bỏ cắt</button>
+              <p class="plan" id="subsCropNote"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="sb-block">
           <h2>Ngôn ngữ</h2>
           <label class="sb-field"><span>Video đang nói tiếng</span><select id="subsSpoken"></select></label>
-          <div class="sb-field"><span>Phụ đề muốn có <i class="muted">— chọn nhiều thì mỗi ngôn ngữ ra một video riêng</i></span>
+          <div class="sb-field"><span>Phụ đề muốn có <i class="muted">— chọn được nhiều ngôn ngữ</i></span>
             <div class="bt-picks" id="subsLangs"></div>
+          </div>
+          <div class="sb-field" id="subsLayout" hidden><span>Nhiều ngôn ngữ thì</span>
+            <div class="seg">
+              <button type="button" data-layout="stack" title="Mỗi video hiện cùng lúc nhiều hàng phụ đề — kéo từng hàng để đặt vị trí"><i data-icon="puzzle"></i> Chung một video, nhiều hàng</button>
+              <button type="button" data-layout="separate" title="Mỗi ngôn ngữ dựng thành một video riêng"><i data-icon="film"></i> Mỗi ngôn ngữ một video</button>
+            </div>
           </div>
           <p class="plan" id="subsLangNote"></p>
         </div>
@@ -1023,8 +1199,8 @@ Lưu lại để làm theo nhé!</pre>
           <div class="sb-adv-body">
             <div class="sb-field"><span>Độ chính xác nghe lời</span>
               <div class="seg" id="subsModel">
-                <button type="button" data-model="medium" title="Đúng hơn, nhất là tên riêng và tiếng Việt">🎯 Chuẩn</button>
-                <button type="button" data-model="small" title="Nhanh hơn nhiều, sai nhiều hơn">⚡ Nhanh</button>
+                <button type="button" data-model="medium" title="Đúng hơn, nhất là tên riêng và tiếng Việt"><i data-icon="target"></i> Chuẩn</button>
+                <button type="button" data-model="small" title="Nhanh hơn nhiều, sai nhiều hơn"><i data-icon="zap"></i> Nhanh</button>
               </div>
             </div>
             <label class="sb-check"><input type="checkbox" id="subsReview" />
@@ -1035,7 +1211,7 @@ Lưu lại để làm theo nhé!</pre>
 
       <div class="sb-col sb-look">
         <div class="sb-block">
-          <h2>Kiểu phụ đề <i class="muted">— áp dụng cho tất cả video</i></h2>
+          <h2>Kiểu phụ đề <i class="muted" id="subsLookTitleNote">— áp dụng cho tất cả video</i></h2>
           <div id="subsLookEditor"></div>
         </div>
       </div>
@@ -1045,7 +1221,7 @@ Lưu lại để làm theo nhé!</pre>
       <input type="text" id="subsName" placeholder="Tên loạt (để trống thì tự đặt)" />
       <span class="muted" id="subsSummary"></span>
       <span class="spacer"></span>
-      <button type="button" class="send" id="subsStart">🔤 Thêm phụ đề</button>
+      <button type="button" class="send" id="subsStart"><i data-icon="captions"></i> Thêm phụ đề</button>
     </div>
     <p class="hint" id="subsHint"></p>
 
@@ -1062,15 +1238,15 @@ Lưu lại để làm theo nhé!</pre>
   <!-- Màn tạo loạt mới -->
   <div class="bt-wrap" id="batchNew">
     <div class="page-head">
-      <h1>🏭 Làm nhiều video một lượt</h1>
+      <h1><i data-icon="layers"></i> Làm nhiều video một lượt</h1>
       <p class="muted">Đưa vào một danh sách, máy dựng lần lượt từng video. Xong nằm trong Thư viện.</p>
     </div>
 
     <div class="seg seg-wide" id="batchSources" role="radiogroup" aria-label="Làm hàng loạt từ">
-      <button type="button" data-source="ideas" aria-pressed="false">💡 Danh sách ý tưởng</button>
-      <button type="button" data-source="custom" aria-pressed="false">🧩 Mỗi video một ô</button>
-      <button type="button" data-source="media" aria-pressed="false">🎙 File thu sẵn</button>
-      <button type="button" data-source="variants" aria-pressed="false">🔁 Biến thể của 1 video</button>
+      <button type="button" data-source="ideas" aria-pressed="false"><i data-icon="lightbulb"></i> Danh sách ý tưởng</button>
+      <button type="button" data-source="custom" aria-pressed="false"><i data-icon="puzzle"></i> Mỗi video một ô</button>
+      <button type="button" data-source="media" aria-pressed="false"><i data-icon="mic"></i> File thu sẵn</button>
+      <button type="button" data-source="variants" aria-pressed="false"><i data-icon="repeat"></i> Biến thể của 1 video</button>
     </div>
     <p class="muted bt-source-desc" id="batchSourceDesc"></p>
 
@@ -1078,14 +1254,14 @@ Lưu lại để làm theo nhé!</pre>
     <div class="composer bt-composer" id="batchIdeasBox">
       <textarea id="batchText" spellcheck="false" aria-label="Danh sách ý tưởng"></textarea>
       <div class="bt-gen" id="batchIdeaGen" hidden>
-        <span class="muted">✨ Chủ đề</span>
+        <span class="muted"><i data-icon="sparkles"></i> Chủ đề</span>
         <input type="text" id="batchTopic" placeholder="ví dụ: mẹo tiết kiệm điện trong nhà" />
         <input type="number" id="batchTopicCount" min="1" max="50" value="10" aria-label="Số ý tưởng" />
         <button type="button" class="btn" id="batchTopicGo">Nghĩ ý tưởng</button>
       </div>
       <div class="composer-foot">
-        <button type="button" class="tool-btn" id="batchImport">📄 Tải .txt / .csv</button>
-        <button type="button" class="tool-btn" id="batchTopicToggle">✨ AI nghĩ ý tưởng</button>
+        <button type="button" class="tool-btn" id="batchImport"><i data-icon="file-up"></i> Tải .txt / .csv</button>
+        <button type="button" class="tool-btn" id="batchTopicToggle"><i data-icon="sparkles"></i> AI nghĩ ý tưởng</button>
         <span class="spacer"></span>
         <span class="kbd-hint" id="batchCount"></span>
       </div>
@@ -1104,7 +1280,7 @@ Lưu lại để làm theo nhé!</pre>
     <!-- nguồn: file thu sẵn -->
     <div class="composer bt-composer" id="batchMediaBox" hidden>
       <button type="button" class="bt-drop" id="batchDrop">
-        <b>⬆ Kéo thả file audio / video vào đây</b>
+        <b><i data-icon="upload"></i> Kéo thả file audio / video vào đây</b>
         <span>hoặc bấm để chọn file · mp3, wav, m4a, mp4, mov, webm</span>
       </button>
       <ul class="bt-files" id="batchMediaList"></ul>
@@ -1118,11 +1294,11 @@ Lưu lại để làm theo nhé!</pre>
     <!-- nguồn: biến thể -->
     <div class="composer bt-composer" id="batchVariantBox" hidden>
       <div class="bt-group">
-        <div class="bt-group-head">Tỉ lệ khung hình <span class="muted">— không chọn thì dùng khung trong ⚙ Cài đặt cho cả loạt</span></div>
+        <div class="bt-group-head">Tỉ lệ khung hình <span class="muted">— không chọn thì dùng khung trong Cài đặt cho cả loạt</span></div>
         <div class="bt-picks" id="batchVariantAspects"></div>
       </div>
       <div class="bt-group">
-        <div class="bt-group-head">Giọng đọc <span class="muted">— không chọn thì dùng giọng trong ⚙ Cài đặt cho cả loạt</span></div>
+        <div class="bt-group-head">Giọng đọc <span class="muted">— không chọn thì dùng giọng trong Cài đặt cho cả loạt</span></div>
         <div class="bt-picks" id="batchVariantVoices"></div>
       </div>
       <div class="bt-group">
@@ -1136,7 +1312,7 @@ Lưu lại để làm theo nhé!</pre>
     </div>
 
     <details class="bt-settings" id="batchSettings">
-      <summary><span>⚙ Cài đặt cho cả loạt</span><span class="muted" id="batchSettingsSum"></span></summary>
+      <summary><span><i data-icon="settings"></i> Cài đặt cho cả loạt</span><span class="muted" id="batchSettingsSum"></span></summary>
       <div class="bt-fields" id="batchFields"></div>
     </details>
     <p class="plan bt-plan" id="batchPlan"></p>
@@ -1144,7 +1320,7 @@ Lưu lại để làm theo nhé!</pre>
     <div class="bt-run">
       <input type="text" id="batchName" placeholder="Tên loạt (để trống thì tự đặt)" />
       <span class="spacer"></span>
-      <button type="button" class="send" id="batchStart">🚀 Chạy loạt</button>
+      <button type="button" class="send" id="batchStart"><i data-icon="rocket"></i> Chạy loạt</button>
     </div>
     <p class="hint" id="batchHint"></p>
 
@@ -1160,16 +1336,16 @@ Lưu lại để làm theo nhé!</pre>
   <div class="bt-wrap" id="batchRun" hidden>
     <div class="bt-sticky">
       <div class="bt-head">
-        <a class="icon-btn" href="#/batch" title="Loạt khác" aria-label="Loạt khác">←</a>
+        <a class="icon-btn" href="#/batch" title="Loạt khác" aria-label="Loạt khác"><i data-icon="arrow-left"></i></a>
         <h1 id="batchRunName"></h1>
         <span class="spacer"></span>
-        <button type="button" class="btn" id="batchSubsLook" hidden title="Đổi font, màu, vị trí phụ đề cho tất cả video trong loạt">🔤 Kiểu phụ đề</button>
+        <button type="button" class="btn" id="batchSubsLook" hidden title="Đổi font, màu, vị trí phụ đề cho tất cả video trong loạt"><i data-icon="captions"></i> Kiểu phụ đề</button>
         <button type="button" class="btn" id="batchPause"></button>
-        <button type="button" class="btn primary" id="batchApproveAll" hidden>✓ Duyệt tất cả</button>
-        <button type="button" class="btn" id="batchRetryAll" hidden>⟳ Chạy lại lỗi</button>
-        <a class="btn" id="batchZip" hidden download>⬇ Tải tất cả</a>
-        <a class="btn" id="batchCsv" hidden download title="Bảng theo dõi để đăng bài (mở bằng Excel, Google Sheets)">📄 CSV</a>
-        <button type="button" class="icon-btn" id="batchDelete" title="Xoá loạt này">🗑</button>
+        <button type="button" class="btn primary" id="batchApproveAll" hidden><i data-icon="check"></i> Duyệt tất cả</button>
+        <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
+        <a class="btn" id="batchZip" hidden download><i data-icon="download"></i> Tải tất cả</a>
+        <a class="btn" id="batchCsv" hidden download title="Bảng theo dõi để đăng bài (mở bằng Excel, Google Sheets)"><i data-icon="file-spreadsheet"></i> CSV</a>
+        <button type="button" class="icon-btn" id="batchDelete" title="Xoá loạt này" aria-label="Xoá loạt này"><i data-icon="trash-2"></i></button>
       </div>
       <div class="bt-progress"><i id="batchProgressBar"></i></div>
       <div class="bt-runinfo">
@@ -1206,8 +1382,8 @@ Lưu lại để làm theo nhé!</pre>
 <dialog class="dlg lk-dlg" id="subsLookDlg">
   <form method="dialog">
     <div class="dlg-head">
-      <h2>🔤 Kiểu phụ đề cho cả loạt</h2>
-      <button type="submit" class="icon-btn" value="cancel" aria-label="Đóng">✕</button>
+      <h2><i data-icon="captions"></i> Kiểu phụ đề cho cả loạt</h2>
+      <button type="submit" class="icon-btn" value="cancel" aria-label="Đóng"><i data-icon="x"></i></button>
     </div>
     <p class="muted">Chỉnh một lần — mọi video trong loạt đổi theo. Video đã xong sẽ được dựng lại.</p>
     <div id="subsLookDlgBody"></div>
@@ -1222,11 +1398,30 @@ Lưu lại để làm theo nhé!</pre>
 <dialog class="dlg keys-dlg" id="keysDlg">
   <form method="dialog">
     <div class="dlg-head">
-      <h2>⌨ Phím tắt</h2>
-      <button type="submit" class="icon-btn" aria-label="Đóng">✕</button>
+      <h2><i data-icon="keyboard"></i> Phím tắt</h2>
+      <button type="submit" class="icon-btn" aria-label="Đóng"><i data-icon="x"></i></button>
     </div>
     <div class="keys-grid" id="keysList"></div>
     <p class="muted">Phím một chữ cái không chạy khi đang gõ trong ô nhập. Trong trình chỉnh sửa video bấm <kbd>?</kbd> để xem phím riêng.</p>
+  </form>
+</dialog>
+
+<!-- Lần đầu tạo video: gợi ý key miễn phí giúp video đẹp hơn (app.js › keyTipsBeforeFirstVideo) -->
+<dialog class="dlg tips-dlg" id="keyTipsDlg">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2><i data-icon="sparkles"></i> Video đẹp hơn với vài key miễn phí</h2>
+      <button type="submit" class="icon-btn" value="cancel" aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Không có key app vẫn tạo được video. Các key dưới đây đều <b>miễn phí</b>, mỗi key lấy mất 1–2 phút —
+      lấy xong dán vào Cài đặt.</p>
+    <ul class="tips-list" id="keyTipsList"></ul>
+    <p class="muted tips-paid" id="keyTipsPaid">Muốn hơn nữa (trả phí): ElevenLabs cho giọng đọc, fal.ai hoặc Replicate cho clip video AI.</p>
+    <p class="hint err" id="keyTipsNeed" hidden>AI viết lời cần ít nhất một key — Gemini là nhanh nhất. Hoặc đổi sang Lời có sẵn.</p>
+    <div class="dlg-foot">
+      <button type="submit" class="btn" value="later" id="keyTipsLater">Để sau, tạo video luôn</button>
+      <button type="submit" class="btn primary" value="settings" id="keyTipsSettings"><i data-icon="key-round"></i> Điền key ngay</button>
+    </div>
   </form>
 </dialog>
 
@@ -1234,10 +1429,11 @@ Lưu lại để làm theo nhé!</pre>
   <form id="settingsForm" autocomplete="off">
     <div class="dlg-head">
       <h2>Cài đặt API key</h2>
-      <button type="button" class="icon-btn" data-close aria-label="Đóng">✕</button>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
     </div>
     <p class="muted">Điền key vào các ô dưới đây. Key chỉ lưu trên máy này và có hiệu lực ngay.
-      Bỏ trống ô nào thì giữ nguyên key đang có.</p>
+      Bỏ trống ô nào thì giữ nguyên key đang có. Mới dùng? Chỉ cần các key <b>Miễn phí</b> ở đầu danh sách.</p>
+    <div class="usage-box" id="usageBox"></div>
     <div id="keyFields"></div>
     <p class="hint" id="settingsHint"></p>
     <div class="dlg-foot">
@@ -1250,14 +1446,14 @@ Lưu lại để làm theo nhé!</pre>
 <dialog class="dlg pc-dlg" id="postCopyDlg">
   <form method="dialog">
     <div class="dlg-head">
-      <h2>✍️ Gợi ý bài đăng</h2>
-      <button type="button" class="icon-btn" data-close aria-label="Đóng">✕</button>
+      <h2><i data-icon="pen-line"></i> Gợi ý bài đăng</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
     </div>
     <p class="muted">AI đọc lời trong video và viết sẵn tiêu đề, caption, hashtag cho từng nền tảng. Đọc lại trước khi đăng.</p>
     <div id="postCopyBody"></div>
     <p class="hint" id="postCopyHint"></p>
     <div class="dlg-foot">
-      <button type="button" class="btn" id="postCopyRegen" hidden>↻ Viết lại</button>
+      <button type="button" class="btn" id="postCopyRegen" hidden><i data-icon="rotate-cw"></i> Viết lại</button>
       <button type="button" class="btn" data-close>Đóng</button>
     </div>
   </form>
@@ -1265,6 +1461,7 @@ Lưu lại để làm theo nhé!</pre>
 
 <script src="/app.js"></script>
 <script src="/subs.js"></script>
+<script src="/bili.js"></script>
 <script src="/post-copy.js"></script>
 </body>
 </html>

@@ -35,14 +35,17 @@ import {
   prepareScript,
   deleteProjects,
   readChat,
+  resolveMusicChoice,
   writeChat,
   type ChatMessage,
   type ChatSettings,
 } from "./chat";
 import { runRenderStage } from "./pipeline";
+import { versionsDir } from "./versions";
 import { allLines, parseScript, type VideoScript } from "../src/compositions/Short/script";
-import { captionLookSchema, shortSchema, type Caption, type CaptionLook } from "../src/compositions/Short/schema";
-import { ASPECT_IDS, aspectFor } from "../src/aspects";
+import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type CaptionLook } from "../src/compositions/Short/schema";
+import type { MediaCrop } from "../src/scenes/CropBox";
+import { ASPECT_IDS, ASPECTS, aspectFor, type AspectId } from "../src/aspects";
 import { DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
 import { findVoice } from "../scripts/voices";
 import { slugify } from "../scripts/slug";
@@ -60,7 +63,87 @@ export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs";
 export type SubsOptions = {
   /** Mã ngôn ngữ whisper ("vi", "en"…) hoặc "auto" để tự nhận. */
   spoken: string;
+  /** Kiểu phụ đề. Loạt nhiều hàng: kiểu của hàng đầu tiên (= tracks[0].look). */
   look: Partial<CaptionLook>;
+  /** Cắt khung chung cho mọi video; không có = giữ nguyên khung gốc. */
+  crop?: SubsCrop;
+  /**
+   * Nhiều ngôn ngữ trong CÙNG một video: mỗi phần tử là một hàng phụ đề hiện cùng lúc, có kiểu và vị trí riêng
+   * (hàng i → caption.track = i). Không có = mỗi ngôn ngữ ra một video riêng (BatchItem.subLang).
+   */
+  tracks?: SubsTrack[];
+};
+
+/** Một hàng phụ đề của loạt nhiều hàng. `lang` = "" là giữ nguyên tiếng đang nói. */
+export type SubsTrack = { lang: "" | TranslateLanguage; look: Partial<CaptionLook> };
+
+/**
+ * Cắt khung chung của loạt phụ đề — chọn bằng đúng khung crop của trình chỉnh sửa trên video mẫu (video đầu tiên).
+ * `frame`: khung video ra ("original" = giữ khung gốc của từng video). `crop`: vùng cắt trên video mẫu (MediaCrop).
+ * Video khác tỉ lệ với video mẫu thì tự tính lại vùng cắt, giữ tâm và độ lớn tương đối (subsCropFor).
+ */
+export type SubsCrop = { frame: AspectId | "original"; crop: MediaCrop };
+
+const parseCrop = (raw: unknown): SubsCrop | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as { frame?: unknown; crop?: unknown };
+  const frame = r.frame === "original" || ASPECT_IDS.includes(r.frame as AspectId) ? (r.frame as SubsCrop["frame"]) : null;
+  const crop = mediaCropSchema.safeParse(r.crop);
+  return frame && crop.success ? { frame, crop: crop.data } : undefined;
+};
+
+const aspectRatioOf = (id: AspectId) => ASPECTS[id].width / ASPECTS[id].height;
+const clampRange = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/** Giống CropOverlay: tỉ lệ pixel của lựa chọn tỉ lệ; null = tự do. */
+const cropRatioValue = (id: string, frameAspect: number, mediaAspect: number) => {
+  if (id === "free") return null;
+  if (id === "frame") return frameAspect;
+  if (id === "original") return mediaAspect;
+  const [a, b] = id.split(":").map(Number);
+  return a > 0 && b > 0 ? a / b : null;
+};
+
+/** Giống CropOverlay: vùng lớn nhất có tỉ lệ `ratio` nằm gọn trong file có tỉ lệ `mediaAspect`. */
+const largestCropRect = (ratio: number, mediaAspect: number) => {
+  let w = 1;
+  let h = mediaAspect / ratio;
+  if (h > 1) {
+    w = 1 / h;
+    h = 1;
+  }
+  return { w, h };
+};
+
+/** Khung video ra và vùng cắt cho một video `width`×`height` theo cắt khung chung của loạt. */
+export const subsCropFor = (opt: SubsCrop, width: number, height: number): { aspect: AspectId; crop: MediaCrop } => {
+  const media = width / height;
+  const aspect = opt.frame === "original" ? aspectFor(width, height).id : opt.frame;
+  const base = opt.crop;
+  const round = (n: number) => Math.round(n * 10000) / 10000;
+  if (Math.abs(base.mediaAspect - media) < 0.01) return { aspect, crop: base };
+
+  const ratio = cropRatioValue(base.ratio, aspectRatioOf(aspect), media);
+  let rect: { x: number; y: number; w: number; h: number };
+  if (ratio === null) {
+    // Tự do: giữ nguyên vùng theo tỉ lệ 0–1 của file.
+    rect = { x: base.x, y: base.y, w: base.w, h: base.h };
+  } else {
+    // Khoá tỉ lệ: độ lớn so với vùng lớn nhất trên video mẫu → áp cùng độ lớn lên video này, giữ tâm.
+    const sampleFrame = opt.frame === "original" ? aspectRatioOf(aspectFor(base.mediaAspect * 1000, 1000).id) : aspectRatioOf(aspect);
+    const sampleRatio = cropRatioValue(base.ratio, sampleFrame, base.mediaAspect) ?? ratio;
+    const scale = Math.min(1, base.w / largestCropRect(sampleRatio, base.mediaAspect).w);
+    const largest = largestCropRect(ratio, media);
+    const w = largest.w * scale;
+    const h = largest.h * scale;
+    const cx = base.x + base.w / 2;
+    const cy = base.y + base.h / 2;
+    rect = { w, h, x: clampRange(cx - w / 2, 0, 1 - w), y: clampRange(cy - h / 2, 0, 1 - h) };
+  }
+  return {
+    aspect,
+    crop: { ...base, x: round(rect.x), y: round(rect.y), w: round(rect.w), h: round(rect.h), mediaAspect: round(media) },
+  };
 };
 
 /** Ngôn ngữ nói chọn được — mã whisper. "auto" để whisper tự đoán (chậm hơn một chút, đôi khi đoán sai). */
@@ -296,7 +379,7 @@ export type CreateBatchInput = {
   mediaModel?: unknown;
   variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown };
   /** Nguồn subs: ngôn ngữ nói, các ngôn ngữ phụ đề ("" = giữ nguyên), kiểu phụ đề chung. */
-  subs?: { spoken?: unknown; languages?: unknown; look?: unknown };
+  subs?: { spoken?: unknown; languages?: unknown; look?: unknown; crop?: unknown; layout?: unknown; tracks?: unknown };
   /** Tạo xong chạy luôn. */
   start?: unknown;
 };
@@ -322,10 +405,18 @@ export const createBatch = (body: CreateBatchInput) => {
     if (languages.some(Boolean) && !pickTranslateEngine()) {
       throw new Error("Dịch phụ đề cần model dịch — điền key Gemini, Groq hoặc OpenRouter (có gói miễn phí) trong Cài đặt, hoặc chỉ chọn “Giữ nguyên”.");
     }
-    subs = { spoken, look: parseLook(raw.look) };
+    const crop = parseCrop(raw.crop);
+    // "stack": mọi ngôn ngữ thành các hàng phụ đề trong cùng một video, mỗi hàng kiểu riêng.
+    const tracks = raw.layout === "stack" && languages.length > 1 ? parseTracks(raw.tracks, languages, spoken, raw.look) : null;
+    subs = { spoken, look: tracks ? tracks[0].look : parseLook(raw.look), ...(crop ? { crop } : {}), ...(tracks ? { tracks } : {}) };
     const files = (Array.isArray(body.items) ? body.items : []).map(String);
     for (const file of files) {
       checkMediaFile(file);
+      if (tracks) {
+        if (items.length >= MAX_ITEMS) break;
+        items.push(newItem(`${uploadName(file)} · ${tracks.map((t) => subsLangLabel(t.lang, spoken)).join(" + ")}`, { file }));
+        continue;
+      }
       for (const lang of languages) {
         if (items.length >= MAX_ITEMS) break;
         items.push(newItem(
@@ -437,6 +528,24 @@ const parseLook = (raw: unknown): Partial<CaptionLook> => {
   return { ...DEFAULT_CAPTION_LOOK, ...parsed.data };
 };
 
+/**
+ * Các hàng phụ đề theo đúng thứ tự `languages` (đã chuẩn hoá). Kiểu lấy từ `raw` theo mã ngôn ngữ;
+ * hàng nào không gửi kiểu thì dùng kiểu chung, đặt cao dần theo hàng để khỏi đè lên nhau.
+ */
+const parseTracks = (raw: unknown, languages: ("" | TranslateLanguage)[], spoken: string, fallback: unknown): SubsTrack[] => {
+  const sent = (Array.isArray(raw) ? raw : []) as { lang?: unknown; look?: unknown }[];
+  return languages.map((lang, index) => {
+    const match = sent.find((t) => (t?.lang === "" || t?.lang === spoken ? "" : t?.lang) === lang);
+    if (match?.look) return { lang, look: parseLook(match.look) };
+    const base = parseLook(fallback);
+    return { lang, look: { ...base, y: Math.max(3, (base.y ?? 80) - index * 14) } };
+  });
+};
+
+/** Tên hàng phụ đề cho người đọc: "" = tiếng đang nói. */
+const subsLangLabel = (lang: "" | TranslateLanguage, spoken: string) =>
+  lang ? translateLanguageLabel(lang) : SPOKEN_LANGUAGES.find((l) => l.code === spoken && l.code !== "auto")?.label ?? "Gốc";
+
 const summary = (batch: Batch) => ({
   id: batch.id,
   name: batch.name,
@@ -459,9 +568,37 @@ export const listBatches = () => {
   return { batches };
 };
 
+/**
+ * Tình trạng chỉnh sửa của từng video đã xong — sửa từng video trong trình chỉnh sửa rồi mới tải cả loạt:
+ * - edited: đã xuất ít nhất một lần từ trình chỉnh sửa (gói tải về lấy bản đó — out/<slug>.mp4 + props.json).
+ * - draft: còn thay đổi đang sửa dở CHƯA xuất — gói tải về chưa có phần này.
+ * Video đã được xuất lại thì làm mới link video và ảnh bìa để ô trên bảng không hiện bản cũ.
+ */
+const refreshEdits = (batch: Batch) => {
+  let changed = false;
+  const items = batch.items.map((item) => {
+    if (item.status !== "done" || !item.slug) return item;
+    const mp4 = path.join(process.cwd(), "out", `${item.slug}.mp4`);
+    if (!fs.existsSync(mp4)) return item;
+    const edited = readChat(item.slug).messages.some((m) => m.role === "assistant" && (m as { edited?: boolean }).edited);
+    const dir = versionsDir(item.slug);
+    const draft = fs.existsSync(dir) && fs.readdirSync(dir).some((f) => f.endsWith(".draft.json"));
+    const mtime = Math.round(fs.statSync(mp4).mtimeMs);
+    const poster = item.poster ? path.join(process.cwd(), "public", item.poster) : "";
+    if (edited && (!poster || !fs.existsSync(poster) || fs.statSync(poster).mtimeMs < mtime)) {
+      item.poster = makePoster(item.slug, mp4);
+      item.mp4 = `/out/${item.slug}.mp4?t=${mtime}`;
+      changed = true;
+    }
+    return { ...item, edited, draft };
+  });
+  if (changed) save(batch);
+  return items;
+};
+
 export const readBatch = (id: unknown) => {
   const batch = require_(id);
-  return { ...batch, counts: counts(batch) };
+  return { ...batch, items: refreshEdits(batch), counts: counts(batch) };
 };
 
 export const deleteBatch = (id: unknown) => {
@@ -620,17 +757,29 @@ export const removeItems = (id: unknown, ids: unknown, alsoVideo = false) => {
  * những video đã xong. Mục chưa phiên âm tự lấy kiểu mới khi tới lượt; mục đang dựng thì dựng xong
  * sẽ dựng lại lần nữa.
  */
-export const restyleSubs = (id: unknown, rawLook: unknown) => {
+export const restyleSubs = (id: unknown, rawLook: unknown, rawLooks?: unknown) => {
   const batch = require_(id);
   if (batch.source !== "subs" || !batch.subs) throw new Error("Loạt này không phải loạt thêm phụ đề.");
-  const look = parseLook(rawLook);
+  // Loạt nhiều hàng: mỗi hàng một kiểu; hàng 0 là kiểu chung của video, hàng sau ghi vào `style` từng câu.
+  const tracks = batch.subs.tracks;
+  const looks = tracks
+    ? tracks.map((track, k) => parseLook(Array.isArray(rawLooks) && rawLooks[k] ? rawLooks[k] : k === 0 && rawLook ? rawLook : track.look))
+    : null;
+  const look = looks ? looks[0] : parseLook(rawLook);
   batch.subs.look = look;
+  if (tracks && looks) tracks.forEach((track, k) => { track.look = looks[k]; });
   let rerender = 0;
   for (const item of batch.items) {
     const propsPath = item.slug ? path.join(videoDir(item.slug), "props.json") : "";
     if (!propsPath || !fs.existsSync(propsPath)) continue;
     const props = JSON.parse(fs.readFileSync(propsPath, "utf8"));
     props.captionLook = look;
+    if (looks) {
+      props.captions = (props.captions as Caption[]).map((caption) => {
+        const k = caption.track ?? 0;
+        return k > 0 && looks[k] ? { ...caption, style: looks[k] } : caption;
+      });
+    }
     fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
     if (item.status === "building") {
       item.restyle = true;
@@ -889,6 +1038,12 @@ const transcribeCached = async (
 
 /** Khung gần nhất với kích thước thật của video (tính cả video quay dọc bị xoay). */
 const videoAspect = (file: string): string | null => {
+  const size = videoSize(file);
+  return size ? aspectFor(size.width, size.height).id : null;
+};
+
+/** Kích thước hiển thị của video (đã tính xoay dọc từ điện thoại). */
+const videoSize = (file: string): { width: number; height: number } | null => {
   try {
     const out = execFileSync("ffprobe", [
       "-v", "error", "-select_streams", "v:0",
@@ -898,8 +1053,8 @@ const videoAspect = (file: string): string | null => {
     const stream = JSON.parse(out).streams?.[0];
     if (!stream?.width || !stream?.height) return null;
     const rotation = Math.abs(Number(stream.side_data_list?.[0]?.rotation ?? stream.tags?.rotate ?? 0)) % 180;
-    const [w, h] = rotation === 90 ? [stream.height, stream.width] : [stream.width, stream.height];
-    return aspectFor(w, h).id;
+    const [width, height] = rotation === 90 ? [stream.height, stream.width] : [stream.width, stream.height];
+    return { width, height };
   } catch {
     return null;
   }
@@ -937,16 +1092,29 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   if (captions.length === 0) {
     throw new Error("Không nghe ra câu nào trong file này — kiểm tra lại file có tiếng nói không.");
   }
-  if (item.subLang) {
+  const translate = async (lines: Caption[], lang: TranslateLanguage) => {
     const engine = pickTranslateEngine();
     if (!engine) throw new Error("Chưa có model dịch — điền key Gemini, Groq hoặc OpenRouter trong Cài đặt.");
-    log(`Dịch ${captions.length} dòng phụ đề sang ${translateLanguageLabel(item.subLang)}…`);
+    log(`Dịch ${lines.length} dòng phụ đề sang ${translateLanguageLabel(lang)}…`);
     const translated = await translateLines(
-      captions.map((caption) => caption.text),
-      { to: item.subLang, from: spoken === "auto" ? undefined : spoken, engine },
+      lines.map((caption) => caption.text),
+      { to: lang, from: spoken === "auto" ? undefined : spoken, engine },
       log,
     );
-    captions = captions.map((caption, i) => ({ ...caption, text: translated[i]?.trim() || caption.text }));
+    return lines.map((caption, i) => ({ ...caption, text: translated[i]?.trim() || caption.text }));
+  };
+  const tracks = batch.subs?.tracks;
+  if (tracks) {
+    // Mỗi hàng một bản (gốc hoặc dịch), cùng mốc thời gian; hàng sau mang kiểu riêng của nó.
+    const original = captions;
+    const rows: Caption[] = [];
+    for (const [k, track] of tracks.entries()) {
+      const lines = track.lang ? await translate(original, track.lang) : original;
+      rows.push(...lines.map((caption) => (k === 0 ? caption : { ...caption, track: k, style: track.look })));
+    }
+    captions = rows;
+  } else if (item.subLang) {
+    captions = await translate(captions, item.subLang);
   }
 
   // Chuẩn hoá về mp3 48kHz stereo cho khớp phần còn lại của soundtrack.
@@ -958,8 +1126,13 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
 
   // File hình thì giữ luôn hình gốc làm cảnh; file chỉ có tiếng thì nền trơn.
   const visual = /\.(mp4|mov|webm)$/i.test(item.file!) ? item.file! : null;
-  // Thêm phụ đề cho video có sẵn: giữ đúng khung của video gốc, không ép về khung trong cài đặt.
-  const aspect = batch.subs && visual ? videoAspect(source) ?? settings.aspect : settings.aspect;
+  // Thêm phụ đề cho video có sẵn: giữ đúng khung của video gốc, không ép về khung trong cài đặt —
+  // trừ khi loạt có cắt khung chung, lúc đó mọi video ra đúng tỉ lệ đã chọn.
+  const size = batch.subs?.crop && visual ? videoSize(source) : null;
+  const cut = batch.subs?.crop && size ? subsCropFor(batch.subs.crop, size.width, size.height) : null;
+  const crop = cut?.crop ?? null;
+  const aspect = cut ? cut.aspect
+    : batch.subs && visual ? videoAspect(source) ?? settings.aspect : settings.aspect;
   const props = shortSchema.parse({
     title: captions[0]?.text.slice(0, 60) ?? path.basename(item.file!),
     subtitle: "",
@@ -969,13 +1142,13 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
     captions,
     aspect,
     style: "plain",
-    scenes: [{ image: visual, visual: null, startMs: 0, endMs: durationMs }],
+    scenes: [{ image: visual, visual: null, startMs: 0, endMs: durationMs, ...(crop ? { crop } : {}) }],
     captionPosition: "bottom",
     ...(batch.subs ? { captionLook: batch.subs.look } : {}),
     // Audio nói ngay từ giây 0 — title card sẽ đè lên chính câu đầu.
     showTitle: false,
     voiceoverTrack: trackRel,
-    music: settings.music,
+    music: await resolveMusicChoice(settings.music, log),
     sfx: false,
   });
   fs.mkdirSync(videoDir(slug), { recursive: true });
@@ -992,10 +1165,11 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
 
   // Loạt phụ đề: đặt tên theo file + ngôn ngữ, để file tải về đọc là biết bản nào.
   item.title = batch.subs
-    ? `${baseName}${item.subLang ? ` ${item.subLang}` : ""}`
+    ? `${baseName}${tracks ? ` ${tracks.map((t) => t.lang || spoken).join("+")}` : item.subLang ? ` ${item.subLang}` : ""}`
     : props.title;
   item.scenes = 1;
-  item.lines = captions.map((caption) => caption.text).slice(0, 40);
+  // Bảng duyệt chỉ hiện hàng đầu — các hàng sau là bản dịch cùng câu.
+  item.lines = captions.filter((caption) => !caption.track).map((caption) => caption.text).slice(0, 40);
 };
 
 // ---------- bước 2: dựng ----------
@@ -1120,8 +1294,14 @@ export function* batchZip(id: unknown): Generator<Buffer> {
     for (const { item, index } of files) {
       const mp4Name = exportName(item, index);
       yield { name: mp4Name, read: () => fs.readFileSync(path.join(process.cwd(), "out", `${item.slug}.mp4`)) };
-      const srt = batch.source === "subs" ? srtFor(item.slug!) : null;
-      if (srt) yield { name: mp4Name.replace(/\.mp4$/, ".srt"), read: () => Buffer.from(srt, "utf8") };
+      if (batch.source !== "subs") continue;
+      // Loạt nhiều hàng: hàng đầu là <tên>.srt, các hàng sau <tên>.<mã ngôn ngữ>.srt.
+      const tracks = batch.subs?.tracks ?? [{ lang: "" as const }];
+      for (const [k, track] of tracks.entries()) {
+        const srt = srtFor(item.slug!, k);
+        const suffix = k === 0 ? "" : `.${track.lang || batch.subs?.spoken || "goc"}`;
+        if (srt) yield { name: mp4Name.replace(/\.mp4$/, `${suffix}.srt`), read: () => Buffer.from(srt, "utf8") };
+      }
     }
   };
 
@@ -1189,9 +1369,10 @@ const srtTime = (ms: number) => {
 };
 
 /** Phụ đề SRT lấy từ props.json — đúng bản đang gắn trong video (kể cả đã sửa trong trình chỉnh sửa). */
-const srtFor = (slug: string) => {
+/** File .srt của một hàng phụ đề (mặc định hàng đầu). */
+const srtFor = (slug: string, track = 0) => {
   const props = readJson(path.join(videoDir(slug), "props.json")) as { captions?: Caption[] } | null;
-  const captions = (props?.captions ?? []).filter((c) => c.text.trim());
+  const captions = (props?.captions ?? []).filter((c) => c.text.trim() && (c.track ?? 0) === track);
   if (captions.length === 0) return null;
   return captions
     .map((c, i) => `${i + 1}\n${srtTime(c.startMs)} --> ${srtTime(c.endMs)}\n${c.text.trim()}\n`)

@@ -5,12 +5,13 @@ import { allLines, parseScript, scriptToProps } from "../src/compositions/Short/
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { TITLE_FRAMES } from "../src/constants";
 import { generateScript } from "../scripts/generate-script";
-import { ENGINE_LABELS, generateVoiceover, type TtsEngine } from "../scripts/tts";
+import { ENGINE_LABELS, generateVoiceover, isVoiceCached, synthesizeVoiceover, type TtsEngine } from "../scripts/tts";
 import { fetchAccountVoices, findVoice, VOICES } from "../scripts/voices";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist, listAllImages } from "../scripts/images";
 import { downloadPhoto, searchPhotos, writeCredits } from "../scripts/pexels";
 import { generateImage } from "../scripts/gemini-image";
+import { composeImagePrompt, imageLookFor } from "../scripts/image-prompts";
 import { slugify } from "../scripts/slug";
 import {
   generateMusic, generateSfx, MOODS, SFX_KINDS,
@@ -99,6 +100,9 @@ export const voiceCatalog = async (live: boolean) => {
     engineLabel: ENGINE_LABELS[voice.engine],
     lang: voice.lang,
     paidPlan: Boolean(voice.paidPlan),
+    // Nghe thử: giọng trên mạng mà câu mẫu chưa có trong bộ nhớ thì bấm nghe sẽ tốn 1 lượt — nút ghi chú trước.
+    online: voice.engine === "gemini" || voice.engine === "elevenlabs",
+    sampled: isVoiceCached(voice.engine, voice.id || undefined, VOICE_SAMPLE_TEXT[voice.lang]),
   }));
   if (!live || !process.env.ELEVENLABS_API_KEY) {
     return { catalog, account: null };
@@ -112,6 +116,31 @@ export const voiceCatalog = async (live: boolean) => {
       accountError: error instanceof Error ? error.message : String(error),
     };
   }
+};
+
+/** Câu đọc thử theo ngôn ngữ của giọng. Đổi câu thì các mẫu cũ tự đọc lại (bộ nhớ theo nội dung câu). */
+const VOICE_SAMPLE_TEXT: Record<"vi" | "en", string> = {
+  vi: "Xin chào, đây là giọng đọc thử cho video của bạn. Nghe có hợp không?",
+  en: "Hi there, this is a quick sample of my voice for your video.",
+};
+const sampling = new Map<string, Promise<{ url: string; durationMs: number }>>();
+
+/**
+ * Đọc thử một giọng trong danh sách (VOICES) để nghe trước khi chọn. Dùng thẳng synthesizeVoiceover — KHÔNG đổi sang
+ * giọng dự phòng khi giọng trên mạng lỗi (nghe thử mà ra giọng khác là sai), lỗi thì báo lỗi.
+ * File nằm ở public/voices/_samples/<key>/; câu đã đọc được nhớ theo nội dung nên lần sau không tốn lượt.
+ */
+export const voiceSample = (key: string) => {
+  const voice = findVoice(key);
+  if (!voice) return Promise.reject(new Error("Không có giọng này."));
+  if (voice.paidPlan) return Promise.reject(new Error("Giọng này cần gói ElevenLabs trả phí."));
+  const running = sampling.get(key);
+  if (running) return running;
+  const job = synthesizeVoiceover([VOICE_SAMPLE_TEXT[voice.lang]], `_samples/${voice.key}`, voice.engine, voice.id || undefined)
+    .then(([clip]) => ({ url: `/public/${clip.src.split(path.sep).join("/")}`, durationMs: clip.durationMs }))
+    .finally(() => sampling.delete(key));
+  sampling.set(key, job);
+  return job;
 };
 
 /** prompt → script.json. Cần ANTHROPIC_API_KEY. */
@@ -162,10 +191,10 @@ export const fetchSceneImages = async (
           perQuery[i] = `images/${slug}/${base}.jpg`;
           log(`[pexels] ${base}.jpg — ${result.credit}`);
         } else {
+          // Truy vấn đã là prompt hoàn chỉnh (chat.ts ghép bằng composeImagePrompt) thì gửi nguyên; chỉ là cụm từ khoá thì
+          // ghép phần bố cục. Không thêm "no text"/"lower half darker": FLUX vẽ luôn chữ và dải đen (xem image-prompts.ts).
           await generateImage(
-            `${query}. Vertical 9:16 background image for a short-form video. ` +
-              "No text, no words, no letters, no logos. " +
-              "Keep the lower half darker so white subtitle text stays readable.",
+            /portrait composition/i.test(query) ? query : composeImagePrompt(query, imageLookFor(undefined).look),
             path.join(dir, `${base}.png`),
           );
           files.push(`images/${slug}/${base}.png`);
@@ -358,7 +387,8 @@ export const listAudio = () => {
       .sort()
       .map((f) => ({ path: `${dir}/${f}`, name: f }));
   };
-  return { music: scan("music"), sfx: scan("sfx"), moods: MOODS, sfxKinds: SFX_KINDS };
+  // music/stock, sfx/stock: tải từ 🆓 Kho miễn phí (Freesound).
+  return { music: [...scan("music"), ...scan("music/stock")], sfx: [...scan("sfx"), ...scan("sfx/stock")], moods: MOODS, sfxKinds: SFX_KINDS };
 };
 
 /** Sinh bằng ffmpeg — offline, miễn phí. */

@@ -18,6 +18,7 @@ import {
 import { PROVIDERS, VIDEO_MODELS } from "../scripts/ai-video";
 import { DEFAULT_TRANSLATE_OLLAMA_MODEL } from "../scripts/translate";
 import { WATERMARK_MAX_LENGTH } from "../scripts/watermark";
+import { DEFAULT_GEMINI_TTS_MODEL, GEMINI_TTS_MODELS } from "../scripts/gemini-tts";
 
 type Field = {
   name: string;
@@ -37,7 +38,89 @@ type Field = {
 
 const WATERMARK_ON = { name: "WATERMARK_ENABLED", value: "on" };
 
+/** Nhóm trong ô Cài đặt — key miễn phí đứng đầu để người mới điền trước, trả phí xuống cuối. */
+const FREE_TEXT_GROUP = "🆓 Miễn phí · Viết lời & giọng đọc";
+export const FREE_MEDIA_GROUP = "🆓 Miễn phí · Ảnh, clip & nhạc";
+const PAID_TEXT_GROUP = "💳 Trả phí · Viết lời & giọng đọc";
+const PAID_VIDEO_GROUP = "💳 Trả phí · Tạo video bằng AI";
+
 export const KEY_FIELDS: Field[] = [
+  {
+    name: "FREE_MODE",
+    label: "💚 Chế độ Miễn phí",
+    help: "Bật: chỉ dùng AI chạy trên máy và các gói miễn phí (Gemini, Groq, OpenRouter, Pexels, Pixabay, Freesound…). Không gọi Claude, ChatGPT, video AI hay vẽ ảnh tính tiền. Hết lượt miễn phí thì tự lùi sang lựa chọn trên máy (ví dụ giọng Gemini → giọng có sẵn trong app) và báo rõ.",
+    group: "Chi phí",
+    type: "select",
+    options: [
+      { value: "off", label: "Tắt — dùng mọi dịch vụ đã có key" },
+      { value: "on", label: "Bật — chỉ miễn phí" },
+    ],
+  },
+  {
+    name: "GEMINI_API_KEY",
+    label: "Google Gemini",
+    help: "Nên điền đầu tiên — một key cho cả AI viết kịch bản lẫn giọng đọc AI tự nhiên, miễn phí (có giới hạn lượt). Riêng vẽ ảnh AI và video Veo KHÔNG có gói miễn phí (giới hạn free = 0) — cần bật thanh toán cho dự án Google của key.",
+    group: FREE_TEXT_GROUP,
+    type: "secret",
+    url: "https://aistudio.google.com/apikey",
+  },
+  {
+    name: "GROQ_API_KEY",
+    label: "Groq",
+    help: "AI viết kịch bản nhanh, dự phòng khi Gemini hết lượt. Gói miễn phí không cần thẻ, giới hạn theo phút/ngày.",
+    group: FREE_TEXT_GROUP,
+    type: "secret",
+    url: "https://console.groq.com/keys",
+  },
+  {
+    name: "OPENROUTER_API_KEY",
+    label: "OpenRouter",
+    help: "Một key dùng nhiều model; model miễn phí giới hạn khoảng 200 lượt/ngày.",
+    group: FREE_TEXT_GROUP,
+    type: "secret",
+    url: "https://openrouter.ai/settings/keys",
+  },
+  {
+    name: "PEXELS_API_KEY",
+    label: "Pexels",
+    help: "Ảnh và clip video thật cho cảnh (mục 🆓 Kho miễn phí trong trình chỉnh sửa, hoặc Hình ảnh › Ảnh/Clip miễn phí).",
+    group: FREE_MEDIA_GROUP,
+    type: "secret",
+    url: "https://www.pexels.com/api/",
+  },
+  {
+    name: "PIXABAY_API_KEY",
+    label: "Pixabay",
+    help: "Thêm nguồn ảnh và clip video (dùng cùng hoặc thay Pexels). Đăng nhập Pixabay rồi lấy key ở trang API.",
+    group: FREE_MEDIA_GROUP,
+    type: "secret",
+    url: "https://pixabay.com/api/docs/",
+  },
+  {
+    name: "FREESOUND_API_KEY",
+    label: "Freesound",
+    help: "Nhạc nền và hiệu ứng âm thanh. App chỉ lấy file giấy phép CC0 hoặc CC-BY (được dùng thương mại, tự ghi nguồn). Tạo key ở trang \"API credentials\" sau khi đăng nhập.",
+    group: FREE_MEDIA_GROUP,
+    type: "secret",
+    url: "https://freesound.org/apiv2/apply/",
+  },
+  {
+    name: "CLOUDFLARE_ACCOUNT_ID",
+    label: "Cloudflare — Account ID (vẽ ảnh AI)",
+    help: "Vẽ ảnh AI bằng FLUX.1 schnell trên Cloudflare Workers AI: 10.000 neuron miễn phí mỗi ngày ≈ 100 ảnh (mỗi ảnh 96 neuron), đặt lại lúc 7h sáng giờ Việt Nam. Có key thì 🎨 AI vẽ ảnh dùng FLUX thay Gemini (tính tiền). Account ID là chuỗi 32 ký tự ở trang Workers AI › Use REST API.",
+    group: FREE_MEDIA_GROUP,
+    type: "text",
+    url: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai",
+    placeholder: "32 ký tự a-f, 0-9",
+  },
+  {
+    name: "CLOUDFLARE_API_TOKEN",
+    label: "Cloudflare — API token",
+    help: "Tạo token có quyền \"Workers AI\" ở cùng trang (Use REST API › Create a Workers AI API Token).",
+    group: FREE_MEDIA_GROUP,
+    type: "secret",
+    url: "https://dash.cloudflare.com/profile/api-tokens",
+  },
   {
     name: "SCRIPT_PROVIDER",
     label: "AI viết kịch bản",
@@ -46,14 +129,38 @@ export const KEY_FIELDS: Field[] = [
     type: "select",
     options: [
       { value: "auto", label: "Tự động" },
-      { value: "anthropic", label: "Claude (Anthropic)" },
-      { value: "openai", label: "ChatGPT (OpenAI)" },
       { value: "gemini", label: "Gemini (Google) — miễn phí" },
       { value: "groq", label: "Groq — miễn phí" },
       { value: "openrouter", label: "OpenRouter — model miễn phí" },
       { value: "ollama", label: "Ollama — chạy trên máy, không cần mạng" },
       { value: "local", label: "AI có sẵn trong app — trên máy, không cần key" },
+      { value: "anthropic", label: "Claude (Anthropic) — trả phí" },
+      { value: "openai", label: "ChatGPT (OpenAI) — trả phí" },
     ],
+  },
+  {
+    name: "GEMINI_SCRIPT_MODEL",
+    label: "Model Gemini",
+    help: `Dùng key Google Gemini ở mục đầu. Bỏ trống để dùng ${COMPAT_PROVIDERS.gemini.defaultModel} — bản Flash mới nhất, có gói miễn phí.`,
+    group: "Viết kịch bản",
+    type: "text",
+    placeholder: COMPAT_PROVIDERS.gemini.defaultModel,
+  },
+  {
+    name: "GROQ_MODEL",
+    label: "Model Groq",
+    help: `Bỏ trống để dùng ${COMPAT_PROVIDERS.groq.defaultModel}. Model phải hỗ trợ structured output.`,
+    group: "Viết kịch bản",
+    type: "text",
+    placeholder: COMPAT_PROVIDERS.groq.defaultModel,
+  },
+  {
+    name: "OPENROUTER_MODEL",
+    label: "Model OpenRouter",
+    help: `Bỏ trống để dùng ${COMPAT_PROVIDERS.openrouter.defaultModel} (tự chọn một model miễn phí). Muốn cố định thì điền id có đuôi ":free".`,
+    group: "Viết kịch bản",
+    type: "text",
+    placeholder: COMPAT_PROVIDERS.openrouter.defaultModel,
   },
   {
     name: "OLLAMA_MODEL",
@@ -73,19 +180,29 @@ export const KEY_FIELDS: Field[] = [
     placeholder: DEFAULT_OLLAMA_HOST,
   },
   {
-    name: "TRANSLATE_OLLAMA_MODEL",
-    label: "Model dịch trên máy (Ollama)",
-    help: `Dùng khi chọn Ollama ở mục "Dịch phụ đề sang" lúc tạo phụ đề. Bỏ trống để dùng ${DEFAULT_TRANSLATE_OLLAMA_MODEL} (~3,3 GB, máy 8 GB RAM chạy được). Máy 16 GB RAM trở lên: translategemma:12b (~8,1 GB) dịch tốt hơn. Tải bằng lệnh "ollama pull <tên model>". Dịch trên mạng không cần ô này — dùng lại key Gemini, Groq, OpenRouter, ChatGPT hoặc Claude đã điền.`,
-    group: "Dịch phụ đề",
+    name: "GEMINI_TTS_MODEL",
+    label: "Model giọng đọc Gemini",
+    help: `Dùng key Google Gemini ở mục đầu. Bỏ trống để dùng ${DEFAULT_GEMINI_TTS_MODEL}, lỗi thì tự lùi về ${GEMINI_TTS_MODELS[1]}. Có gói miễn phí nhưng giới hạn số lượt mỗi phút/ngày — app đọc cả kịch bản trong một lượt để tiết kiệm.`,
+    group: "Giọng đọc",
     type: "text",
-    url: "https://ollama.com/library/translategemma",
-    placeholder: DEFAULT_TRANSLATE_OLLAMA_MODEL,
+    url: "https://aistudio.google.com/rate-limit",
+    placeholder: DEFAULT_GEMINI_TTS_MODEL,
+  },
+  {
+    name: "GEMINI_TTS_STYLE",
+    label: "Cách đọc (Gemini)",
+    help: "Mô tả giọng đọc bằng lời, ví dụ: \"Giọng kể chuyện ấm áp, nhịp chậm, nhấn vào con số\". Bỏ trống: giọng dẫn video tự nhiên, nhịp vừa phải.",
+    group: "Giọng đọc",
+    type: "text",
+    placeholder: "Giọng tự nhiên, rõ ràng, nhịp vừa phải",
+    freeText: true,
+    maxLength: 200,
   },
   {
     name: "ANTHROPIC_API_KEY",
     label: "Anthropic (Claude)",
     help: "Viết và sửa kịch bản bằng Claude.",
-    group: "Viết kịch bản",
+    group: PAID_TEXT_GROUP,
     type: "secret",
     url: "https://console.anthropic.com/settings/keys",
   },
@@ -93,7 +210,7 @@ export const KEY_FIELDS: Field[] = [
     name: "OPENAI_API_KEY",
     label: "OpenAI (ChatGPT)",
     help: "Viết và sửa kịch bản bằng ChatGPT — dùng thay cho Claude.",
-    group: "Viết kịch bản",
+    group: PAID_TEXT_GROUP,
     type: "secret",
     url: "https://platform.openai.com/api-keys",
   },
@@ -101,95 +218,23 @@ export const KEY_FIELDS: Field[] = [
     name: "OPENAI_MODEL",
     label: "Model ChatGPT",
     help: `Bỏ trống để dùng ${DEFAULT_OPENAI_MODEL}. Model phải hỗ trợ structured output.`,
-    group: "Viết kịch bản",
+    group: PAID_TEXT_GROUP,
     type: "text",
     placeholder: DEFAULT_OPENAI_MODEL,
   },
   {
-    name: "GEMINI_SCRIPT_MODEL",
-    label: "Model Gemini (miễn phí)",
-    help: `Dùng key Google Gemini ở mục "Giọng đọc & hình ảnh" bên dưới. Bỏ trống để dùng ${COMPAT_PROVIDERS.gemini.defaultModel} — bản Flash mới nhất, có gói miễn phí.`,
-    group: "Viết kịch bản",
-    type: "text",
-    placeholder: COMPAT_PROVIDERS.gemini.defaultModel,
-  },
-  {
-    name: "GROQ_API_KEY",
-    label: "Groq (miễn phí)",
-    help: "Gói miễn phí không cần thẻ, giới hạn theo phút/ngày. Viết nhanh.",
-    group: "Viết kịch bản",
-    type: "secret",
-    url: "https://console.groq.com/keys",
-  },
-  {
-    name: "GROQ_MODEL",
-    label: "Model Groq",
-    help: `Bỏ trống để dùng ${COMPAT_PROVIDERS.groq.defaultModel}. Model phải hỗ trợ structured output.`,
-    group: "Viết kịch bản",
-    type: "text",
-    placeholder: COMPAT_PROVIDERS.groq.defaultModel,
-  },
-  {
-    name: "OPENROUTER_API_KEY",
-    label: "OpenRouter (model miễn phí)",
-    help: "Một key dùng nhiều model; model miễn phí giới hạn khoảng 200 lượt/ngày.",
-    group: "Viết kịch bản",
-    type: "secret",
-    url: "https://openrouter.ai/settings/keys",
-  },
-  {
-    name: "OPENROUTER_MODEL",
-    label: "Model OpenRouter",
-    help: `Bỏ trống để dùng ${COMPAT_PROVIDERS.openrouter.defaultModel} (tự chọn một model miễn phí). Muốn cố định thì điền id có đuôi ":free".`,
-    group: "Viết kịch bản",
-    type: "text",
-    placeholder: COMPAT_PROVIDERS.openrouter.defaultModel,
-  },
-  {
     name: "ELEVENLABS_API_KEY",
     label: "ElevenLabs",
-    help: "Tuỳ chọn — giọng đọc AI. Không có thì dùng giọng miễn phí có sẵn trong máy (macOS: giọng Linh; Windows: giọng nói của Windows, cần cài gói tiếng Việt).",
-    group: "Giọng đọc & hình ảnh",
+    help: "Giọng đọc AI chất lượng cao; gói miễn phí rất ít ký tự mỗi tháng. Không có thì dùng giọng Gemini, hoặc giọng miễn phí có sẵn trong máy (macOS: giọng Linh; Windows: giọng nói của Windows, cần cài gói tiếng Việt).",
+    group: PAID_TEXT_GROUP,
     type: "secret",
     url: "https://elevenlabs.io/app/settings/api-keys",
-  },
-  {
-    name: "EVERAI_API_KEY",
-    label: "EverAI",
-    help: "Tuỳ chọn — giọng đọc AI tiếng Việt bản xứ (Kiều Nhi, Thuỳ Trang, Lê Hoàng). Tính theo credit/ký tự.",
-    group: "Giọng đọc & hình ảnh",
-    type: "secret",
-    url: "https://everai.vn/api",
-  },
-  {
-    name: "EVERAI_MODEL_ID",
-    label: "Model EverAI",
-    help: "Bỏ trống để dùng everai-v1.6. Khác: everai-v1.5, everai-v1.5-turbo, everai-v1.",
-    group: "Giọng đọc & hình ảnh",
-    type: "text",
-    placeholder: "everai-v1.6",
-  },
-  {
-    name: "PEXELS_API_KEY",
-    label: "Pexels",
-    help: "Tuỳ chọn — tìm ảnh stock miễn phí.",
-    group: "Giọng đọc & hình ảnh",
-    type: "secret",
-    url: "https://www.pexels.com/api/",
-  },
-  {
-    name: "GEMINI_API_KEY",
-    label: "Google Gemini",
-    help: "Tuỳ chọn — viết kịch bản miễn phí (Gemini Flash). Sinh ảnh AI và video Veo KHÔNG có gói miễn phí (giới hạn free = 0) — cần bật thanh toán cho dự án Google của key.",
-    group: "Giọng đọc & hình ảnh",
-    type: "secret",
-    url: "https://aistudio.google.com/apikey",
   },
   {
     name: "AI_VIDEO_MODEL",
     label: "Model tạo video",
     help: "Model mặc định khi bấm ✨ AI trong trình chỉnh sửa. Tự động: model rẻ nhất có key. Chọn model thiếu key thì tự dùng model khác.",
-    group: "Tạo video bằng AI",
+    group: PAID_VIDEO_GROUP,
     type: "select",
     options: [
       { value: "auto", label: "Tự động" },
@@ -203,7 +248,7 @@ export const KEY_FIELDS: Field[] = [
     name: "FAL_KEY",
     label: "fal.ai",
     help: "Một key dùng Seedance, Kling, Wan, Veo. Tài khoản mới thường được tặng credit dùng thử.",
-    group: "Tạo video bằng AI",
+    group: PAID_VIDEO_GROUP,
     type: "secret",
     url: "https://fal.ai/dashboard/keys",
   },
@@ -211,9 +256,18 @@ export const KEY_FIELDS: Field[] = [
     name: "REPLICATE_API_TOKEN",
     label: "Replicate",
     help: "Một token dùng Veo, Seedance, Kling, Wan. Trả trước theo lượt chạy.",
-    group: "Tạo video bằng AI",
+    group: PAID_VIDEO_GROUP,
     type: "secret",
     url: "https://replicate.com/account/api-tokens",
+  },
+  {
+    name: "TRANSLATE_OLLAMA_MODEL",
+    label: "Model dịch trên máy (Ollama)",
+    help: `Dùng khi chọn Ollama ở mục "Dịch phụ đề sang" lúc tạo phụ đề. Bỏ trống để dùng ${DEFAULT_TRANSLATE_OLLAMA_MODEL} (~3,3 GB, máy 8 GB RAM chạy được). Máy 16 GB RAM trở lên: translategemma:12b (~8,1 GB) dịch tốt hơn. Tải bằng lệnh "ollama pull <tên model>". Dịch trên mạng không cần ô này — dùng lại key Gemini, Groq, OpenRouter, ChatGPT hoặc Claude đã điền.`,
+    group: "Dịch phụ đề",
+    type: "text",
+    url: "https://ollama.com/library/translategemma",
+    placeholder: DEFAULT_TRANSLATE_OLLAMA_MODEL,
   },
   {
     name: "WATERMARK_ENABLED",
@@ -358,4 +412,17 @@ export const saveKeys = (patch: unknown) => {
   writeStore(store);
   applyStore(store);
   return keyStatus();
+};
+
+/**
+ * Popup gợi ý key lúc tạo video lần đầu — hiện một lần rồi thôi. Lưu trên server chứ không
+ * dùng localStorage: app desktop mở server ở cổng ngẫu nhiên, mỗi lần mở là một origin mới.
+ */
+const keyTipsPath = () => path.join(process.cwd(), "data", "key-tips-seen");
+
+export const keyTipsSeen = () => fs.existsSync(keyTipsPath());
+
+export const markKeyTipsSeen = () => {
+  fs.mkdirSync(path.dirname(keyTipsPath()), { recursive: true });
+  fs.writeFileSync(keyTipsPath(), new Date().toISOString());
 };

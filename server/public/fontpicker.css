@@ -1,0 +1,21 @@
+/* Ô chọn font — trình chỉnh sửa (server/editor/FontPicker.tsx) và trang 🔤 Phụ đề (subs.js) dùng chung markup này. */
+.fp { position: relative; min-width: 0; }
+.fp-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px;
+          background: var(--bg, #0e0f12); border: 1px solid var(--line, #2a2d35); border-radius: 9px; color: var(--text, #eee);
+          font-size: 15px; text-align: left; cursor: pointer; }
+.fp-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-btn i { font-style: normal; font-size: 11px; color: var(--muted, #999); }
+.fp-btn:hover, .fp-btn[aria-expanded="true"] { border-color: var(--line-2, #3a3e48); }
+.fp-list { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px); min-width: 240px; max-height: min(420px, 60vh);
+           overflow-y: auto; padding: 6px; background: var(--panel, #17191e); border: 1px solid var(--line-2, #3a3e48);
+           border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,.55); }
+.fp-list h5 { margin: 8px 8px 4px; font: 600 11px/1.3 -apple-system, system-ui, sans-serif; text-transform: uppercase;
+              letter-spacing: .04em; color: var(--muted, #999); }
+.fp-list h5:first-child { margin-top: 2px; }
+.fp-list button { width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 8px;
+                  background: transparent; border: 0; border-radius: 7px; color: var(--text, #eee); font-size: 17px; line-height: 1.35;
+                  text-align: left; cursor: pointer; }
+.fp-list button span { white-space: nowrap; }
+.fp-list button small { font-size: 13px; color: var(--muted, #999); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-list button:hover { background: var(--panel-2, #22252c); }
+.fp-list button.on { background: color-mix(in srgb, var(--accent, #e8590c) 22%, transparent); }

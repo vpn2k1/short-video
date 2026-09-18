@@ -25,12 +25,13 @@ import {
   listVideos,
   readVideo,
   voiceCatalog,
+  voiceSample,
   writeProps,
   writeScript,
 } from "./api";
 import {
-  createEditorProject, deleteProjects, isSlug, listProjects, readChat, readEditorProps, readMulti, startAutoSubtitles, startEditorRender,
-  startMultiScene, startTurn,
+  createEditorProject, deleteProjects, discardEditorDraft, isSlug, writeEditorProps, listProjects, readChat, readEditorProps, readMulti, startAutoSubtitles, startEditorRender,
+  saveChatDraft, saveMultiDraft, startMultiScene, startTurn,
   startVoiceChange,
 } from "./chat";
 import {
@@ -45,21 +46,27 @@ import { generateIdeas } from "../scripts/ideas";
 import { generatePostCopy, getPostCopy } from "../scripts/post-copy";
 import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
+import { getIconsJs } from "./icons";
+import { FONT_CATALOG, fontGroups } from "../src/fonts/catalog";
 import { captureFrame, deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
 import { deleteTrash, listTrash, restoreTrash, trashFilesDir } from "./app-trash";
-import { keyStatus, loadKeys, saveKeys } from "./keys";
+import { keyStatus, keyTipsSeen, loadKeys, markKeyTipsSeen, saveKeys } from "./keys";
 import { isStyleId, STYLE_IDS, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
 import { isScriptProvider, providerLabel, scriptProvider, scriptProviderCatalog } from "../scripts/generate-script";
 import { TRANSLATE_LANGUAGES, translateEngines } from "../scripts/translate";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
+import { artStyleCatalog } from "../scripts/image-prompts";
 import {
-  BILI_ORDERS, bilibiliDetail, downloadBilibili, isBvid, searchBilibili, toChineseKeywords, updateYtDlp, ytDlpVersion,
+  BILI_ORDERS, bilibiliDetail, downloadBilibili, isBvid, searchBilibiliTopic, toChineseKeywords, updateYtDlp, ytDlpVersion,
   type BiliOrder,
 } from "../scripts/bilibili";
 import { watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { getJob, startJob } from "./jobs";
+import { parseVersion } from "./versions";
+import { freeMode, usageSummary } from "../scripts/usage";
+import { downloadStock, isStockKind, isStockProvider, searchStock, stockProviders, type Orientation } from "../scripts/stock";
 import { pipelineStatus, runRenderStage, runVoiceStage } from "./pipeline";
 import { slugify } from "../scripts/slug";
 
@@ -94,6 +101,7 @@ const MIME: Record<string, string> = {
   ".m4a": "audio/mp4",
   ".aac": "audio/aac",
   ".ogg": "audio/ogg",
+  ".woff2": "font/woff2",
 };
 
 /** File người dùng được tải lên để dùng trong video. */
@@ -125,23 +133,77 @@ const readBody = (req: http.IncomingMessage) =>
 const readJson = async <T>(req: http.IncomingMessage): Promise<T> =>
   JSON.parse((await readBody(req)).toString("utf8") || "{}") as T;
 
-/** Chỉ cho phép đọc file bên trong thư mục cho trước — chặn ../ */
-const serveFile = (res: http.ServerResponse, base: string, rel: string) => {
-  const target = path.resolve(base, "." + decodeURIComponent(rel));
+/**
+ * Chỉ cho phép đọc file bên trong thư mục cho trước — chặn ../
+ * `media`: ảnh/video/âm thanh của video — hỗ trợ Range (trình duyệt và @remotion/media
+ * đọc video từng đoạn khi tua) và ETag để lần sau chỉ hỏi lại 304 thay vì tải lại cả file.
+ * Không có Range, mỗi thẻ <video> kéo nguyên file và giữ kết nối — trình duyệt chỉ mở
+ * 6 kết nối/host nên các request sau xếp hàng, xem trước bị đứng.
+ */
+const serveFile = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  base: string,
+  rel: string,
+  media = false,
+) => {
+  let target: string;
+  try {
+    target = path.resolve(base, "." + decodeURIComponent(rel));
+  } catch {
+    return send(res, 400, { error: "bad path" });
+  }
   // So kèm dấu phân cách — "/public" không được khớp nhầm "/publicX".
   if (!target.startsWith(path.resolve(base) + path.sep)) {
     return send(res, 403, { error: "forbidden" });
   }
-  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
+  const stat = fs.statSync(target, { throwIfNoEntry: false });
+  if (!stat?.isFile()) {
     return send(res, 404, { error: "not found" });
   }
-  res.writeHead(200, {
+
+  const size = stat.size;
+  // File sinh lại cùng tên (ảnh, giọng đọc) đổi mtime/size nên ETag đổi theo — không dính bản cũ.
+  const etag = `"${size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+  const headers: Record<string, string | number> = {
     "Content-Type": MIME[path.extname(target).toLowerCase()] ?? "application/octet-stream",
-    "Cache-Control": "no-store",
-  });
-  fs.createReadStream(target)
-    .on("error", () => res.destroy())
-    .pipe(res);
+    "Cache-Control": media ? "no-cache" : "no-store",
+    "Accept-Ranges": "bytes",
+    ...(media ? { ETag: etag, "Last-Modified": stat.mtime.toUTCString() } : {}),
+  };
+
+  if (media && req.headers["if-none-match"] === etag) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+
+  let start = 0;
+  let end = size - 1;
+  let status = 200;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? "");
+  if (range && (range[1] || range[2])) {
+    if (range[1]) {
+      start = Number(range[1]);
+      if (range[2]) end = Math.min(Number(range[2]), size - 1);
+    } else {
+      // "bytes=-N": N byte cuối file.
+      start = Math.max(0, size - Number(range[2]));
+    }
+    if (start > end || start >= size) {
+      res.writeHead(416, { ...headers, "Content-Range": `bytes */${size}` });
+      return res.end();
+    }
+    status = 206;
+    headers["Content-Range"] = `bytes ${start}-${end}/${size}`;
+  }
+  headers["Content-Length"] = size === 0 ? 0 : end - start + 1;
+
+  res.writeHead(status, headers);
+  if (req.method === "HEAD" || size === 0) return res.end();
+  const stream = fs.createReadStream(target, { start, end });
+  // Trình duyệt huỷ request khi tua/đổi video — đóng file ngay, không đọc tiếp vô ích.
+  res.on("close", () => stream.destroy());
+  stream.on("error", () => res.destroy()).pipe(res);
 };
 
 const server = http.createServer(async (req, res) => {
@@ -162,10 +224,10 @@ const server = http.createServer(async (req, res) => {
   try {
     // ---- file tĩnh ----
     if (route === "/" || route === "/index.html") {
-      return serveFile(res, publicDir, "/index.html");
+      return serveFile(req, res, publicDir, "/index.html");
     }
     // Trình chỉnh sửa: JS + CSS đóng gói lúc chạy (xem editor-build.ts).
-    if (route === "/editor/app.js" || route === "/editor/tailwind.css") {
+    if (route === "/editor/app.js" || route === "/editor/crop.js" || route === "/editor/tailwind.css") {
       try {
         const assets = await getEditorAssets();
         const isJs = route.endsWith(".js");
@@ -173,24 +235,29 @@ const server = http.createServer(async (req, res) => {
           "Content-Type": MIME[isJs ? ".js" : ".css"],
           "Cache-Control": "no-store",
         });
-        return res.end(isJs ? assets.js : assets.css);
+        return res.end(route === "/editor/crop.js" ? assets.cropJs : isJs ? assets.js : assets.css);
       } catch (error) {
         return send(res, 500, {
           error: `Không đóng gói được trình chỉnh sửa: ${error instanceof Error ? error.message : error}`,
         });
       }
     }
+    // Icon Lucide cho các trang không dùng React — chỉ gồm icon trang thật sự dùng (server/icons.ts).
+    if (route === "/icons.js") {
+      res.writeHead(200, { "Content-Type": MIME[".js"], "Cache-Control": "no-store" });
+      return res.end(getIconsJs());
+    }
     // Mọi file khác trong server/public (app.js, css…)
     if (!route.startsWith("/api/") && !route.startsWith("/out/") &&
         !route.startsWith("/public/") &&
         fs.existsSync(path.join(publicDir, "." + route))) {
-      return serveFile(res, publicDir, route);
+      return serveFile(req, res, publicDir, route);
     }
     if (route.startsWith("/out/")) {
-      return serveFile(res, path.join(process.cwd(), "out"), route.slice(4));
+      return serveFile(req, res, path.join(process.cwd(), "out"), route.slice(4), true);
     }
     if (route.startsWith("/public/")) {
-      return serveFile(res, path.join(process.cwd(), "public"), route.slice(7));
+      return serveFile(req, res, path.join(process.cwd(), "public"), route.slice(7), true);
     }
 
     // ---- API ----
@@ -202,11 +269,17 @@ const server = http.createServer(async (req, res) => {
         audio: listAudio(),
         compositions: ["Short", "LongVideo", "Explainer"],
         styles: STYLE_IDS.map((id) => STYLES[id]),
+        /** Kiểu vẽ khi AI vẽ ảnh / tạo clip (3D, hoạt hình…) — ghép với mọi phong cách. */
+        artStyles: artStyleCatalog(),
         ...(({ models, defaultModel }) => ({ videoModels: models, videoDefault: defaultModel }))(videoModelCatalog()),
         /** AI viết kịch bản chọn được cho từng video (nhà cung cấp + model theo Cài đặt). */
         scriptProviders: scriptProviderCatalog(),
+        /** 💚 Chế độ Miễn phí: giao diện khoá các lựa chọn tính tiền. */
+        freeMode: freeMode(),
         /** Watermark theo Cài đặt — trình chỉnh sửa gắn vào khung xem trước. */
         watermark: watermarkFromSettings(),
+        /** Đã hiện popup gợi ý key lúc tạo video lần đầu. */
+        keyTipsSeen: keyTipsSeen(),
         keys: {
           /** Có key của một nhà cung cấp viết kịch bản nào đó (kể cả gói miễn phí). */
           script: Boolean(scriptProvider()),
@@ -218,12 +291,22 @@ const server = http.createServer(async (req, res) => {
           groq: Boolean(process.env.GROQ_API_KEY),
           openrouter: Boolean(process.env.OPENROUTER_API_KEY),
           elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
-          pexels: Boolean(process.env.PEXELS_API_KEY),
+          /** Có nguồn ảnh/clip miễn phí (Pexels hoặc Pixabay) — giữ tên cũ cho các chỗ đang kiểm tra. */
+          pexels: Boolean(process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY),
+          pixabay: Boolean(process.env.PIXABAY_API_KEY),
+          freesound: Boolean(process.env.FREESOUND_API_KEY),
+          /** Vẽ ảnh FLUX miễn phí qua Cloudflare — dùng cả khi bật chế độ Miễn phí. */
+          flux: Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN),
           gemini: Boolean(process.env.GEMINI_API_KEY),
           fal: Boolean(process.env.FAL_KEY),
           replicate: Boolean(process.env.REPLICATE_API_TOKEN),
         },
       });
+    }
+
+    /** Lượt gọi AI hôm nay + lần gần nhất bị chặn vì hạn mức — hiện trong ⚙ Cài đặt. */
+    if (route === "/api/usage") {
+      return send(res, 200, { ...usageSummary(), freeMode: freeMode() });
     }
 
     /** Model dịch phụ đề dùng được — hỏi thật Ollama, nên gọi lại khi người dùng bấm "Kiểm tra lại". */
@@ -232,6 +315,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- cài đặt API key ----
+    if (route === "/api/key-tips/seen" && req.method === "POST") {
+      markKeyTipsSeen();
+      return send(res, 200, { ok: true });
+    }
     if (route === "/api/keys") {
       if (req.method === "POST") {
         try {
@@ -352,7 +439,7 @@ const server = http.createServer(async (req, res) => {
       const [id, ...rest] = route.slice("/api/trash/file/".length).split("/");
       const dir = trashFilesDir(id);
       if (!dir || rest.length !== 1) return send(res, 404, { error: "not found" });
-      return serveFile(res, dir, `/${rest[0]}`);
+      return serveFile(req, res, dir, `/${rest[0]}`, true);
     }
 
     // Cắt khung hình đang xem thành ảnh (nút 📷 trên timeline).
@@ -375,6 +462,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- video nhiều cảnh: mỗi cảnh một prompt ----
+    // Bản nháp chưa gửi (ô chat, danh sách cảnh) — lưu liên tục để tắt app/mất điện không mất.
+    if ((route === "/api/chat/draft" || route === "/api/multi/draft") && req.method === "POST") {
+      try {
+        const body = await readJson(req);
+        return send(res, 200, route === "/api/chat/draft" ? saveChatDraft(body) : saveMultiDraft(body));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
     if (route === "/api/multi" && req.method === "POST") {
       try {
         return send(res, 200, startMultiScene(await readJson(req)));
@@ -433,18 +530,26 @@ const server = http.createServer(async (req, res) => {
       if (!isSlug(slug)) {
         return send(res, 400, { error: "Tên video không hợp lệ" });
       }
+      // ?version=n: bản đang mở trong trình chỉnh sửa (bỏ trống = bản mới nhất). Xem server/versions.ts.
+      const version = parseVersion(url.searchParams.get("version"));
       try {
         if (action === "render" && req.method === "POST") {
-          return send(res, 200, startEditorRender(slug));
+          return send(res, 200, startEditorRender(slug, version));
         }
         if (action === "voice" && req.method === "POST") {
-          return send(res, 200, startVoiceChange(slug, await readJson(req)));
+          return send(res, 200, startVoiceChange(slug, await readJson(req), version));
         }
         if (action === "subtitles" && req.method === "POST") {
-          return send(res, 200, startAutoSubtitles(slug, await readJson(req)));
+          return send(res, 200, startAutoSubtitles(slug, await readJson(req), version));
+        }
+        if (action === "save" && req.method === "POST") {
+          return send(res, 200, writeEditorProps(slug, version, await readJson(req)));
+        }
+        if (action === "discard" && req.method === "POST") {
+          return send(res, 200, discardEditorDraft(slug, version));
         }
         if (!action && req.method === "GET") {
-          return send(res, 200, readEditorProps(slug));
+          return send(res, 200, readEditorProps(slug, version));
         }
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
@@ -485,6 +590,10 @@ const server = http.createServer(async (req, res) => {
         look: DEFAULT_CAPTION_LOOK,
         templates: CAPTION_TEMPLATES,
         fonts: CAPTION_FONT_LABELS,
+        // Ô chọn font của trang phụ đề: font-family từng font và thứ tự nhóm (src/fonts/catalog.ts).
+        fontStacks: Object.fromEntries(Object.entries(FONT_CATALOG).map(([id, info]) => [id, info.stack])),
+        singleWeight: Object.entries(FONT_CATALOG).filter(([, info]) => "singleWeight" in info).map(([id]) => id),
+        fontGroups: fontGroups().map(([label, ids]) => ({ label, ids })),
         presets: CAPTION_PRESET_LABELS,
       });
     }
@@ -562,8 +671,8 @@ const server = http.createServer(async (req, res) => {
           });
         }
         if (req.method === "POST") {
-          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown }>(req);
-          if (action === "restyle") return send(res, 200, restyleSubs(id, body.look));
+          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown }>(req);
+          if (action === "restyle") return send(res, 200, restyleSubs(id, body.look, body.looks));
           if (action === "edit") return send(res, 200, editItem(id, body));
           if (action === "start") return send(res, 200, startBatch(id));
           if (action === "pause") return send(res, 200, pauseBatch(id));
@@ -639,6 +748,16 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { stages: pipelineStatus(route.split("/")[3]) });
     }
 
+    // Nghe thử giọng trước khi chọn: { voice } → { url, durationMs }. Xem voiceSample trong server/api.ts.
+    if (route === "/api/voice/sample" && req.method === "POST") {
+      try {
+        const { voice } = await readJson<{ voice?: unknown }>(req);
+        return send(res, 200, await voiceSample(String(voice ?? "")));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
     if (route === "/api/stage/voice" && req.method === "POST") {
       const body = await readJson<{
         slug: string; voice?: string; music?: string | null;
@@ -681,6 +800,31 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { jobId: job.id });
     }
 
+    // ---- 🆓 kho ảnh, video, nhạc miễn phí (scripts/stock.ts) ----
+    if (route === "/api/stock/providers") {
+      return send(res, 200, { providers: stockProviders() });
+    }
+
+    if (route === "/api/stock/search") {
+      const kind = url.searchParams.get("kind");
+      const orientation = url.searchParams.get("orientation");
+      if (!isStockKind(kind)) return send(res, 400, { error: "Loại media không hợp lệ" });
+      return send(res, 200, await searchStock(
+        kind,
+        url.searchParams.get("q") ?? "",
+        (["portrait", "landscape", "square", "any"] as const).includes(orientation as Orientation) ? orientation as Orientation : "any",
+        Math.max(1, Math.min(20, Number(url.searchParams.get("page")) || 1)),
+      ));
+    }
+
+    if (route === "/api/stock/download" && req.method === "POST") {
+      const body = await readJson<{ provider?: string; kind?: string; id?: string }>(req);
+      if (!isStockProvider(body.provider) || !isStockKind(body.kind) || typeof body.id !== "string") {
+        return send(res, 400, { error: "Media không hợp lệ" });
+      }
+      return send(res, 200, await downloadStock(body.provider, body.kind, body.id));
+    }
+
     if (route === "/api/pexels/search") {
       const query = url.searchParams.get("q") ?? "";
       if (!query.trim()) {
@@ -697,7 +841,8 @@ const server = http.createServer(async (req, res) => {
     // ---- tư liệu Bilibili: chỉ video tác giả ghi rõ cho phép dùng (xem scripts/bilibili.ts) ----
     if (route === "/api/bilibili/search") {
       const order = url.searchParams.get("order");
-      return send(res, 200, await searchBilibili(
+      // Gõ chủ đề tiếng Việt: tự dịch, tìm vài biến thể từ khoá tư liệu, lọc đúng chủ đề (scripts/bilibili.ts).
+      return send(res, 200, await searchBilibiliTopic(
         url.searchParams.get("q") ?? "",
         Number(url.searchParams.get("page")) || 1,
         BILI_ORDERS.includes(order as BiliOrder) ? (order as BiliOrder) : "totalrank",
@@ -712,7 +857,7 @@ const server = http.createServer(async (req, res) => {
 
     if (route === "/api/bilibili/translate" && req.method === "POST") {
       const body = await readJson<{ text?: string }>(req);
-      return send(res, 200, { keywords: await toChineseKeywords(body.text ?? "") });
+      return send(res, 200, await toChineseKeywords(body.text ?? ""));
     }
 
     if (route === "/api/bilibili/download" && req.method === "POST") {

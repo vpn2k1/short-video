@@ -2,6 +2,7 @@ import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { HEIGHT, WIDTH } from "../src/constants";
+import { describeProviderError } from "./provider-error";
 
 const API = "https://api.pexels.com";
 
@@ -30,7 +31,7 @@ export const searchPhotos = async (query: string, perPage = 10) => {
   const url = `${API}/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&orientation=portrait&size=large`;
   const response = await fetch(url, { headers: { Authorization: apiKey() } });
   if (!response.ok) {
-    throw new Error(`Pexels trả về ${response.status}: ${await response.text()}`);
+    throw new Error(describeProviderError("Pexels", response.status, await response.text(), "hoặc chọn nguồn hình khác"));
   }
   const body = (await response.json()) as { photos?: PexelsPhoto[] };
   return body.photos ?? [];
