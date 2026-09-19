@@ -3210,6 +3210,20 @@ function bindBatch() {
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
   $("batchPostCopy").addEventListener("click", startBatchPostCopy);
   $("batchCheck").addEventListener("click", startBatchCheck);
+  // Menu Công cụ: bấm một mục thì đóng menu (trừ Xuất thêm khung — mở menu con ngay cạnh nút của nó).
+  const toolsPanel = $("batchToolsPanel");
+  const setTools = (open) => {
+    toolsPanel.hidden = !open;
+    $("batchToolsBtn").setAttribute("aria-expanded", String(open));
+  };
+  $("batchToolsBtn").addEventListener("click", (e) => { e.stopPropagation(); setTools(toolsPanel.hidden); });
+  toolsPanel.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b && b.id !== "batchExports") setTools(false);
+  });
+  document.addEventListener("click", (e) => {
+    if (!toolsPanel.hidden && !e.target.closest(".bt-tools") && !e.target.closest("#menu")) setTools(false);
+  });
   $("batchFix").addEventListener("click", () =>
     runBatchJob("fix", $("batchFix"), (run) => `Đang sửa ${run.done + run.failed}/${run.total}…`));
   $("batchCovers").addEventListener("click", startBatchCovers);
@@ -4384,6 +4398,19 @@ function renderBatchRun() {
       : `${icon("image")} Tạo ảnh bìa (${doneItems.length - covered})`;
   }
 
+  // Nút Công cụ: ẩn khi mọi mục bên trong đều ẩn; có việc nền đang chạy thì quay; có video cần sửa thì báo số.
+  const toolIds = [...$("batchToolsPanel").querySelectorAll("button")];
+  $("batchToolsBtn").hidden = toolIds.every((b) => b.hidden);
+  $("batchToolsPanel").querySelectorAll(".bt-tools-group").forEach((g) => {
+    let el = g.nextElementSibling;
+    let any = false;
+    while (el && !el.classList.contains("bt-tools-group")) { if (!el.hidden) any = true; el = el.nextElementSibling; }
+    g.hidden = !any;
+  });
+  const busyJobs = [...batchJobBusy].filter((id) => $("batchToolsPanel").contains($(id))).length;
+  const toFix = (b.items ?? []).filter((it) => it.status === "done" && it.qa?.issues.some((x) => x.fix)).length;
+  $("batchToolsLabel").textContent = busyJobs ? "Công cụ · đang chạy" : toFix ? `Công cụ · ${toFix} cần sửa` : "Công cụ";
+
   // Cả loạt vừa xong → báo một lần, vì người dùng thường để chạy rồi đi làm việc khác.
   if (batchWasRunning && b.state === "done") notifyBatchDone(b);
   batchWasRunning = b.state === "running";
@@ -4898,6 +4925,8 @@ async function runBatchJob(action, button, label, body = {}) {
     let { run } = await postJson(`/api/batch/${id}/${action}`, body);
     const tick = () => {
       button.innerHTML = `${icon("loader-circle", "spin")} ${label(run)}`;
+      // Nút nằm trong menu Công cụ (thường đang đóng): hiện tiến độ ngay trên nút Công cụ.
+      if ($("batchToolsPanel").contains(button)) $("batchToolsLabel").textContent = `Công cụ · ${label(run)}`;
       if (!run.running) return finish(run);
       setTimeout(async () => {
         try { ({ run } = await api(`/api/batch/${id}/${action}`)); } catch { /* thử lại ở nhịp sau */ }

@@ -829,6 +829,14 @@
   .bt-errgroup b { font-weight: 600; }
   .bt-errgroup .muted { flex: 1 1 260px; }
   .bt-errgroup .btn { padding: 4px 10px; font-size: 12.5px; }
+  .bt-tools { position: relative; }
+  .bt-tools-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 260px; padding: 6px;
+                    background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.45);
+                    display: flex; flex-direction: column; gap: 2px; }
+  .bt-tools-panel[hidden] { display: none; }
+  .bt-tools-panel .btn { justify-content: flex-start; border-color: transparent; background: transparent; width: 100%; text-align: left; }
+  .bt-tools-panel .btn:hover:not(:disabled) { background: var(--panel-2); }
+  .bt-tools-group { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); padding: 8px 10px 2px; }
   .bt-qa-fixable { font-size: 11px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
   .bt-qa-fix { align-self: flex-start; padding: 4px 10px; font-size: 12.5px; }
   .bt-qa-list li.error { color: var(--err, #ef4444); }
@@ -1439,15 +1447,24 @@ Lưu lại để làm theo nhé!</pre>
         <button type="button" class="btn" id="batchUnschedule" hidden><i data-icon="alarm-clock-off"></i> Huỷ hẹn</button>
         <button type="button" class="btn primary" id="batchApproveAll" hidden><i data-icon="check"></i> Duyệt tất cả</button>
         <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
-        <button type="button" class="btn" id="batchFix" hidden title="Chuẩn hoá âm lượng, kéo chữ lấn vùng che vào vùng an toàn — mỗi video lưu thành bản mới"><i data-icon="wand-sparkles"></i> Sửa tự động</button>
-        <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>
-        <button type="button" class="btn" id="batchExports" hidden aria-haspopup="listbox" aria-expanded="false"><i data-icon="ratio"></i> Xuất thêm khung</button>
-        <button type="button" class="btn" id="batchResults" hidden title="Nhập lượt xem, tỉ lệ xem hết… sau khi đăng — xếp hạng video, so hook thắng"><i data-icon="chart-column"></i> Kết quả</button>
-        <button type="button" class="btn" id="batchClone" hidden title="Tạo loạt mới: mọi video của loạt này sang ngôn ngữ, khung hay giọng khác"><i data-icon="copy-plus"></i> Nhân cả loạt</button>
-        <button type="button" class="btn" id="batchPlan2" hidden title="Rải video ra nhiều ngày, xuất file lịch .ics kèm bài đăng"><i data-icon="calendar-days"></i> Lịch đăng</button>
-        <button type="button" class="btn" id="batchBrand" hidden title="Ghép đoạn mở đầu / kết thúc chung (logo, lời kêu gọi theo dõi) vào mọi video"><i data-icon="clapperboard"></i> Mở đầu / kết thúc</button>
-        <button type="button" class="btn" id="batchCovers" hidden title="Ảnh bìa từng video: tiêu đề to trên ảnh cảnh đầu, đúng khung video — có trong gói Tải tất cả"><i data-icon="image"></i> Tạo ảnh bìa</button>
-        <button type="button" class="btn" id="batchPostCopy" hidden title="AI viết tiêu đề, caption, hashtag cho từng video đã xong — có trong CSV và file .txt khi tải cả loạt"><i data-icon="megaphone"></i> Viết bài đăng</button>
+        <div class="bt-tools">
+          <button type="button" class="btn" id="batchToolsBtn" aria-haspopup="true" aria-expanded="false"><i data-icon="wrench"></i> <span id="batchToolsLabel">Công cụ</span> <i data-icon="chevron-down"></i></button>
+          <div class="bt-tools-panel" id="batchToolsPanel" hidden>
+            <div class="bt-tools-group">Chất lượng</div>
+            <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>
+            <button type="button" class="btn" id="batchFix" hidden title="Chuẩn hoá âm lượng, kéo chữ lấn vùng che vào vùng an toàn — mỗi video lưu thành bản mới"><i data-icon="wand-sparkles"></i> Sửa tự động</button>
+            <div class="bt-tools-group">Chuẩn bị đăng</div>
+            <button type="button" class="btn" id="batchCovers" hidden title="Ảnh bìa từng video: tiêu đề to trên ảnh cảnh đầu, đúng khung video — có trong gói Tải tất cả"><i data-icon="image"></i> Tạo ảnh bìa</button>
+            <button type="button" class="btn" id="batchPostCopy" hidden title="AI viết tiêu đề, caption, hashtag cho từng video đã xong — có trong CSV và file .txt khi tải cả loạt"><i data-icon="megaphone"></i> Viết bài đăng</button>
+            <button type="button" class="btn" id="batchBrand" hidden title="Ghép đoạn mở đầu / kết thúc chung (logo, lời kêu gọi theo dõi) vào mọi video"><i data-icon="clapperboard"></i> Mở đầu / kết thúc</button>
+            <button type="button" class="btn" id="batchExports" hidden aria-haspopup="listbox" aria-expanded="false"><i data-icon="ratio"></i> Xuất thêm khung</button>
+            <div class="bt-tools-group">Đăng và theo dõi</div>
+            <button type="button" class="btn" id="batchPlan2" hidden title="Rải video ra nhiều ngày, xuất file lịch .ics kèm bài đăng"><i data-icon="calendar-days"></i> Lịch đăng</button>
+            <button type="button" class="btn" id="batchResults" hidden title="Nhập lượt xem, tỉ lệ xem hết… sau khi đăng — xếp hạng video, so hook thắng"><i data-icon="chart-column"></i> Kết quả</button>
+            <div class="bt-tools-group">Mở rộng</div>
+            <button type="button" class="btn" id="batchClone" hidden title="Tạo loạt mới: mọi video của loạt này sang ngôn ngữ, khung hay giọng khác"><i data-icon="copy-plus"></i> Nhân cả loạt</button>
+          </div>
+        </div>
         <a class="btn" id="batchZip" hidden download><i data-icon="download"></i> Tải tất cả</a>
         <a class="btn" id="batchCsv" hidden download title="Bảng theo dõi để đăng bài (mở bằng Excel, Google Sheets)"><i data-icon="file-spreadsheet"></i> CSV</a>
         <button type="button" class="icon-btn" id="batchDelete" title="Xoá loạt này" aria-label="Xoá loạt này"><i data-icon="trash-2"></i></button>
