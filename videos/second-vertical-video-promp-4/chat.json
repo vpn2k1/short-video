@@ -1,0 +1,33 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Dựng video từ file 1789724670539-second-vertical-video-promp-4.mp4",
+      "at": 1789724738220,
+      "attachments": [
+        "uploads/1789724670539-second-vertical-video-promp-4.mp4"
+      ]
+    },
+    {
+      "role": "assistant",
+      "at": 1789724782667,
+      "text": "Đã dựng “second-vertical-video-promp-4 en+vi” từ file thu sẵn · 31.0s",
+      "mp4": "/out/versions/second-vertical-video-promp-4/v1.mp4?t=1789724782987",
+      "aspect": "9:16",
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "text",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto"
+  }
+}

@@ -156,6 +156,11 @@ const COUNTDOWN_MIN_LEAD = 24;
 const COUNTDOWN_MAX = 90;
 /** Ngắn hơn chừng này (≈ 0.4 s) thì bỏ đồng hồ — nháy một con số vô nghĩa. */
 const COUNTDOWN_MIN = 12;
+/**
+ * Khoảng lặng trước câu đáp án dài ít nhất chừng này (≈ 2 s) thì đếm trong khoảng lặng đó. Video dựng từ khi
+ * timeline chừa QUIZ_THINK_MS (3 s) đều có; video cũ các câu dính liền nhau thì đếm kiểu cũ.
+ */
+const QUIET_MIN = 60;
 
 /**
  * Suy cấu trúc câu đố từ caption của cảnh:
@@ -215,10 +220,20 @@ export const analyzeScenes = (scenes: Scene[], captions: Caption[], showTitle: b
       questionItems.length ? msToFrames(questionItems[0].c.startMs) : enter,
     );
 
-    const revealFrame = punch ? Math.max(msToFrames(punch.atMs), enter + 10) : null;
+    let revealFrame = punch ? Math.max(msToFrames(punch.atMs), enter + 10) : null;
 
     let countdown: SceneInfo["countdown"] = null;
-    if (revealFrame !== null) {
+    // Khoảng lặng giữa câu trước đáp án và câu đáp án: đếm 3·2·1 đúng giây thật trong đó (không đè lên lời đọc),
+    // đếm xong thì lật thẻ ngay lúc giọng bắt đầu đọc đáp án.
+    const quietFrom = answerPos > 0 ? msToFrames(own[answerPos - 1].c.endMs) : null;
+    const quietTo = answerPos > 0 ? msToFrames(own[answerPos].c.startMs) : null;
+    if (revealFrame !== null && quietFrom !== null && quietTo !== null && quietTo - quietFrom >= QUIET_MIN) {
+      const from = Math.max(enter + COUNTDOWN_MIN_LEAD, quietFrom, quietTo - COUNTDOWN_MAX);
+      if (quietTo - from >= COUNTDOWN_MIN) {
+        countdown = { from, to: quietTo };
+        revealFrame = quietTo;
+      }
+    } else if (revealFrame !== null) {
       const from = Math.max(enter + COUNTDOWN_MIN_LEAD, revealFrame - COUNTDOWN_MAX);
       if (revealFrame - from >= COUNTDOWN_MIN) countdown = { from, to: revealFrame };
     }

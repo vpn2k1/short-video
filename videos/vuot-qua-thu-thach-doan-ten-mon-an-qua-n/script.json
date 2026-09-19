@@ -1,0 +1,75 @@
+{
+  "style": "quiz",
+  "title": "Thử thách đoán món ăn",
+  "subtitle": "5 câu hỏi ẩm thực siêu nhanh",
+  "handle": "@thutachamthuc",
+  "accent": "#FFD700",
+  "background": "#1A1A1A",
+  "scenes": [
+    {
+      "lines": [
+        "90% người trả lời sai câu cuối!",
+        "Món phở truyền thống dùng sợi gì?",
+        "Suy nghĩ 3 giây nhé...",
+        "Đáp án là phở bún phở bánh phở."
+      ],
+      "image": "uploads/stock/pexels-image-35517015.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "90%",
+        "caption": "người trả lời sai"
+      },
+      "tag": "CÂU 1",
+      "punch": "bánh phở"
+    },
+    {
+      "lines": [
+        "Món bún bò đặc sản xứ nào?",
+        "Đoán nhanh nào...",
+        "Đáp án là Huế."
+      ],
+      "image": "uploads/stock/pexels-image-39393268.jpg",
+      "visual": null,
+      "tag": "CÂU 2",
+      "punch": "Huế"
+    },
+    {
+      "lines": [
+        "Bánh xèo có màu vàng nhờ gì?",
+        "Bạn chọn gì?",
+        "Đáp án là nghệ."
+      ],
+      "image": "uploads/stock/pexels-image-39030442.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Câu khó",
+        "caption": null
+      },
+      "tag": "CÂU 3",
+      "punch": "nghệ"
+    },
+    {
+      "lines": [
+        "Nem rán miền Bắc gọi là gì?",
+        "Đoán xem nào...",
+        "Đáp án là chả giò."
+      ],
+      "image": "uploads/stock/pexels-image-1791376.jpg",
+      "visual": null,
+      "tag": "CÂU 4",
+      "punch": "chả giò"
+    },
+    {
+      "lines": [
+        "Nước chấm bánh cuốn làm từ gì?",
+        "Suy nghĩ 3 giây nhé...",
+        "Đáp án là nước mắm.",
+        "Bạn đúng mấy câu? Bình luận nhé!"
+      ],
+      "image": "uploads/stock/pexels-image-6009475.jpg",
+      "visual": null,
+      "tag": "CÂU 5",
+      "punch": "nước mắm"
+    }
+  ]
+}

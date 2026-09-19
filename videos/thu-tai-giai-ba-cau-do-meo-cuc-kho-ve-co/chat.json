@@ -1,0 +1,59 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Thử tài giải ba câu đố mẹo cực khó về con vật trong mười giây",
+      "at": 1789719995459
+    },
+    {
+      "role": "assistant",
+      "at": 1789720232354,
+      "text": "Đã tạo \"Thử tài đố mẹo\" · 🧠 Câu đố · 3 cảnh · 21.8s\n🎙 giọng truc-ly · không nhạc nền\n🖼 3/3 cảnh có hình từ kho ảnh miễn phí · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "quiz",
+      "mp4": "/out/versions/thu-tai-giai-ba-cau-do-meo-cuc-kho-ve-co/v1.mp4?t=1789720232453",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Chỉ một trong mười người đúng hết ba câu!",
+            "Con gì mang nhà đi khắp mọi nơi?",
+            "Suy nghĩ ba giây nhé.",
+            "Đáp án là con ốc sên."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Con gì sinh ra đã có bốn chân?",
+            "Đoán nhanh nào.",
+            "Đáp án là con cua."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Con gì không gáy mà ai cũng gọi là gà?",
+            "Bạn chọn gì?",
+            "Đáp án là gà trống giò.",
+            "Bạn đúng mấy câu? Bình luận nhé!"
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "quiz",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "truc-ly",
+    "music": null,
+    "video": "",
+    "provider": "gemini",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto"
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "title": "Gửi tôi của 10 năm trước",
+  "subtitle": "Những điều ước gì mình biết sớm hơn",
+  "handle": "@kenh",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "captions": [
+    {
+      "text": "Chào cậu, mình là cậu của mười năm sau.",
+      "startMs": 2483,
+      "endMs": 4883,
+      "audio": "voices/gui-toi-cua-10-nam-truoc/line-01.mp3"
+    },
+    {
+      "text": "Có vài điều mình muốn kể.",
+      "startMs": 5033,
+      "endMs": 6633,
+      "audio": "voices/gui-toi-cua-10-nam-truoc/line-02.mp3"
+    },
+    {
+      "text": "Đừng sợ bắt đầu từ con số không.",
+      "startMs": 6783,
+      "endMs": 8703,
+      "audio": "voices/gui-toi-cua-10-nam-truoc/line-03.mp3"
+    },
+    {
+      "text": "Ai cũng từng vụng về lúc đầu.",
+      "startMs": 8853,
+      "endMs": 10613,
+      "audio": "voices/gui-toi-cua-10-nam-truoc/line-04.mp3"
+    },
+    {
+      "text": "Nghe thì ít, nhưng mười năm là cả một thư viện.",
+      "startMs": 10763,
+      "endMs": 13483,
+      "audio": "voices/gui-toi-cua-10-nam-truoc/line-05.mp3"
+    },
+    {
+      "text": "Cảm ơn cậu đã không bỏ cuộc.",
+      "startMs": 13633,
+      "endMs": 15313,
+      "audio": "voices/gui-toi-cua-10-nam-truoc/line-06.mp3"
+    },
+    {
+      "text": "Hẹn gặp ở phía trước nhé.",
+      "startMs": 15463,
+      "endMs": 16983,
+      "audio": "voices/gui-toi-cua-10-nam-truoc/line-07.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "pen",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-7525223.jpg",
+      "visual": null,
+      "tag": "Hà Nội, một tối",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 6783
+    },
+    {
+      "image": "uploads/stock/pexels-image-28377956.jpg",
+      "visual": null,
+      "tag": "Điều thứ nhất",
+      "punch": {
+        "text": "vụng về lúc đầu",
+        "atMs": 9642
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 6783,
+      "endMs": 10763
+    },
+    {
+      "image": "uploads/stock/pexels-image-15516547.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "10 phút",
+        "caption": "đọc sách mỗi tối"
+      },
+      "tag": "Điều thứ hai",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 10763,
+      "endMs": 13633
+    },
+    {
+      "image": "uploads/stock/pexels-image-8728173.jpg",
+      "visual": null,
+      "tag": "Thân ái",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 13633,
+      "endMs": 17133
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": "music/stock/freesound-music-746454.mp3",
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

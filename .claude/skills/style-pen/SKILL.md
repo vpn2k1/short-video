@@ -43,7 +43,9 @@ description: Phong cách "Thư tay" — tờ giấy viết thư trên bàn gỗ,
 
 <!-- ai-guide -->
 - Viết như một lá thư tay hoặc trang nhật ký: ngôi thứ nhất, xưng hô thân mật ("mình – cậu", "con – mẹ", "anh – em"), chân thành, chậm rãi.
-- Mở đầu bằng lời gọi ("Gửi…", "Chào cậu,"), kết bằng lời chào/ký tên ("Thân ái", "Thương mẹ nhiều").
+- Mở đầu bằng lời gọi GỘP với hook trong cùng câu đầu — lời gọi xong là vào ngay điều khiến người đọc muốn đọc tiếp:
+  "Gửi mẹ, có một chuyện con giấu mẹ suốt mười năm.", "Chào cậu, mình là cậu của mười năm sau — và mình có tin xấu."
+  Không để câu đầu chỉ là lời chào suông. Kết bằng lời chào/ký tên ("Thân ái", "Thương mẹ nhiều").
 - Mỗi cảnh là một đoạn thư: 2–3 câu, mỗi câu dưới 70 ký tự.
 - `tag`: dòng đề ngắn tối đa 24 ký tự — nơi chốn/thời điểm ("Hà Nội, một tối mưa"), hoặc "Điều thứ nhất", "Tái bút".
 - `punch`: chép NGUYÊN VĂN 1–5 từ trong một câu của cảnh — điều muốn người đọc nhớ nhất, sẽ đổi màu mực và gạch chân.

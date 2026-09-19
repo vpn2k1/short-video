@@ -5,6 +5,7 @@
  * xác định, và dùng đúng font hệ thống lúc render. Kết quả được cache theo chuỗi.
  */
 import { FONTS } from "../shared";
+import { wordTokens } from "../tokens";
 
 export const WORD_FONT = FONTS.sans;
 export const WORD_WEIGHT = 900;
@@ -61,11 +62,8 @@ const strip = (s: string) => s.normalize("NFC").toLocaleLowerCase("vi");
 export const splitWords = (text: string, punchText: string | null): Word[] => {
   const source = text.normalize("NFC");
   const words: Word[] = [];
-  const re = /\S+/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(source))) {
-    words.push({ text: upper(m[0]), offset: m.index, punch: false });
-  }
+  // Tách theo từ — tiếng Nhật/Trung không có dấu cách thì cắt bằng Intl.Segmenter (src/styles/tokens.ts).
+  for (const t of wordTokens(source)) words.push({ text: upper(t.text), offset: t.offset, punch: false });
   if (punchText) {
     const needle = strip(punchText).trim().replace(/[.,!?;:…]+$/u, "");
     const at = needle ? strip(source).indexOf(needle) : -1;

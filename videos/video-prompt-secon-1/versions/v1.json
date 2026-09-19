@@ -1,0 +1,282 @@
+{
+  "title": "Is there a coffee shop near here?",
+  "subtitle": "",
+  "handle": "@kenh",
+  "accent": "#e8590c",
+  "background": "#0b0b12",
+  "captions": [
+    {
+      "text": "Is there a coffee shop near here?",
+      "startMs": 1132,
+      "endMs": 3303,
+      "audio": null
+    },
+    {
+      "text": "Yes, there is one nearby.",
+      "startMs": 5183,
+      "endMs": 6774,
+      "audio": null
+    },
+    {
+      "text": "Great.",
+      "startMs": 7458,
+      "endMs": 8158,
+      "audio": null
+    },
+    {
+      "text": "Are there any chairs in the kitchen?",
+      "startMs": 11785,
+      "endMs": 13292,
+      "audio": null
+    },
+    {
+      "text": "Yes, there are two chairs.",
+      "startMs": 14488,
+      "endMs": 15962,
+      "audio": null
+    },
+    {
+      "text": "Perfect.",
+      "startMs": 17736,
+      "endMs": 18436,
+      "audio": null
+    },
+    {
+      "text": "Quick quiz.",
+      "startMs": 20232,
+      "endMs": 20932,
+      "audio": null
+    },
+    {
+      "text": "Which sentence is correct?",
+      "startMs": 21524,
+      "endMs": 22794,
+      "audio": null
+    },
+    {
+      "text": "Có quán cà phê nào gần đây không?",
+      "startMs": 1132,
+      "endMs": 3303,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Có, có một quán ở gần đây.",
+      "startMs": 5183,
+      "endMs": 6774,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Tuyệt.",
+      "startMs": 7458,
+      "endMs": 8158,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Có chiếc ghế nào trong bếp không?",
+      "startMs": 11785,
+      "endMs": 13292,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Có, có hai chiếc ghế.",
+      "startMs": 14488,
+      "endMs": 15962,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Hoàn hảo.",
+      "startMs": 17736,
+      "endMs": 18436,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Đố vui nhanh.",
+      "startMs": 20232,
+      "endMs": 20932,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Câu nào đúng?",
+      "startMs": 21524,
+      "endMs": 22794,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 60,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 92,
+        "uppercase": false,
+        "italic": false,
+        "width": 71,
+        "align": "center"
+      },
+      "track": 1
+    }
+  ],
+  "aspect": "9:16",
+  "style": "plain",
+  "scenes": [
+    {
+      "image": "uploads/1789724902167-video-prompt-secon-1.mp4",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": {
+        "x": 0.0569,
+        "y": 0,
+        "w": 0.8861,
+        "h": 0.8861,
+        "mediaAspect": 0.5625,
+        "ratio": "frame",
+        "rotate": 0,
+        "flipH": false,
+        "flipV": false,
+        "fit": "cover"
+      },
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 30016
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "captionLook": {
+    "font": "sans",
+    "size": 70,
+    "weight": 900,
+    "color": "#ffd400",
+    "accent": "#000000",
+    "preset": "outline",
+    "x": 50,
+    "y": 81,
+    "uppercase": false,
+    "italic": false,
+    "width": 71,
+    "align": "center"
+  },
+  "showTitle": false,
+  "voiceoverTrack": "voices/video-prompt-secon-1/track.mp3",
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

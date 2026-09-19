@@ -1,0 +1,234 @@
+{
+  "title": "Đố chữ cười ngất",
+  "subtitle": "5 câu đố chữ cực hài",
+  "handle": "@docvui",
+  "accent": "#FFD700",
+  "background": "#1A1A1A",
+  "captions": [
+    {
+      "text": "Chỉ một phần mười người đúng hết năm câu!",
+      "startMs": 2483,
+      "endMs": 4483,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-01.mp3"
+    },
+    {
+      "text": "Con gì đập thì sống, không đập thì chết?",
+      "startMs": 4633,
+      "endMs": 6713,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-02.mp3"
+    },
+    {
+      "text": "Suy nghĩ ba giây nhé.",
+      "startMs": 6863,
+      "endMs": 8063,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-03.mp3"
+    },
+    {
+      "text": "Đáp án là trái tim.",
+      "startMs": 8213,
+      "endMs": 9493,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-04.mp3"
+    },
+    {
+      "text": "Cái gì mà đi thì nằm, đứng thì nằm, nằm cũng nằm?",
+      "startMs": 9643,
+      "endMs": 12603,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-05.mp3"
+    },
+    {
+      "text": "Đoán nhanh nào.",
+      "startMs": 12753,
+      "endMs": 13713,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-06.mp3"
+    },
+    {
+      "text": "Đáp án là bàn chân.",
+      "startMs": 13863,
+      "endMs": 15143,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-07.mp3"
+    },
+    {
+      "text": "Bệnh gì bác sĩ phải bó tay?",
+      "startMs": 15293,
+      "endMs": 16973,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-08.mp3"
+    },
+    {
+      "text": "Bạn chọn gì?",
+      "startMs": 17123,
+      "endMs": 18003,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-09.mp3"
+    },
+    {
+      "text": "Đáp án là gãy tay.",
+      "startMs": 18153,
+      "endMs": 19513,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-10.mp3"
+    },
+    {
+      "text": "Con gì đầu dê mặt ngựa?",
+      "startMs": 19663,
+      "endMs": 21023,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-11.mp3"
+    },
+    {
+      "text": "Suy nghĩ ba giây nhé.",
+      "startMs": 21173,
+      "endMs": 22373,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-12.mp3"
+    },
+    {
+      "text": "Đáp án là con giốc.",
+      "startMs": 22523,
+      "endMs": 23723,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-13.mp3"
+    },
+    {
+      "text": "Nhà nào không có cửa mà vẫn ở được?",
+      "startMs": 23873,
+      "endMs": 25873,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-14.mp3"
+    },
+    {
+      "text": "Đoán nhanh nào.",
+      "startMs": 26023,
+      "endMs": 26983,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-15.mp3"
+    },
+    {
+      "text": "Đáp án là nhà tù.",
+      "startMs": 27133,
+      "endMs": 28413,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-16.mp3"
+    },
+    {
+      "text": "Bạn đúng mấy câu? Bình luận nhé!",
+      "startMs": 28563,
+      "endMs": 30243,
+      "audio": "voices/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/line-17.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "quiz",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-17986579.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "10%",
+        "caption": "người trả lời đúng"
+      },
+      "tag": "CÂU 1",
+      "punch": {
+        "text": "trái tim",
+        "atMs": 8887
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 9643
+    },
+    {
+      "image": "uploads/stock/pexels-image-17856910.jpg",
+      "visual": null,
+      "tag": "CÂU 2",
+      "punch": {
+        "text": "bàn chân",
+        "atMs": 14537
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 9643,
+      "endMs": 15293
+    },
+    {
+      "image": "uploads/stock/pexels-image-8428406.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Câu lừa",
+        "caption": null
+      },
+      "tag": "CÂU 3",
+      "punch": {
+        "text": "gãy tay",
+        "atMs": 18909
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 15293,
+      "endMs": 19663
+    },
+    {
+      "image": "uploads/stock/pexels-image-39060685.jpg",
+      "visual": null,
+      "tag": "CÂU 4",
+      "punch": {
+        "text": "con giốc",
+        "atMs": 23155
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 19663,
+      "endMs": 23873
+    },
+    {
+      "image": "uploads/stock/pexels-image-33620232.jpg",
+      "visual": null,
+      "tag": "CÂU 5",
+      "punch": {
+        "text": "nhà tù",
+        "atMs": 27886
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 23873,
+      "endMs": 30393
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

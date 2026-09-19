@@ -1,7 +1,7 @@
 import { Player, type PlayerRef } from "@remotion/player";
 import {
-  ArrowLeft, ArrowLeftRight, Check, ChevronLeft, CircleCheck, Download, Keyboard, Maximize, Minus, Pause, Play, Plus, TriangleAlert,
-  Upload, X,
+  ArrowLeft, ArrowLeftRight, Check, ChevronLeft, CircleCheck, Download, Keyboard, LoaderCircle, Maximize, Minimize2, Minus, Pause,
+  Play, Plus, TriangleAlert, Upload, X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Short } from "../../src/compositions/Short";
@@ -23,8 +23,18 @@ type SaveState = "saved" | "dirty" | "saving" | "error";
 type JobState =
   | { status: "idle" }
   | { status: "running"; title: string; percent: number | null; line: string }
-  | { status: "exported"; mp4: string; version: number | null }
   | { status: "error"; title: string; message: string };
+
+/**
+ * Xuất video — tách khỏi JobState: đóng hộp tiến độ thì xuất vẫn chạy dưới nền (server dựng xong vẫn thành bản mới),
+ * người dùng sửa tiếp; các việc khác (đổi giọng, phụ đề…) vẫn chặn màn hình vì chúng sửa thẳng dữ liệu đang chỉnh.
+ * `editedSince`: đã sửa thêm sau lúc bấm xuất — những thay đổi đó KHÔNG có trong video vừa xuất.
+ */
+type ExportState =
+  | { status: "idle" }
+  | { status: "running"; percent: number; line: string }
+  | { status: "exported"; mp4: string; version: number | null; editedSince: boolean }
+  | { status: "error"; message: string };
 
 const FPS = 30;
 const same = (a: ShortProps, b: ShortProps) => JSON.stringify(a) === JSON.stringify(b);
@@ -93,6 +103,8 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   const [props, setProps] = useState<ShortProps | null>(null);
   /** Bản đang sửa (server đã quy "mới nhất" ra số); null = dự án chưa từng xuất. */
   const [versionInfo, setVersionInfo] = useState<{ version: number | null; latest: number | null; hasDraft: boolean } | null>(null);
+  /** Giọng video đang dùng — ô chọn giọng mở ra đúng giọng này thay vì mặc định. */
+  const [videoVoice, setVideoVoice] = useState<string | null>(null);
   const versionQuery = useRef("");
   const [title, setTitle] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -108,6 +120,15 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   const [watermark, setWatermark] = useState<ShortProps["watermark"]>(null);
   const [uploading, setUploading] = useState(false);
   const [job, setJob] = useState<JobState>({ status: "idle" });
+  const [exp, setExp] = useState<ExportState>({ status: "idle" });
+  /** Hộp tiến độ/kết quả xuất đang mở. Đóng lúc đang chạy = chạy dưới nền; nút Xuất video hiện tiến độ. */
+  const [expOpen, setExpOpen] = useState(false);
+  const expRef = useRef(exp);
+  expRef.current = exp;
+  const expOpenRef = useRef(expOpen);
+  expOpenRef.current = expOpen;
+  /** Props lúc bấm xuất — so với lúc xuất xong để biết người dùng đã sửa thêm trong lúc chạy nền chưa. */
+  const exportSnapshot = useRef<string | null>(null);
   const [historySize, setHistorySize] = useState({ past: 0, future: 0 });
   const [showKeys, setShowKeys] = useState(false);
   /** Tăng lên để timeline tự thu phóng vừa khung (Shift+Z). */
@@ -254,13 +275,14 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
       setLoadError("Thiếu tên video trong đường dẫn.");
       return;
     }
-    api<{ props: ShortProps; title: string; version: number | null; latest: number | null; hasDraft: boolean }>(
+    api<{ props: ShortProps; title: string; version: number | null; latest: number | null; hasDraft: boolean; voice: string | null }>(
       `/api/editor/${slug}${requestedVersion !== null ? `?version=${requestedVersion}` : ""}`,
     )
       .then((d) => {
         // Mọi lần lưu/xuất sau đó gắn đúng bản này — kể cả khi trong lúc sửa có bản mới hơn ra đời.
         versionQuery.current = d.version !== null ? `?version=${d.version}` : "";
         setVersionInfo({ version: d.version, latest: d.latest, hasDraft: d.hasDraft });
+        setVideoVoice(d.voice);
         // "Video gốc" vẽ cảnh y như một khối video nên gộp hàng Cảnh vào các hàng Video — mọi clip chỉnh như
         // nhau. Phong cách khác GIỮ hàng Cảnh: ảnh nằm trong khung trang trí của phong cách (ô truyện tranh,
         // polaroid, ảnh dán, Ken Burns…); gộp thì khung đó mất hẳn. Cần chỉnh tự do thì tách từng cảnh
@@ -679,6 +701,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             const next = (result as { props: ShortProps }).props;
             commit(next, current, selectionRef.current);
             setJob({ status: "idle" });
+            if (index === undefined) setVideoVoice(voice);
             flash(index === undefined ? `Đã đổi sang giọng ${voice}.` : `Đã đọc lại câu ${index + 1}.`);
           } else {
             setJob({ status: "error", title: "Không tạo được giọng đọc", message: error ?? "Lỗi không rõ." });
@@ -707,34 +730,54 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   const exportVideo = async () => {
     const current = propsRef.current;
     if (!current) return;
-    setJob({ status: "running", title: "Đang xuất video", percent: 0, line: "Đang lưu thay đổi…" });
+    // Đang xuất, hoặc đã xong dưới nền mà chưa xem: mở lại hộp, không xuất chồng.
+    if (expRef.current.status !== "idle") {
+      setExpOpen(true);
+      return;
+    }
+    exportSnapshot.current = JSON.stringify(current);
+    setExp({ status: "running", percent: 0, line: "Đang lưu thay đổi…" });
+    setExpOpen(true);
     try {
       window.clearTimeout(saveTimer.current);
       await saveNow(current);
       const { jobId } = await postJson<{ jobId: string }>(`/api/editor/${slug}/render${versionQuery.current}`, {});
-      setJob({ status: "running", title: "Đang xuất video", percent: 0, line: "Đang chuẩn bị dựng…" });
+      setExp({ status: "running", percent: 0, line: "Đang chuẩn bị dựng…" });
       followJob(
         jobId,
         (line) => {
           if (line.startsWith("__PROGRESS__")) {
             const percent = Number(line.split(" ")[1]);
-            setJob({ status: "running", title: "Đang xuất video", percent, line: `Đang dựng video… ${percent}%` });
+            setExp({ status: "running", percent, line: `Đang dựng video… ${percent}%` });
           } else if (!line.startsWith("__STEP__")) {
-            setJob((s) => (s.status === "running" ? { ...s, line } : s));
+            setExp((s) => (s.status === "running" ? { ...s, line } : s));
           }
         },
         (status, result, error) => {
+          const background = !expOpenRef.current;
           if (status === "done") {
             const message = result as { mp4?: string; version?: number } | null;
-            setJob({ status: "exported", mp4: message?.mp4 ?? `/out/${slug}.mp4`, version: message?.version ?? null });
+            const now = propsRef.current ? JSON.stringify(propsRef.current) : exportSnapshot.current;
+            setExp({
+              status: "exported", mp4: message?.mp4 ?? `/out/${slug}.mp4`, version: message?.version ?? null,
+              editedSince: now !== exportSnapshot.current,
+            });
+            if (background) flash(`Xuất xong${message?.version ? ` bản ${message.version}` : ""} — bấm “Xuất xong · Xem” trên cùng để xem.`);
           } else {
-            setJob({ status: "error", title: "Không xuất được", message: error ?? "Xuất video thất bại." });
+            setExp({ status: "error", message: error ?? "Xuất video thất bại." });
+            if (background) flash("Xuất video không thành công — bấm nút trên cùng để xem lỗi.");
           }
         },
       );
     } catch (e) {
-      setJob({ status: "error", title: "Không xuất được", message: (e as Error).message });
+      setExp({ status: "error", message: (e as Error).message });
     }
+  };
+
+  /** Đóng hộp xuất: đang chạy thì chạy tiếp dưới nền; đã xong/lỗi thì xoá kết quả để lần sau xuất mới. */
+  const closeExport = () => {
+    setExpOpen(false);
+    if (expRef.current.status !== "running") setExp({ status: "idle" });
   };
 
   // ---------- phím tắt ----------
@@ -831,6 +874,15 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (jobRef.current.status === "running") return;
+      // Hộp xuất đang mở: Esc = đóng (đang chạy thì chạy dưới nền), phím khác không đụng timeline phía sau.
+      if (expOpenRef.current) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setExpOpen(false);
+          if (expRef.current.status !== "running") setExp({ status: "idle" });
+        }
+        return;
+      }
       // Chế độ crop: chỉ nhận Esc để huỷ, phím khác không được đụng timeline.
       if (cropRef.current !== null) {
         if (e.key === "Escape") setCropTarget(null);
@@ -952,7 +1004,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
           ) : null}
           <span className={`save ${saveState}`}>{saveLabel}</span>
           {versionInfo?.hasDraft ? (
-            <button className="ed-link" onClick={discardDraft} disabled={job.status === "running"} title="Bỏ mọi thay đổi chưa xuất, quay về đúng bản đã xuất">
+            <button className="ed-link" onClick={discardDraft} disabled={job.status === "running" || exp.status === "running"} title="Bỏ mọi thay đổi chưa xuất, quay về đúng bản đã xuất">
               Bỏ thay đổi
             </button>
           ) : null}
@@ -968,8 +1020,24 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             onChange={(e) => { onUpload([...(e.target.files ?? [])]); e.target.value = ""; }}
           />
           <button className="ed-icon" onClick={toggleLibSide} title={`Đưa thư viện sang bên ${libSide === "left" ? "phải" : "trái"}`} aria-label={`Đưa thư viện sang bên ${libSide === "left" ? "phải" : "trái"}`}><ArrowLeftRight size={16} aria-hidden /></button>
-          <button className="ed-btn primary ed-export" onClick={exportVideo} disabled={job.status === "running"} title={`Xuất video (${MOD}+E)`}>
-            <Upload size={16} aria-hidden /> Xuất video
+          <button
+            className={`ed-btn primary ed-export ${exp.status !== "idle" && !expOpen ? `bg ${exp.status}` : ""}`}
+            onClick={exportVideo}
+            disabled={job.status === "running"}
+            title={exp.status === "running" ? "Đang xuất dưới nền — bấm để xem tiến độ" : `Xuất video (${MOD}+E)`}
+          >
+            {exp.status === "running" ? (
+              <>
+                <span className="ed-export-fill" style={{ width: `${exp.percent}%` }} aria-hidden />
+                <LoaderCircle size={16} className="spin" aria-hidden /> Đang xuất {exp.percent}%
+              </>
+            ) : exp.status === "exported" && !expOpen ? (
+              <><CircleCheck size={16} aria-hidden /> Xuất xong · Xem</>
+            ) : exp.status === "error" && !expOpen ? (
+              <><TriangleAlert size={16} aria-hidden /> Xuất lỗi · Xem</>
+            ) : (
+              <><Upload size={16} aria-hidden /> Xuất video</>
+            )}
           </button>
         </div>
       </header>
@@ -1138,6 +1206,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             selection={selection}
             media={media}
             voices={voices}
+            videoVoice={videoVoice}
             onChange={(next, key) => {
               const current = propsRef.current;
               if (current) commit(next, current, selectionRef.current, key);
@@ -1231,26 +1300,63 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
                 </div>
                 <p className="muted">{job.line}</p>
               </>
-            ) : job.status === "exported" ? (
-              <>
-                <h3><CircleCheck size={20} aria-hidden /> Xuất xong</h3>
-                <video className="ed-result" src={job.mp4} controls playsInline />
-                <div className="ed-actions">
-                  <a className="ed-btn primary" href={job.mp4.split("?")[0]} download><Download size={18} aria-hidden /> Tải xuống</a>
-                  <a className="ed-btn" href={`/#/v/${slug}`}>Mở trong chat</a>
-                  {job.version !== null ? (
-                    <a className="ed-btn ghost" href={`/editor.html#${slug}/v${job.version}`} title="Mở bản vừa xuất để sửa tiếp">Sửa tiếp bản {job.version}</a>
-                  ) : (
-                    <button className="ed-btn ghost" onClick={() => setJob({ status: "idle" })}>Tiếp tục sửa</button>
-                  )}
-                </div>
-              </>
             ) : (
               <>
                 <h3>{job.title}</h3>
                 <p className="err">{job.message}</p>
                 <div className="ed-actions">
                   <button className="ed-btn" onClick={() => setJob({ status: "idle" })}>Đóng</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {expOpen && exp.status !== "idle" && job.status === "idle" ? (
+        <div className="ed-modal" role="dialog" aria-modal="true" aria-label="Xuất video">
+          <div className="ed-card">
+            {exp.status === "running" ? (
+              <>
+                <h3>Đang xuất video</h3>
+                <div className="ed-progress"><div style={{ width: `${exp.percent}%` }} /></div>
+                <p className="muted">{exp.line}</p>
+                <p className="muted ed-note">
+                  Chạy dưới nền để sửa tiếp trong lúc chờ — thay đổi sau lúc bấm xuất không có trong video này.
+                  Rời trang cũng được: video vẫn xuất xong và hiện trong chat.
+                </p>
+                <div className="ed-actions">
+                  <button className="ed-btn primary" onClick={() => setExpOpen(false)} autoFocus>
+                    <Minimize2 size={16} aria-hidden /> Chạy dưới nền
+                  </button>
+                </div>
+              </>
+            ) : exp.status === "exported" ? (
+              <>
+                <h3><CircleCheck size={20} aria-hidden /> Xuất xong{exp.version !== null ? ` · bản ${exp.version}` : ""}</h3>
+                <video className="ed-result" src={exp.mp4} controls playsInline />
+                {exp.editedSince ? (
+                  <p className="muted ed-note">
+                    Bạn đã sửa thêm sau lúc bấm xuất — những thay đổi đó chưa có trong video này, vẫn nằm ở bản đang mở.
+                    Bấm Xuất video lần nữa để có chúng.
+                  </p>
+                ) : null}
+                <div className="ed-actions">
+                  <a className="ed-btn primary" href={exp.mp4.split("?")[0]} download><Download size={18} aria-hidden /> Tải xuống</a>
+                  <a className="ed-btn" href={`/#/v/${slug}`}>Mở trong chat</a>
+                  {exp.version !== null && !exp.editedSince ? (
+                    <a className="ed-btn ghost" href={`/editor.html#${slug}/v${exp.version}`} title="Mở bản vừa xuất để sửa tiếp">Sửa tiếp bản {exp.version}</a>
+                  ) : (
+                    <button className="ed-btn ghost" onClick={closeExport}>Tiếp tục sửa</button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <h3>Không xuất được</h3>
+                <p className="err">{exp.message}</p>
+                <div className="ed-actions">
+                  <button className="ed-btn" onClick={closeExport}>Đóng</button>
                 </div>
               </>
             )}

@@ -397,7 +397,7 @@ Nếu là bạn, bạn có nói ra không?`,
 > 3 câu về Việt Nam
 
 [CÂU 1]
-Chỉ 1 trong 10 người đúng hết!
+Câu cuối khó nhất!
 Cố đô cuối cùng của Việt Nam là thành phố nào?
 Suy nghĩ 3 giây nhé…
 Đáp án là **Huế**.
@@ -408,7 +408,6 @@ Suy nghĩ 3 giây nhé…
 Đáp án là **Fansipan**.
 
 [CÂU KHÓ]
-! 73% | người trả lời sai câu này
 Sông nào chảy qua trung tâm Hà Nội?
 Bạn chọn gì?
 Đáp án là **sông Hồng**.

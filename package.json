@@ -125,7 +125,8 @@
     "render-all": "tsx scripts/render-all.ts",
     "start": "tsx server/index.ts",
     "still": "remotion still Short out/thumbnail.png --frame=45",
-    "upgrade": "remotion upgrade"
+    "upgrade": "remotion upgrade",
+    "test": "tsx --test tests/*.test.ts"
   },
   "sideEffects": [
     "*.css"

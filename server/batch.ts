@@ -8,6 +8,9 @@
  *   variants — một kịch bản có sẵn nhân ra nhiều tỉ lệ / giọng / ngôn ngữ
  *   subs     — gắn phụ đề cho nhiều video có sẵn: mỗi file × mỗi ngôn ngữ phụ đề một video,
  *              kiểu phụ đề chung cho cả loạt, đổi kiểu một lần là dựng lại tất cả
+ *   edit     — sửa hàng loạt video ĐÃ CÓ trong Thư viện (chọn nhiều ở đó): đổi nhạc, tên kênh, màu
+ *              mà giữ chỉnh sửa tay, hoặc dựng lại từ kịch bản với phong cách/giọng/khung/lời mới.
+ *              Mỗi video ra một bản mới, bản cũ vẫn còn (server/versions.ts)
  *
  * Mỗi mục chạy hai bước tách rời: **chuẩn bị** (viết kịch bản, hoặc phiên âm) rồi **dựng**
  * (giọng → hình → render). Bật "chốt duyệt" thì cả loạt dừng sau bước chuẩn bị để người
@@ -21,7 +24,8 @@
  * sửa tiếp hay xoá đi đều giống video làm bằng tay.
  */
 import { randomUUID } from "crypto";
-import { execFileSync } from "child_process";
+import { execFile as execFileCb, execFileSync } from "child_process";
+import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import type { WhisperModel } from "@remotion/install-whisper-cpp";
@@ -43,21 +47,94 @@ import {
 import { runRenderStage } from "./pipeline";
 import { versionsDir } from "./versions";
 import { allLines, parseScript, type VideoScript } from "../src/compositions/Short/script";
-import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type CaptionLook } from "../src/compositions/Short/schema";
+import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type CaptionLook, type ShortProps } from "../src/compositions/Short/schema";
 import type { MediaCrop } from "../src/scenes/CropBox";
 import { ASPECT_IDS, ASPECTS, aspectFor, type AspectId } from "../src/aspects";
-import { DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
-import { findVoice } from "../scripts/voices";
+import { canCustomizeCaptions, DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
+import { findVoice, VOICES } from "../scripts/voices";
+import { missingEngineKey } from "../scripts/tts";
 import { slugify } from "../scripts/slug";
-import { textToScript } from "../scripts/text-script";
+import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
+import { generatePostCopy, getPostCopy, type PostPlatform, type SavedPostCopy } from "../scripts/post-copy";
+import { generateHooks } from "../scripts/hooks";
+import { pickClips, type ClipPick } from "../scripts/clip-picker";
+import { isScriptProvider } from "../scripts/generate-script";
+import { checkVideo, fixPlacements, savedCheck } from "../scripts/qa-video";
+import { COVER_LAYOUTS, coverInput, coverPath, freshCover, freshCovers, makeCover } from "../scripts/cover";
+import { compileVideos } from "../scripts/compile";
+import { renderCover, renderShort } from "../scripts/render";
+import { brandVideo, isBrandFile } from "../scripts/brand";
+import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
-  isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
+  guessLanguage, isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
   TRANSLATE_ENGINES, type TranslateEngine, type TranslateLanguage,
 } from "../scripts/translate";
 
-export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs";
+export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs" | "edit" | "clips";
+
+/**
+ * Sửa hàng loạt video có sẵn. Hai cách, vì chúng giữ lại những thứ khác nhau:
+ *  - "props":   ghi thẳng vào props.json đang dùng rồi render lại. Giữ mọi chỉnh sửa trong trình chỉnh sửa
+ *               (cắt cảnh, phụ đề sửa tay…) và giữ nguyên giọng đã đọc, nên chỉ đổi được thứ không đụng lời:
+ *               nhạc nền, tên kênh, màu nhấn.
+ *  - "rebuild": sửa script.json rồi dựng lại từ đầu (giọng → hình → render). Đổi được phong cách, giọng, khung
+ *               và thay chữ trong lời (giọng đọc lại câu mới), nhưng props.json được tạo lại — chỉnh sửa tay
+ *               của bản đang dùng không mang sang bản mới.
+ * Trường để trống (undefined) = giữ như video đang có.
+ */
+export type EditKind = "props" | "rebuild";
+
+/**
+ * Nhận diện kênh áp cho mọi video của loạt (lưu cùng Mẫu cài đặt): tên kênh, màu nhấn, đoạn mở đầu/kết thúc,
+ * và — tuỳ chọn — kiểu phụ đề riêng. Kiểu phụ đề riêng THAY hiệu ứng phụ đề của phong cách (vd. Chữ động bật từng
+ * chữ) ở các phong cách cho phép, nên chỉ áp khi người dùng bật.
+ */
+export type Kit = {
+  handle?: string;
+  accent?: string;
+  intro?: string | null;
+  outro?: string | null;
+  captionLook?: Partial<CaptionLook> | null;
+};
+
+export const parseKit = (raw: unknown): Kit | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const kit: Kit = {};
+  if (typeof r.handle === "string" && r.handle.trim()) {
+    const handle = r.handle.trim().slice(0, 30);
+    kit.handle = handle.startsWith("@") ? handle : `@${handle}`;
+  }
+  if (typeof r.accent === "string" && /^#[0-9a-f]{6}$/i.test(r.accent)) kit.accent = r.accent;
+  for (const key of ["intro", "outro"] as const) {
+    const rel = typeof r[key] === "string" ? String(r[key]).trim().replace(/^\/+/, "") : "";
+    if (rel && !rel.includes("..") && isBrandFile(rel) && fs.existsSync(path.join(process.cwd(), "public", rel))) kit[key] = rel;
+  }
+  if (r.captionLook && typeof r.captionLook === "object") {
+    const look = captionLookSchema.partial().safeParse(r.captionLook);
+    if (look.success && Object.keys(look.data).length) kit.captionLook = look.data;
+  }
+  return Object.keys(kit).length ? kit : undefined;
+};
+
+/** Số liệu một video trên một nền tảng. `watch` = tỉ lệ xem hết, %. Ô bỏ trống = chưa có số. */
+export type PostStats = { views?: number; watch?: number; likes?: number; comments?: number; shares?: number };
+const STAT_KEYS = ["views", "watch", "likes", "comments", "shares"] as const;
+export type EditPlan = {
+  kind: EditKind;
+  /** Đường dẫn nhạc, "random", hoặc null = bỏ nhạc. */
+  music?: string | null;
+  handle?: string;
+  accent?: string;
+  style?: StyleChoice;
+  /** "" = bỏ giọng đọc. */
+  voice?: string;
+  aspect?: string;
+  /** Thay chữ trong lời (chỉ "rebuild" — lời đổi thì giọng phải đọc lại). */
+  replace?: { find: string; to: string }[];
+};
 
 /** Tuỳ chọn của nguồn "subs": video nói tiếng gì, và kiểu phụ đề chung cho cả loạt. */
 export type SubsOptions = {
@@ -188,7 +265,19 @@ export type BatchItem = {
   /** Đổi kiểu phụ đề trong lúc mục đang dựng — dựng xong thì dựng lại lần nữa với kiểu mới. */
   restyle?: boolean;
   /** Biến thể: lấy từ video nào và đổi gì. */
-  variant?: { from: string; aspect?: string; voice?: string; lang?: TranslateLanguage };
+  /** hook: bản thử A/B thứ mấy — 0 = giữ câu mở đầu gốc, k > 0 = câu hook thứ k do AI viết (batch.hooks). */
+  variant?: { from: string; aspect?: string; voice?: string; lang?: TranslateLanguage; hook?: number };
+  /**
+   * Bản ngôn ngữ khác của một mục trong cùng loạt: chờ mục gốc (`parent`) dựng xong, dịch kịch bản của nó sang `lang`.
+   * `dub` = đọc lại bằng giọng ngôn ngữ đó; không thì giữ giọng gốc, chỉ phụ đề và chữ trên hình được dịch.
+   */
+  subOf?: { parent: string; lang: TranslateLanguage; dub: boolean; voice?: string };
+  /** Song ngữ trong cùng video: thêm một hàng phụ đề dịch cho mỗi ngôn ngữ, hiện cùng lúc với hàng gốc. */
+  stack?: TranslateLanguage[];
+  /** Nguồn clips: đoạn cắt ra từ video dài `file` (giây), kèm câu hook làm tiêu đề. */
+  clip?: { start: number; end: number; title: string };
+  /** Nguồn edit: mục này là video có sẵn (item.slug), sửa theo batch.edit. */
+  edit?: EditKind;
   /** Cài đặt riêng của mục này, đè lên cài đặt chung của loạt. */
   override?: Partial<ChatSettings>;
   slug?: string;
@@ -222,6 +311,25 @@ export type Batch = {
   /** Model whisper cho nguồn audio-video. */
   mediaModel: WhisperModel;
   subs?: SubsOptions;
+  edit?: EditPlan;
+  /** Thử A/B hook: số câu hook mới cần viết, và các câu đã viết (viết một lần cho cả loạt để các bản khác nhau). */
+  hooks?: { count: number; lines?: string[] };
+  /** Nguồn clips: ngôn ngữ nói của video dài (mã whisper) — phải trùng lúc phân tích để dùng lại bản phiên âm. */
+  spoken?: string;
+  /** Nguồn clips: video gốc đã in sẵn phụ đề — không gắn thêm (chồng hai lớp chữ). */
+  noCaptions?: boolean;
+  /** Video tổng hợp gộp từ cả loạt (startBatchCompile): file trong out/, mốc chương, thời lượng. */
+  compiled?: { aspect: string; file: string; chapters: string; seconds: number; at: number };
+  /** Nhận diện kênh áp cho mọi video (chọn cùng Mẫu cài đặt lúc tạo loạt). */
+  kit?: Kit;
+  /** Đoạn mở đầu / kết thúc chung đã gắn lần gần nhất (đường dẫn trong public/). */
+  brand?: { intro: string | null; outro: string | null };
+  /** Kết quả sau khi đăng, người dùng tự nhập: nền tảng → id mục → số liệu. */
+  results?: Partial<Record<PostPlatform, Record<string, PostStats>>>;
+  /** Lịch đăng: mốc đăng (ms) của từng mục theo id, và bài đăng của nền tảng nào đưa vào lịch. */
+  postPlan?: { slots: Record<string, number>; platforms: PostPlatform[] };
+  /** Hẹn giờ chạy (ms): loạt nằm chờ ở "idle" tới lúc đó thì tự chạy — app phải đang mở. */
+  startAt?: number;
   state: "idle" | "running" | "paused" | "done";
   items: BatchItem[];
 };
@@ -324,12 +432,61 @@ const splitPastedScripts = (text: string) =>
     .filter(Boolean)
     .slice(0, MAX_ITEMS);
 
+/**
+ * Giọng dùng khi lồng tiếng một ngôn ngữ: giọng miễn phí trước (trong app, rồi macOS), rồi Gemini, cuối cùng
+ * ElevenLabs (tính theo ký tự) — và chỉ giọng đang có key, không cần gói trả phí.
+ */
+const ENGINE_ORDER: Record<string, number> = { local: 0, say: 1, gemini: 2, elevenlabs: 3 };
+const voiceForLanguage = (lang: TranslateLanguage) =>
+  VOICES
+    .filter((v) => v.lang === lang && !v.paidPlan && !missingEngineKey(v.engine) && (v.engine !== "say" || process.platform === "darwin"))
+    .sort((a, b) => (ENGINE_ORDER[a.engine] ?? 9) - (ENGINE_ORDER[b.engine] ?? 9))[0]?.key;
+
+/**
+ * Mỗi mục gốc + một mục cho mỗi ngôn ngữ (xếp liền sau mục gốc để nhìn bảng là thấy nhóm). Cắt cho vừa MAX_ITEMS
+ * theo NHÓM — không để một ý tưởng có bản gốc mà thiếu nửa số ngôn ngữ.
+ */
+const withLanguageItems = (items: BatchItem[], raw: unknown[], dub: boolean) => {
+  const langs = [...new Set(raw.filter(isTranslateLanguage))];
+  if (langs.length === 0) return items;
+  if (!pickTranslateEngine()) {
+    throw new Error("Phụ đề nhiều ngôn ngữ cần model dịch — điền key Gemini, Groq hoặc OpenRouter (có gói miễn phí) trong Cài đặt.");
+  }
+  if (dub) {
+    const missing = langs.filter((lang) => !voiceForLanguage(lang));
+    if (missing.length) {
+      throw new Error(`Chưa có giọng đọc cho ${missing.map(translateLanguageLabel).join(", ")} — bỏ “Lồng tiếng” để chỉ dịch phụ đề.`);
+    }
+  }
+  const out: BatchItem[] = [];
+  for (const item of items) {
+    if (out.length + 1 + langs.length > MAX_ITEMS) break;
+    out.push(item);
+    for (const lang of langs) {
+      const voice = dub ? voiceForLanguage(lang) : undefined;
+      out.push(newItem(`${item.input.split("\n")[0].slice(0, 80)} · ${translateLanguageLabel(lang)}${dub ? " (lồng tiếng)" : ""}`, {
+        subOf: { parent: item.id, lang, dub, ...(voice ? { voice } : {}) },
+      }));
+    }
+  }
+  if (out.length === 0) throw new Error(`Một loạt tối đa ${MAX_ITEMS} video — bớt ngôn ngữ hoặc số ý tưởng.`);
+  return out;
+};
+
+/** Tối đa bao nhiêu bản hook (tính cả bản gốc) — hơn nữa thì khó đo bản nào hơn. */
+const MAX_HOOKS = 5;
+const HOOK_LETTERS = "ABCDE";
+
 const variantItems = (
   from: string,
   aspects: string[],
   voices: string[],
   langs: TranslateLanguage[],
   settings: ChatSettings,
+  /** Tổng số bản hook, tính cả bản gốc; 0 hoặc 1 = không thử hook. */
+  hooks = 0,
+  /** Không chọn khung/giọng thì giữ khung, giọng của chính video gốc (nhân cả loạt) thay vì cài đặt chung. */
+  ownDefaults = false,
 ) => {
   if (!isSlug(from)) throw new Error("Chọn video gốc để nhân bản.");
   const scriptPath = path.join(videoDir(from), "script.json");
@@ -339,26 +496,31 @@ const variantItems = (
     );
   }
   const sourceTitle = (readJson(scriptPath) as { title?: string } | null)?.title ?? from;
-  const aspectList = aspects.length ? aspects : [settings.aspect];
-  const voiceList = voices.length ? voices : [settings.voice];
+  const base = ownDefaults ? readChat(from).settings : settings;
+  const aspectList = aspects.length ? aspects : [base.aspect];
+  const voiceList = voices.length ? voices : [base.voice];
   const langList: (TranslateLanguage | undefined)[] = langs.length ? langs : [undefined];
+  const hookList: (number | undefined)[] = hooks > 1 ? [...Array(Math.min(hooks, MAX_HOOKS)).keys()] : [undefined];
 
   const items: BatchItem[] = [];
-  for (const lang of langList) {
-    for (const aspect of aspectList) {
-      for (const voice of voiceList) {
-        const label = [
-          lang ? translateLanguageLabel(lang) : null,
-          aspectList.length > 1 || aspect !== settings.aspect ? aspect : null,
-          voiceList.length > 1 || voice !== settings.voice ? (voice ? `giọng ${voice}` : "không giọng") : null,
-        ].filter(Boolean).join(" · ");
-        items.push(
-          newItem(`${sourceTitle}${label ? ` — ${label}` : ""}`, {
-            variant: { from, aspect, voice, lang },
-            override: { aspect, voice },
-          }),
-        );
-        if (items.length >= MAX_ITEMS) return items;
+  for (const hook of hookList) {
+    for (const lang of langList) {
+      for (const aspect of aspectList) {
+        for (const voice of voiceList) {
+          const label = [
+            hook === undefined ? null : `hook ${HOOK_LETTERS[hook]}${hook === 0 ? " (gốc)" : ""}`,
+            lang ? translateLanguageLabel(lang) : null,
+            aspectList.length > 1 || aspect !== base.aspect ? aspect : null,
+            voiceList.length > 1 || voice !== base.voice ? (voice ? `giọng ${voice}` : "không giọng") : null,
+          ].filter(Boolean).join(" · ");
+          items.push(
+            newItem(`${sourceTitle}${label ? ` — ${label}` : ""}`, {
+              variant: { from, aspect, voice, lang, ...(hook === undefined ? {} : { hook }) },
+              override: { aspect, voice },
+            }),
+          );
+          if (items.length >= MAX_ITEMS) return items;
+        }
       }
     }
   }
@@ -377,23 +539,60 @@ export type CreateBatchInput = {
   settings?: Partial<ChatSettings>;
   review?: unknown;
   mediaModel?: unknown;
-  variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown };
+  variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown; hooks?: unknown };
   /** Nguồn subs: ngôn ngữ nói, các ngôn ngữ phụ đề ("" = giữ nguyên), kiểu phụ đề chung. */
   subs?: { spoken?: unknown; languages?: unknown; look?: unknown; crop?: unknown; layout?: unknown; tracks?: unknown };
+  /** Nguồn clips: video dài, ngôn ngữ nói, và các đoạn đã chọn { start, end, title } (giây). */
+  file?: unknown;
+  spoken?: unknown;
+  clips?: unknown;
+  noCaptions?: unknown;
+  /** Nhận diện kênh (xem Kit). */
+  kit?: unknown;
+  /** Nguồn edit: items là danh sách slug video có sẵn; đây là thay đổi áp cho tất cả. */
+  edit?: Record<string, unknown>;
   /** Tạo xong chạy luôn. */
   start?: unknown;
+  /** Nguồn ideas/custom: thêm một bản cho mỗi ngôn ngữ phụ đề; `dub` = đọc lại bằng giọng ngôn ngữ đó. */
+  languages?: unknown;
+  dub?: unknown;
+  /** "stack" = song ngữ trong cùng video (hàng phụ đề dịch), không tạo video riêng cho từng ngôn ngữ. */
+  layout?: unknown;
+  /** Hẹn giờ chạy (ms từ epoch). Có thì không chạy ngay dù `start`. */
+  startAt?: unknown;
 };
 
 export const createBatch = (body: CreateBatchInput) => {
   const source: BatchSource =
-    body.source === "media" || body.source === "variants" || body.source === "custom" || body.source === "subs"
+    body.source === "media" || body.source === "variants" || body.source === "custom" || body.source === "subs" ||
+    body.source === "edit" || body.source === "clips"
       ? body.source : "ideas";
   const settings = normalizeSettings(body.settings, DEFAULT_SETTINGS);
   const mediaModel: WhisperModel = body.mediaModel === "small" ? "small" : "medium";
 
   let items: BatchItem[] = [];
   let subs: SubsOptions | undefined;
-  if (source === "subs") {
+  let edit: EditPlan | undefined;
+  let hookPlan: Batch["hooks"];
+  let spoken: string | undefined;
+  if (source === "clips") {
+    const file = String(body.file ?? "");
+    checkMediaFile(file);
+    spoken = SPOKEN_LANGUAGES.some((l) => l.code === body.spoken) ? String(body.spoken) : "auto";
+    const clips = (Array.isArray(body.clips) ? body.clips : []).slice(0, MAX_ITEMS);
+    for (const raw of clips) {
+      const c = (raw ?? {}) as { start?: unknown; end?: unknown; title?: unknown };
+      const start = Number(c.start);
+      const end = Number(c.end);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end - start < 3 || end - start > 180) continue;
+      const title = String(c.title ?? "").trim().slice(0, 60) || `Đoạn ${items.length + 1}`;
+      items.push(newItem(title, { file, clip: { start, end, title } }));
+    }
+    if (items.length === 0) throw new Error("Chưa chọn đoạn nào để cắt.");
+  } else if (source === "edit") {
+    edit = parseEditPlan(body.edit);
+    items = editItems(body.items, edit);
+  } else if (source === "subs") {
     const raw = body.subs ?? {};
     const spoken = SPOKEN_LANGUAGES.some((l) => l.code === raw.spoken) ? String(raw.spoken) : "auto";
     const wanted = Array.isArray(raw.languages) ? raw.languages : [""];
@@ -457,7 +656,16 @@ export const createBatch = (body: CreateBatchInput) => {
       .map(String).filter((key) => key === "" || Boolean(findVoice(key)));
     const languages = (Array.isArray(v.languages) ? v.languages : [])
       .filter(isTranslateLanguage);
-    items = variantItems(String(v.from ?? ""), aspects, voices, languages, settings);
+    const hooks = Math.max(0, Math.min(MAX_HOOKS, Math.round(Number(v.hooks) || 0)));
+    // Nhân cả loạt: `from` là danh sách video gốc (các video đã xong của một loạt) — mỗi gốc × mỗi biến thể.
+    // Thử hook chỉ cho một gốc: câu hook viết chung một lần cho cả loạt, nhiều gốc thì không dùng chung được.
+    const froms = Array.isArray(v.from) ? [...new Set(v.from.map(String))] : [String(v.from ?? "")];
+    if (froms.length > 1 && hooks > 1) throw new Error("Thử hook chỉ làm cho một video gốc mỗi lần.");
+    for (const from of froms) {
+      items.push(...variantItems(from, aspects, voices, languages, settings, hooks, froms.length > 1).slice(0, MAX_ITEMS - items.length));
+      if (items.length >= MAX_ITEMS) break;
+    }
+    if (hooks > 1) hookPlan = { count: hooks - 1 };
   }
 
   if (items.length === 0) {
@@ -465,11 +673,30 @@ export const createBatch = (body: CreateBatchInput) => {
       source === "media" || source === "subs"
         ? "Chưa chọn file audio hoặc video nào."
         : source === "variants"
-          ? "Chưa chọn biến thể nào — tích ít nhất một tỉ lệ, một giọng hoặc một ngôn ngữ."
+          ? "Chưa chọn biến thể nào — tích ít nhất một tỉ lệ, một giọng, một ngôn ngữ, hoặc chọn số hook để thử."
           : source === "custom"
             ? "Chưa ô nào có nội dung. Nhập lời hoặc ý tưởng vào ít nhất một ô."
             : "Chưa có ý tưởng nào. Mỗi dòng một video.",
     );
+  }
+  // Phụ đề nhiều ngôn ngữ lúc tạo: mỗi mục gốc thêm một mục cho mỗi ngôn ngữ, đặt ngay sau mục gốc.
+  if ((source === "ideas" || source === "custom") && Array.isArray(body.languages) && body.languages.length) {
+    if (body.layout === "stack") {
+      // Song ngữ: tối đa hai hàng dịch — nhiều hơn thì chữ phủ gần hết khung.
+      const langs = [...new Set(body.languages.filter(isTranslateLanguage))].slice(0, 2);
+      if (langs.length && !pickTranslateEngine()) {
+        throw new Error("Phụ đề song ngữ cần model dịch — điền key Gemini, Groq hoặc OpenRouter (có gói miễn phí) trong Cài đặt.");
+      }
+      if (langs.length) items.forEach((item) => { item.stack = langs; });
+    } else {
+      items = withLanguageItems(items, body.languages, body.dub === true);
+    }
+  }
+  // Hẹn giờ: chỉ nhận mốc trong tương lai (quá 30 giây) và trong vòng một tuần.
+  const at = Number(body.startAt);
+  const startAt = Number.isFinite(at) && at > Date.now() + 30_000 && at < Date.now() + 7 * 86_400_000 ? Math.round(at) : undefined;
+  if (body.startAt !== undefined && body.startAt !== null && !startAt) {
+    throw new Error("Giờ hẹn phải ở tương lai và trong vòng 7 ngày.");
   }
   // Nguồn audio-video không gọi AI viết lời; đừng bắt người dùng có key mới chạy được.
   if (source === "ideas") assertSettingsUsable(settings);
@@ -479,18 +706,28 @@ export const createBatch = (body: CreateBatchInput) => {
     id: `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 6)}`,
     name: String(body.name ?? "").trim().slice(0, 60) ||
       (source === "media" ? "Từ file thu sẵn" : source === "subs" ? "Thêm phụ đề"
-        : source === "variants" ? "Biến thể" : items[0].input.slice(0, 40)),
+        : source === "clips" ? `Cắt từ ${uploadName(String(body.file ?? ""))}`.slice(0, 60)
+        : source === "variants" ? "Biến thể" : source === "edit" ? `Sửa ${items.length} video`
+          : items[0].input.slice(0, 40)),
     createdAt: Date.now(),
     source,
     settings,
-    review: body.review !== false,
+    // Sửa hàng loạt: lời thường không đổi nên mặc định chạy thẳng; các nguồn khác mặc định dừng cho duyệt lời.
+    review: source === "edit" ? body.review === true : body.review !== false,
     mediaModel,
     ...(subs ? { subs } : {}),
+    ...(edit ? { edit } : {}),
+    ...(hookPlan ? { hooks: hookPlan } : {}),
+    ...(startAt ? { startAt } : {}),
+    ...(spoken ? { spoken } : {}),
+    ...(source === "clips" && body.noCaptions === true ? { noCaptions: true } : {}),
+    // Sửa hàng loạt có kế hoạch riêng; các nguồn còn lại nhận nhận diện kênh.
+    ...(source !== "edit" && parseKit(body.kit) ? { kit: parseKit(body.kit) } : {}),
     state: "idle",
     items,
   };
   save(batch);
-  if (body.start) startBatch(batch.id);
+  if (body.start && !startAt) startBatch(batch.id);
   return summary(batch);
 };
 
@@ -553,6 +790,7 @@ const summary = (batch: Batch) => ({
   source: batch.source,
   state: batch.state,
   review: batch.review,
+  ...(batch.startAt ? { startAt: batch.startAt } : {}),
   counts: counts(batch),
 });
 
@@ -590,15 +828,37 @@ const refreshEdits = (batch: Batch) => {
       item.mp4 = `/out/${item.slug}.mp4?t=${mtime}`;
       changed = true;
     }
-    return { ...item, edited, draft };
+    // Kết quả tự soát (scripts/qa-video.ts) — chỉ khi còn khớp bản mp4 hiện tại, sửa rồi xuất lại thì phải soát lại.
+    return {
+      ...item, edited, draft,
+      qa: savedCheck(item.slug), cover: freshCover(item.slug), covers: freshCovers(item.slug), exports: exportsOf(item.slug), branded: freshBrand(item.slug),
+    };
   });
   if (changed) save(batch);
   return items;
 };
 
+/**
+ * Gom lỗi theo nguyên nhân để xử lý cả nhóm một lần: loạt 30 video mà 12 cái dính hết hạn mức thì chỉ cần
+ * một nút "Chạy lại 12", không phải đọc từng câu lỗi. Dựa vào tiền tố emoji của scripts/provider-error.ts
+ * (⏳ 📅 💳 🔑 🔥 📏) và vài câu lỗi quen thuộc của app.
+ */
+export type ErrorGroup = "wait" | "quota" | "key" | "content" | "missing" | "other";
+
+export const errorGroup = (message: string): ErrorGroup => {
+  if (/⏳|🔥|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|socket hang up|network|timed? ?out|quá tải/i.test(message)) return "wait";
+  if (/📅|💳|hết lượt|hết tiền|credit|quota/i.test(message)) return "quota";
+  if (/🔑|Chưa có (key|AI nào|model)|Cần key|cần key|thiếu key|key sai|API key|401|403/i.test(message)) return "key";
+  if (/Không thấy file|không còn|chưa có kịch bản|không có kịch bản|chưa dựng lần nào|ENOENT/i.test(message)) return "missing";
+  if (/📏|sai cấu trúc|JSON|không trả về|trả thiếu|quá dài|không hiểu|cú pháp|không nghe ra/i.test(message)) return "content";
+  return "other";
+};
+
 export const readBatch = (id: unknown) => {
   const batch = require_(id);
-  return { ...batch, items: refreshEdits(batch), counts: counts(batch) };
+  const items = refreshEdits(batch).map((item) =>
+    item.status === "error" && item.error ? { ...item, errorGroup: errorGroup(item.error) } : item);
+  return { ...batch, items, counts: counts(batch), postCopy: batchPostCopyStatus(batch) };
 };
 
 export const deleteBatch = (id: unknown) => {
@@ -611,10 +871,34 @@ export const deleteBatch = (id: unknown) => {
   return { ok: true };
 };
 
+// ---------- hẹn giờ ----------
+
+/**
+ * Mỗi 30 giây xem có loạt nào tới giờ hẹn thì chạy. Đọc từ đĩa (listBatches nạp mọi loạt vào cache) để loạt hẹn
+ * từ trước khi khởi động lại app vẫn chạy. Lỡ giờ vì app tắt thì mở app lên là chạy bù ngay.
+ */
+const scheduleTick = () => {
+  const now = Date.now();
+  try {
+    if (!fs.existsSync(batchesDir())) return;
+    for (const name of fs.readdirSync(batchesDir())) {
+      if (!name.endsWith(".json")) continue;
+      const batch = load(name.replace(/\.json$/, ""));
+      if (batch?.startAt && batch.startAt <= now && batch.state === "idle") startBatch(batch.id);
+    }
+  } catch (error) {
+    console.warn("Hẹn giờ loạt:", errorText(error));
+  }
+};
+setInterval(scheduleTick, 30_000).unref();
+setTimeout(scheduleTick, 3_000).unref();
+
 // ---------- điều khiển ----------
 
 export const startBatch = (id: unknown) => {
   const batch = require_(id);
+  // Bấm "Chạy ngay" trước giờ hẹn, hoặc tới giờ hẹn: giờ hẹn hết tác dụng.
+  delete batch.startAt;
   if (batch.source === "ideas") assertSettingsUsable(batch.settings);
   batch.state = "running";
   // Chạy lại loạt đã dừng: những mục lỗi không tự thử lại, phải bấm "Chạy lại".
@@ -625,7 +909,8 @@ export const startBatch = (id: unknown) => {
 
 export const pauseBatch = (id: unknown) => {
   const batch = require_(id);
-  // Mục đang chạy vẫn chạy nốt — dừng ngang chỉ để lại file dở.
+  // Mục đang chạy vẫn chạy nốt — dừng ngang chỉ để lại file dở. Loạt đang hẹn giờ thì huỷ hẹn.
+  delete batch.startAt;
   batch.state = "paused";
   save(batch);
   return summary(batch);
@@ -655,6 +940,13 @@ export const retryItems = (id: unknown, ids: unknown) => {
   const batch = require_(id);
   const picked = pickItems(batch, ids, (item) =>
     item.status === "error" || item.status === "done" || item.status === "skipped");
+  // Chạy lại bản gốc thì các bản ngôn ngữ của nó (đang lỗi vì chờ bản gốc) cũng vào hàng lại.
+  const pickedIds = new Set(picked.map((item) => item.id));
+  for (const item of batch.items) {
+    if (item.subOf && pickedIds.has(item.subOf.parent) && item.status === "error" && !item.slug) {
+      Object.assign(item, { status: "queued" as ItemStatus, error: undefined, progress: 0 });
+    }
+  }
   for (const item of picked) {
     // Đã có kịch bản rồi thì chạy lại từ bước dựng, khỏi gọi AI viết lại lời.
     const hasScript = item.slug
@@ -686,7 +978,7 @@ export const editItem = (id: unknown, body: unknown) => {
   };
   const item = batch.items.find((i) => i.id === String(itemId));
   if (!item) throw new Error("Không thấy ô này trong loạt.");
-  if (item.file || item.variant) {
+  if (item.file || item.variant || item.edit || item.subOf) {
     throw new Error("Ô này dựng từ file thu sẵn hoặc từ video gốc — sửa trong chính video đó.");
   }
   if (item.status === "preparing" || item.status === "building") {
@@ -719,6 +1011,78 @@ export const editItem = (id: unknown, body: unknown) => {
   return summary(batch);
 };
 
+/** Kịch bản đã viết của một mục (script.json) — null nếu mục chưa tới bước viết lời hoặc dựng từ file thu sẵn. */
+const itemScript = (item: BatchItem): VideoScript | null => {
+  if (!item.slug || item.file) return null;
+  const file = path.join(videoDir(item.slug), "script.json");
+  return fs.existsSync(file) ? parseScript(JSON.parse(fs.readFileSync(file, "utf8"))) : null;
+};
+
+/** Toàn bộ lời của một mục dạng văn bản (cú pháp dán sẵn) để sửa ngay trên bảng. */
+export const readItemScript = (id: unknown, itemId: unknown) => {
+  const batch = require_(id);
+  const item = batch.items.find((i) => i.id === String(itemId));
+  if (!item) throw new Error("Không thấy ô này trong loạt.");
+  const script = itemScript(item);
+  return script ? { text: scriptToText(script), title: script.title, scenes: script.scenes.length } : { text: null };
+};
+
+/**
+ * Lưu lời người dùng sửa (hoặc dán đè) cho một mục rồi dựng lại từ lời đó — KHÔNG gọi AI viết lại.
+ * Giữ phong cách, màu, handle của kịch bản cũ và ảnh từng cảnh theo thứ tự (cảnh mới thêm thì tìm ảnh mới).
+ * Mục đang chờ duyệt: `approve` = lưu rồi duyệt luôn; không thì vẫn chờ duyệt. Mục đã xong/lỗi/bỏ qua: dựng lại.
+ */
+export const saveItemScript = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const { itemId, text, settings, approve } = (body ?? {}) as {
+    itemId?: unknown; text?: unknown; settings?: Partial<ChatSettings>; approve?: unknown;
+  };
+  const item = batch.items.find((i) => i.id === String(itemId));
+  if (!item) throw new Error("Không thấy ô này trong loạt.");
+  if (item.status === "preparing" || item.status === "building") {
+    throw new Error("Ô này đang chạy — đợi xong rồi sửa.");
+  }
+  if (item.edit === "props") {
+    throw new Error("Loạt này giữ nguyên lời và chỉnh sửa tay của video — muốn sửa lời thì mở video trong trình chỉnh sửa.");
+  }
+  const old = itemScript(item);
+  if (!old || !item.slug) throw new Error("Ô này chưa có lời để sửa — dùng Viết lại từ ý tưởng.");
+
+  const own = settings ? normalizeSettings(settings, batch.settings) : itemSettings(batch, item);
+  const style = own.style === "auto" ? old.style : own.style;
+  // Ảnh đã dùng: props.json (ảnh tìm lúc dựng nằm ở đây) rồi mới tới script.json.
+  const props = readJson(path.join(videoDir(item.slug), "props.json")) as { scenes?: { image?: string | null }[] } | null;
+  const previousImages = old.scenes.map((scene, i) => props?.scenes?.[i]?.image ?? scene.image ?? null);
+  const parsed = textToScript(String(text ?? ""), { style, previousImages }).script;
+  const script = parseScript({
+    ...old, style, title: parsed.title, subtitle: parsed.subtitle,
+    // "! …" đọc lại luôn là con số; cảnh cũ là huy hiệu cùng chữ thì giữ huy hiệu.
+    scenes: parsed.scenes.map((scene, i) => {
+      const was = old.scenes[i]?.visual;
+      return was?.type === "badge" && scene.visual?.type === "stat" && scene.visual.text === was.text
+        ? { ...scene, visual: { ...scene.visual, type: "badge" as const } }
+        : scene;
+    }),
+  });
+  fs.writeFileSync(path.join(videoDir(item.slug), "script.json"), JSON.stringify(script, null, 2));
+
+  if (settings) item.override = own;
+  Object.assign(item, previewOf(script));
+  item.error = undefined;
+  if (item.status === "review") {
+    if (approve === true) item.status = "ready";
+  } else {
+    Object.assign(item, {
+      status: "ready" as ItemStatus, progress: 0, step: undefined,
+      mp4: undefined, images: undefined, poster: undefined, log: [], finishedAt: undefined,
+    });
+  }
+  if (item.status === "ready") batch.state = "running";
+  save(batch);
+  pump();
+  return summary(batch);
+};
+
 /** Bỏ qua: không dựng mục này nữa. Video đã tạo (nếu có) vẫn nằm trong Thư viện. */
 export const skipItems = (id: unknown, ids: unknown) => {
   const batch = require_(id);
@@ -742,7 +1106,8 @@ export const removeItems = (id: unknown, ids: unknown, alsoVideo = false) => {
   const slugs = picked
     .map((item) => item.slug)
     .filter((slug): slug is string => Boolean(slug) && fs.existsSync(videoDir(slug as string)));
-  if (alsoVideo && slugs.length > 0) {
+  // Loạt sửa hàng loạt trỏ vào video người dùng đã có từ trước — bỏ khỏi loạt không bao giờ xoá video đó.
+  if (alsoVideo && slugs.length > 0 && batch.source !== "edit") {
     // Video đi vào thùng rác của app, không xoá thẳng — người dùng khôi phục được.
     deleteProjects(slugs);
   }
@@ -824,6 +1189,20 @@ const pump = () => {
     }
     for (const item of batch.items) {
       if (item.status !== "queued") continue;
+      // Bản ngôn ngữ khác chờ bản gốc dựng xong (có lời đã duyệt và ảnh đã tìm) rồi mới dịch.
+      if (item.subOf) {
+        const parent = batch.items.find((i) => i.id === item.subOf!.parent);
+        if (!parent || parent.status === "error" || parent.status === "skipped") {
+          Object.assign(item, {
+            status: "error" as ItemStatus,
+            error: "Bản gốc lỗi hoặc bị bỏ — chạy lại bản gốc, bản ngôn ngữ này tự chạy theo.",
+            finishedAt: Date.now(),
+          });
+          save(batch);
+          continue;
+        }
+        if (parent.status !== "done") continue;
+      }
       if (isHeavyPrepare(item) ? heavy >= HEAVY_LIMIT : light >= LIGHT_LIMIT) continue;
       void run(batch, item, "prepare");
     }
@@ -862,10 +1241,12 @@ const run = async (batch: Batch, item: BatchItem, phase: "prepare" | "build") =>
 
   try {
     if (phase === "prepare") {
-      await prepare(batch, item, log);
-      item.status = batch.review ? "review" : "ready";
+      const keep = await prepare(batch, item, log);
+      item.status = keep === false ? "skipped" : batch.review ? "review" : "ready";
     } else {
       await build(batch, item, log);
+      await autoCheck(item, log);
+      await applyKitBrand(batch, item, log);
       item.status = "done";
       item.finishedAt = Date.now();
       if (item.restyle) {
@@ -900,9 +1281,13 @@ const previewOf = (script: VideoScript) => ({
   lines: allLines(script).slice(0, 40),
 });
 
-const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+/** Trả về false = mục này không có gì để làm (ví dụ không chứa chữ cần thay) — đánh dấu bỏ qua, khỏi render. */
+const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => void): Promise<boolean | void> => {
+  if (item.clip) return prepareClip(batch, item, log);
   if (item.file) return prepareMedia(batch, item, log);
   if (item.variant) return prepareVariant(batch, item, log);
+  if (item.edit) return prepareEdit(batch, item, log);
+  if (item.subOf) return prepareLanguage(batch, item, log);
 
   const settings = itemSettings(batch, item);
   // Dán cả kịch bản: đặt tên thư mục theo tiêu đề, không theo cả khối văn bản.
@@ -927,6 +1312,43 @@ const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => voi
   Object.assign(item, previewOf(script));
 };
 
+/**
+ * Bản ngôn ngữ khác: dịch kịch bản CỦA BẢN GỐC ĐÃ DỰNG (lời đã duyệt, ảnh đã tìm nằm sẵn trong script.json) sang
+ * `lang`. Cùng ảnh, cùng phong cách; giọng giữ nguyên hoặc đổi sang giọng ngôn ngữ đó (lồng tiếng).
+ */
+const prepareLanguage = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const { parent: parentId, lang, dub, voice } = item.subOf!;
+  const parent = batch.items.find((i) => i.id === parentId);
+  if (!parent?.slug) throw new Error("Không thấy bản gốc của bản ngôn ngữ này.");
+  const sourcePath = path.join(videoDir(parent.slug), "script.json");
+  if (!fs.existsSync(sourcePath)) throw new Error("Bản gốc không có kịch bản để dịch.");
+  const source = parseScript(JSON.parse(fs.readFileSync(sourcePath, "utf8")));
+  const engine = pickTranslateEngine();
+  if (!engine) throw new Error("Chưa có model dịch — điền key Gemini, Groq hoặc OpenRouter trong Cài đặt.");
+
+  log("__STEP__ script");
+  log(`Dịch sang ${translateLanguageLabel(lang)}…`);
+  const script = await translateScript(source, lang, engine, log);
+  if (allLines(script).length !== allLines(source).length) throw new Error("Bản dịch lệch số câu — bấm Chạy lại.");
+
+  const base = readChat(parent.slug).settings;
+  const settings = normalizeSettings({ ...base, ...(dub ? { voice: voice ?? "" } : {}), mode: "text" }, base);
+  item.override = settings;
+  const slug = item.slug ?? freshSlug(`${source.title.slice(0, 36)} ${lang}`);
+  item.slug = slug;
+  fs.mkdirSync(videoDir(slug), { recursive: true });
+  fs.writeFileSync(path.join(videoDir(slug), "script.json"), JSON.stringify(script, null, 2));
+  writeChat(slug, {
+    messages: [{
+      role: "user",
+      text: `Bản ${translateLanguageLabel(lang)}${dub ? " (lồng tiếng)" : " (phụ đề)"} của “${source.title}”`,
+      at: Date.now(),
+    }],
+    settings,
+  });
+  Object.assign(item, previewOf(script));
+};
+
 /** Biến thể: chép kịch bản gốc sang video mới, dịch nếu đổi ngôn ngữ. */
 const prepareVariant = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
   const { from, lang } = item.variant!;
@@ -939,6 +1361,15 @@ const prepareVariant = async (batch: Batch, item: BatchItem, log: (line: string)
 
   log("__STEP__ script");
   let script = source;
+  const hook = item.variant!.hook;
+  if (hook) {
+    const hooks = await batchHooks(batch, source, settings, log);
+    const line = hooks[hook - 1];
+    if (!line) throw new Error(`AI chỉ viết được ${hooks.length} câu hook — bỏ qua bản này hoặc bấm Chạy lại.`);
+    script = JSON.parse(JSON.stringify(source)) as VideoScript;
+    script.scenes[0].lines[0] = line;
+    log(`Hook ${HOOK_LETTERS[hook]}: ${line}`);
+  }
   if (lang) {
     const engine = pickTranslateEngine();
     if (!engine) {
@@ -947,12 +1378,13 @@ const prepareVariant = async (batch: Batch, item: BatchItem, log: (line: string)
       );
     }
     log(`Đang dịch sang ${translateLanguageLabel(lang)}…`);
-    script = await translateScript(source, lang, engine, log);
+    script = await translateScript(script, lang, engine, log);
   }
 
   // Tên thư mục: tiêu đề gốc rút ngắn + hậu tố cho biết đây là biến thể nào, để đừng
   // ra "…-2", "…-3" không đọc được là bản nào.
-  const suffix = [lang, item.variant!.aspect?.replace(":", "x"), item.variant!.voice || "khong-giong"]
+  const suffix = [hook === undefined ? null : `hook-${HOOK_LETTERS[hook].toLowerCase()}`,
+    lang, item.variant!.aspect?.replace(":", "x"), item.variant!.voice || "khong-giong"]
     .filter(Boolean).join(" ");
   const slug = item.slug ?? freshSlug(`${source.title.slice(0, 28)} ${suffix}`.trim());
   item.slug = slug;
@@ -967,6 +1399,31 @@ const prepareVariant = async (batch: Batch, item: BatchItem, log: (line: string)
     settings,
   });
   Object.assign(item, previewOf(script));
+};
+
+/**
+ * Câu hook dùng chung cho cả loạt: viết MỘT lần rồi lưu vào batch.hooks, để mọi bản (khác khung, khác giọng)
+ * cùng hook B thì đúng là cùng một câu. Hai mục chạy song song cùng chờ một lượt gọi AI, không gọi hai lần.
+ */
+const hookJobs = new Map<string, Promise<string[]>>();
+
+const batchHooks = async (batch: Batch, source: VideoScript, settings: ChatSettings, log: (line: string) => void) => {
+  const plan = batch.hooks;
+  if (!plan) throw new Error("Loạt này không thử hook.");
+  if (plan.lines?.length) return plan.lines;
+  let job = hookJobs.get(batch.id);
+  if (!job) {
+    log(`AI đang viết ${plan.count} câu hook khác nhau…`);
+    job = generateHooks(source, plan.count, settings.provider)
+      .then((lines) => {
+        plan.lines = lines;
+        save(batch);
+        return lines;
+      })
+      .finally(() => hookJobs.delete(batch.id));
+    hookJobs.set(batch.id, job);
+  }
+  return job;
 };
 
 const pickTranslateEngine = (): TranslateEngine | null =>
@@ -998,7 +1455,9 @@ const translateScript = async (
     }
   });
 
-  const translated = await translateLines(slots.map((slot) => slot.get()), { to, from: "vi", engine }, log);
+  // Ngôn ngữ nguồn đoán theo chữ của chính kịch bản — ý tưởng viết bằng tiếng Anh thì dịch "từ tiếng Anh".
+  const texts = slots.map((slot) => slot.get());
+  const translated = await translateLines(texts, { to, from: guessLanguage(texts.join(" ")), engine }, log);
   slots.forEach((slot, i) => slot.set(translated[i] ?? slot.get()));
   return parseScript(draft);
 };
@@ -1010,7 +1469,7 @@ const translateScript = async (
  */
 const transcriptMemory = new Map<string, Caption[]>();
 
-const transcribeCached = async (
+export const transcribeCached = async (
   source: string,
   file: string,
   spoken: string,
@@ -1172,6 +1631,289 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   item.lines = captions.filter((caption) => !caption.track).map((caption) => caption.text).slice(0, 40);
 };
 
+// ---------- sửa hàng loạt video có sẵn ----------
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+const parseEditPlan = (raw: Record<string, unknown> | undefined): EditPlan => {
+  const r = raw ?? {};
+  const kind: EditKind = r.kind === "rebuild" ? "rebuild" : "props";
+  const plan: EditPlan = { kind };
+  // Nhạc: normalizeSettings đã biết luật đường dẫn nhạc hợp lệ — mượn nó thay vì chép lại.
+  if (r.music !== undefined) {
+    const music = normalizeSettings({ music: r.music as string | null }, { ...DEFAULT_SETTINGS, music: "__keep__" }).music;
+    if (music === "__keep__") throw new Error("Nhạc nền không hợp lệ.");
+    plan.music = music;
+  }
+  if (typeof r.handle === "string" && r.handle.trim()) plan.handle = r.handle.trim().slice(0, 30);
+  if (typeof r.accent === "string" && r.accent.trim()) {
+    if (!HEX.test(r.accent.trim())) throw new Error("Màu nhấn phải có dạng #rrggbb.");
+    plan.accent = r.accent.trim();
+  }
+  if (kind === "rebuild") {
+    const own = normalizeSettings(
+      { style: r.style, voice: r.voice, aspect: r.aspect } as Partial<ChatSettings>,
+      { ...DEFAULT_SETTINGS, style: "__keep__" as never, voice: "__keep__", aspect: "__keep__" },
+    );
+    if (r.style !== undefined && own.style !== ("__keep__" as never)) plan.style = own.style;
+    if (r.voice !== undefined && own.voice !== "__keep__") plan.voice = own.voice;
+    if (r.aspect !== undefined && own.aspect !== "__keep__") plan.aspect = own.aspect;
+    const pairs = Array.isArray(r.replace) ? r.replace : [];
+    const replace = pairs
+      .map((pair) => pair as { find?: unknown; to?: unknown })
+      .map((pair) => ({ find: String(pair.find ?? ""), to: String(pair.to ?? "") }))
+      .filter((pair) => pair.find.trim() && pair.find !== pair.to)
+      .slice(0, 20);
+    if (replace.length) plan.replace = replace;
+  }
+  const { kind: _kind, ...changes } = plan;
+  if (Object.keys(changes).length === 0) throw new Error("Chưa chọn thay đổi nào để áp cho các video.");
+  return plan;
+};
+
+/** Mô tả ngắn những gì đã đổi — ghi vào lịch sử chat của từng video. */
+const editSummary = (plan: EditPlan | undefined) => {
+  if (!plan) return "";
+  const parts: string[] = [];
+  if (plan.style) parts.push(`phong cách ${plan.style}`);
+  if (plan.voice !== undefined) parts.push(plan.voice ? `giọng ${plan.voice}` : "bỏ giọng");
+  if (plan.aspect) parts.push(`khung ${plan.aspect}`);
+  if (plan.replace) parts.push(plan.replace.map((r) => `“${r.find}” → “${r.to}”`).join(", "));
+  if (plan.music !== undefined) {
+    parts.push(plan.music === null ? "bỏ nhạc" : plan.music === "random" ? "nhạc ngẫu nhiên" : `nhạc ${path.basename(plan.music)}`);
+  }
+  if (plan.handle) parts.push(`tên kênh ${plan.handle}`);
+  if (plan.accent) parts.push(`màu ${plan.accent}`);
+  return parts.join(" · ");
+};
+
+/** Mỗi video được chọn là một mục; báo lỗi ngay nếu video không sửa được theo cách đã chọn. */
+const editItems = (raw: unknown, plan: EditPlan): BatchItem[] => {
+  const slugs = [...new Set((Array.isArray(raw) ? raw : []).map(String))].filter(isSlug).slice(0, MAX_ITEMS);
+  const need = plan.kind === "rebuild" ? "script.json" : "props.json";
+  const missing: string[] = [];
+  const items: BatchItem[] = [];
+  for (const slug of slugs) {
+    if (!fs.existsSync(path.join(videoDir(slug), need))) {
+      missing.push(slug);
+      continue;
+    }
+    const script = readJson(path.join(videoDir(slug), "script.json")) as { title?: string } | null;
+    const props = readJson(path.join(videoDir(slug), "props.json")) as { title?: string } | null;
+    items.push(newItem(script?.title ?? props?.title ?? slug, { slug, edit: plan.kind }));
+  }
+  if (missing.length) {
+    throw new Error(plan.kind === "rebuild"
+      ? `${missing.length} video không có kịch bản (dựng từ file thu sẵn hoặc nhiều cảnh) nên không dựng lại được — bỏ chọn chúng, hoặc dùng cách “Giữ chỉnh sửa”.`
+      : `${missing.length} video chưa dựng lần nào nên chưa có gì để sửa — bỏ chọn chúng.`);
+  }
+  return items;
+};
+
+/** Thay chữ trong mọi chuỗi người xem thấy của kịch bản. Trả về số chỗ đã thay. */
+const replaceInScript = (script: VideoScript, pairs: { find: string; to: string }[]) => {
+  let count = 0;
+  const swap = (text: string, max: number) => {
+    let out = text;
+    for (const { find, to } of pairs) {
+      const parts = out.split(find);
+      count += parts.length - 1;
+      out = parts.join(to);
+    }
+    return fit(out, max);
+  };
+  script.title = swap(script.title, 60);
+  script.subtitle = swap(script.subtitle, 90);
+  for (const scene of script.scenes) {
+    scene.lines = scene.lines.map((line) => swap(line, 90));
+    if (scene.tag) scene.tag = swap(scene.tag, 18);
+    if (scene.punch) scene.punch = swap(scene.punch, 48);
+    if (scene.visual?.caption) scene.visual.caption = swap(scene.visual.caption, 40);
+  }
+  return count;
+};
+
+const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const plan = batch.edit;
+  const slug = item.slug;
+  if (!plan || !slug) throw new Error("Mục sửa hàng loạt thiếu thông tin.");
+  if (!fs.existsSync(videoDir(slug))) throw new Error("Video này không còn trong Thư viện.");
+  log("__STEP__ script");
+  const chat = readChat(slug);
+  const settings = normalizeSettings({
+    ...chat.settings,
+    ...(plan.music !== undefined ? { music: plan.music } : {}),
+    ...(plan.style ? { style: plan.style } : {}),
+    ...(plan.voice !== undefined ? { voice: plan.voice } : {}),
+    ...(plan.aspect ? { aspect: plan.aspect } : {}),
+  }, chat.settings);
+  // Bước dựng đọc cài đặt từ item.override; chat.json cũng ghi theo để lần sửa bằng prompt sau dùng đúng giọng, khung mới.
+  item.override = settings;
+
+  if (plan.kind === "props") {
+    const propsPath = path.join(videoDir(slug), "props.json");
+    const props = readJson(propsPath);
+    if (!props) throw new Error("Video này chưa dựng lần nào nên chưa có gì để sửa.");
+    if (plan.music !== undefined) props.music = await resolveMusicChoice(plan.music, log);
+    if (plan.handle) props.handle = plan.handle;
+    if (plan.accent) props.accent = plan.accent;
+    // Kiểm tra cho chắc nhưng ghi nguyên object: parse của zod bỏ mất trường lạ mà trình chỉnh sửa có thể đã thêm.
+    shortSchema.parse(props);
+    fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
+    log(`Đã đổi: ${editSummary(plan)}`);
+    const captions = (props.captions ?? []) as Caption[];
+    item.title = props.title;
+    item.scenes = Array.isArray(props.scenes) ? props.scenes.length : undefined;
+    item.lines = captions.filter((caption) => !caption.track).map((caption) => caption.text).slice(0, 40);
+  } else {
+    const scriptPath = path.join(videoDir(slug), "script.json");
+    if (!fs.existsSync(scriptPath)) throw new Error("Video này không có kịch bản nên không dựng lại được.");
+    const script = parseScript(JSON.parse(fs.readFileSync(scriptPath, "utf8")));
+    if (plan.replace) {
+      const count = replaceInScript(script, plan.replace);
+      const others = plan.style || plan.voice !== undefined || plan.aspect || plan.music !== undefined || plan.handle || plan.accent;
+      if (count === 0 && !others) {
+        log("Không có chữ nào cần thay trong video này — bỏ qua, không dựng lại.");
+        Object.assign(item, previewOf(script));
+        return false;
+      }
+      log(`Thay ${count} chỗ trong lời.`);
+    }
+    if (plan.style && plan.style !== "auto") script.style = plan.style;
+    if (plan.handle) script.handle = plan.handle;
+    if (plan.accent) script.accent = plan.accent;
+    fs.writeFileSync(scriptPath, JSON.stringify(parseScript(script), null, 2));
+    Object.assign(item, previewOf(script));
+  }
+  writeChat(slug, { messages: chat.messages, settings });
+  return true;
+};
+
+// ---------- cắt video dài thành nhiều video ngắn ----------
+
+/**
+ * Phân tích một video dài: phiên âm (có nhớ — bước tạo loạt dùng lại, không phiên âm lần hai) rồi AI chọn đoạn.
+ * Chạy nền; màn Hàng loạt hỏi tiến độ qua clipAnalysisStatus.
+ */
+type ClipAnalysis = { status: "running" | "done" | "error"; step: string; clips?: ClipPick[]; seconds?: number; error?: string };
+const clipAnalyses = new Map<string, ClipAnalysis>();
+
+export const startClipAnalysis = (body: unknown) => {
+  const raw = (body ?? {}) as { file?: unknown; spoken?: unknown; model?: unknown; count?: unknown; maxSeconds?: unknown; provider?: unknown };
+  const file = String(raw.file ?? "");
+  checkMediaFile(file);
+  const spoken = SPOKEN_LANGUAGES.some((l) => l.code === raw.spoken) ? String(raw.spoken) : "auto";
+  const model: WhisperModel = raw.model === "small" ? "small" : "medium";
+  const count = Math.max(1, Math.min(15, Math.round(Number(raw.count) || 5)));
+  const maxSeconds = Math.max(15, Math.min(180, Math.round(Number(raw.maxSeconds) || 60)));
+  const minSeconds = Math.max(10, Math.round(maxSeconds * 0.4));
+  const id = randomUUID().slice(0, 8);
+  const job: ClipAnalysis = { status: "running", step: "Đang phiên âm trên máy (video dài mất vài phút)…" };
+  clipAnalyses.set(id, job);
+  void (async () => {
+    try {
+      const source = path.join(process.cwd(), "public", file);
+      const captions = await transcribeCached(source, file, spoken, model, (line) => { if (!line.startsWith("__")) job.step = line; });
+      job.seconds = Math.round(audioDurationMs(source) / 1000);
+      job.step = `AI đang chọn ${count} đoạn hay trong ${captions.length} câu…`;
+      job.clips = await pickClips(captions, {
+        count, minSeconds, maxSeconds,
+        provider: isScriptProvider(raw.provider) ? raw.provider : "auto",
+      });
+      job.status = "done";
+    } catch (error) {
+      job.status = "error";
+      job.error = errorText(error);
+    }
+  })();
+  return { id };
+};
+
+export const clipAnalysisStatus = (id: unknown) => {
+  const job = clipAnalyses.get(String(id));
+  if (!job) throw new Error("Không thấy lượt phân tích này — phân tích lại.");
+  return job;
+};
+
+/**
+ * Một đoạn → một video: cắt đúng đoạn (mã hoá lại để mép cắt chính xác tới khung hình), lấy phụ đề từ bản phiên âm
+ * của cả video (dời mốc về 0), cắt khung giữa cho vừa khung đích, hiện câu hook ở 3 giây đầu.
+ */
+const prepareClip = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const settings = itemSettings(batch, item);
+  const { start, end, title } = item.clip!;
+  const source = path.join(process.cwd(), "public", item.file!);
+  if (!fs.existsSync(source)) throw new Error(`Không thấy file: ${item.file}`);
+  const slug = item.slug ?? freshSlug(title);
+  item.slug = slug;
+  fs.mkdirSync(videoDir(slug), { recursive: true });
+
+  log("__STEP__ script");
+  const all = await transcribeCached(source, item.file!, batch.spoken ?? "auto", batch.mediaModel, log);
+  const startMs = start * 1000;
+  const endMs = end * 1000;
+  const captions = all
+    .filter((c) => c.endMs > startMs + 150 && c.startMs < endMs - 150)
+    .map((c) => ({ ...c, startMs: Math.max(0, c.startMs - startMs), endMs: Math.min(endMs, c.endMs) - startMs }));
+  if (captions.length === 0) throw new Error("Đoạn này không có lời nói nào.");
+
+  const isVideo = /\.(mp4|mov|webm)$/i.test(item.file!);
+  const cutRel = path.posix.join("uploads", "clips", `${slug}.${isVideo ? "mp4" : "mp3"}`);
+  const cutAbs = path.join(process.cwd(), "public", cutRel);
+  fs.mkdirSync(path.dirname(cutAbs), { recursive: true });
+  log(`Cắt đoạn ${start.toFixed(1)}s–${end.toFixed(1)}s…`);
+  execFileSync("ffmpeg", [
+    "-v", "error", "-y", "-ss", String(start), "-to", String(end), "-i", source,
+    ...(isVideo ? ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p"] : ["-vn"]),
+    "-c:a", isVideo ? "aac" : "libmp3lame", "-b:a", "192k", "-ar", "48000", "-ac", "2", cutAbs,
+  ]);
+  const trackRel = path.posix.join("voices", slug, "track.mp3");
+  const trackAbs = path.join(process.cwd(), "public", trackRel);
+  fs.mkdirSync(path.dirname(trackAbs), { recursive: true });
+  execFileSync("ffmpeg", ["-y", "-v", "error", "-i", cutAbs, "-vn", "-ar", "48000", "-ac", "2", trackAbs]);
+  const durationMs = audioDurationMs(trackAbs);
+
+  // Cắt khung giữa: vùng lớn nhất đúng tỉ lệ khung đích, đặt giữa hình (video ngang → dọc 9:16 lấy phần giữa).
+  const aspect = aspectFor(...(settings.aspect.split(":").map(Number) as [number, number])).id;
+  const size = isVideo ? videoSize(cutAbs) : null;
+  let crop: MediaCrop | null = null;
+  if (size) {
+    const media = size.width / size.height;
+    const target = aspectRatioOf(aspect);
+    if (Math.abs(media - target) > 0.02) {
+      const { w, h } = largestCropRect(target, media);
+      crop = mediaCropSchema.parse({ x: (1 - w) / 2, y: (1 - h) / 2, w, h, mediaAspect: media, ratio: aspect });
+    }
+  }
+  const props = shortSchema.parse({
+    title,
+    subtitle: "",
+    handle: "@kenh",
+    accent: "#e8590c",
+    background: "#0b0b12",
+    // Video gốc đã in phụ đề: không gắn thêm. Tiếng vẫn phát (voiceoverTrack), độ dài theo cảnh.
+    captions: batch.noCaptions ? [] : captions,
+    aspect,
+    style: "plain",
+    scenes: [{ image: isVideo ? cutRel : null, visual: null, startMs: 0, endMs: durationMs, ...(crop ? { crop } : {}) }],
+    captionPosition: "bottom",
+    showTitle: false,
+    voiceoverTrack: trackRel,
+    music: await resolveMusicChoice(settings.music, log),
+    sfx: false,
+    // Câu hook nổi ở phần trên khung trong 3 giây đầu — thay cho thẻ tiêu đề (lời nói chạy ngay từ giây 0).
+    texts: [{ text: title, startMs: 0, endMs: Math.min(3500, durationMs), x: 50, y: 22, size: 64, background: "#000000cc", maxWidth: 84 }],
+  });
+  fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(props, null, 2));
+  writeChat(slug, {
+    messages: [{ role: "user", text: `Cắt đoạn ${Math.round(start)}s–${Math.round(end)}s từ ${uploadName(item.file!)}: ${title}`, at: Date.now() }],
+    settings: { ...settings, mode: "text" },
+  });
+  item.title = title;
+  item.scenes = 1;
+  item.lines = captions.map((c) => c.text).slice(0, 40);
+};
+
 // ---------- bước 2: dựng ----------
 
 const appendAssistant = (slug: string, message: ChatMessage) => {
@@ -1209,18 +1951,23 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   if (!slug) throw new Error("Mục này chưa chuẩn bị xong.");
   const settings = itemSettings(batch, item);
 
-  // Nguồn file thu sẵn không có kịch bản — render thẳng từ props.json đã phiên âm.
-  if (item.file) {
+  // Nguồn file thu sẵn không có kịch bản, và sửa hàng loạt kiểu giữ chỉnh sửa — render thẳng từ props.json.
+  if (item.file || item.edit === "props") {
+    // Nhận diện kênh cho video dựng từ file (file thu sẵn, cắt từ video dài) — ghi vào props trước khi render.
+    if (item.file && batch.kit) applyKitToProps(slug, batch.kit);
     log("__STEP__ render");
     const result = await runRenderStage(slug, undefined, log);
     item.mp4 = `${result.mp4}?t=${Date.now()}`;
     item.poster = makePoster(slug, path.join(process.cwd(), "out", `${slug}.mp4`));
+    const props = readJson(path.join(videoDir(slug), "props.json")) as { aspect?: string } | null;
     appendAssistant(slug, {
       role: "assistant",
       at: Date.now(),
-      text: `Đã dựng “${item.title ?? slug}” từ file thu sẵn · ${(result.durationInFrames / 30).toFixed(1)}s`,
+      text: item.edit
+        ? `Đã sửa hàng loạt: ${editSummary(batch.edit)} · ${(result.durationInFrames / 30).toFixed(1)}s`
+        : `Đã dựng “${item.title ?? slug}” từ file thu sẵn · ${(result.durationInFrames / 30).toFixed(1)}s`,
       mp4: item.mp4,
-      aspect: settings.aspect,
+      aspect: props?.aspect ?? settings.aspect,
     });
     return;
   }
@@ -1228,7 +1975,34 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   const scriptPath = path.join(videoDir(slug), "script.json");
   if (!fs.existsSync(scriptPath)) throw new Error(`${slug} chưa có kịch bản.`);
   const script = parseScript(JSON.parse(fs.readFileSync(scriptPath, "utf8")));
-  const result = await buildFromScript(slug, script, settings, log);
+  // Bản chỉ dịch phụ đề: giọng đọc lời của bản gốc, phụ đề và chữ trên hình theo bản dịch.
+  const parentSlug = item.subOf && !item.subOf.dub ? batch.items.find((i) => i.id === item.subOf!.parent)?.slug : undefined;
+  const voiceScript = parentSlug && fs.existsSync(path.join(videoDir(parentSlug), "script.json"))
+    ? parseScript(JSON.parse(fs.readFileSync(path.join(videoDir(parentSlug), "script.json"), "utf8")))
+    : undefined;
+  // Nhận diện kênh: tên kênh, màu nhấn vào kịch bản (lưu lại để sửa sau vẫn giữ); kiểu phụ đề vào props lúc dựng.
+  const kit = item.edit ? undefined : batch.kit;
+  if (kit?.handle || kit?.accent) {
+    if (kit.handle) script.handle = kit.handle;
+    if (kit.accent) script.accent = kit.accent;
+    fs.writeFileSync(scriptPath, JSON.stringify(script, null, 2));
+  }
+  // Song ngữ: dịch sẵn lời của từng ngôn ngữ, rồi lúc dựng thêm mỗi ngôn ngữ một hàng phụ đề cùng mốc giờ.
+  const stacked: { lang: TranslateLanguage; lines: string[] }[] = [];
+  if (item.stack?.length) {
+    const engine = pickTranslateEngine();
+    if (!engine) throw new Error("Chưa có model dịch — điền key Gemini, Groq hoặc OpenRouter trong Cài đặt.");
+    for (const lang of item.stack) {
+      log(`Dịch phụ đề sang ${translateLanguageLabel(lang)}…`);
+      stacked.push({ lang, lines: allLines(await translateScript(script, lang, engine, log)) });
+    }
+  }
+  const patch = (props: ShortProps) => {
+    if (kit?.captionLook) props.captionLook = { ...(props.captionLook ?? {}), ...kit.captionLook };
+    if (stacked.length) addStackedCaptions(props, stacked, log);
+  };
+  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit), voiceScript, patch);
+  if (item.edit) result.text = `Đã sửa hàng loạt: ${editSummary(batch.edit)} · ${result.text}`;
 
   item.mp4 = result.mp4;
   item.images = result.images;
@@ -1239,6 +2013,424 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   item.scenes = script.scenes.length;
   appendAssistant(slug, { role: "assistant", at: Date.now(), ...result });
 };
+
+// ---------- phụ đề song ngữ ----------
+
+/** Kiểu hàng dịch: nhỏ hơn hàng gốc và khác màu để mắt tách được hai ngôn ngữ. Hàng thứ ba nhạt hơn nữa. */
+const STACK_LOOKS: Partial<CaptionLook>[] = [
+  { size: 48, weight: 700, color: "#ffe066" },
+  { size: 42, weight: 600, color: "#9ee7ff" },
+];
+
+/**
+ * Thêm hàng phụ đề dịch (track 1, 2) cùng mốc giờ với hàng gốc. Không kèm audio — tiếng chỉ phát theo hàng gốc.
+ * Phong cách lấy phụ đề làm nội dung (Tin nhắn, Câu đố…) không có chỗ cho hàng thứ hai → bỏ qua, báo trong log.
+ */
+const addStackedCaptions = (props: ShortProps, stacked: { lang: TranslateLanguage; lines: string[] }[], log: (line: string) => void) => {
+  if (!canCustomizeCaptions(props.style)) {
+    log(`Phong cách này dùng phụ đề làm nội dung (bong bóng, thẻ câu hỏi…) nên không thêm được hàng song ngữ — giữ một ngôn ngữ.`);
+    return;
+  }
+  const base = props.captions.filter((c) => !c.track);
+  stacked.forEach(({ lang, lines }, k) => {
+    if (lines.length !== base.length) {
+      log(`Bản ${translateLanguageLabel(lang)} lệch số câu — bỏ hàng này.`);
+      return;
+    }
+    props.captions.push(...base.map((c, i) => ({ ...c, text: lines[i], audio: null, track: k + 1, style: STACK_LOOKS[k] ?? STACK_LOOKS[0] })));
+  });
+};
+
+// ---------- nhận diện kênh ----------
+
+const applyKitToProps = (slug: string, kit: Kit) => {
+  const propsPath = path.join(videoDir(slug), "props.json");
+  const props = readJson(propsPath);
+  if (!props) return;
+  if (kit.handle) props.handle = kit.handle;
+  if (kit.accent) props.accent = kit.accent;
+  if (kit.captionLook) props.captionLook = { ...(props.captionLook ?? {}), ...kit.captionLook };
+  fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
+};
+
+/** Dựng xong thì ghép luôn mở đầu/kết thúc của kênh — bản gốc giữ nguyên, bản ghép vào thư mục riêng của gói tải. */
+const applyKitBrand = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const kit = batch.kit;
+  if (!kit || (!kit.intro && !kit.outro) || !item.slug || item.edit) return;
+  const mp4 = path.join(process.cwd(), "out", `${item.slug}.mp4`);
+  if (!fs.existsSync(mp4)) return;
+  try {
+    log("Ghép mở đầu / kết thúc của kênh…");
+    await brandVideo(mp4, brandPath(item.slug), { intro: kit.intro, outro: kit.outro });
+    batch.brand = { intro: kit.intro ?? null, outro: kit.outro ?? null };
+  } catch (error) {
+    log(`Không ghép được mở đầu/kết thúc: ${errorText(error)}`);
+  }
+};
+
+// ---------- tự soát chất lượng ----------
+
+/**
+ * Soát ngay sau khi render xong, vẫn trong suất "việc nặng" của mục đó — một lượt ffmpeg vài giây.
+ * Soát lỗi thì chỉ ghi log: video đã render xong, không vì bước soát mà đánh dấu lỗi cả mục.
+ */
+const autoCheck = async (item: BatchItem, log: (line: string) => void) => {
+  if (!item.slug || !fs.existsSync(path.join(process.cwd(), "out", `${item.slug}.mp4`))) return;
+  log("__STEP__ check");
+  try {
+    const qa = await checkVideo(item.slug);
+    log(`Tự soát: ${qa.score}/10${qa.issues.length ? ` — ${qa.issues.length} điểm cần xem` : ""}`);
+  } catch (error) {
+    log(`Không soát được: ${errorText(error)}`);
+  }
+};
+
+/** Soát lại cả loạt (loạt làm trước khi có tính năng này, hoặc video đã sửa rồi xuất lại). Chạy nền, lần lượt. */
+type CheckRun = { running: boolean; total: number; done: number };
+const checkRuns = new Map<string, CheckRun>();
+
+export const startBatchCheck = (id: unknown) => {
+  const batch = require_(id);
+  const current = checkRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  const slugs = doneItems(batch).map(({ item }) => item.slug!).filter((slug) => !savedCheck(slug));
+  const run: CheckRun = { running: slugs.length > 0, total: slugs.length, done: 0 };
+  checkRuns.set(batch.id, run);
+  void (async () => {
+    for (const slug of slugs) {
+      try {
+        await checkVideo(slug);
+      } catch {
+        // video lỗi file thì bỏ qua — ô đó hiện "chưa soát", bấm lại được
+      }
+      run.done++;
+    }
+    run.running = false;
+  })();
+  return { run };
+};
+
+export const batchCheckStatus = (id: unknown) => ({ run: checkRuns.get(require_(id).id) ?? null });
+
+// ---------- sửa tự động theo kết quả tự soát ----------
+
+/** Mốc âm lượng khi đăng mạng xã hội: -14 LUFS, đỉnh dưới -1,5 dBTP. */
+const LOUDNORM = "I=-14:TP=-1.5:LRA=11";
+
+/**
+ * Chuẩn hoá âm lượng mp4 tại chỗ — hai lượt loudnorm: lượt đầu chỉ đo, lượt sau chỉnh tuyến tính theo số đo
+ * (một lượt với video ngắn hay lệch vài LU). Chép nguyên hình (-c:v copy), chỉ mã hoá lại tiếng, vài giây.
+ */
+const normalizeLoudness = async (file: string) => {
+  const run = promisify(execFileCb);
+  const { stderr } = await run("ffmpeg", ["-hide_banner", "-nostats", "-i", file, "-af", `loudnorm=${LOUDNORM}:print_format=json`, "-f", "null", "-"], { maxBuffer: 16 * 1024 * 1024 });
+  const json = JSON.parse(stderr.slice(stderr.lastIndexOf("{"), stderr.lastIndexOf("}") + 1)) as Record<string, string>;
+  const measured = `measured_I=${json.input_i}:measured_TP=${json.input_tp}:measured_LRA=${json.input_lra}:measured_thresh=${json.input_thresh}:offset=${json.target_offset}`;
+  const tmp = `${file}.loudnorm.mp4`;
+  await run("ffmpeg", [
+    "-v", "error", "-y", "-i", file, "-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy",
+    "-af", `loudnorm=${LOUDNORM}:${measured}:linear=true`, "-ar", "48000", "-c:a", "aac", "-b:a", "192k",
+    "-movflags", "+faststart", tmp,
+  ]);
+  fs.renameSync(tmp, file);
+};
+
+/**
+ * Sửa một video theo lỗi tự soát đánh dấu `fix`: chữ lấn vùng che → dời trong props.json rồi render lại;
+ * âm lượng → chuẩn hoá (làm SAU render, render lại là mất). Mỗi lần sửa là một bản mới trong lịch sử video.
+ */
+const fixVideo = async (batch: Batch, item: BatchItem) => {
+  const slug = item.slug!;
+  const qa = savedCheck(slug) ?? await checkVideo(slug);
+  const fixes = new Set(qa.issues.map((issue) => issue.fix).filter(Boolean));
+  const did: string[] = [];
+  if (fixes.has("safe")) {
+    const propsPath = path.join(videoDir(slug), "props.json");
+    const props = readJson(propsPath);
+    const moved = props ? fixPlacements(props) : 0;
+    if (moved > 0) {
+      shortSchema.parse(props);
+      fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
+      heavy += 1;
+      try {
+        await runRenderStage(slug, undefined, () => {});
+      } finally {
+        heavy -= 1;
+      }
+      did.push(`dời ${moved} chỗ chữ vào vùng an toàn`);
+    }
+  }
+  const mp4 = path.join(process.cwd(), "out", `${slug}.mp4`);
+  if (fixes.has("loudness")) {
+    await normalizeLoudness(mp4);
+    did.push("chuẩn hoá âm lượng về -14 LUFS");
+  }
+  if (did.length === 0) return false;
+  const mtime = Math.round(fs.statSync(mp4).mtimeMs);
+  item.mp4 = `/out/${slug}.mp4?t=${mtime}`;
+  item.poster = makePoster(slug, mp4);
+  const props = readJson(path.join(videoDir(slug), "props.json")) as { aspect?: string } | null;
+  appendAssistant(slug, { role: "assistant", at: Date.now(), text: `Đã sửa tự động: ${did.join(", ")}`, mp4: item.mp4, aspect: props?.aspect ?? itemSettings(batch, item).aspect });
+  save(batch);
+  await checkVideo(slug);
+  return true;
+};
+
+type FixRun = { running: boolean; total: number; done: number; failed: number; fixed: number; error?: string };
+const fixRuns = new Map<string, FixRun>();
+
+/** Sửa tự động các video đã xong có lỗi sửa được (`ids` = chỉ những mục này). Lần lượt, vì có thể phải render lại. */
+export const startBatchFix = (id: unknown, ids?: unknown) => {
+  const batch = require_(id);
+  const current = fixRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  if (batch.items.some((item) => item.status === "building")) throw new Error("Loạt đang dựng — đợi dựng xong rồi sửa tự động.");
+  const only = Array.isArray(ids) ? new Set(ids.map(String)) : null;
+  const targets = doneItems(batch)
+    .map(({ item }) => item)
+    .filter((item) => (!only || only.has(item.id)) && savedCheck(item.slug!)?.issues.some((issue) => issue.fix));
+  const run: FixRun = { running: targets.length > 0, total: targets.length, done: 0, failed: 0, fixed: 0 };
+  fixRuns.set(batch.id, run);
+  void (async () => {
+    for (const item of targets) {
+      try {
+        if (await fixVideo(batch, item)) run.fixed++;
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      }
+    }
+    run.running = false;
+    pump();
+  })();
+  return { run };
+};
+
+export const batchFixStatus = (id: unknown) => ({ run: fixRuns.get(require_(id).id) ?? null });
+
+// ---------- ảnh bìa (scripts/cover.ts) ----------
+
+type CoverRun = { running: boolean; total: number; done: number; failed: number; error?: string };
+const coverRuns = new Map<string, CoverRun>();
+
+/**
+ * Làm ảnh bìa cho video đã xong: đủ ba bố cục mỗi video (để thử bìa nào được bấm nhiều hơn), chỉ những bìa chưa có
+ * hoặc cũ hơn bản mp4. `force` = làm lại tất cả.
+ */
+export const startBatchCovers = (id: unknown, force = false) => {
+  const batch = require_(id);
+  const current = coverRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  const jobs = doneItems(batch).flatMap(({ item }) =>
+    COVER_LAYOUTS.filter((layout) => force || !freshCover(item.slug!, layout)).map((layout) => ({ slug: item.slug!, layout })));
+  const run: CoverRun = { running: jobs.length > 0, total: jobs.length, done: 0, failed: 0 };
+  coverRuns.set(batch.id, run);
+  void (async () => {
+    for (const { slug, layout } of jobs) {
+      try {
+        await makeCover(slug, layout);
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      }
+    }
+    run.running = false;
+  })();
+  return { run };
+};
+
+export const batchCoversStatus = (id: unknown) => ({ run: coverRuns.get(require_(id).id) ?? null });
+
+// ---------- xuất thêm khung hình ----------
+
+/**
+ * Bản khác khung của video đã xong (vd. loạt 9:16 xuất thêm 1:1 cho Facebook, 16:9 cho YouTube): render lại
+ * từ props.json hiện có — giữ lời, giọng, chỉnh sửa tay — chỉ đổi `aspect`. Không tạo video mới trong Thư viện;
+ * file nằm ở out/exports/<slug>/<khung>.mp4 và vào gói Tải tất cả trong thư mục theo khung.
+ */
+const exportPath = (slug: string, aspect: string) =>
+  path.join(process.cwd(), "out", "exports", slug, `${aspect.replace(":", "x")}.mp4`);
+
+/** Bản xuất còn mới hơn bản mp4 chính (sửa video rồi xuất lại thì bản khác khung cũng phải làm lại). */
+const freshExport = (slug: string, aspect: string) => {
+  const file = exportPath(slug, aspect);
+  const main = path.join(process.cwd(), "out", `${slug}.mp4`);
+  return fs.existsSync(file) && (!fs.existsSync(main) || fs.statSync(file).mtimeMs >= fs.statSync(main).mtimeMs);
+};
+
+/** Các khung đã xuất (còn mới) của một video — hiện trên ô, và cho gói tải về. */
+const exportsOf = (slug: string) => ASPECT_IDS.filter((aspect) => freshExport(slug, aspect));
+
+type ExportRun = { running: boolean; total: number; done: number; failed: number; error?: string; current?: string };
+const exportRuns = new Map<string, ExportRun>();
+
+export const startBatchExports = (id: unknown, rawAspects: unknown) => {
+  const batch = require_(id);
+  const current = exportRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  // Render ăn trọn CPU: chạy chen với loạt đang dựng chỉ làm cả hai cùng chậm.
+  if (batch.items.some((item) => item.status === "building" || item.status === "preparing")) {
+    throw new Error("Loạt đang dựng — đợi dựng xong (hoặc Tạm dừng) rồi xuất thêm khung.");
+  }
+  const aspects = (Array.isArray(rawAspects) ? rawAspects : []).map(String).filter((a) => ASPECT_IDS.includes(a as never));
+  if (aspects.length === 0) throw new Error("Chọn ít nhất một khung hình để xuất.");
+  const jobs: { slug: string; aspect: string }[] = [];
+  for (const { item } of doneItems(batch)) {
+    const props = readJson(path.join(videoDir(item.slug!), "props.json")) as { aspect?: string } | null;
+    if (!props) continue;
+    for (const aspect of aspects) {
+      // Khung gốc của video đã có sẵn ở bản chính.
+      if (aspect !== (props.aspect ?? "9:16") && !freshExport(item.slug!, aspect)) jobs.push({ slug: item.slug!, aspect });
+    }
+  }
+  const run: ExportRun = { running: jobs.length > 0, total: jobs.length, done: 0, failed: 0 };
+  exportRuns.set(batch.id, run);
+  void (async () => {
+    for (const { slug, aspect } of jobs) {
+      run.current = `${slug} · ${aspect}`;
+      heavy += 1;
+      try {
+        const props = shortSchema.parse(JSON.parse(fs.readFileSync(path.join(videoDir(slug), "props.json"), "utf8")));
+        const out = exportPath(slug, aspect);
+        fs.mkdirSync(path.dirname(out), { recursive: true });
+        await renderShort({ ...props, aspect: aspect as AspectId }, out);
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      } finally {
+        heavy -= 1;
+      }
+    }
+    run.running = false;
+    run.current = undefined;
+    pump();
+  })();
+  return { run };
+};
+
+export const batchExportsStatus = (id: unknown) => ({ run: exportRuns.get(require_(id).id) ?? null });
+
+// ---------- đoạn mở đầu / kết thúc chung (scripts/brand.ts) ----------
+
+const brandPath = (slug: string) => path.join(process.cwd(), "out", "exports", slug, "brand.mp4");
+
+/** Bản có mở đầu/kết thúc còn mới hơn bản mp4 chính. */
+const freshBrand = (slug: string) => {
+  const file = brandPath(slug);
+  const main = path.join(process.cwd(), "out", `${slug}.mp4`);
+  return fs.existsSync(file) && (!fs.existsSync(main) || fs.statSync(file).mtimeMs >= fs.statSync(main).mtimeMs);
+};
+
+type BrandRun = { running: boolean; total: number; done: number; failed: number; error?: string };
+const brandRuns = new Map<string, BrandRun>();
+
+const brandFile = (value: unknown) => {
+  const rel = typeof value === "string" ? value.trim().replace(/^\/+/, "") : "";
+  if (!rel) return null;
+  if (rel.includes("..") || !isBrandFile(rel) || !fs.existsSync(path.join(process.cwd(), "public", rel))) {
+    throw new Error(`File ${rel} không dùng được — chọn ảnh hoặc video trong thư viện.`);
+  }
+  return rel;
+};
+
+/** Gắn mở đầu/kết thúc cho MỌI video đã xong (đổi file thì làm lại hết cho đồng bộ). Ghép bằng ffmpeg, vài giây mỗi video. */
+export const startBatchBrand = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const current = brandRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  const raw = (body ?? {}) as { intro?: unknown; outro?: unknown };
+  const brand = { intro: brandFile(raw.intro), outro: brandFile(raw.outro) };
+  if (!brand.intro && !brand.outro) throw new Error("Chọn ít nhất một đoạn mở đầu hoặc kết thúc.");
+  batch.brand = brand;
+  save(batch);
+  const slugs = doneItems(batch).map(({ item }) => item.slug!);
+  const run: BrandRun = { running: slugs.length > 0, total: slugs.length, done: 0, failed: 0 };
+  brandRuns.set(batch.id, run);
+  void (async () => {
+    for (const slug of slugs) {
+      try {
+        await brandVideo(path.join(process.cwd(), "out", `${slug}.mp4`), brandPath(slug), brand);
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      }
+    }
+    run.running = false;
+  })();
+  return { run };
+};
+
+export const batchBrandStatus = (id: unknown) => ({ run: brandRuns.get(require_(id).id) ?? null });
+
+// ---------- gộp cả loạt thành một video dài (scripts/compile.ts) ----------
+
+type CompileRun = { running: boolean; total: number; done: number; failed: number; error?: string };
+const compileRuns = new Map<string, CompileRun>();
+const compiledName = (aspect: string) => `tong-hop-${aspect.replace(":", "x")}.mp4`;
+
+/**
+ * Gộp mọi video đã xong (theo thứ tự trong loạt) thành một video: thẻ chương "Phần k: tiêu đề" trước mỗi phần
+ * (bố cục bìa "giữa"), video khác khung đặt trên nền mờ. Có bản xuất sẵn đúng khung thì dùng bản đó cho nét.
+ */
+export const startBatchCompile = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const current = compileRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  if (batch.items.some((item) => item.status === "building")) throw new Error("Loạt đang dựng — đợi dựng xong rồi gộp.");
+  const raw = (body ?? {}) as { aspect?: unknown; cards?: unknown };
+  const aspect = ASPECT_IDS.includes(raw.aspect as AspectId) ? (raw.aspect as AspectId) : "16:9";
+  const cards = raw.cards !== false;
+  const items = doneItems(batch);
+  if (items.length < 2) throw new Error("Cần ít nhất 2 video đã xong để gộp.");
+  const { width: W, height: H } = ASPECTS[aspect];
+  const dir = path.join(process.cwd(), "out", "exports", `loat-${batch.id}`);
+  // Mỗi thẻ chương là một bước, cộng một bước ghép cuối.
+  const run: CompileRun = { running: true, total: (cards ? items.length : 0) + 1, done: 0, failed: 0 };
+  compileRuns.set(batch.id, run);
+  void (async () => {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const parts = [];
+      for (const [k, { item }] of items.entries()) {
+        const slug = item.slug!;
+        const title = `Phần ${k + 1}: ${item.title ?? item.input.slice(0, 50)}`;
+        let card: string | null = null;
+        if (cards) {
+          card = path.join(dir, `chuong-${k + 1}.jpg`);
+          await renderCover({ ...(await coverInput(slug, "center")), title, subtitle: "", aspect }, card);
+          run.done++;
+        }
+        const video = freshExport(slug, aspect) ? exportPath(slug, aspect) : path.join(process.cwd(), "out", `${slug}.mp4`);
+        parts.push({ card, video, title });
+      }
+      heavy += 1;
+      try {
+        const output = path.join(dir, compiledName(aspect));
+        const result = await compileVideos(parts, output, W, H);
+        batch.compiled = {
+          aspect, file: path.relative(process.cwd(), output).split(path.sep).join("/"),
+          chapters: result.chapters, seconds: Math.round(result.seconds), at: Date.now(),
+        };
+        save(batch);
+        run.done++;
+      } finally {
+        heavy -= 1;
+      }
+    } catch (error) {
+      run.failed++;
+      run.error = errorText(error);
+    }
+    run.running = false;
+    pump();
+  })();
+  return { run };
+};
+
+export const batchCompileStatus = (id: unknown) => ({ run: compileRuns.get(require_(id).id) ?? null });
 
 // ---------- xuất cả loạt ----------
 
@@ -1294,7 +2486,24 @@ export function* batchZip(id: unknown): Generator<Buffer> {
     for (const { item, index } of files) {
       const mp4Name = exportName(item, index);
       yield { name: mp4Name, read: () => fs.readFileSync(path.join(process.cwd(), "out", `${item.slug}.mp4`)) };
-      if (batch.source !== "subs") continue;
+      const copy = freshCopy(item.slug!);
+      if (copy) yield { name: mp4Name.replace(/\.mp4$/, ".txt"), read: () => Buffer.from(postCopyText(copy), "utf8") };
+      // Bìa chính <tên>.jpg, hai bố cục còn lại <tên>.bia-2.jpg, .bia-3.jpg — đăng thử bìa nào được bấm nhiều hơn.
+      for (const [k, layout] of COVER_LAYOUTS.entries()) {
+        if (!freshCover(item.slug!, layout)) continue;
+        yield { name: mp4Name.replace(/\.mp4$/, k === 0 ? ".jpg" : `.bia-${k + 1}.jpg`), read: () => fs.readFileSync(coverPath(item.slug!, layout)) };
+      }
+      if (freshBrand(item.slug!)) yield { name: `co-mo-dau-ket-thuc/${mp4Name}`, read: () => fs.readFileSync(brandPath(item.slug!)) };
+      // Bản khác khung: mỗi khung một thư mục, cùng tên file để dễ đối chiếu.
+      for (const aspect of exportsOf(item.slug!)) {
+        yield { name: `${aspect.replace(":", "x")}/${mp4Name}`, read: () => fs.readFileSync(exportPath(item.slug!, aspect)) };
+      }
+      if (batch.source !== "subs") {
+        // Mọi loạt đều kèm .srt — YouTube, Facebook nhận phụ đề bật/tắt được, tốt cho người xem lẫn tìm kiếm.
+        const srt = srtFor(item.slug!);
+        if (srt) yield { name: mp4Name.replace(/\.mp4$/, ".srt"), read: () => Buffer.from(srt, "utf8") };
+        continue;
+      }
       // Loạt nhiều hàng: hàng đầu là <tên>.srt, các hàng sau <tên>.<mã ngôn ngữ>.srt.
       const tracks = batch.subs?.tracks ?? [{ lang: "" as const }];
       for (const [k, track] of tracks.entries()) {
@@ -1305,7 +2514,16 @@ export function* batchZip(id: unknown): Generator<Buffer> {
     }
   };
 
-  for (const [i, entryInfo] of [...entries()].entries()) {
+  // Video tổng hợp của cả loạt (nếu đã gộp) và mốc chương để dán vào mô tả YouTube.
+  const compiled = batch.compiled && fs.existsSync(path.join(process.cwd(), batch.compiled.file)) ? batch.compiled : null;
+  const all = function* () {
+    yield* entries();
+    if (compiled) {
+      yield { name: path.posix.basename(compiled.file), read: () => fs.readFileSync(path.join(process.cwd(), compiled.file)) };
+      yield { name: "tong-hop-muc-chuong.txt", read: () => Buffer.from(`${compiled.chapters}\n`, "utf8") };
+    }
+  };
+  for (const [i, entryInfo] of [...all()].entries()) {
     const data = entryInfo.read();
     const name = Buffer.from(entryInfo.name, "utf8");
     const crc = crc32(data);
@@ -1379,6 +2597,132 @@ const srtFor = (slug: string, track = 0) => {
     .join("\n");
 };
 
+// ---------- lịch đăng ----------
+
+const PLATFORMS: PostPlatform[] = ["tiktok", "youtube", "facebook", "instagram"];
+const PLATFORM_LABEL: Record<PostPlatform, string> = { tiktok: "TikTok", youtube: "YouTube", facebook: "Facebook", instagram: "Instagram" };
+
+/**
+ * Lưu lịch đăng. Trình duyệt tính sẵn mốc từng video (nó biết múi giờ người dùng); server chỉ kiểm tra rồi giữ lại
+ * để ô video hiện "Đăng: T7 19/09 19:30", CSV có cột lịch, và xuất được file .ics.
+ */
+export const savePostPlan = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const raw = (body ?? {}) as { slots?: unknown; platforms?: unknown };
+  const ids = new Set(batch.items.map((item) => item.id));
+  const slots: Record<string, number> = {};
+  for (const [itemId, at] of Object.entries((raw.slots ?? {}) as Record<string, unknown>)) {
+    const ms = Number(at);
+    if (ids.has(itemId) && Number.isFinite(ms) && ms > 0) slots[itemId] = Math.round(ms);
+  }
+  if (Object.keys(slots).length === 0) {
+    delete batch.postPlan;
+  } else {
+    const platforms = (Array.isArray(raw.platforms) ? raw.platforms : []).filter((p): p is PostPlatform => PLATFORMS.includes(p as PostPlatform));
+    batch.postPlan = { slots, platforms: platforms.length ? platforms : ["tiktok"] };
+  }
+  save(batch);
+  return { postPlan: batch.postPlan ?? null };
+};
+
+/**
+ * Đọc số người dùng gõ hoặc dán từ trang thống kê: "12.345" / "12,345" (phân cách hàng nghìn), "45,5" / "45.5"
+ * (thập phân), "12,3K", "1.2M", "1,5 tr", "38%". Không đọc được hoặc âm → null.
+ */
+export const parseStat = (raw: unknown): number | null => {
+  let text = String(raw ?? "").trim().toLowerCase().replace(/%$/, "").trim();
+  if (!text) return null;
+  const unit = /(k|n|nghìn|ngàn|m|tr|triệu|b|tỷ)$/.exec(text)?.[1];
+  if (unit) text = text.slice(0, -unit.length).trim();
+  // Dấu . hoặc , đứng trước đúng 3 chữ số ở cuối cụm = phân cách hàng nghìn; còn lại là dấu thập phân.
+  text = text.replace(/\s/g, "").replace(/[.,](?=\d{3}(?:[.,]|$))/g, "").replace(",", ".");
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return null;
+  const mul = !unit ? 1 : /^(k|n|nghìn|ngàn)$/.test(unit) ? 1e3 : /^(m|tr|triệu)$/.test(unit) ? 1e6 : 1e9;
+  return n * mul;
+};
+
+/**
+ * Lưu số liệu sau khi đăng của một nền tảng (ghi đè đúng các ô gửi lên). Số âm, chữ hay tỉ lệ ngoài 0–100 bị bỏ.
+ * Ô trống = xoá số đó; video không còn số nào thì bỏ khỏi bảng.
+ */
+export const saveResults = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const raw = (body ?? {}) as { platform?: unknown; rows?: unknown };
+  const platform = PLATFORMS.find((p) => p === raw.platform);
+  if (!platform) throw new Error("Chọn nền tảng trước đã.");
+  const ids = new Set(batch.items.map((item) => item.id));
+  const table: Record<string, PostStats> = {};
+  for (const [itemId, row] of Object.entries((raw.rows ?? {}) as Record<string, Record<string, unknown>>)) {
+    if (!ids.has(itemId)) continue;
+    const stats: PostStats = {};
+    for (const key of STAT_KEYS) {
+      const value = parseStat(row?.[key]);
+      if (value === null) continue;
+      if (key === "watch" && value > 100) continue;
+      stats[key] = key === "watch" ? Math.round(value * 10) / 10 : Math.round(value);
+    }
+    if (Object.keys(stats).length) table[itemId] = stats;
+  }
+  batch.results = { ...(batch.results ?? {}), [platform]: table };
+  if (Object.keys(table).length === 0) delete batch.results[platform];
+  save(batch);
+  return { results: batch.results };
+};
+
+/** Chuỗi trong file .ics: thoát \ ; , và xuống dòng; gấp dòng dài 75 byte theo RFC 5545. */
+export const icsText = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+export const icsFold = (line: string) => {
+  const out: string[] = [];
+  let rest = Buffer.from(line, "utf8");
+  while (rest.length > 75) {
+    // Không cắt giữa một ký tự UTF-8 nhiều byte (byte tiếp nối có dạng 10xxxxxx).
+    let cut = out.length ? 74 : 75;
+    while (cut > 0 && (rest[cut] & 0xc0) === 0x80) cut--;
+    out.push(rest.subarray(0, cut).toString("utf8"));
+    rest = rest.subarray(cut);
+  }
+  out.push(rest.toString("utf8"));
+  return out.join("\r\n ");
+};
+const icsTime = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+/** File lịch: mỗi video đã lên lịch một sự kiện 15 phút, nhắc trước 15 phút, mô tả là bài đăng dán sẵn. */
+export const batchCalendar = (id: unknown) => {
+  const batch = require_(id);
+  const plan = batch.postPlan;
+  if (!plan) throw new Error("Loạt này chưa có lịch đăng.");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AI Video Studio//Lich dang//VI", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+  batch.items.forEach((item, index) => {
+    const at = plan.slots[item.id];
+    if (!at) return;
+    const copy = item.slug ? freshCopy(item.slug) : null;
+    const desc = [
+      `File: ${exportName(item, index)}`,
+      ...plan.platforms.map((p) => {
+        if (!copy) return "";
+        const part = copy[p] as { caption?: string; title?: string; description?: string; hashtags: string[] };
+        const body = p === "youtube" ? `${part.title}\n${part.description}` : part.caption;
+        return `— ${PLATFORM_LABEL[p]} —\n${body}\n${part.hashtags.join(" ")}`;
+      }).filter(Boolean),
+      copy ? "" : "(Chưa có bài đăng — bấm Viết bài đăng trong loạt rồi xuất lại lịch.)",
+    ].filter(Boolean).join("\n\n");
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${batch.id}-${item.id}@ai-video-studio`,
+      `DTSTAMP:${icsTime(Date.now())}`,
+      `DTSTART:${icsTime(at)}`,
+      `DTEND:${icsTime(at + 15 * 60_000)}`,
+      icsFold(`SUMMARY:${icsText(`Đăng ${plan.platforms.map((p) => PLATFORM_LABEL[p]).join(", ")}: ${item.title ?? item.input.slice(0, 60)}`)}`),
+      icsFold(`DESCRIPTION:${icsText(desc)}`),
+      "BEGIN:VALARM", "ACTION:DISPLAY", "TRIGGER:-PT15M", icsFold(`DESCRIPTION:${icsText(`Sắp tới giờ đăng: ${item.title ?? ""}`)}`), "END:VALARM",
+      "END:VEVENT",
+    );
+  });
+  lines.push("END:VCALENDAR");
+  return { name: `${slugify(batch.name, 40) || "loat-video"}-lich-dang.ics`, body: `${lines.join("\r\n")}\r\n` };
+};
+
 /** Số video đã xong và tên file gói tải về — UI hỏi trước khi hiện nút. */
 export const batchExportInfo = (id: unknown) => {
   const batch = require_(id);
@@ -1393,12 +2737,20 @@ const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""').
  */
 export const batchCsv = (id: unknown) => {
   const batch = require_(id);
-  const header = ["STT", "Tiêu đề", "Trạng thái", "Nội dung đã nhập", "Lời đọc", "File", "Khung", "Phong cách"];
+  const header = [
+    "STT", "Tiêu đề", "Trạng thái", "Nội dung đã nhập", "Lời đọc", "File", "Khung", "Phong cách",
+    "TikTok", "YouTube — tiêu đề", "YouTube — mô tả", "Facebook", "Instagram",
+    "Điểm tự soát", "Cần xem", "Lịch đăng",
+    ...PLATFORMS.filter((p) => batch.results?.[p]).flatMap((p) => [`${PLATFORM_LABEL[p]} — lượt xem`, `${PLATFORM_LABEL[p]} — % xem hết`]),
+  ];
   const rows = batch.items.map((item, index) => {
     const settings = item.override ?? batch.settings;
     const script = item.slug
       ? readJson(path.join(videoDir(item.slug), "script.json")) as { style?: string } | null
       : null;
+    const copy = item.status === "done" && item.slug ? freshCopy(item.slug) : null;
+    const qa = item.status === "done" && item.slug ? savedCheck(item.slug) : null;
+    const withTags = (text: string, tags: string[]) => [text, tags.join(" ")].filter(Boolean).join(" ");
     return [
       index + 1,
       item.title ?? "",
@@ -1408,6 +2760,17 @@ export const batchCsv = (id: unknown) => {
       item.status === "done" ? exportName(item, index) : "",
       settings.aspect,
       script?.style ?? "",
+      copy ? withTags(copy.tiktok.caption, copy.tiktok.hashtags) : "",
+      copy?.youtube.title ?? "",
+      copy ? withTags(copy.youtube.description, copy.youtube.hashtags) : "",
+      copy ? withTags(copy.facebook.caption, copy.facebook.hashtags) : "",
+      copy ? withTags(copy.instagram.caption, copy.instagram.hashtags) : "",
+      qa ? `${qa.score}/10` : "",
+      qa ? qa.issues.map((issue) => issue.text).join(" | ") : "",
+      batch.postPlan?.slots[item.id] ? new Date(batch.postPlan.slots[item.id]).toLocaleString("vi-VN") : "",
+      ...PLATFORMS.filter((p) => batch.results?.[p]).flatMap((p) => [
+        batch.results![p]![item.id]?.views ?? "", batch.results![p]![item.id]?.watch ?? "",
+      ]),
     ].map(csvCell).join(",");
   });
   return `﻿${header.map(csvCell).join(",")}\n${rows.join("\n")}\n`;
@@ -1416,4 +2779,93 @@ export const batchCsv = (id: unknown) => {
 const BATCH_STATUS_TEXT: Record<ItemStatus, string> = {
   queued: "chờ", preparing: "đang chuẩn bị", review: "chờ duyệt", ready: "chờ dựng",
   building: "đang dựng", done: "xong", error: "lỗi", skipped: "bỏ qua",
+};
+
+// ---------- bài đăng cho cả loạt ----------
+
+/**
+ * Viết tiêu đề, caption, hashtag (scripts/post-copy.ts) cho mọi video đã xong trong loạt.
+ *
+ * Chạy lần lượt từng video chứ không song song: đây là việc chờ mạng nhưng key miễn phí (Gemini, Groq)
+ * giới hạn số lượt mỗi phút — bắn cả loạt cùng lúc là dính lỗi hạn mức ngay giữa chừng.
+ * Trạng thái chỉ giữ trong bộ nhớ: tắt app giữa chừng thì những video đã viết xong vẫn còn
+ * post-copy.json, bấm lại chỉ viết tiếp phần còn thiếu.
+ */
+type PostCopyRun = {
+  running: boolean; total: number; done: number; failed: number; error?: string;
+  /** Đang đợi hết hạn mức của AI, tính bằng giây. */
+  waiting?: number;
+};
+const postCopyRuns = new Map<string, PostCopyRun>();
+
+/** Gợi ý đã lưu và còn khớp lời video (sửa lời sau đó thì coi như chưa có). */
+const freshCopy = (slug: string): SavedPostCopy | null => {
+  const { copy, stale } = getPostCopy(slug);
+  return copy && !stale ? copy : null;
+};
+
+/** Nội dung file .txt cạnh video trong gói tải về — dán thẳng lên từng nền tảng. */
+const postCopyText = (copy: SavedPostCopy) => {
+  const block = (label: string, ...parts: (string | string[])[]) =>
+    `== ${label} ==\n${parts.map((p) => (Array.isArray(p) ? p.join(" ") : p)).filter(Boolean).join("\n\n")}`;
+  return [
+    block("TikTok", copy.tiktok.caption, copy.tiktok.hashtags),
+    block("YouTube", copy.youtube.title, copy.youtube.description, copy.youtube.hashtags),
+    block("Facebook", copy.facebook.caption, copy.facebook.hashtags),
+    block("Instagram", copy.instagram.caption, copy.instagram.hashtags),
+  ].join("\n\n") + "\n";
+};
+
+const batchPostCopyStatus = (batch: Batch) => {
+  const files = doneItems(batch);
+  const ready = files.filter(({ item }) => freshCopy(item.slug!)).length;
+  const run = postCopyRuns.get(batch.id);
+  return { ready, videos: files.length, run: run ?? null };
+};
+
+export const readBatchPostCopy = (id: unknown) => batchPostCopyStatus(require_(id));
+
+/** `force` = viết lại cả những video đã có gợi ý; mặc định chỉ viết video chưa có hoặc đã sửa lời. */
+export const startBatchPostCopy = (id: unknown, provider: ProviderChoice = "auto", force = false) => {
+  const batch = require_(id);
+  if (postCopyRuns.get(batch.id)?.running) return batchPostCopyStatus(batch);
+  const slugs = doneItems(batch)
+    .map(({ item }) => item.slug!)
+    .filter((slug) => force || !freshCopy(slug));
+  if (slugs.length === 0) {
+    postCopyRuns.delete(batch.id);
+    return batchPostCopyStatus(batch);
+  }
+  const run: PostCopyRun = { running: true, total: slugs.length, done: 0, failed: 0 };
+  postCopyRuns.set(batch.id, run);
+  void (async () => {
+    for (const slug of slugs) {
+      // Hết hạn mức theo phút (429) là chuyện thường khi viết cả loạt bằng key miễn phí: đợi đúng số giây
+      // nhà cung cấp báo rồi thử lại, tối đa hai lần, thay vì bỏ qua video đó.
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await generatePostCopy(slug, provider);
+          run.done++;
+          delete run.waiting;
+          break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (attempt < 2 && /hết hạn mức|429/.test(message)) {
+            const seconds = Math.min(65, Number(/Đợi khoảng (\d+) giây/.exec(message)?.[1] ?? 20) + 3);
+            run.waiting = seconds;
+            await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+            continue;
+          }
+          run.failed++;
+          run.error = message;
+          delete run.waiting;
+          break;
+        }
+      }
+      // Không có AI nào dùng được thì video sau cũng lỗi y hệt — dừng luôn cho khỏi chờ.
+      if (run.error && /Chưa có AI nào/.test(run.error)) break;
+    }
+    run.running = false;
+  })();
+  return batchPostCopyStatus(batch);
 };

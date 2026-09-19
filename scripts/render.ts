@@ -208,3 +208,19 @@ export const renderScene = async (
 
   return { outputLocation, durationInFrames: composition.durationInFrames };
 };
+
+/** Ảnh bìa (composition "Cover") ra một file JPEG — một khung tĩnh, không chuyển động. */
+export const renderCover = async (inputProps: Record<string, unknown>, outputLocation: string) => {
+  const serveUrl = await getBundle();
+  const composition = await selectComposition({ serveUrl, id: "Cover", inputProps });
+  await renderStill({
+    composition,
+    serveUrl,
+    output: outputLocation,
+    inputProps,
+    frame: 0,
+    imageFormat: "jpeg",
+    jpegQuality: 90,
+  });
+  return { outputLocation, width: composition.width, height: composition.height };
+};

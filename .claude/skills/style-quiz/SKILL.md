@@ -65,8 +65,9 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
 - Punch quá dài (cả câu) → chữ đáp án co nhỏ, xuống 2–3 dòng, mất lực. Giữ 1–4 từ.
 - Cảnh không có dấu `?` → câu hỏi đoán bằng các dòng trước đáp án; dữ liệu kể chuyện thường (không phải câu đố)
   vẫn render nhưng thẻ hiện câu đầu cảnh, không đẹp.
-- Khoảng giữa lúc đọc xong câu hỏi và `punch.atMs` < 0.4 s → không có đồng hồ. Muốn đếm đủ 3 thì chừa ~3 s
-  (dòng chờ).
+- Đồng hồ đếm trong khoảng LẶNG trước câu đáp án: `scriptToProps` chừa `QUIZ_THINK_MS` (3 s) trước câu chứa
+  punch, `analyzeScenes` đếm 3·2·1 đúng 3 giây thật trong đó rồi lật thẻ lúc giọng bắt đầu đọc đáp án.
+  Props cũ (các câu dính liền, lặng < 2 s) thì đếm kiểu cũ tới `punch.atMs`, đè lên lời đọc; < 0.4 s thì không có đồng hồ.
 - Không blur/backdrop-filter; lớp toàn khung chỉ là gradient CSS. Chớp sáng chỉ 9 frame.
 - Emoji màu vàng trên nền vàng bị chìm — 👇 ở dải kết nằm trong đĩa tối riêng.
 - Câu hỏi > 4 dòng ở khung 1:1 co tới ~30px — giữ câu hỏi ≤ 60 ký tự.
@@ -74,15 +75,23 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
 ## Viết nội dung cho phong cách này
 
 <!-- ai-guide -->
-- 3–5 câu hỏi; MỖI CẢNH ĐÚNG MỘT CÂU HỎI. Kiến thức phải chính xác, phổ biến, kiểm chứng được — không đố mẹo mơ hồ, không số liệu bịa.
-- Cảnh đầu mở bằng một câu hook TRƯỚC câu hỏi 1, kết thúc bằng dấu chấm than: "90% người trả lời sai câu 3!", "Chỉ 1 trong 10 người đúng hết!".
+- 3–5 câu hỏi; MỖI CẢNH ĐÚNG MỘT CÂU HỎI. Kiến thức phải chính xác, phổ biến, kiểm chứng được — không số liệu bịa.
+- Đố mẹo: chỉ dùng câu đố mẹo quen thuộc, có lời giải là chơi chữ hoặc lý lẽ khớp với câu hỏi (hợp lý: "Con gì mang nhà đi khắp nơi? → con ốc sên"). Không chắc đáp án hợp lý thì đổi sang câu hỏi kiến thức.
+  Câu đố mẹo quen thuộc đã kiểm chứng — ưu tiên chọn những câu hợp chủ đề (không cần dùng hết); câu tự nghĩ phải có lời giải rõ:
+  "Con gì đầu dê mình ốc?" → con dốc · "Bệnh gì bác sĩ bó tay?" → gãy tay · "Con gì đập thì sống, không đập thì chết?" → con tim ·
+  "Cái gì có răng mà không cắn?" → cái lược · "Cái gì càng lấy đi càng lớn?" → cái hố · "Cái gì có cổ mà không có đầu?" → cái áo ·
+  "Tháng nào có 28 ngày?" → tháng nào cũng có · "Cái gì chặt không đứt, bứt không rời, phơi không khô, đốt không cháy?" → nước ·
+  "Con gì ăn lửa với nước than?" → tàu hoả · "Cái gì của bạn mà người khác dùng nhiều hơn bạn?" → tên của bạn ·
+  "Cái gì bạn vẫn giữ sau khi đã trao cho người khác?" → lời hứa.
+- Cảnh đầu mở bằng một câu hook TRƯỚC câu hỏi 1, kết thúc bằng dấu chấm than, KHÔNG bịa tỉ lệ: "Câu cuối khó nhất!",
+  "Đúng hết 5 câu là cao thủ ẩm thực!".
 - Thứ tự caption trong mỗi cảnh, mỗi dòng một caption:
   1. Câu hỏi ≤ 60 ký tự, kết thúc bằng "?" ("Cố đô cuối cùng của Việt Nam là thành phố nào?"). Câu dài thì tách 2 caption, caption đầu không kết thúc bằng dấu chấm.
-  2. Một dòng chờ ~3 giây: "Suy nghĩ 3 giây nhé…", "Đoán nhanh nào…", "Bạn chọn gì?".
+  2. Một dòng chờ ngắn: "Suy nghĩ 3 giây nhé…", "Đoán nhanh nào…", "Bạn chọn gì?". Sau dòng này app tự chừa 3 giây lặng cho đồng hồ đếm 3·2·1 — đừng viết thêm câu lấp chỗ trống.
   3. Câu đáp án bắt đầu bằng "Đáp án là …": "Đáp án là Huế."
 - `punch.text` chép NGUYÊN VĂN cụm đáp án trong câu đáp án (1–4 từ, không kèm "Đáp án là"): "Huế", "màu xanh lam", "ba trái tim". `punch.atMs` = lúc giọng đọc tới cụm đó. Mọi cảnh câu hỏi đều phải có punch.
 - `tag`: "CÂU 1", "CÂU 2"… theo thứ tự; câu khó nhất có thể dùng "CÂU KHÓ". Có thể để null (tự sinh "CÂU n/N").
-- `visual`: tối đa 1–2 cảnh. `stat` cho tỉ lệ trả lời sai: `{ "type": "stat", "text": "73%", "caption": "người trả lời sai" }`. `badge` đánh dấu câu khó: `{ "type": "badge", "text": "Câu khó", "caption": null }`.
+- `visual`: tối đa 1–2 cảnh. `badge` đánh dấu câu khó: `{ "type": "badge", "text": "Câu khó", "caption": null }`. `stat` chỉ khi câu hỏi có một con số thật đáng nêu (không dùng cho tỉ lệ "người trả lời sai" — con số đó là bịa).
 - Cảnh cuối, sau câu đáp án, thêm một dòng kết kêu gọi bình luận: "Bạn đúng mấy câu? Bình luận nhé!".
 - `title` dạng thách thức ≤ 30 ký tự: "Bạn trả lời được mấy câu?", "Đố vui địa lý Việt Nam"; `subtitle` nói chủ đề + số câu: "4 câu về lịch sử".
 - `image`: ảnh gợi ý chủ đề câu hỏi nhưng KHÔNG lộ đáp án (hỏi "thành phố nào" thì đừng dùng ảnh có biển tên thành phố). Không có ảnh phù hợp thì để null — ô "?" vẫn đẹp.

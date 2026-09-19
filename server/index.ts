@@ -36,13 +36,15 @@ import {
 } from "./chat";
 import {
   approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
-  listBatches, pauseBatch, readBatch, removeItems, restyleSubs, retryItems, skipItems, startBatch,
-  SPOKEN_LANGUAGES,
+  listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
+  batchCheckStatus, batchFixStatus, clipAnalysisStatus, startClipAnalysis, startBatchFix, batchCoversStatus, batchBrandStatus, batchCalendar, batchCompileStatus, startBatchCompile, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
 } from "./batch";
+import { deletePreset, listPresets, savePreset } from "./batch-presets";
+import { cleanStorage, storageReport } from "./storage";
 import {
   CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, DEFAULT_CAPTION_LOOK,
 } from "../src/components/captionLook";
-import { generateIdeas } from "../scripts/ideas";
+import { generateIdeas, generateSeries } from "../scripts/ideas";
 import { generatePostCopy, getPostCopy } from "../scripts/post-copy";
 import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
@@ -598,7 +600,38 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // ---- dọn dung lượng: chỉ những thứ sinh lại được (server/storage.ts) ----
+    if (route === "/api/storage") {
+      if (req.method === "POST") return send(res, 200, cleanStorage(await readJson(req)));
+      return send(res, 200, storageReport());
+    }
+
+    // ---- cắt video dài thành nhiều video ngắn: phân tích (phiên âm + AI chọn đoạn) ----
+    if (route === "/api/clips/analyze" && req.method === "POST") {
+      try {
+        return send(res, 200, startClipAnalysis(await readJson(req)));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    if (route.startsWith("/api/clips/analyze/")) {
+      try {
+        return send(res, 200, clipAnalysisStatus(route.split("/")[4]));
+      } catch (error) {
+        return send(res, 404, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
     // ---- làm nhiều video một lượt ----
+    if (route === "/api/batch-presets") {
+      if (req.method !== "POST") return send(res, 200, listPresets());
+      try {
+        const body = await readJson<{ delete?: unknown }>(req);
+        return send(res, 200, body.delete ? deletePreset(body.delete) : savePreset(body));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
     if (route === "/api/batches") {
       return send(res, 200, listBatches());
     }
@@ -606,14 +639,21 @@ const server = http.createServer(async (req, res) => {
     // AI nghĩ danh sách ý tưởng từ một chủ đề — đặt trước /api/batch/<id> để không bị nuốt.
     if (route === "/api/batch/ideas" && req.method === "POST") {
       try {
-        const body = await readJson<{ topic?: string; count?: number; provider?: string }>(req);
+        const body = await readJson<{ topic?: string; count?: number; provider?: string; avoid?: unknown; series?: unknown }>(req);
         if (!body.topic?.trim()) {
           return send(res, 400, { error: "Nhập chủ đề trước đã." });
+        }
+        // Loạt nhiều tập: AI lên dàn ý cả loạt một lượt, mỗi tập một dòng ý tưởng.
+        if (body.series === true) {
+          return send(res, 200, await generateSeries(
+            body.topic.trim(), Number(body.count) || 5, isScriptProvider(body.provider) ? body.provider : "auto",
+          ));
         }
         return send(res, 200, await generateIdeas(
           body.topic.trim(),
           Number(body.count) || 10,
           isScriptProvider(body.provider) ? body.provider : "auto",
+          Array.isArray(body.avoid) ? body.avoid.filter((line): line is string => typeof line === "string").map((line) => line.slice(0, 300)) : [],
         ));
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
@@ -664,6 +704,38 @@ const server = http.createServer(async (req, res) => {
           }
           return res.end();
         }
+        // Toàn bộ lời của một mục — ô "Sửa lời" trên bảng theo dõi.
+        if (action === "script" && req.method === "GET") {
+          return send(res, 200, readItemScript(id, url.searchParams.get("item")));
+        }
+        if (action === "calendar" && req.method === "GET") {
+          const cal = batchCalendar(id);
+          return send(res, 200, cal.body, {
+            "Content-Type": "text/calendar; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${cal.name}"`,
+          });
+        }
+        if (action === "compile" && req.method === "GET") {
+          return send(res, 200, batchCompileStatus(id));
+        }
+        if (action === "brand" && req.method === "GET") {
+          return send(res, 200, batchBrandStatus(id));
+        }
+        if (action === "exports" && req.method === "GET") {
+          return send(res, 200, batchExportsStatus(id));
+        }
+        if (action === "covers" && req.method === "GET") {
+          return send(res, 200, batchCoversStatus(id));
+        }
+        if (action === "fix" && req.method === "GET") {
+          return send(res, 200, batchFixStatus(id));
+        }
+        if (action === "check" && req.method === "GET") {
+          return send(res, 200, batchCheckStatus(id));
+        }
+        if (action === "post-copy" && req.method === "GET") {
+          return send(res, 200, readBatchPostCopy(id));
+        }
         if (action === "csv" && req.method === "GET") {
           return send(res, 200, batchCsv(id), {
             "Content-Type": "text/csv; charset=utf-8",
@@ -671,9 +743,21 @@ const server = http.createServer(async (req, res) => {
           });
         }
         if (req.method === "POST") {
-          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown }>(req);
+          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown; provider?: unknown; force?: unknown }>(req);
+          if (action === "check") return send(res, 200, startBatchCheck(id));
+          if (action === "fix") return send(res, 200, startBatchFix(id, body.ids));
+          if (action === "covers") return send(res, 200, startBatchCovers(id, (body as { force?: unknown }).force === true));
+          if (action === "exports") return send(res, 200, startBatchExports(id, (body as { aspects?: unknown }).aspects));
+          if (action === "brand") return send(res, 200, startBatchBrand(id, body));
+          if (action === "compile") return send(res, 200, startBatchCompile(id, body));
+          if (action === "plan") return send(res, 200, savePostPlan(id, body));
+          if (action === "results") return send(res, 200, saveResults(id, body));
+          if (action === "post-copy") {
+            return send(res, 200, startBatchPostCopy(id, isScriptProvider(body.provider) ? body.provider : "auto", body.force === true));
+          }
           if (action === "restyle") return send(res, 200, restyleSubs(id, body.look, body.looks));
           if (action === "edit") return send(res, 200, editItem(id, body));
+          if (action === "script") return send(res, 200, saveItemScript(id, body));
           if (action === "start") return send(res, 200, startBatch(id));
           if (action === "pause") return send(res, 200, pauseBatch(id));
           if (action === "approve") return send(res, 200, approveItems(id, body.ids));

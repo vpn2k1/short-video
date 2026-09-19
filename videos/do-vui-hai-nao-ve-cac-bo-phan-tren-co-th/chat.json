@@ -1,0 +1,59 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Đố vui hại não về các bộ phận trên cơ thể người cực kỳ thú vị",
+      "at": 1789720006236
+    },
+    {
+      "role": "assistant",
+      "at": 1789720409189,
+      "text": "Đã tạo \"Bạn Hiểu Rõ Cơ Thể Mình\" · 🧠 Câu đố · 3 cảnh · 21.2s\n🎙 giọng truc-ly · không nhạc nền\n🖼 3/3 cảnh có hình từ kho ảnh miễn phí · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "quiz",
+      "mp4": "/out/versions/do-vui-hai-nao-ve-cac-bo-phan-tren-co-th/v1.mp4?t=1789720409302",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Chỉ 1 trong 10 người đúng hết!",
+            "Xương nào dài và chắc nhất cơ thể người?",
+            "Suy nghĩ 3 giây nhé…",
+            "Đáp án là xương đùi."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bộ phận duy nhất không có mạch máu là gì?",
+            "Đoán nhanh nào…",
+            "Đáp án là giác mạc."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cơ quan nặng nhất trên cơ thể là gì?",
+            "Suy nghĩ thật kỹ nhé…",
+            "Đáp án là làn da.",
+            "Bạn đúng mấy câu? Bình luận nhé!"
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "quiz",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "truc-ly",
+    "music": null,
+    "video": "",
+    "provider": "gemini",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto"
+  }
+}

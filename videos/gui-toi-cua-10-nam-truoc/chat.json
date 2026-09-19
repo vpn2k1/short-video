@@ -1,0 +1,72 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "# Gửi tôi của 10 năm trước\n> Những điều ước gì mình biết sớm hơn\n\n[Hà Nội, một tối mưa]\nChào cậu, mình là cậu của mười năm sau.\nCó vài điều mình muốn kể.\n\n[Điều thứ nhất]\nĐừng sợ bắt đầu từ con số không.\nAi cũng từng **vụng về lúc đầu**.\n\n[Điều thứ hai]\n! 10 phút | đọc sách mỗi tối\nNghe thì ít, nhưng mười năm là cả một thư viện.\n\n[Thân ái]\nCảm ơn cậu đã không bỏ cuộc.\nHẹn gặp ở phía trước nhé.",
+      "at": 1789714677397,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789714781073,
+      "text": "Đã tạo \"Gửi tôi của 10 năm trước\" · ✒️ Thư tay · 4 cảnh · 18.1s\n🖼 4/4 cảnh có hình từ kho ảnh miễn phí · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "pen",
+      "mp4": "/out/versions/gui-toi-cua-10-nam-truoc/v1.mp4?t=1789714781131",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Chào cậu, mình là cậu của mười năm sau.",
+            "Có vài điều mình muốn kể."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đừng sợ bắt đầu từ con số không.",
+            "Ai cũng từng vụng về lúc đầu."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Nghe thì ít, nhưng mười năm là cả một thư viện."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cảm ơn cậu đã không bỏ cuộc.",
+            "Hẹn gặp ở phía trước nhé."
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    },
+    {
+      "role": "assistant",
+      "at": 1789716465254,
+      "text": "Đã xuất từ trình chỉnh sửa (chỉnh từ bản 1) · 18.3s",
+      "mp4": "/out/versions/gui-toi-cua-10-nam-truoc/v2.mp4?t=1789716465337",
+      "aspect": "9:16",
+      "style": "pen",
+      "edited": true,
+      "from": 1,
+      "version": 2
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "pen",
+    "mode": "text",
+    "aspect": "9:16",
+    "voice": "anh-khoi",
+    "music": "random",
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto"
+  }
+}

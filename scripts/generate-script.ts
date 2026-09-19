@@ -22,7 +22,7 @@ kiến thức, kể chuyện dài nhiều phút. Độ dài theo mục ĐỘ DÀ
 
 Quy tắc:
 - Viết bằng ngôn ngữ của prompt người dùng. Nếu prompt tiếng Việt, viết tiếng Việt.
-- "title": hook ngắn, tối đa 6 từ, đọc là muốn xem tiếp. Không dùng dấu chấm cuối câu.
+- "title": hook ngắn, tối đa 6 từ, đọc là muốn xem tiếp, KHÁC câu hook đầu tiên (không lặp lại nhau). Không dùng dấu chấm cuối câu.
 - "subtitle": một dòng làm rõ lợi ích cho người xem.
 - "scenes": chia nội dung thành cảnh. Mỗi cảnh là một ý lớn, dùng chung một hình nền.
   Số cảnh và số câu theo mục ĐỘ DÀI VIDEO.
@@ -46,7 +46,46 @@ Quy tắc:
 - "style": id phong cách hình ảnh — xem mục PHONG CÁCH HÌNH ẢNH bên dưới. Nội dung (số cảnh,
   độ dài câu, tag, punch, visual) phải bám theo phong cách đó.
 
+Chất lượng nội dung — quan trọng hơn mọi quy tắc trình bày ở trên:
+- Chỉ nói điều đúng và kiểm chứng được. KHÔNG bịa số liệu, tỉ lệ phần trăm, nghiên cứu, trích dẫn, tên người, năm.
+  Không chắc con số thì thay bằng chi tiết cụ thể chắc chắn đúng (cách làm, tình huống, ví dụ) — đừng thay bằng chữ mơ
+  hồ như "đáng kể", "rất nhiều". "visual" dạng "stat" chỉ dùng con số có thật.
+- Mỗi câu phải có nghĩa khi đọc riêng và là tiếng Việt tự nhiên như người bản xứ nói: không lặp từ, không ghép chữ
+  lộn xộn, không văn dịch máy.
+- Cụ thể hơn chung chung: một ví dụ thật, một chi tiết thật đáng nhớ hơn ba câu khuyên chung chung. Không câu lấp chỗ.
+- Hook: xem mục HOOK bên dưới — bắt buộc với mọi video.
+- Mạch ý liền: câu sau nối tiếp câu trước, cảnh sau không nhắc lại cảnh trước.
+- Câu đố, đố mẹo: chỉ dùng câu có đáp án đúng và hợp lý — nghe đáp án người xem phải thấy "à, đúng rồi". Đố mẹo phải là
+  chơi chữ hoặc lý lẽ khớp với câu hỏi; không chắc thì đổi sang câu hỏi kiến thức có đáp án rõ ràng.
+
+HOOK — câu đọc đầu tiên quyết định người xem ở lại hay lướt qua. BẮT BUỘC với mọi video:
+- Câu đầu của cảnh đầu là hook: tối đa 12 từ, vào thẳng điều hấp dẫn nhất. Không chào hỏi, không giới thiệu bản thân
+  hay kênh, không "Hôm nay mình sẽ…", "Trong video này…", không mở bằng "Bạn có biết…?" (quá nhàm), không câu chung
+  chung ai nói cũng được. Câu thứ hai không lặp lại ý câu đầu.
+- Chọn MỘT kiểu hook hợp nội dung nhất:
+  • Tò mò — hé một nửa, giấu nửa kia: "Có một món Việt người nước ngoài sợ nhất khi thử."
+  • Ngạc nhiên — một dữ kiện thật khiến người ta khựng lại: "Bạch tuộc có tới ba quả tim."
+  • Ngược thường thức — đảo điều ai cũng tin: "Uống thật nhiều nước chưa chắc đã tốt."
+  • Câu hỏi chạm đúng vấn đề của người xem: "Ngủ đủ tám tiếng mà sáng dậy vẫn mệt?"
+  • Mở giữa câu chuyện: "Cô ấy bấm gửi tin nhắn, rồi hối hận ngay giây sau."
+  • Thách thức: "Đúng hết năm câu này là cao thủ địa lý."
+  • Hậu quả, cái giá: "Thói quen sạc này đang làm pin điện thoại chai nhanh hơn."
+- Hook phải ĐÚNG sự thật, và phần sau của video phải trả lời được điều hook hứa. Không câu view bằng thông tin sai,
+  không số liệu bịa.
+- Câu thứ hai giữ nhịp: hé lý do phải xem tới cuối ("…và điều thứ ba là thứ bạn làm mỗi ngày").
+
 Không giải thích, không thêm emoji vào "lines".`;
+
+/** Kiểu hook gợi ý — mỗi video một kiểu (theo nội dung yêu cầu) để làm hàng loạt không ra 10 video mở đầu giống nhau. */
+export const HOOK_TYPES = ["tò mò", "ngạc nhiên", "ngược thường thức", "câu hỏi chạm vấn đề", "mở giữa câu chuyện", "thách thức", "hậu quả, cái giá"];
+
+const hookHint = (prompt: string) => {
+  let hash = 0;
+  for (const ch of prompt) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
+  return `\n\nKIỂU HOOK GỢI Ý CHO VIDEO NÀY: "${HOOK_TYPES[hash % HOOK_TYPES.length]}" — dùng nếu hợp nội dung; ` +
+    "không hợp thì chọn kiểu khác trong mục HOOK. Hook vẫn phải đúng sự thật.";
+};
+
 
 const EDIT_RULES = `
 
@@ -264,10 +303,12 @@ export const generateScript = async (
   // Phong cách gửi cho model: "Tự động" + nhà cung cấp prompt gọn thì đoán bằng từ khoá
   // (như chế độ Nguyên văn) để không phải kèm hướng dẫn cả 16 phong cách. Tính theo từng nhà cung
   // cấp vì "Tự động" có thể chuyển sang nhà cung cấp khác giữa lượt.
-  return callModel(
-    (chosen) => SYSTEM + lengthSection(target) + styleSection(styleFor(style, prompt, chosen)) + mediaSection(images, uploads),
+  // Đợi rồi thử lại khi chạm giới hạn theo phút: làm hàng loạt, lượt soát của video trước (scripts/review-script.ts) cộng
+  // lượt viết của video sau hay vượt hạn mức token/phút của gói miễn phí (Groq ~8.000).
+  return withRateLimitRetry(() => callModel(
+    (chosen) => SYSTEM + hookHint(prompt) + lengthSection(target) + styleSection(styleFor(style, prompt, chosen)) + mediaSection(images, uploads),
     prompt, model, images, style, provider,
-  );
+  ), options.log);
 };
 
 const styleFor = (style: StyleChoice, prompt: string, provider: ScriptProvider) =>
@@ -299,7 +340,8 @@ const withRateLimitRetry = async <T>(run: () => Promise<T>, log?: (line: string)
       return await run();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (attempt >= 4 || !/429|rate.?limit|try again in|quá tải|high demand|503/i.test(message)) throw error;
+      // Hết lượt trong ngày thì đợi cũng vô ích — báo luôn.
+      if (attempt >= 4 || message.includes("trong ngày") || !/429|rate.?limit|try again in|quá tải|high demand|503/i.test(message)) throw error;
       const hinted = Number(message.match(/try again in ([\d.]+)s/i)?.[1]);
       const waitSeconds = Math.min(90, Math.ceil(Number.isFinite(hinted) && hinted > 0 ? hinted + 1 : 15 * attempt));
       log?.(`AI đang giới hạn lượt — đợi ${waitSeconds}s rồi thử lại (${attempt}/3)…`);
@@ -363,7 +405,7 @@ const generateLong = async (
       `${chapter.tag ?? ""} — ${chapter.lines.join(" ")}\n` +
       `Viết khoảng ${linesEach} câu, chia thành khoảng ${sceneCount} cảnh, mỗi cảnh ${perScene} câu.`;
     const part = await withRateLimitRetry(() => callModel(
-      () => SYSTEM + chapterLength + CHAPTER_RULES + styleSection(outline.style) + mediaSection(images, uploads),
+      () => SYSTEM + (i === 0 ? hookHint(prompt) : "") + chapterLength + CHAPTER_RULES + styleSection(outline.style) + mediaSection(images, uploads),
       content, model, images, outline.style, provider,
     ), log);
     scenes.push(...part.scenes);

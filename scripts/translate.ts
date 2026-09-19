@@ -126,6 +126,21 @@ export const translateEngines = async (): Promise<TranslateEngineInfo[]> => {
   });
 };
 
+/**
+ * Đoán ngôn ngữ nguồn theo loại chữ — đủ để báo cho model dịch "từ tiếng gì" thay vì mặc định tiếng Việt.
+ * Không chắc (chữ Latin không dấu: Anh, Pháp, Indonesia…) thì trả undefined để model tự nhận.
+ */
+export const guessLanguage = (text: string): string | undefined => {
+  if (/[\uac00-\ud7af]/u.test(text)) return "ko";
+  if (/[\u3040-\u30ff]/u.test(text)) return "ja";
+  if (/[\u4e00-\u9fff]/u.test(text)) return "zh-Hans";
+  if (/[\u0e00-\u0e7f]/u.test(text)) return "th";
+  // Chữ riêng của tiếng Việt (ă đ ơ ư) hoặc nguyên âm mang dấu thanh (khối Latin Extended Additional).
+  // Không tính â ê ô: tiếng Pháp cũng có ("être", "château").
+  if (/[ăđơưĂĐƠƯ\u1ea0-\u1ef9]/u.test(text)) return "vi";
+  return undefined;
+};
+
 const languageName = (code: string) => TRANSLATE_LANGUAGES.find((l) => l.code === code)?.name ?? code;
 
 const batchPrompt = (to: TranslateLanguage, from?: string) =>

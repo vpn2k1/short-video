@@ -246,7 +246,7 @@ async function showLibrary(tab = "videos") {
   $("trashGrid").hidden = tab !== "trash";
   $("libFilter").hidden = tab !== "media";
   $("search").placeholder = { media: "Tìm tài nguyên…", trash: "Tìm trong thùng rác…" }[tab] ?? "Tìm video…";
-  $("libSelect").innerHTML = `${icon("square-check")} ${tab === "media" ? "Chọn để dọn" : tab === "trash" ? "Chọn nhiều" : "Chọn để xoá"}`;
+  $("libSelect").innerHTML = `${icon("square-check")} ${tab === "media" ? "Chọn để dọn" : "Chọn nhiều"}`;
 
   const target = { media: $("mediaGrid"), trash: $("trashGrid") }[tab] ?? $("grid");
   target.innerHTML = `<p class="empty-lib">Đang tải…</p>`;
@@ -711,6 +711,32 @@ function renderMedia() {
  * bấm Xoá trông như không có gì xảy ra.
  */
 /** okText là HTML (để kèm icon) — chỉ truyền chuỗi cố định, không đưa dữ liệu người dùng vào. */
+/** Hỏi một dòng chữ (window.prompt không chạy trong bản desktop). Huỷ hoặc để trống → null. */
+function askText({ title, message = "", value = "", placeholder = "", okText = "Lưu" }) {
+  const dlg = $("textDlg");
+  $("textTitle").textContent = title;
+  $("textMessage").textContent = message;
+  $("textMessage").hidden = !message;
+  $("textInput").value = value;
+  $("textInput").placeholder = placeholder;
+  $("textOk").innerHTML = okText;
+  return new Promise((resolve) => {
+    dlg.returnValue = "";
+    dlg.addEventListener("close", () => {
+      const text = $("textInput").value.trim();
+      resolve(dlg.returnValue === "ok" && text ? text : null);
+    }, { once: true });
+    $("textCancel").onclick = () => dlg.close("cancel");
+    // Tự đóng với "ok" khi gửi form (bấm Lưu hoặc Enter) — không trông vào nút submit mặc định của form.
+    $("textForm").onsubmit = (e) => { e.preventDefault(); dlg.close("ok"); };
+    $("textInput").onkeydown = (e) => {
+      if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); dlg.close("ok"); }
+    };
+    dlg.showModal();
+    $("textInput").select();
+  });
+}
+
 function confirmDialog({ title, message, items = [], okText = "Xoá" }) {
   const dlg = $("confirmDlg");
   $("confirmTitle").textContent = title;
@@ -814,6 +840,7 @@ function renderSelectBar() {
   const bar = $("libSelectBar");
   bar.hidden = !selecting;
   $("libRestore").hidden = libTab !== "trash";
+  $("libBulkEdit").hidden = libTab !== "videos";
   if (!selecting) return;
   if (libTab === "trash") {
     const chosen = trashItems.filter((t) => selectedTrash.has(t.id));
@@ -844,6 +871,10 @@ function renderSelectBar() {
     : "Bấm vào video để chọn, hoặc chọn nhanh:";
   $("libDelete").disabled = picked.length === 0;
   $("libDelete").innerHTML = `${icon("trash-2")} ${picked.length ? `Xoá ${picked.length} video` : "Xoá"}`;
+  // Sửa hàng loạt chỉ áp cho video đã dựng (bộ ảnh tĩnh không có nhạc, giọng để đổi).
+  const editable = picked.filter((p) => p.kind === "video" && p.editable && !p.running);
+  $("libBulkEdit").disabled = editable.length === 0;
+  $("libBulkEdit").innerHTML = `${icon("wand-sparkles")} ${editable.length ? `Sửa ${editable.length} video` : "Sửa hàng loạt"}`;
 }
 
 /** Chọn nhanh: video không mở/sửa từ N ngày trước (Infinity = tất cả). */
@@ -882,13 +913,80 @@ function selectOlderThan(days) {
   if (selectedSlugs.size === 0) flashNote(days === Infinity ? "Không có video nào để chọn." : `Không có video nào cũ hơn ${days} ngày.`);
 }
 
+// ---- dọn dung lượng (server/storage.ts) ----
+let storageReportData = null;
+
+function renderStorage() {
+  const cats = storageReportData?.categories ?? [];
+  $("storageList").innerHTML = cats.map((c) => `
+    <label class="st-row ${c.files ? "" : "empty"}">
+      <input type="checkbox" data-storage="${c.id}" ${c.files && !c.warn ? "checked" : ""} ${c.files ? "" : "disabled"} />
+      <b>${escapeHtml(c.label)}</b><span class="size">${c.files ? fmtBytes(c.bytes) : "trống"}</span>
+      <span class="muted">${escapeHtml(c.desc)}${c.files ? ` · ${c.files} mục` : ""}</span>
+      ${c.warn && c.files ? `<span class="warn">${icon("triangle-alert")} ${escapeHtml(c.warn)}</span>` : ""}
+    </label>`).join("");
+  paintStorageTotal();
+}
+
+function paintStorageTotal() {
+  const picked = [...$("storageList").querySelectorAll("[data-storage]:checked")].map((i) => i.dataset.storage);
+  const bytes = (storageReportData?.categories ?? []).filter((c) => picked.includes(c.id)).reduce((t, c) => t + c.bytes, 0);
+  $("storageGo").disabled = picked.length === 0;
+  $("storageGo").innerHTML = `${icon("trash-2")} ${picked.length ? `Dọn ${fmtBytes(bytes)}` : "Dọn"}`;
+}
+
+async function openStorageDialog() {
+  $("storageHint").textContent = "Đang tính dung lượng…";
+  $("storageHint").classList.remove("err");
+  $("storageList").innerHTML = "";
+  $("storageDlg").showModal();
+  try {
+    storageReportData = await api("/api/storage");
+    const total = storageReportData.categories.reduce((t, c) => t + c.bytes, 0);
+    $("storageHint").textContent = total ? `Dọn được tối đa ${fmtBytes(total)}.` : "Không có gì để dọn.";
+    renderStorage();
+  } catch (e) {
+    $("storageHint").textContent = e.message;
+    $("storageHint").classList.add("err");
+  }
+}
+
+async function submitStorage(e) {
+  e.preventDefault();
+  const ids = [...$("storageList").querySelectorAll("[data-storage]:checked")].map((i) => i.dataset.storage);
+  if (!ids.length) return;
+  const names = (storageReportData?.categories ?? []).filter((c) => ids.includes(c.id)).map((c) => `${c.label} — ${fmtBytes(c.bytes)}`);
+  const ok = await confirmDialog({
+    title: "Dọn những mục này?",
+    message: "Xoá hẳn, không qua thùng rác — mọi mục đều sinh lại được khi cần.",
+    items: names,
+    okText: "Dọn",
+  });
+  if (!ok) return;
+  try {
+    const res = await postJson("/api/storage", { ids });
+    storageReportData = res;
+    $("storageHint").textContent = `Đã dọn ${fmtBytes(res.freed)} (${res.removed} mục).`;
+    renderStorage();
+  } catch (err) {
+    $("storageHint").textContent = err.message;
+    $("storageHint").classList.add("err");
+  }
+}
+
 function bindLibrarySelect() {
+  $("libStorage").addEventListener("click", openStorageDialog);
+  $("storageForm").addEventListener("submit", submitStorage);
+  $("storageList").addEventListener("change", paintStorageTotal);
+  $("storageDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("storageDlg").close()));
   bindTrash();
   $("libSelect").addEventListener("click", () => setSelecting(true));
   $("libSelectDone").addEventListener("click", () => setSelecting(false));
   $("libSelectBar").querySelectorAll("[data-older]").forEach((b) =>
     b.addEventListener("click", () => selectOlderThan(b.dataset.older === "all" ? Infinity : Number(b.dataset.older))));
   $("libSelectNone").addEventListener("click", () => { selectedSlugs.clear(); selectedMedia.clear(); renderCurrentLib(); });
+  $("libBulkEdit").addEventListener("click", () =>
+    openBulkEdit(libraryItems.filter((p) => selectedSlugs.has(p.slug) && p.kind === "video" && p.editable && !p.running)));
   $("libDelete").addEventListener("click", async () => {
     const done = libTab === "trash"
       ? await deleteTrashForever([...selectedTrash])
@@ -1415,20 +1513,25 @@ const imagesIcon = (images, video) => (video ? icon("clapperboard")
 
 const scriptProviders = () => state?.scriptProviders ?? [];
 
-function providerChipLabel() {
-  if (opts.provider === "auto") {
+function providerChipLabel(value = opts.provider) {
+  if (value === "auto") {
     return state?.keys.scriptLabel ? `Tự động · ${state.keys.scriptLabel}` : "Tự động";
   }
-  const provider = scriptProviders().find((p) => p.id === opts.provider);
+  const provider = scriptProviders().find((p) => p.id === value);
   return provider ? provider.label : "AI";
 }
 
-/** Chọn AI viết lời: chỉ những nhà cung cấp đã có key mới bấm được. */
-function providerMenu(onPick) {
-  const list = scriptProviders();
-  const ready = list.filter((p) => p.available);
+/**
+ * Chọn AI viết lời (hoặc AI nghĩ ý tưởng): chỉ những nhà cung cấp đã có key mới bấm được.
+ * AI đã có key đứng trước (giữ thứ tự thử của "Tự động"), để mỗi nhóm chỉ có một tiêu đề.
+ * `styleNote`: ghi chú về prompt gọn — chỉ có nghĩa khi viết lời (đoán phong cách), không phải khi nghĩ ý tưởng.
+ */
+function providerMenu(onPick, value = opts.provider, title = "AI viết lời cho video này", styleNote = true) {
+  const all = scriptProviders();
+  const ready = all.filter((p) => p.available);
+  const list = [...ready, ...all.filter((p) => !p.available)];
   return {
-    id: "provider", title: "AI viết lời cho video này", value: opts.provider, onPick,
+    id: "provider", title, value, onPick,
     options: [
       {
         value: "auto",
@@ -1448,7 +1551,7 @@ function providerMenu(onPick) {
         group: p.available ? "Đã có key" : state?.freeMode && p.paid ? "Tắt trong chế độ Miễn phí" : "Chưa có key — điền trong Cài đặt",
         icon: icon("bot"),
         title: p.label,
-        sub: `${p.model}${p.smallPrompt ? " · prompt gọn: phong cách Tự động đoán bằng từ khoá" : ""}`,
+        sub: `${p.model}${styleNote && p.smallPrompt ? " · prompt gọn: phong cách Tự động đoán bằng từ khoá" : ""}`,
         disabled: !p.available,
       })),
     ],
@@ -1991,6 +2094,8 @@ function bindShortcuts() {
 
 // ---------- menu dùng chung ----------
 let menuAnchor = null;
+/** Menu đang mở — nút nghe thử giọng chọn luôn giọng qua onPick của nó. */
+let menuOpen = null;
 
 // ---------- nghe thử giọng ----------
 /**
@@ -2080,6 +2185,16 @@ document.addEventListener("click", (e) => {
   e.preventDefault();
   e.stopPropagation();
   toggleVoicePreview(button);
+  // Nghe thử giọng nào thì chọn luôn giọng đó, menu vẫn mở để nghe tiếp giọng khác. Trước đây nghe thử không chọn:
+  // người dùng nghe Anh Khôi rồi đóng menu, tưởng đã chọn, video vẫn đọc bằng giọng cũ.
+  const row = button.closest(".opt-wrap")?.querySelector(".opt[data-value]");
+  if (!row || row.disabled || !menuOpen || row.dataset.value === menuOpen.value) return;
+  menuOpen.value = row.dataset.value;
+  $("menu").querySelectorAll(".opt").forEach((o) => {
+    o.classList.toggle("on", o === row);
+    o.setAttribute("aria-selected", String(o === row));
+  });
+  menuOpen.onPick(row.dataset.value);
 }, true);
 
 function openMenu(anchor, menu) {
@@ -2087,6 +2202,7 @@ function openMenu(anchor, menu) {
   if (!el.hidden && menuAnchor === anchor) { closeMenu(); return; }
   closeMenu();
   menuAnchor = anchor;
+  menuOpen = menu;
   anchor.setAttribute("aria-expanded", "true");
 
   let group = null;
@@ -2100,7 +2216,7 @@ function openMenu(anchor, menu) {
       data-value="${escapeHtml(o.value)}" ${o.disabled ? "disabled" : ""}>
       <b>${o.icon ? `${o.icon} ` : ""}${escapeHtml(o.title)}</b>${o.sub ? `<span>${escapeHtml(o.sub)}</span>` : ""}${
       o.hint ? `<i class="opt-hint">${escapeHtml(o.hint)}</i>` : ""}</button>`;
-    // o.preview: mã giọng — thêm nút nghe thử cạnh dòng (nút riêng, bấm không chọn giọng, không đóng menu).
+    // o.preview: mã giọng — thêm nút nghe thử cạnh dòng (bấm là nghe và chọn luôn giọng đó, không đóng menu).
     return heading + (o.preview && !o.disabled ? `<div class="opt-wrap">${opt}${voicePreviewButton(o.preview, o.title)}</div>` : opt);
   }).join("");
   el.hidden = false;
@@ -2137,6 +2253,7 @@ function closeMenu() {
   $("menu").hidden = true;
   menuAnchor?.setAttribute("aria-expanded", "false");
   menuAnchor = null;
+  menuOpen = null;
 }
 
 function bindMenu() {
@@ -2957,12 +3074,29 @@ async function submitMulti() {
  */
 let batchSource = "ideas";
 let batchReview = true;     // chốt duyệt lời trước khi render
+/** AI nghĩ ý tưởng — chọn riêng, không đổi "AI viết lời" của cả loạt. */
+let batchIdeaProvider = "auto";
+/**
+ * Lượt nghĩ ý tưởng gần nhất. `lines`: các dòng AI đã điền — lượt sau thay đúng các dòng này, dòng người dùng
+ * tự gõ hoặc đã sửa thì giữ. `undo`: ô danh sách ngay trước lượt đó, cho nút Hoàn tác.
+ */
+let batchIdea = { topic: "", lines: [], undo: null, busy: false };
+/** Phụ đề nhiều ngôn ngữ lúc tạo: mã ngôn ngữ đã chọn, và có lồng tiếng không. */
+let batchSubLangs = [];
+let batchDub = false;
+/** "split" = mỗi ngôn ngữ một video; "stack" = song ngữ trong cùng video (thêm hàng phụ đề dịch). */
+let batchLangLayout = "split";
+/** Bật "Nối tiếp thành tập": AI lên dàn ý một loạt nhiều tập thay vì các ý tưởng rời. */
+let batchIdeaSeries = false;
 /** Nguồn "mỗi video một ô": [{ id, text, settings }] — settings trống = theo cài đặt chung. */
 let batchCards = [];
 let batchMediaModel = "medium";
+/** Nguồn "cắt từ video dài": file đã tải lên, lượt phân tích, các đoạn AI chọn (on = có làm video). */
+let batchClips = { file: null, name: "", seconds: 0, busy: false, clips: [], preview: -1 };
 let batchMedia = [];        // file thu sẵn đã tải lên: [{ path, name }]
 let batchUploading = 0;
-let batchVariant = { from: "", aspects: [], voices: [], langs: [] };
+/** hooks: tổng số bản thử A/B câu mở đầu, tính cả bản gốc — 0 = không thử. */
+let batchVariant = { from: "", aspects: [], voices: [], langs: [], hooks: 0 };
 let batchLangs = null;      // ngôn ngữ dịch được — lấy một lần từ /api/translate/engines
 let batchProjects = null;   // video có kịch bản, để chọn làm gốc nhân bản
 let batchCur = null;        // loạt đang mở ở màn theo dõi
@@ -2982,17 +3116,23 @@ const BT_LABEL = {
   queued: "Chờ tới lượt", preparing: "Đang chuẩn bị", review: "Chờ bạn duyệt",
   ready: "Đã duyệt · chờ dựng", building: "Đang dựng", done: "Xong", error: "Lỗi", skipped: "Đã bỏ qua",
 };
-const BT_STEP = { script: "viết lời", voice: "giọng đọc", images: "tìm hình", render: "render" };
+const BT_STEP = { script: "viết lời", voice: "giọng đọc", images: "tìm hình", render: "render", check: "tự soát" };
+/** Ô đang mở danh sách lỗi tự soát — giữ qua các lần vẽ lại lưới. */
+const batchQaOpen = new Set();
+/** Dưới điểm này thì tính là "cần xem lại". */
+const QA_GOOD = 8;
 const BT_SOURCE_LABEL = {
-  ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề",
+  ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề", edit: "Sửa hàng loạt", clips: "Cắt từ video dài",
 };
 const BT_SOURCE_ICON = {
   ideas: icon("lightbulb"), custom: icon("puzzle"), media: icon("mic"), variants: icon("repeat"), subs: icon("captions"),
+  edit: icon("wand-sparkles"), clips: icon("scissors"),
 };
 const BT_SOURCE_DESC = {
   ideas: "Mỗi dòng một video. Gõ tay, tải file .txt/.csv, hoặc để AI nghĩ ý tưởng giúp.",
   custom: "Tự nhập từng video. Ô nào muốn khác thì đặt riêng phong cách, khung, giọng.",
   media: "Kéo thả nhiều file audio/video — tự phiên âm, gắn phụ đề rồi render.",
+  clips: "Một video dài → nhiều video ngắn: AI nghe hết, chọn đoạn hay, cắt khung dọc, gắn phụ đề và câu hook.",
   variants: "Nhân một video có sẵn ra nhiều tỉ lệ khung, giọng đọc, ngôn ngữ.",
 };
 /** Cài đặt đặt riêng được cho từng ô; còn lại theo cài đặt chung của loạt. */
@@ -3032,21 +3172,42 @@ function bindBatch() {
   // Mỗi ô cài đặt mở menu của đúng cài đặt đó.
   $("batchFields").addEventListener("click", (e) => {
     const field = e.target.closest("[data-field]");
-    if (field) openMenu(field, batchMenuFor(field.dataset.field));
+    // Ô "Nhận diện kênh" mở hộp thoại thay vì menu (batchMenuFor trả null).
+    const menu = field ? batchMenuFor(field.dataset.field) : null;
+    if (menu) openMenu(field, menu);
   });
 
   $("batchText").addEventListener("input", () => { renderBatchCount(); renderBatchPlan(); });
   $("batchImport").addEventListener("click", () => $("batchFile").click());
   $("batchFile").addEventListener("change", importBatchFile);
+  $("batchSheetImport").addEventListener("click", () => $("batchFile").click());
+  $("batchSheetTemplate").addEventListener("click", downloadBatchTemplate);
+  $("batchSheetTemplate2").addEventListener("click", downloadBatchTemplate);
   $("batchTopicToggle").addEventListener("click", () => {
     const box = $("batchIdeaGen");
     box.hidden = !box.hidden;
     if (!box.hidden) $("batchTopic").focus();
   });
-  $("batchTopicGo").addEventListener("click", askForIdeas);
+  $("batchTopicGo").addEventListener("click", () => askForIdeas());
+  $("batchIdeaSeries").addEventListener("click", () => {
+    batchIdeaSeries = !batchIdeaSeries;
+    $("batchIdeaSeries").setAttribute("aria-pressed", String(batchIdeaSeries));
+    // Loạt nhiều tập tối đa 12 tập (scripts/ideas.ts, MAX_EPISODES) — 5 tập là cỡ hay dùng.
+    const count = $("batchTopicCount");
+    count.max = batchIdeaSeries ? "12" : "50";
+    if (batchIdeaSeries && Number(count.value) > 12) count.value = "5";
+    $("batchTopicGo").textContent = batchIdeaSeries ? "Lên dàn ý các tập" : "Nghĩ ý tưởng";
+    $("batchTopic").placeholder = batchIdeaSeries ? "ví dụ: học chơi guitar từ số 0" : "ví dụ: mẹo tiết kiệm điện trong nhà";
+  });
   $("batchTopic").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); askForIdeas(); }
   });
+  $("batchIdeaAgain").addEventListener("click", () => askForIdeas(true));
+  $("batchIdeaUndo").addEventListener("click", undoIdeas);
+  $("batchIdeaAi").addEventListener("click", (e) => openMenu(e.currentTarget, providerMenu((value) => {
+    batchIdeaProvider = value;
+    paintIdeaGen();
+  }, batchIdeaProvider, "AI nghĩ ý tưởng", false)));
 
   $("batchCards").addEventListener("click", (e) => {
     const remove = e.target.closest("[data-card-rm]");
@@ -3089,9 +3250,143 @@ function bindBatch() {
   bindBatchDrop();
 
   $("batchStart").addEventListener("click", createBatch);
+  $("clipDrop").addEventListener("click", () => $("clipFile").click());
+  $("clipFile").addEventListener("change", (e) => { uploadClipFile(e.target.files?.[0]); e.target.value = ""; });
+  $("batchClipsBox").addEventListener("dragover", (e) => { if ([...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+  $("batchClipsBox").addEventListener("drop", (e) => { e.preventDefault(); uploadClipFile(e.dataTransfer.files?.[0]); });
+  $("clipAnalyze").addEventListener("click", analyzeClips);
+  $("clipList").addEventListener("click", (e) => {
+    const on = e.target.closest("[data-clip-on]");
+    if (on) {
+      batchClips.clips[Number(on.dataset.clipOn)].on = on.checked;
+      renderClips();
+      renderBatchPlan();
+      return;
+    }
+    const play = e.target.closest("[data-clip-play]");
+    if (play) {
+      const i = Number(play.dataset.clipPlay);
+      batchClips.preview = batchClips.preview === i ? -1 : i;
+      renderClips();
+    }
+  });
+  $("kitForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    batchKit = readKitDialog();
+    $("kitDlg").close();
+    renderBatchNew();
+  });
+  $("kitClear").addEventListener("click", () => { batchKit = {}; $("kitDlg").close(); renderBatchNew(); });
+  $("kitAccent").addEventListener("input", () => { $("kitAccentOn").checked = true; });
+  ["kitFont", "kitPreset", "kitColor", "kitLookAccent"].forEach((id) => $(id).addEventListener("input", () => { $("kitLookOn").checked = true; }));
+  $("kitDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("kitDlg").close()));
+  $("batchLangPicks").addEventListener("click", (e) => {
+    const code = e.target.closest("[data-sublang]")?.dataset.sublang;
+    if (!code) return;
+    const i = batchSubLangs.indexOf(code);
+    if (i >= 0) batchSubLangs.splice(i, 1); else batchSubLangs.push(code);
+    renderBatchLangs();
+    renderBatchCount();
+    renderBatchCardsCount();
+    renderBatchPlan();
+  });
+  $("batchDub").addEventListener("change", () => { batchDub = $("batchDub").checked; renderBatchPlan(); });
+  $("batchLangLayout").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-layout]");
+    if (!b) return;
+    batchLangLayout = b.dataset.layout;
+    renderBatchLangs();
+    renderBatchCount();
+    renderBatchCardsCount();
+    renderBatchPlan();
+  });
+  $("batchSchedule").addEventListener("click", () => {
+    const input = $("batchStartAt");
+    input.hidden = !input.hidden;
+    if (!input.hidden && !input.value) {
+      // Gợi ý mặc định: 23:00 tối nay (hoặc mai nếu đã quá giờ đó).
+      const at = new Date();
+      at.setHours(23, 0, 0, 0);
+      if (at.getTime() < Date.now() + 60_000) at.setDate(at.getDate() + 1);
+      const pad = (v) => String(v).padStart(2, "0");
+      input.value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
+    }
+    if (input.hidden) input.value = "";
+    paintBatchStart();
+  });
+  $("batchStartAt").addEventListener("input", paintBatchStart);
+  $("batchUnschedule").addEventListener("click", () => batchAction("pause"));
   $("batchPause").addEventListener("click", toggleBatchRun);
   $("batchApproveAll").addEventListener("click", () => batchAction("approve"));
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
+  $("batchPostCopy").addEventListener("click", startBatchPostCopy);
+  $("batchCheck").addEventListener("click", startBatchCheck);
+  // Menu Công cụ: bấm một mục thì đóng menu (trừ Xuất thêm khung — mở menu con ngay cạnh nút của nó).
+  const toolsPanel = $("batchToolsPanel");
+  const setTools = (open) => {
+    toolsPanel.hidden = !open;
+    $("batchToolsBtn").setAttribute("aria-expanded", String(open));
+  };
+  $("batchToolsBtn").addEventListener("click", (e) => { e.stopPropagation(); setTools(toolsPanel.hidden); });
+  toolsPanel.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b && b.id !== "batchExports" && b.id !== "batchCompile") setTools(false);
+  });
+  document.addEventListener("click", (e) => {
+    if (!toolsPanel.hidden && !e.target.closest(".bt-tools") && !e.target.closest("#menu")) setTools(false);
+  });
+  $("batchFix").addEventListener("click", () =>
+    runBatchJob("fix", $("batchFix"), (run) => `Đang sửa ${run.done + run.failed}/${run.total}…`));
+  $("batchCovers").addEventListener("click", startBatchCovers);
+  $("batchExports").addEventListener("click", openBatchExportMenu);
+  $("batchBrand").addEventListener("click", openBrandDialog);
+  $("batchPlan2").addEventListener("click", openPlanDialog);
+  $("batchClone").addEventListener("click", openCloneDialog);
+  $("batchCompile").addEventListener("click", openCompileMenu);
+  $("batchResults").addEventListener("click", openResultsDialog);
+  $("resultsForm").addEventListener("submit", saveResultsDialog);
+  $("resultsTable").addEventListener("input", renderResultsSummary);
+  $("resultsTable").addEventListener("paste", pasteResults);
+  $("resultsTabs").addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-rs-platform]");
+    if (!tab) return;
+    resultsPlatform = tab.dataset.rsPlatform;
+    renderResultsTable();
+  });
+  $("resultsDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("resultsDlg").close()));
+  $("cloneForm").addEventListener("submit", submitClone);
+  $("cloneVoice").addEventListener("change", renderCloneDialog);
+  $("cloneDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("cloneDlg").close()));
+  $("cloneDlg").addEventListener("click", (e) => {
+    const lang = e.target.closest("[data-clone-lang]")?.dataset.cloneLang;
+    const aspect = e.target.closest("[data-clone-aspect]")?.dataset.cloneAspect;
+    const toggle = (list, v) => { const i = list.indexOf(v); if (i >= 0) list.splice(i, 1); else list.push(v); };
+    if (lang) toggle(clonePick.langs, lang);
+    if (aspect) toggle(clonePick.aspects, aspect);
+    if (lang || aspect) renderCloneDialog();
+  });
+  ["planStart", "planTimes", "planWeekends"].forEach((id) => $(id).addEventListener("input", renderPlanPreview));
+  $("planWeekends").addEventListener("change", renderPlanPreview);
+  $("planForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const { slots, times } = planSlots();
+    if (!times.length || !Object.keys(slots).length) {
+      $("planHint").textContent = "Chưa có mốc nào — kiểm tra giờ đăng và ngày bắt đầu.";
+      $("planHint").classList.add("err");
+      return;
+    }
+    savePlan(slots);
+  });
+  $("planClear").addEventListener("click", () => savePlan({}));
+  $("planDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("planDlg").close()));
+  $("brandForm").addEventListener("submit", submitBrand);
+  $("brandFile").addEventListener("change", uploadBrandFile);
+  $("brandDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("brandDlg").close()));
+  $("brandDlg").querySelectorAll("[data-brand-upload]").forEach((b) => b.addEventListener("click", () => {
+    brandUploadTarget = b.dataset.brandUpload;
+    $("brandFile").click();
+  }));
+  $("batchErrGroups").addEventListener("click", onBatchErrGroupClick);
   $("batchDelete").addEventListener("click", deleteBatchRun);
   // Cuộn tới đâu thì gắn video của những ô vừa hiện ra tới đó.
   let mounting = false;
@@ -3188,6 +3483,10 @@ function renderBatchNew() {
   $("batchCustomBox").hidden = batchSource !== "custom";
   $("batchMediaBox").hidden = batchSource !== "media";
   $("batchVariantBox").hidden = batchSource !== "variants";
+  $("batchClipsBox").hidden = batchSource !== "clips";
+  if (batchSource === "clips") renderClips();
+  $("batchLangsBox").hidden = !langSource();
+  renderBatchLangs();
   $("batchSourceDesc").textContent = BT_SOURCE_DESC[batchSource];
   // Biến thể chưa chọn video gốc: mở sẵn phần cài đặt, vì ô chọn video gốc nằm trong đó.
   if (batchSource === "variants" && !batchVariant.from) $("batchSettings").open = true;
@@ -3200,6 +3499,7 @@ function renderBatchNew() {
   // Không có key viết lời thì cũng không nghĩ ý tưởng được.
   $("batchTopicToggle").hidden = textMode || !hasScriptKey();
   if ($("batchTopicToggle").hidden) $("batchIdeaGen").hidden = true;
+  paintIdeaGen();
 
   renderBatchFields();
   renderBatchCount();
@@ -3231,24 +3531,29 @@ function renderBatchFields() {
     const from = batchProjects?.find((p) => p.slug === batchVariant.from);
     fields.push(["variantFrom", "Video gốc", from ? from.title : batchProjects ? "Chọn video…" : "Đang tải…"]);
   }
-  if (batchSource === "media") {
+  if (fileSource()) {
     fields.push(["mediaModel", "Độ chính xác", batchMediaModel === "small" ? "Nhanh (small)" : "Chuẩn (medium)",
       batchMediaModel === "small" ? icon("zap") : icon("target")]);
   }
 
   fields.push(["aspect", def("Khung hình"), `▭ ${opts.aspect}`]);
-  if (batchSource !== "media") fields.push(["images", "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
-  if (batchSource !== "media" && aiDraws()) fields.push(["art", "Kiểu vẽ", artChipLabel(), artIcon(opts.art)]);
-  if (opts.kind === "video" && batchSource !== "media") {
+  if (!fileSource()) fields.push(["images", "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
+  if (!fileSource() && aiDraws()) fields.push(["art", "Kiểu vẽ", artChipLabel(), artIcon(opts.art)]);
+  if (opts.kind === "video" && !fileSource()) {
     fields.push(["voice", def("Giọng đọc"), voice ? voice.key : "Không giọng", voiceIcon(voice?.key)]);
   }
   if (opts.kind === "video") {
     fields.push(["music", "Nhạc nền", musicLabel(opts.music), musicIcon(opts.music)]);
   }
   fields.push(["review", "Duyệt lời", batchReview ? "Dừng cho tôi đọc" : "Chạy thẳng", batchReview ? icon("check") : icon("fast-forward")]);
+  fields.push(["kit", "Nhận diện kênh", kitSummary(batchKit), icon("badge-check")]);
+  // Mẫu đứng đầu: chọn mẫu là đổi cả các ô phía sau.
+  const preset = batchPresets.find((p) => p.id === batchPresetId);
+  fields.unshift(["preset", "Mẫu cài đặt", preset ? `${preset.name}${presetChanged(preset) ? " (đã đổi)" : ""}` : "Không dùng mẫu",
+    icon("bookmark")]);
 
   // Dòng tóm tắt khi thu gọn: giá trị của vài cài đặt chính.
-  const SUM_KEYS = { variantFrom: "Gốc", style: "Phong cách", aspect: "Khung", voice: "Giọng", images: "Hình", review: "Duyệt" };
+  const SUM_KEYS = { preset: "Mẫu", variantFrom: "Gốc", style: "Phong cách", aspect: "Khung", voice: "Giọng", images: "Hình", review: "Duyệt" };
   $("batchSettingsSum").textContent = fields.filter(([key]) => SUM_KEYS[key])
     .map(([key, , value]) => `${SUM_KEYS[key]}: ${value}`).join(" · ");
   $("batchFields").innerHTML = fields.map(([key, label, value, ic]) =>
@@ -3258,8 +3563,149 @@ function renderBatchFields() {
     </button>`).join("");
 }
 
+// ---- nhận diện kênh (server/batch.ts › Kit): tên kênh, màu, mở đầu/kết thúc, kiểu phụ đề ----
+let batchKit = {};
+let kitOptions = null;   // font, kiểu chữ — lấy một lần từ /api/subs/options
+
+const kitSummary = (kit) => {
+  const bits = [kit.handle, kit.accent ? "màu riêng" : "", kit.intro || kit.outro ? "mở đầu/kết thúc" : "", kit.captionLook ? "kiểu phụ đề" : ""].filter(Boolean);
+  return bits.length ? bits.join(" · ") : "Chưa đặt";
+};
+
+async function openKitDialog() {
+  const k = batchKit;
+  $("kitHandle").value = k.handle ?? "";
+  $("kitAccentOn").checked = Boolean(k.accent);
+  $("kitAccent").value = k.accent ?? "#e8590c";
+  $("kitLookOn").checked = Boolean(k.captionLook);
+  $("kitDlg").showModal();
+  try {
+    kitOptions ??= await api("/api/subs/options");
+    const { items } = await api("/api/library/media");
+    const media = items.filter((m) => (m.kind === "image" || m.kind === "video") && !["voices", "thumbs"].includes(m.root))
+      .sort((a, b) => b.at - a.at).slice(0, 80);
+    for (const [id, current] of [["kitIntro", k.intro], ["kitOutro", k.outro]]) {
+      $(id).innerHTML = `<option value="">Không có</option>` + media.map((m) =>
+        `<option value="${escapeHtml(m.path)}">${m.kind === "video" ? "🎬" : "🖼"} ${escapeHtml(m.name)}</option>`).join("");
+      $(id).value = current ?? "";
+    }
+    const look = { ...kitOptions.look, ...(k.captionLook ?? {}) };
+    $("kitFont").innerHTML = Object.entries(kitOptions.fonts).map(([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`).join("");
+    $("kitPreset").innerHTML = Object.entries(kitOptions.presets).map(([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`).join("");
+    $("kitFont").value = look.font;
+    $("kitPreset").value = look.preset;
+    $("kitColor").value = look.color;
+    $("kitLookAccent").value = look.accent;
+  } catch (e) {
+    setBatchHint(e.message, true);
+  }
+}
+
+function readKitDialog() {
+  const kit = {};
+  if ($("kitHandle").value.trim()) kit.handle = $("kitHandle").value.trim();
+  if ($("kitAccentOn").checked) kit.accent = $("kitAccent").value;
+  if ($("kitIntro").value) kit.intro = $("kitIntro").value;
+  if ($("kitOutro").value) kit.outro = $("kitOutro").value;
+  if ($("kitLookOn").checked) {
+    kit.captionLook = { font: $("kitFont").value, preset: $("kitPreset").value, color: $("kitColor").value, accent: $("kitLookAccent").value };
+  }
+  return kit;
+}
+
+// ---- mẫu loạt (server/batch-presets.ts) ----
+let batchPresets = [];
+let batchPresetId = null;
+/** Các ô cài đặt một mẫu lưu lại — cũng là những ô so để biết mẫu "đã đổi" chưa. */
+const PRESET_KEYS = ["kind", "style", "mode", "aspect", "voice", "music", "video", "provider", "images", "art", "length"];
+
+async function loadBatchPresets() {
+  try {
+    batchPresets = (await api("/api/batch-presets")).presets;
+    if (!$("view-batch").hidden && !$("batchNew").hidden) renderBatchFields();
+  } catch {
+    // không đọc được thì coi như chưa có mẫu nào
+  }
+}
+
+const presetChanged = (preset) =>
+  batchReview !== preset.review || PRESET_KEYS.some((k) => (opts[k] || null) !== (preset.settings[k] || null)) ||
+  JSON.stringify(batchKit) !== JSON.stringify(preset.kit ?? {});
+
+const presetSummary = (p) => [
+  `${styleMeta(p.settings.style).emoji} ${styleMeta(p.settings.style).label}`,
+  p.settings.aspect,
+  p.settings.voice || "không giọng",
+  IMAGE_SOURCES[p.settings.images] ?? p.settings.images,
+  p.review ? "duyệt lời" : "chạy thẳng",
+  p.kit ? kitSummary(p.kit) : "",
+].filter(Boolean).join(" · ");
+
+function applyBatchPreset(preset) {
+  for (const k of PRESET_KEYS) if (k in preset.settings) opts[k] = preset.settings[k] ?? "";
+  batchReview = preset.review;
+  batchKit = structuredClone(preset.kit ?? {});
+  batchPresetId = preset.id;
+  renderComposer();
+  renderProjectBar();
+  renderBatchNew();
+  setBatchHint(`Đã dùng mẫu “${preset.name}”.`);
+}
+
+async function saveBatchPreset() {
+  const current = batchPresets.find((p) => p.id === batchPresetId);
+  const name = await askText({
+    title: "Lưu cài đặt làm mẫu",
+    message: "Lưu phong cách, khung, giọng, hình, nhạc và cách duyệt lời hiện tại. Trùng tên mẫu cũ thì cập nhật mẫu đó.",
+    value: current?.name ?? "",
+    placeholder: "ví dụ: Kênh mẹo vặt — dọc, giọng Linh",
+  });
+  if (!name) return;
+  try {
+    const res = await postJson("/api/batch-presets", { name, settings: { ...opts, music: opts.music || null }, review: batchReview, kit: batchKit });
+    batchPresets = res.presets;
+    batchPresetId = res.preset.id;
+    renderBatchNew();
+    setBatchHint(res.replaced ? `Đã cập nhật mẫu “${res.preset.name}”.` : `Đã lưu mẫu “${res.preset.name}”.`);
+  } catch (e) {
+    setBatchHint(e.message, true);
+  }
+}
+
+async function deleteBatchPreset() {
+  const preset = batchPresets.find((p) => p.id === batchPresetId);
+  if (!preset) return;
+  const ok = await confirmDialog({ title: `Xoá mẫu “${preset.name}”?`, message: "Cài đặt đang chọn vẫn giữ nguyên, chỉ mẫu bị xoá.", okText: "Xoá mẫu" });
+  if (!ok) return;
+  batchPresets = (await postJson("/api/batch-presets", { delete: preset.id })).presets;
+  batchPresetId = null;
+  renderBatchNew();
+}
+
 /** Menu cho một ô cài đặt: phần lớn dùng chung với ô soạn chat, ba ô riêng của màn này. */
 function batchMenuFor(key) {
+  if (key === "kit") {
+    // Ô này mở hộp thoại, không phải menu — trả menu một mục cho khớp cách bấm của các ô khác.
+    openKitDialog();
+    return null;
+  }
+  if (key === "preset") {
+    return {
+      id: "preset", title: "Mẫu cài đặt", value: batchPresetId ?? "",
+      onPick: (value) => {
+        if (value === "__save") return saveBatchPreset();
+        if (value === "__delete") return deleteBatchPreset();
+        const preset = batchPresets.find((p) => p.id === value);
+        if (preset) applyBatchPreset(preset);
+      },
+      options: [
+        ...batchPresets.map((p) => ({ value: p.id, group: "Mẫu đã lưu", icon: icon("bookmark"), title: p.name, sub: presetSummary(p) })),
+        { value: "__save", group: "Quản lý", icon: icon("bookmark-plus"), title: "Lưu cài đặt hiện tại làm mẫu…",
+          sub: batchPresets.length ? "Đặt tên mới, hoặc trùng tên mẫu cũ để cập nhật" : "Lần sau chọn lại một lần là đủ" },
+        ...(batchPresetId ? [{ value: "__delete", group: "Quản lý", icon: icon("trash-2"), title: "Xoá mẫu đang dùng" }] : []),
+      ],
+    };
+  }
   if (key === "review") {
     return {
       id: "review", title: "Duyệt lời trước khi render", value: batchReview ? "yes" : "no",
@@ -3299,15 +3745,143 @@ function batchMenuFor(key) {
   return menuFor(key);
 }
 
+// ---- nguồn "cắt từ video dài" (server/batch.ts › startClipAnalysis, prepareClip) ----
+const clipClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+async function loadClipSpoken() {
+  if ($("clipSpoken").options.length) return;
+  try {
+    const { spoken } = await api("/api/subs/options");
+    $("clipSpoken").innerHTML = spoken.map((l) => `<option value="${escapeHtml(l.code)}">${escapeHtml(l.label)}</option>`).join("");
+    $("clipSpoken").value = "vi";
+  } catch {
+    $("clipSpoken").innerHTML = `<option value="auto">Tự nhận</option>`;
+  }
+}
+
+function renderClips() {
+  loadClipSpoken();
+  $("clipFileLabel").textContent = batchClips.file
+    ? `${batchClips.name}${batchClips.seconds ? ` · ${clipClock(batchClips.seconds)}` : ""} — bấm để đổi file`
+    : "Chọn hoặc kéo thả một video dài";
+  $("clipAnalyze").disabled = !batchClips.file || batchClips.busy;
+  $("clipAnalyze").innerHTML = batchClips.busy ? `${icon("loader-circle", "spin")} Đang phân tích…`
+    : `${icon("sparkles")} ${batchClips.clips.length ? "Phân tích lại" : "Phân tích và chọn đoạn"}`;
+  $("clipList").innerHTML = batchClips.clips.map((c, i) => `
+    <div class="clip-card ${c.on ? "" : "off"}">
+      <input type="checkbox" data-clip-on="${i}" ${c.on ? "checked" : ""} aria-label="Làm video từ đoạn ${i + 1}" />
+      <input class="clip-title" data-clip-title="${i}" maxlength="60" aria-label="Câu hook của đoạn ${i + 1}" />
+      <div class="clip-meta" style="grid-column:2">
+        <span>${icon("clock")} ${clipClock(c.start)}–${clipClock(c.end)} · ${Math.round(c.end - c.start)}s</span>
+        <button type="button" data-clip-play="${i}">${icon(batchClips.preview === i ? "x" : "play")} ${batchClips.preview === i ? "Đóng" : "Xem đoạn"}</button>
+        ${c.reason ? `<span>${escapeHtml(c.reason)}</span>` : ""}
+      </div>
+      <div class="clip-meta" style="grid-column:2">“${escapeHtml(c.firstLine.slice(0, 140))}”</div>
+      ${batchClips.preview === i ? `<video src="/public/${escapeHtml(batchClips.file)}#t=${c.start.toFixed(1)},${c.end.toFixed(1)}" controls autoplay playsinline></video>` : ""}
+    </div>`).join("");
+  // Gán value bằng JS cho khỏi lo escape; gõ thì chỉ cập nhật state.
+  $("clipList").querySelectorAll("[data-clip-title]").forEach((el) => {
+    const clip = batchClips.clips[Number(el.dataset.clipTitle)];
+    el.value = clip.title;
+    el.addEventListener("input", () => { clip.title = el.value; });
+  });
+}
+
+async function uploadClipFile(file) {
+  if (!file) return;
+  batchClips = { file: null, name: file.name, seconds: 0, busy: true, clips: [], preview: -1 };
+  $("clipStatus").hidden = false;
+  $("clipStatus").textContent = `Đang tải ${file.name} lên…`;
+  renderClips();
+  try {
+    const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    batchClips.file = body.path;
+    $("clipStatus").textContent = "Đã tải lên — bấm Phân tích và chọn đoạn.";
+  } catch (err) {
+    $("clipStatus").textContent = `Không tải lên được: ${err.message}`;
+  } finally {
+    batchClips.busy = false;
+    renderClips();
+    renderBatchPlan();
+  }
+}
+
+async function analyzeClips() {
+  if (!batchClips.file || batchClips.busy) return;
+  batchClips.busy = true;
+  batchClips.preview = -1;
+  $("clipStatus").hidden = false;
+  $("clipStatus").textContent = "Bắt đầu phân tích…";
+  renderClips();
+  try {
+    const { id } = await postJson("/api/clips/analyze", {
+      file: batchClips.file,
+      spoken: $("clipSpoken").value,
+      model: batchMediaModel,
+      count: Number($("clipCount").value),
+      maxSeconds: Number($("clipMax").value),
+      provider: opts.provider,
+    });
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const job = await api(`/api/clips/analyze/${id}`);
+      $("clipStatus").textContent = job.step;
+      if (job.status === "running") continue;
+      if (job.status === "error") throw new Error(job.error);
+      batchClips.seconds = job.seconds ?? 0;
+      batchClips.clips = job.clips.map((c) => ({ ...c, on: true }));
+      $("clipStatus").textContent = `AI chọn ${job.clips.length} đoạn — bỏ tích đoạn không ưng, sửa câu hook nếu cần, rồi bấm Chạy loạt.`;
+      break;
+    }
+  } catch (err) {
+    $("clipStatus").textContent = err.message;
+  } finally {
+    batchClips.busy = false;
+    renderClips();
+    renderBatchPlan();
+  }
+}
+
+/** Nguồn dựng từ file có sẵn (không viết lời, không tìm hình, không giọng đọc). */
+const fileSource = () => batchSource === "media" || batchSource === "clips";
+
+/** Nguồn cho chọn phụ đề nhiều ngôn ngữ: những nguồn viết lời mới (ý tưởng, từng ô). */
+const langSource = () => batchSource === "ideas" || batchSource === "custom";
+
+async function renderBatchLangs() {
+  if (!langSource()) return;
+  if (!batchLangs) {
+    $("batchLangPicks").innerHTML = `<span class="muted">Đang tải danh sách ngôn ngữ…</span>`;
+    try { batchLangs = (await api("/api/translate/engines")).languages; } catch { batchLangs = []; }
+  }
+  $("batchLangPicks").innerHTML = pickChips((batchLangs ?? []).map((l) => ({ value: l.code, label: l.label })), batchSubLangs, "sublang");
+  $("batchDub").checked = batchDub;
+  const stack = batchLangLayout === "stack";
+  $("batchLangLayout").querySelectorAll("[data-layout]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.layout === batchLangLayout)));
+  $("batchLayoutNote").hidden = !stack;
+  $("batchDub").closest("label").hidden = stack;
+}
+
+/** Số video của mỗi ý tưởng: bản gốc + một bản mỗi ngôn ngữ. */
+const perIdea = () => (langSource() && batchLangLayout === "split" ? 1 + batchSubLangs.length : 1);
+
 /** Số video sẽ tạo, theo nguồn đang chọn. */
 function batchTotal() {
+  return Math.min(50, batchBaseTotal() * perIdea());
+}
+
+function batchBaseTotal() {
   if (batchSource === "custom") return batchCards.filter((c) => c.text.trim()).length;
   if (batchSource === "media") return batchMedia.length;
+  if (batchSource === "clips") return batchClips.clips.filter((c) => c.on).length;
   if (batchSource === "variants") {
     if (!batchVariant.from) return 0;
     return Math.min(50, Math.max(1, batchVariant.aspects.length || 1) *
       Math.max(1, batchVariant.voices.length || 1) *
-      Math.max(1, batchVariant.langs.length || 1));
+      Math.max(1, batchVariant.langs.length || 1) *
+      Math.max(1, batchVariant.hooks));
   }
   return batchLines().length;
 }
@@ -3325,16 +3899,52 @@ const batchLines = () => {
 
 function renderBatchCount() {
   const n = batchLines().length;
-  $("batchCount").textContent = n === 0 ? "" : n > 50 ? `${n} dòng — chỉ lấy 50 dòng đầu` : `${n} video`;
+  const per = perIdea();
+  $("batchCount").textContent = n === 0 ? "" : n > 50 ? `${n} dòng — chỉ lấy 50 dòng đầu`
+    : per > 1 ? `${n} ý tưởng · ${Math.min(50, n * per)} video` : `${n} video`;
+}
+
+/**
+ * Ước tính thô trước khi chạy — để biết loạt này tốn gì trước khi bấm, nhất là những thứ tính tiền.
+ * Số theo một video ngắn điển hình (~6 cảnh, ~700 ký tự lời, render ~1,1× thời lượng); chỉ để định cỡ.
+ */
+function batchEstimate(n, needsAi, voice) {
+  const out = [];
+  if (batchSource === "clips") {
+    out.push(`cắt ${n} đoạn, dùng lại bản phiên âm lúc phân tích`);
+  } else if (batchSource === "media") {
+    out.push(`phiên âm trên máy, ~${Math.max(1, Math.round(n * (batchMediaModel === "small" ? 0.5 : 1)))} phút`);
+  } else {
+    const originals = Math.ceil(n / perIdea());
+    const translated = batchLangLayout === "stack" && langSource() ? n * Math.min(2, batchSubLangs.length) : n - originals;
+    if (needsAi) out.push(`~${originals * 2} lượt AI viết lời (viết + soát)`);
+    if (translated > 0) out.push(`~${translated} lượt AI dịch`);
+    if (opts.kind === "video" && voice) {
+      // Bản chỉ dịch phụ đề đọc lại đúng lời gốc — giọng có bộ nhớ nên không tốn thêm.
+      const voiced = batchDub ? n : originals;
+      out.push(voice.engine === "elevenlabs" ? `~${(voiced * 700).toLocaleString("vi-VN")} ký tự ElevenLabs (tính theo ký tự)`
+        : voice.engine === "gemini" ? `~${voiced * 8} lượt Gemini TTS`
+          : "giọng chạy trên máy, miễn phí");
+    }
+    // Bản ngôn ngữ dùng chung hình với bản gốc.
+    if (opts.video) out.push(`~${originals * 6} clip video AI (tính tiền theo clip)`);
+    else if (opts.images === "ai") out.push(`~${originals * 6} ảnh AI${state?.keys.flux ? " (FLUX miễn phí ~100 ảnh/ngày)" : " (Gemini tính tiền theo ảnh)"}`);
+    else if (opts.images === "pexels" || opts.images === "stock-video") out.push(`~${originals * 6} lượt tìm ảnh/clip miễn phí`);
+  }
+  if (batchSource === "clips") out.push(`máy chạy ~${Math.max(1, Math.round(batchClips.clips.filter((c) => c.on).reduce((t, c) => t + c.end - c.start, 0) / 50))} phút`);
+  else if (batchSource !== "media") out.push(`máy chạy ~${Math.max(1, Math.round(n * (opts.video ? 4 : 1.5)))} phút`);
+  return out;
 }
 
 /** Một dòng cho biết loạt sẽ chạy ra thế nào — để thiếu key hay thiếu nội dung lộ ra trước khi bấm. */
 function renderBatchPlan() {
   const n = batchTotal();
   const voice = state?.voices.catalog.find((v) => v.key === opts.voice);
-  const unit = opts.kind === "image" && batchSource !== "media" ? "bộ ảnh" : "video";
+  const unit = opts.kind === "image" && !fileSource() ? "bộ ảnh" : "video";
   const parts = [`Sẽ tạo <b>${n} ${unit}</b>`, `khung <b>${opts.aspect}</b>`];
-  if (batchSource === "media") {
+  if (batchSource === "clips") {
+    parts.push(batchClips.file ? `cắt từ <b>${escapeHtml(batchClips.name)}</b>, cắt khung giữa cho vừa ${opts.aspect}` : "chưa chọn video");
+  } else if (batchSource === "media") {
     parts.push(`phiên âm bằng <b>${batchMediaModel}</b>`);
   } else {
     if (opts.kind === "video") {
@@ -3346,11 +3956,19 @@ function renderBatchPlan() {
     const own = batchCards.filter((c) => c.text.trim() && Object.values(c.settings).some(Boolean)).length;
     if (own > 0) parts.push(`<b>${own} ô</b> theo cài đặt riêng của ô`);
   }
+  if (langSource() && batchSubLangs.length) {
+    const names = batchSubLangs.map((code) => batchLangs?.find((l) => l.code === code)?.label ?? code);
+    parts.push(batchLangLayout === "stack"
+      ? `phụ đề song ngữ thêm hàng <b>${escapeHtml(names.slice(0, 2).join(", "))}</b>${names.length > 2 ? " (chỉ lấy 2 ngôn ngữ đầu)" : ""}`
+      : `mỗi video thêm bản <b>${escapeHtml(names.join(", "))}</b> (${batchDub ? "lồng tiếng" : "phụ đề, giữ giọng gốc"})`);
+    if (batchBaseTotal() * perIdea() > 50) parts.push(`<b>tối đa 50 video</b> — bớt ý tưởng hoặc ngôn ngữ`);
+  }
   parts.push(batchReview ? "<b>dừng cho bạn duyệt lời</b> trước khi render" : "chạy thẳng tới mp4");
 
   const warn = [];
   if (n === 0) {
-    warn.push(batchSource === "media" ? "Thêm file audio/video ở trên trước đã."
+    warn.push(batchSource === "clips" ? (batchClips.clips.length ? "Tích chọn ít nhất một đoạn." : "Chọn video dài rồi bấm Phân tích.")
+      : batchSource === "media" ? "Thêm file audio/video ở trên trước đã."
       : batchSource === "variants" ? "Chọn video gốc và tích ít nhất một biến thể."
       : batchSource === "custom" ? "Nhập nội dung vào ít nhất một ô."
       : "Thêm ít nhất một dòng ý tưởng.");
@@ -3362,15 +3980,17 @@ function renderBatchPlan() {
   if (needsAi && !hasScriptKey()) {
     warn.push("Chưa có AI viết lời — đổi ô “Lời video” sang Có sẵn, hoặc thêm key trong Cài đặt.");
   }
-  if (batchSource !== "media" && (opts.images === "pexels" || opts.images === "stock-video") && !state?.keys.pexels) {
+  if (!fileSource() && (opts.images === "pexels" || opts.images === "stock-video") && !state?.keys.pexels) {
     warn.push("Chưa có key Pexels/Pixabay — đổi ô “Hình ảnh” sang Không hình hoặc Ảnh của tôi.");
   }
-  if (batchSource !== "media" && opts.images === "ai" && !state?.keys.gemini && !state?.keys.flux) {
+  if (!fileSource() && opts.images === "ai" && !state?.keys.gemini && !state?.keys.flux) {
     warn.push("Chưa có key Gemini để vẽ ảnh — đổi ô “Hình ảnh”.");
   }
   // Cảnh báo về cài đặt (thiếu key…): mở phần cài đặt để thấy ngay ô cần đổi.
   if (warn.length > (n === 0 ? 1 : 0)) $("batchSettings").open = true;
+  const est = n > 0 ? batchEstimate(n, needsAi, voice) : [];
   $("batchPlan").innerHTML = `${parts.join(" · ")}. Máy dựng lần lượt từng ${unit}.` +
+    (est.length ? `<br><span class="est">${icon("calculator")} Ước tính: ${est.map(escapeHtml).join(" · ")}</span>` : "") +
     warn.map((w) => `<br><span class="warn">${icon("triangle-alert")} ${escapeHtml(w)}</span>`).join("");
 }
 
@@ -3378,12 +3998,9 @@ async function importBatchFile(e) {
   const file = e.target.files?.[0];
   e.target.value = "";
   if (!file) return;
-  const text = await file.text();
-  // CSV: lấy cột đầu của mỗi dòng, bỏ dòng tiêu đề thường gặp.
-  const lines = /\.csv$/i.test(file.name)
-    ? text.split(/\r?\n/).map((row) => (row.match(/^\s*"([^"]*)"|^[^,]*/) ?? [""])[0].replace(/^"|"$/g, "").trim())
-        .filter((line, i) => line && !(i === 0 && /^(tiêu đề|title|ý tưởng|idea|topic|prompt)$/i.test(line)))
-    : text.split(/\r?\n/);
+  // Bảng tính: đọc đủ các cột (batch-sheet.js) — có cột phong cách/giọng… thì mỗi dòng thành một ô riêng.
+  if (/\.(csv|tsv)$/i.test(file.name)) return importBatchSheet(file);
+  const lines = (await file.text()).split(/\r?\n/);
   const current = $("batchText").value.trim();
   $("batchText").value = (current ? `${current}\n` : "") + lines.join("\n").trim();
   renderBatchCount();
@@ -3391,28 +4008,82 @@ async function importBatchFile(e) {
   setBatchHint(`Đã nạp ${file.name}.`);
 }
 
-async function askForIdeas() {
+/** Hàng "AI nghĩ ý tưởng": nhãn nút chọn AI, trạng thái bận, dòng kết quả. `note` = chữ cho dòng kết quả. */
+function paintIdeaGen(note, isError = false) {
+  const { busy, topic, undo } = batchIdea;
+  $("batchIdeaAi").innerHTML = `${providerIcon(batchIdeaProvider)}<span>${escapeHtml(providerChipLabel(batchIdeaProvider))}</span>`;
+  $("batchIdeaAi").title = "Chọn AI nghĩ ý tưởng — chỉ AI đã có key trong Cài đặt";
+  $("batchIdeaAi").disabled = busy;
+  $("batchTopicGo").disabled = busy;
+  $("batchTopicGo").textContent = busy ? "Đang nghĩ…" : batchIdeaSeries ? "Lên dàn ý các tập" : "Nghĩ ý tưởng";
+  if (note === undefined) return;
+  const status = $("batchIdeaStatus");
+  status.hidden = !note;
+  status.classList.toggle("err", isError);
+  $("batchIdeaInfo").innerHTML = note;
+  $("batchIdeaAgain").hidden = !topic;
+  $("batchIdeaAgain").disabled = busy;
+  $("batchIdeaUndo").hidden = busy || !undo;
+}
+
+/**
+ * AI nghĩ danh sách ý tưởng. Bấm "Nghĩ ý tưởng" thì lấy chủ đề trong ô rồi xoá ô; `again` (nút Đổi ý tưởng)
+ * nghĩ lại đúng chủ đề vừa rồi, dặn AI tránh các ý đã đưa. Kết quả THAY các dòng lượt trước AI điền,
+ * không nối thêm — dòng người dùng tự gõ hoặc đã sửa thì giữ ở đầu danh sách.
+ */
+async function askForIdeas(again = false) {
+  if (batchIdea.busy) return;
   blurTyping();
-  const topic = $("batchTopic").value.trim();
-  if (!topic) { setBatchHint("Gõ chủ đề trước đã.", true); return; }
-  const count = Math.max(1, Math.min(50, Number($("batchTopicCount").value) || 10));
-  const btn = $("batchTopicGo");
-  btn.disabled = true;
-  btn.textContent = "Đang nghĩ…";
-  setBatchHint("");
+  const input = $("batchTopic");
+  const topic = again ? batchIdea.topic : input.value.trim();
+  if (!topic) {
+    paintIdeaGen("Gõ chủ đề trước đã.", true);
+    input.focus();
+    return;
+  }
+  const series = batchIdeaSeries;
+  const count = Math.max(series ? 2 : 1, Math.min(series ? 12 : 50, Number($("batchTopicCount").value) || (series ? 5 : 10)));
+  if (!again) input.value = "";
+  batchIdea.busy = true;
+  paintIdeaGen(series
+    ? `Đang lên dàn ý loạt ${count} tập ${again ? "khác " : ""}cho <b>“${escapeHtml(topic)}”</b>…`
+    : `Đang nghĩ ${count} ý tưởng ${again ? "khác " : ""}cho <b>“${escapeHtml(topic)}”</b>…`);
   try {
-    const { ideas } = await postJson("/api/batch/ideas", { topic, count, provider: opts.provider });
-    const current = $("batchText").value.trim();
-    $("batchText").value = (current ? `${current}\n` : "") + ideas.join("\n");
+    const { ideas, provider } = await postJson("/api/batch/ideas", {
+      topic, count, provider: batchIdeaProvider, avoid: again ? batchIdea.lines : [], series,
+    });
+    const before = $("batchText").value;
+    const fromAi = new Set(batchIdea.lines);
+    const kept = before.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !fromAi.has(line));
+    const keptSet = new Set(kept);
+    const fresh = ideas.filter((idea) => !keptSet.has(idea));
+    $("batchText").value = [...kept, ...fresh].join("\n");
+    batchIdea = {
+      topic, lines: fresh, busy: false,
+      undo: before.trim() ? { text: before, lines: batchIdea.lines, topic: batchIdea.topic } : null,
+    };
     renderBatchCount();
     renderBatchPlan();
-    setBatchHint(`Đã thêm ${ideas.length} ý tưởng — sửa lại dòng nào chưa ưng rồi bấm Chạy loạt.`);
+    const who = scriptProviders().find((p) => p.id === provider)?.label ?? "AI";
+    paintIdeaGen(`${icon("check")} ${escapeHtml(who)} ${series ? `lên dàn ý ${fresh.length} tập` : `nghĩ ${fresh.length} ý tưởng`} cho <b>“${escapeHtml(topic)}”</b>${
+      kept.length ? ` · giữ ${kept.length} dòng bạn tự gõ/sửa` : ""}`);
   } catch (err) {
-    setBatchHint(err.message, true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Nghĩ ý tưởng";
+    batchIdea.busy = false;
+    // Lỗi thì trả chủ đề về ô (nếu người dùng chưa gõ chủ đề khác) để bấm lại ngay.
+    if (!again && !input.value.trim()) input.value = topic;
+    paintIdeaGen(escapeHtml(err.message), true);
   }
+}
+
+/** Trả ô danh sách về như trước lượt nghĩ ý tưởng vừa rồi. */
+function undoIdeas() {
+  const { undo } = batchIdea;
+  if (!undo || batchIdea.busy) return;
+  $("batchText").value = undo.text;
+  batchIdea = { topic: undo.topic, lines: undo.lines, undo: null, busy: false };
+  renderBatchCount();
+  renderBatchPlan();
+  paintIdeaGen(undo.topic ? `Đã trả lại danh sách trước — ý tưởng cho <b>“${escapeHtml(undo.topic)}”</b>` : "Đã trả lại danh sách trước.");
 }
 
 // ---------- nguồn: mỗi video một ô ----------
@@ -3528,7 +4199,7 @@ function renderBatchCardsCount() {
   const n = batchCards.filter((c) => c.text.trim()).length;
   const own = batchCards.filter((c) => c.text.trim() && Object.values(c.settings).some(Boolean)).length;
   $("batchCardsCount").textContent = n === 0 ? ""
-    : `${n} video${own ? ` · ${own} ô đặt riêng` : ""}`;
+    : `${perIdea() > 1 ? `${n} ô · ${Math.min(50, n * perIdea())} video` : `${n} video`}${own ? ` · ${own} ô đặt riêng` : ""}`;
 }
 
 /**
@@ -3725,6 +4396,11 @@ function renderBatchVariant() {
         voicePreviewButton(v.key, v.key)}</span>`).join("");
   $("batchVariantLangs").innerHTML = pickChips(
     (batchLangs ?? []).map((l) => ({ value: l.code, label: l.label })), batchVariant.langs, "lang");
+  // Thử hook: chọn MỘT số (không phải bật/tắt nhiều), nên dùng chip đơn chọn.
+  $("batchVariantHooks").innerHTML = pickChips([
+    { value: "0", label: "Không thử" },
+    ...[2, 3, 4, 5].map((n) => ({ value: String(n), icon: icon("flask-conical"), label: `${n} bản` })),
+  ], [String(batchVariant.hooks)], "hooks");
 
   const toggle = (list, value) => {
     const i = list.indexOf(value);
@@ -3738,11 +4414,28 @@ function renderBatchVariant() {
     b.addEventListener("click", () => toggle(batchVariant.voices, b.dataset.voice)));
   $("batchVariantLangs").querySelectorAll("[data-lang]").forEach((b) =>
     b.addEventListener("click", () => toggle(batchVariant.langs, b.dataset.lang)));
+  $("batchVariantHooks").querySelectorAll("[data-hooks]").forEach((b) =>
+    b.addEventListener("click", () => {
+      batchVariant.hooks = Number(b.dataset.hooks);
+      // Thử hook: bật sẵn chốt duyệt để đọc câu AI viết trước khi dựng (người dùng vẫn tắt được).
+      if (batchVariant.hooks > 1) batchReview = true;
+      renderBatchNew();
+    }));
 
   $("batchVariantCount").textContent = batchVariant.from ? `${batchTotal()} video` : "Chọn video gốc trong Cài đặt cho cả loạt";
 }
 
 // ---------- tạo loạt ----------
+
+/** Nút chạy đổi thành "Hẹn chạy lúc …" khi đã chọn giờ. */
+function paintBatchStart() {
+  const value = $("batchStartAt").hidden ? "" : $("batchStartAt").value;
+  $("batchSchedule").setAttribute("aria-pressed", String(Boolean(value)));
+  const at = value ? new Date(value) : null;
+  $("batchStart").innerHTML = at
+    ? `${icon("alarm-clock")} Hẹn chạy ${at.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}`
+    : `${icon("rocket")} Chạy loạt`;
+}
 
 async function createBatch() {
   blurTyping();
@@ -3754,8 +4447,16 @@ async function createBatch() {
     review: batchReview,
     settings: { ...opts, music: opts.music || null },
     start: true,
+    ...(Object.keys(batchKit).length ? { kit: batchKit } : {}),
   };
+  const at = $("batchStartAt").hidden ? "" : $("batchStartAt").value;
+  if (at) body.startAt = new Date(at).getTime();
   if (batchSource === "ideas") body.items = $("batchText").value;
+  if (langSource() && batchSubLangs.length) {
+    body.languages = batchSubLangs;
+    body.dub = batchDub;
+    body.layout = batchLangLayout;
+  }
   if (batchSource === "custom") {
     // "" trong settings nghĩa là theo cài đặt chung nên đừng gửi lên; giọng "none" = không giọng.
     body.items = batchCards
@@ -3766,12 +4467,20 @@ async function createBatch() {
     body.items = batchMedia.map((f) => f.path);
     body.mediaModel = batchMediaModel;
   }
+  if (batchSource === "clips") {
+    body.file = batchClips.file;
+    body.spoken = $("clipSpoken").value;
+    body.noCaptions = $("clipNoCaptions").checked;
+    body.mediaModel = batchMediaModel;
+    body.clips = batchClips.clips.filter((c) => c.on).map(({ start, end, title }) => ({ start, end, title }));
+  }
   if (batchSource === "variants") {
     body.variants = {
       from: batchVariant.from,
       aspects: batchVariant.aspects,
       voices: batchVariant.voices,
       languages: batchVariant.langs,
+      hooks: batchVariant.hooks,
     };
   }
   $("batchStart").disabled = true;
@@ -3787,7 +4496,14 @@ async function createBatch() {
     $("batchText").value = "";
     batchCards = [];
     batchMedia = [];
+    batchClips = { file: null, name: "", seconds: 0, busy: false, clips: [], preview: -1 };
+    // Loạt đã chạy: lượt nghĩ ý tưởng cũ không còn gì để thay hay hoàn tác.
+    batchIdea = { topic: "", lines: [], undo: null, busy: false };
+    paintIdeaGen("");
     $("batchName").value = "";
+    $("batchStartAt").value = "";
+    $("batchStartAt").hidden = true;
+    paintBatchStart();
     loadHistory();
     location.hash = `#/batch/${batch.id}`;
   } catch (e) {
@@ -3798,6 +4514,7 @@ async function createBatch() {
 }
 
 async function loadBatchList() {
+  if (!batchPresets.length) loadBatchPresets();
   try {
     const { batches } = await api("/api/batches");
     $("batchRecent").hidden = batches.length === 0;
@@ -3841,9 +4558,28 @@ async function loadBatch(id) {
 /** Chỉ hỏi lại server khi máy đang làm việc — chờ duyệt thì không có gì để đợi. */
 function scheduleBatchPoll() {
   stopBatchPoll();
+  // Loạt hẹn giờ: hỏi lại ngay sau giờ hẹn (server xét mỗi 30 giây) để thấy nó bắt đầu chạy.
+  if (batchCur?.state === "idle" && batchCur.startAt) {
+    const wait = Math.max(5_000, batchCur.startAt - Date.now() + 35_000);
+    if (wait < 2 ** 31 - 1) batchPoll = setTimeout(() => loadBatch(batchCur.id), wait);
+    return;
+  }
   if (!batchCur || batchCur.state !== "running") return;
   if (!batchCur.items.some((i) => BT_BUSY.includes(i.status))) return;
   batchPoll = setTimeout(() => loadBatch(batchCur.id), 1500);
+}
+
+/** "giọng linh · nhạc calm · “A” → “B”" — dòng mô tả thay đổi của loạt sửa hàng loạt. */
+function editPlanText(plan) {
+  const parts = [];
+  if (plan.style) parts.push(`${styleMeta(plan.style).emoji} ${styleMeta(plan.style).label}`);
+  if (plan.voice !== undefined) parts.push(plan.voice ? `giọng ${plan.voice}` : "không giọng");
+  if (plan.aspect) parts.push(`▭ ${plan.aspect}`);
+  if (plan.music !== undefined) parts.push(plan.music === null ? "không nhạc" : musicLabel(plan.music));
+  if (plan.handle) parts.push(plan.handle);
+  if (plan.accent) parts.push(`màu ${plan.accent}`);
+  for (const r of plan.replace ?? []) parts.push(`“${r.find}” → “${r.to}”`);
+  return parts.join(" · ");
 }
 
 function renderBatchRun() {
@@ -3865,6 +4601,14 @@ function renderBatchRun() {
     `▭ ${b.settings.aspect}`,
     b.settings.voice ? `giọng ${b.settings.voice}` : "không giọng",
   ]).join(" · ");
+  // Sửa hàng loạt: cài đặt chung của loạt không có nghĩa gì — ghi những thay đổi đang áp.
+  if (b.source === "edit" && b.edit) {
+    $("batchRunMeta").textContent = [
+      BT_SOURCE_LABEL.edit, `${c.total} video`,
+      b.edit.kind === "props" ? "giữ chỉnh sửa" : "dựng lại từ kịch bản",
+      editPlanText(b.edit),
+    ].filter(Boolean).join(" · ");
+  }
   $("batchSubsLook").hidden = !subs;
   setNav(subs ? "subs" : "batch");
 
@@ -3875,6 +4619,10 @@ function renderBatchRun() {
   const ratio = c.total === 0 ? 0 : Math.min(1, (c.done + c.skipped + partial) / c.total);
   $("batchProgressBar").style.width = `${Math.round(ratio * 100)}%`;
 
+  // Video đã xong mà tự soát dưới mức tốt — nên mở xem trước khi đăng.
+  const doneItems = b.items.filter((it) => it.status === "done");
+  const needLook = doneItems.filter((it) => it.qa && it.qa.score < QA_GOOD).length;
+  const unchecked = doneItems.filter((it) => !it.qa).length;
   const stat = (cls, label, value, show = true) =>
     show ? `<span class="bt-stat ${cls}">${label} <b>${value}</b></span>` : "";
   $("batchStats").innerHTML = [
@@ -3883,15 +4631,23 @@ function renderBatchRun() {
     stat("review", `${icon("eye")} Chờ duyệt`, c.review, c.review > 0),
     stat("", `${icon("hourglass")} Chờ`, c.waiting, c.waiting > 0),
     stat("err", `${icon("triangle-alert")} Lỗi`, c.error, c.error > 0),
+    stat("review", `${icon("scan-search")} Cần xem lại`, needLook, needLook > 0),
     stat("", `${icon("skip-forward")} Bỏ qua`, c.skipped, c.skipped > 0),
   ].join("");
   $("batchEta").textContent = batchEta(b);
 
   const pause = $("batchPause");
+  const scheduled = b.state === "idle" && b.startAt;
   pause.hidden = c.waiting === 0 && c.running === 0 && c.review === 0;
-  pause.innerHTML = b.state === "running" ? `${icon("pause")} Tạm dừng` : `${icon("play")} Chạy tiếp`;
+  pause.innerHTML = b.state === "running" ? `${icon("pause")} Tạm dừng` : scheduled ? `${icon("play")} Chạy ngay` : `${icon("play")} Chạy tiếp`;
+  $("batchUnschedule").hidden = !scheduled;
+  if (scheduled) {
+    const when = new Date(b.startAt).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", weekday: "short", day: "2-digit", month: "2-digit" });
+    $("batchRunMeta").textContent = `⏰ Hẹn chạy lúc ${when} — để app mở tới lúc đó · ${$("batchRunMeta").textContent}`;
+  }
   $("batchApproveAll").hidden = c.review === 0;
   $("batchApproveAll").innerHTML = `${icon("check")} Duyệt tất cả (${c.review})`;
+  renderBatchErrGroups(b);
   $("batchRetryAll").hidden = c.error === 0;
   $("batchRetryAll").innerHTML = `${icon("rotate-cw")} Chạy lại ${c.error} lỗi`;
   $("batchZip").hidden = c.done === 0;
@@ -3899,6 +4655,65 @@ function renderBatchRun() {
   $("batchZip").innerHTML = `${icon("download")} ${subs ? `Tải tất cả (${c.done} video + .srt)` : `Tải tất cả (${c.done})`}`;
   $("batchCsv").hidden = c.total === 0;
   $("batchCsv").href = `/api/batch/${b.id}/csv`;
+  renderBatchPostCopy(b.postCopy);
+  if (!batchJobBusy.has("batchFix")) {
+    const fixable = doneItems.filter((it) => it.qa?.issues.some((x) => x.fix)).length;
+    $("batchFix").hidden = fixable === 0;
+    $("batchFix").disabled = c.running > 0;
+    $("batchFix").innerHTML = `${icon("wand-sparkles")} Sửa tự động (${fixable})`;
+  }
+  if (!batchJobBusy.has("batchCheck")) {
+    $("batchCheck").hidden = unchecked === 0;
+    $("batchCheck").disabled = false;
+    $("batchCheck").innerHTML = `${icon("scan-search")} Soát ${unchecked} video`;
+  }
+  const planned = b.postPlan ? Object.keys(b.postPlan.slots).length : 0;
+  $("batchPlan2").hidden = doneItems.length === 0;
+  $("batchResults").hidden = doneItems.length === 0;
+  renderCompiled(b);
+  if (!batchJobBusy.has("batchCompile")) {
+    $("batchCompile").hidden = doneItems.length < 2;
+    $("batchCompile").disabled = c.running > 0;
+    $("batchCompile").innerHTML = `${icon("film")} ${b.compiled ? "Gộp lại video dài" : "Gộp thành video dài"}`;
+  }
+  // Nguồn file thu sẵn / phụ đề không có kịch bản để nhân.
+  $("batchClone").hidden = doneItems.length === 0 || b.source === "media" || b.source === "subs";
+  $("batchPlan2").innerHTML = `${icon("calendar-days")} ${planned ? `Lịch đăng (${planned})` : "Lịch đăng"}`;
+  if (!batchJobBusy.has("batchBrand")) {
+    const branded = doneItems.filter((it) => it.branded).length;
+    $("batchBrand").hidden = doneItems.length === 0;
+    $("batchBrand").disabled = false;
+    $("batchBrand").innerHTML = `${icon("clapperboard")} ${branded ? `Mở đầu / kết thúc ${branded}/${doneItems.length}` : "Mở đầu / kết thúc"}`;
+  }
+  if (!batchJobBusy.has("batchExports")) {
+    $("batchExports").hidden = doneItems.length === 0;
+    $("batchExports").disabled = c.running > 0;
+    $("batchExports").title = c.running > 0 ? "Đợi loạt dựng xong rồi xuất thêm khung" : "Render thêm bản khác khung (1:1, 16:9…) cho mọi video đã xong";
+    $("batchExports").innerHTML = `${icon("ratio")} Xuất thêm khung`;
+  }
+  if (!batchJobBusy.has("batchCovers")) {
+    const covered = doneItems.filter((it) => (it.covers?.length ?? 0) >= 3).length;
+    const all = doneItems.length > 0 && covered === doneItems.length;
+    $("batchCovers").hidden = doneItems.length === 0;
+    $("batchCovers").disabled = false;
+    $("batchCovers").dataset.force = all ? "1" : "";
+    $("batchCovers").innerHTML = all
+      ? `${icon("image")} Ảnh bìa đủ ${covered}/${doneItems.length}`
+      : `${icon("image")} Tạo ảnh bìa (${doneItems.length - covered})`;
+  }
+
+  // Nút Công cụ: ẩn khi mọi mục bên trong đều ẩn; có việc nền đang chạy thì quay; có video cần sửa thì báo số.
+  const toolIds = [...$("batchToolsPanel").querySelectorAll("button")];
+  $("batchToolsBtn").hidden = toolIds.every((b) => b.hidden);
+  $("batchToolsPanel").querySelectorAll(".bt-tools-group").forEach((g) => {
+    let el = g.nextElementSibling;
+    let any = false;
+    while (el && !el.classList.contains("bt-tools-group")) { if (!el.hidden) any = true; el = el.nextElementSibling; }
+    g.hidden = !any;
+  });
+  const busyJobs = [...batchJobBusy].filter((id) => $("batchToolsPanel").contains($(id))).length;
+  const toFix = (b.items ?? []).filter((it) => it.status === "done" && it.qa?.issues.some((x) => x.fix)).length;
+  $("batchToolsLabel").textContent = busyJobs ? "Công cụ · đang chạy" : toFix ? `Công cụ · ${toFix} cần sửa` : "Công cụ";
 
   // Cả loạt vừa xong → báo một lần, vì người dùng thường để chạy rồi đi làm việc khác.
   if (batchWasRunning && b.state === "done") notifyBatchDone(b);
@@ -3988,6 +4803,30 @@ const shorten = (text, max = 90) => {
  * Một mục = một ô chữ nhật giống hệt ô lúc soạn. Xong thì chính ô đó hiện video;
  * bấm vào ô (hoặc nút Sửa) là ra lại ô nhập để sửa nội dung rồi làm lại.
  */
+/** Điểm tự soát trên ô video: bấm để mở/đóng danh sách điểm cần xem. */
+function qaBadge(it) {
+  const qa = it.qa;
+  if (!qa) return `<p class="bt-qa none">${icon("scan-search")} Chưa soát</p>`;
+  const cls = qa.issues.some((x) => x.level === "error") || qa.score < 6 ? "bad" : qa.score < QA_GOOD ? "warn" : "good";
+  const open = batchQaOpen.has(it.id);
+  const stats = [
+    `${qa.stats.seconds}s`,
+    qa.stats.lufs === null ? "" : `${qa.stats.lufs} LUFS`,
+  ].filter(Boolean).join(" · ");
+  const head = qa.issues.length
+    ? `<button type="button" class="bt-qa ${cls}" data-act="qa" data-id="${it.id}" aria-expanded="${open}">
+        ${icon(cls === "good" ? "circle-check" : "triangle-alert")} Tự soát ${qa.score}/10 · ${qa.issues.length} điểm cần xem ${icon(open ? "chevron-up" : "chevron-down")}</button>`
+    : `<p class="bt-qa good">${icon("circle-check")} Tự soát ${qa.score}/10 · ${escapeHtml(stats)}</p>`;
+  const fixable = qa.issues.some((x) => x.fix);
+  const list = open && qa.issues.length
+    ? `<ul class="bt-qa-list">${qa.issues.map((x) => `<li class="${x.level}">${escapeHtml(x.text)}${
+      x.fix ? ` <span class="bt-qa-fixable">sửa được</span>` : ""}</li>`).join("")}</ul>${
+      fixable ? `<button type="button" class="btn bt-qa-fix" id="qafix-${it.id}" data-act="qa-fix" data-id="${it.id}"
+        title="Chuẩn hoá âm lượng, kéo chữ vào vùng an toàn — lưu thành bản mới">${icon("wand-sparkles")} Sửa tự động</button>` : ""}`
+    : "";
+  return head + list;
+}
+
 function batchItemTile(it, i) {
   if (batchEdit?.itemId === it.id) return batchEditTile(it, i);
 
@@ -3998,20 +4837,27 @@ function batchItemTile(it, i) {
   if (it.scenes) bits.push(`${it.scenes} cảnh`);
   if (it.title && it.input && it.input !== it.title) bits.push(shorten(it.input, 60));
   if (it.edited) bits.push("đã chỉnh sửa");
+  if (it.exports?.length) bits.push(`có thêm ${it.exports.join(", ")}`);
+  if (it.branded) bits.push("có bản mở đầu/kết thúc");
+  const slot = batchCur?.postPlan?.slots[it.id];
+  if (slot) bits.push(`đăng ${fmtSlot(slot)}`);
 
   const btn = (act, label, cls = "") =>
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
   // Mục dựng từ file thu sẵn hoặc từ video gốc không có "nội dung đã gõ" để sửa lại.
-  const editable = !it.file && !it.variant && !busy;
+  const editable = !it.file && !it.variant && !it.edit && !busy;
+  // Có kịch bản (script.json) thì sửa được cả lời — kể cả biến thể; file thu sẵn thì không có kịch bản.
+  // Sửa hàng loạt kiểu giữ chỉnh sửa: lời không đổi, sửa lời thì mở trình chỉnh sửa.
+  const scriptEditable = !it.file && it.edit !== "props" && !busy && Boolean(it.slug);
 
   const actions = [];
   if (it.status === "review") {
     actions.push(btn("approve", `${icon("check")} Duyệt`, "primary"));
-    if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}" title="Mở video để sửa lời rồi quay lại duyệt">${icon("pencil")} Sửa lời</a>`);
+    if (it.slug) actions.push(btn("edit", `${icon("pencil")} Sửa lời`));
     actions.push(btn("skip", `${icon("skip-forward")} Bỏ`));
   } else if (it.status === "error") {
     actions.push(btn("retry", `${icon("rotate-cw")} Thử lại`));
-    if (editable) actions.push(btn("edit", `${icon("pen-line")} Đổi nội dung`));
+    if (editable || (scriptEditable && it.slug)) actions.push(btn("edit", `${icon("pen-line")} Sửa nội dung`));
     actions.push(`<button type="button" class="btn" data-act="remove" data-id="${it.id}" title="Bỏ khỏi loạt" aria-label="Bỏ khỏi loạt">${icon("trash-2")}</button>`);
   } else if (it.status === "done") {
     if (it.slug) actions.push(`<a class="btn" href="#/v/${it.slug}">${icon("play")} Mở</a>`);
@@ -4021,7 +4867,9 @@ function batchItemTile(it, i) {
         title="Mở trình chỉnh sửa ở tab mới — sửa xong bấm Xuất video, gói Tải tất cả sẽ lấy bản đã sửa">${icon("scissors")} Chỉnh sửa</a>`);
     }
     if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>${icon("download")} Tải</a>`);
-    if (editable) actions.push(btn("edit", `${icon("pen-line")} Sửa`));
+    if (it.covers?.length) actions.push(`<button type="button" class="btn" data-act="covers" data-id="${it.id}" title="Xem các bố cục ảnh bìa">${icon("image")} Ảnh bìa${it.covers.length > 1 ? ` (${it.covers.length})` : ""}</button>`);
+    if (it.slug) actions.push(`<button type="button" class="btn" data-act="post-copy" data-slug="${escapeHtml(it.slug)}" title="Tiêu đề, caption, hashtag để đăng video này">${icon("megaphone")} Bài đăng</button>`);
+    if (scriptEditable) actions.push(btn("edit", `${icon("pen-line")} Sửa lời`));
     else actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
   } else if (it.status === "skipped") {
     actions.push(btn("retry", `${icon("undo-2")} Đưa lại`));
@@ -4055,7 +4903,7 @@ function batchItemTile(it, i) {
 
   const stateCls = { done: "done", error: "err", review: "review", preparing: "run", building: "run" }[it.status] ?? "";
   return `<div class="bt-card tile ${busy ? "on" : ""} ${it.status === "error" ? "err" : ""}"
-      ${editable ? `data-item-open="${it.id}" role="button" tabindex="0"` : ""}>
+      ${editable || scriptEditable ? `data-item-open="${it.id}" role="button" tabindex="0"` : ""}>
     <div class="bt-card-head">
       <span>Video ${i + 1}</span><span class="spacer"></span>
       <span class="bt-state ${stateCls}">${BT_BADGE[it.status] ?? "•"} ${BT_LABEL[it.status] ?? it.status}</span>
@@ -4064,24 +4912,48 @@ function batchItemTile(it, i) {
     <p class="bt-card-preview">${escapeHtml(title)}</p>
     ${bits.length ? `<p class="bt-card-own">${escapeHtml(bits.join(" · "))}</p>` : ""}
     ${it.error ? `<p class="bt-err">${escapeHtml(it.error)}</p>` : ""}
+    ${it.status === "done" ? qaBadge(it) : ""}
     ${it.draft ? `<p class="bt-err" title="Gói Tải tất cả dùng bản đã xuất gần nhất">${icon("triangle-alert")} Có chỉnh sửa chưa xuất — mở Chỉnh sửa, bấm Xuất video để tải bản mới.</p>` : ""}
     <div class="bt-actions">${actions.join("")}</div>
   </div>`;
 }
 
-/** Ô đang mở để sửa: ô nhập + chip cài đặt riêng, lưu là làm lại video đó. */
+/**
+ * Ô đang mở để sửa. Hai kiểu:
+ * - "script": toàn bộ lời đã viết (tiêu đề, cảnh, nhãn, câu nhấn) — sửa hoặc dán đè, lưu là dựng lại từ đúng
+ *   lời đó, không gọi AI. Mục đang chờ duyệt thì Lưu & duyệt.
+ * - "idea": nội dung đã gõ lúc tạo loạt (thường là một câu ý tưởng) — lưu là AI viết lại lời từ đầu.
+ */
 function batchEditTile(it, i) {
-  return `<div class="bt-card editing">
+  const btnAct = (act, label, cls = "") =>
+    `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
+  const script = batchEdit.kind === "script";
+  const actions = script
+    ? [
+      it.status === "review"
+        ? btnAct("save-approve", `${icon("check")} Lưu &amp; duyệt`, "primary") + btnAct("save-script", `${icon("save")} Lưu lời`)
+        : btnAct("save-script", `${icon("save")} Lưu &amp; dựng lại`, "primary"),
+      btnAct("cancel", "Huỷ"),
+      `<span class="spacer"></span>`,
+      it.variant ? "" : btnAct("edit-idea", `${icon("wand-sparkles")} Viết lại từ ý tưởng (AI)`),
+    ]
+    : [btnAct("save", `${icon("save")} Lưu &amp; làm lại`, "primary"), btnAct("cancel", "Huỷ")];
+  const help = script
+    ? `<p class="bt-edit-help">Toàn bộ lời của video — sửa thẳng hoặc dán đè lời mới. Mỗi dòng một câu, dòng trống sang cảnh mới,
+        <code>[nhãn]</code> ở đầu cảnh, <code>**câu nhấn**</code>, <code>! con số | chú thích</code>.
+        ${it.status === "review" ? "" : "Lưu là dựng lại từ đúng lời này, không gọi AI viết lại; ảnh các cảnh cũ được giữ."}
+        ${it.edited ? " Chỉnh sửa trong trình chỉnh sửa sẽ không áp vào bản dựng lại (bản cũ vẫn còn trong lịch sử video)." : ""}</p>`
+    : `<p class="bt-edit-help">${it.slug ? "Đổi nội dung rồi lưu: AI viết lại lời từ đầu cho video này." : "Sửa nội dung rồi lưu để làm lại video này."}</p>`;
+  return `<div class="bt-card editing${script ? " script" : ""}">
     <div class="bt-card-head">
-      <span>Video ${i + 1}</span><span class="spacer"></span>
+      <span>Video ${i + 1} · ${script ? "Sửa lời" : "Sửa nội dung"}</span><span class="spacer"></span>
       <button type="button" class="icon-btn" data-act="cancel" data-id="${it.id}" aria-label="Đóng">${icon("x")}</button>
     </div>
-    <textarea data-edit-text spellcheck="false" aria-label="Nội dung video ${i + 1}"></textarea>
+    ${help}
+    <textarea data-edit-text spellcheck="false" aria-label="${script ? "Lời" : "Nội dung"} video ${i + 1}"></textarea>
     ${cardChipsHtml(it.id, batchEdit.settings)}
-    <div class="bt-actions">
-      <button type="button" class="btn primary" data-act="save" data-id="${it.id}">${icon("save")} Lưu &amp; làm lại</button>
-      <button type="button" class="btn" data-act="cancel" data-id="${it.id}">Huỷ</button>
-    </div>
+    ${batchEdit.error ? `<p class="bt-err">${escapeHtml(batchEdit.error)}</p>` : ""}
+    <div class="bt-actions">${actions.join("")}</div>
   </div>`;
 }
 
@@ -4091,8 +4963,11 @@ function bindBatchTiles() {
   if (!box || !batchEdit) return;
   box.value = batchEdit.text;
   box.addEventListener("input", () => { batchEdit.text = box.value; });
-  box.focus();
-  box.setSelectionRange(box.value.length, box.value.length);
+  box.focus({ preventScroll: true });
+  // Cả kịch bản thì đặt con trỏ ở đầu để đọc từ tiêu đề; một câu ý tưởng thì đặt cuối để gõ tiếp.
+  const at = batchEdit.kind === "script" ? 0 : box.value.length;
+  box.setSelectionRange(at, at);
+  box.closest(".bt-card")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 /**
@@ -4146,12 +5021,52 @@ function ownSettings(it) {
   return own;
 }
 
-function openBatchEdit(itemId) {
+/**
+ * Mở ô sửa của một mục. Mục đã có kịch bản thì hiện TOÀN BỘ lời để sửa/thay; chưa có (lỗi trước bước viết lời)
+ * hoặc `kind` = "idea" thì hiện nội dung đã gõ lúc tạo loạt.
+ */
+async function openBatchEdit(itemId, kind = "script") {
+  const batchId = batchCur?.id;
   const it = batchCur?.items.find((item) => item.id === itemId);
-  if (!it || it.file || it.variant) return;
-  batchEdit = { itemId, text: it.input, settings: ownSettings(it) };
+  if (!it || it.file) return;
+  let text = null;
+  if (kind === "script" && it.slug) {
+    try {
+      ({ text } = await api(`/api/batch/${batchId}/script?item=${encodeURIComponent(itemId)}`));
+    } catch {
+      text = null;
+    }
+    if (batchCur?.id !== batchId) return;   // đã sang loạt khác trong lúc chờ
+  }
+  if (text == null && it.variant) {
+    $("batchRunHint").textContent = "Video này chưa có lời để sửa — bấm Thử lại.";
+    return;
+  }
+  batchEdit = text != null
+    ? { itemId, kind: "script", text, settings: ownSettings(it) }
+    : { itemId, kind: "idea", text: it.input, settings: ownSettings(it) };
   $("batchItems").innerHTML = batchCur.items.map(batchItemTile).join("");
   bindBatchTiles();
+}
+
+/** Lưu lời đã sửa. Lỗi (cú pháp, đang chạy…) thì ô vẫn mở, giữ nguyên chữ để sửa tiếp. */
+async function saveBatchScript(itemId, approve) {
+  if (!batchEdit || !batchCur || batchEdit.kind !== "script") return;
+  const edit = batchEdit;
+  const text = edit.text.trim();
+  const redraw = () => {
+    $("batchItems").innerHTML = batchCur.items.map(batchItemTile).join("");
+    bindBatchTiles();
+  };
+  if (!text) { edit.error = "Lời đang trống — dán hoặc gõ lời trước đã."; return redraw(); }
+  try {
+    await postJson(`/api/batch/${batchCur.id}/script`, { itemId, text, settings: cardSettings(edit), approve });
+    if (batchEdit === edit) batchEdit = null;
+    await loadBatch(batchCur.id);
+  } catch (e) {
+    edit.error = e.message;
+    if (batchEdit === edit) redraw();
+  }
 }
 
 function closeBatchEdit() {
@@ -4200,7 +5115,19 @@ async function onBatchItemClick(e) {
     return;
   }
   const { act, id } = button.dataset;
+  if (act === "post-copy") return openPostCopy(button.dataset.slug);
+  if (act === "covers") return openCoverDialog(id);
+  if (act === "qa-fix") {
+    return runBatchJob("fix", button, (run) => (run.running ? "Đang sửa…" : "Xong"), { ids: [id] });
+  }
+  if (act === "qa") {
+    if (batchQaOpen.has(id)) batchQaOpen.delete(id); else batchQaOpen.add(id);
+    return renderBatchRun();
+  }
   if (act === "edit") return openBatchEdit(id);
+  if (act === "edit-idea") return openBatchEdit(id, "idea");
+  if (act === "save-script") return saveBatchScript(id, false);
+  if (act === "save-approve") return saveBatchScript(id, true);
   if (act === "cancel") return closeBatchEdit();
   if (act === "save") return saveBatchEdit(id);
   if (act === "remove") {
@@ -4225,6 +5152,609 @@ async function batchAction(act, ids) {
     $("batchRunHint").textContent = e.message;
     $("batchRunHint").classList.add("err");
   }
+}
+
+// ---- lỗi gom theo nguyên nhân (server/batch.ts, errorGroup) ----
+const BT_ERR_GROUPS = {
+  wait: { icon: "hourglass", title: "Lỗi tạm thời", hint: "AI hết lượt trong phút, máy chủ quá tải hoặc mạng chập chờn — đợi một chút rồi chạy lại là được.", actions: ["retry"] },
+  quota: { icon: "calendar-x", title: "Hết lượt trong ngày / hết tiền", hint: "Thêm key nhà cung cấp khác (Gemini, Groq, OpenRouter có gói miễn phí) rồi chạy lại, hoặc đợi sang ngày mai.", actions: ["settings", "retry"] },
+  key: { icon: "key-round", title: "Thiếu key hoặc key sai", hint: "Kiểm tra key trong Cài đặt rồi chạy lại.", actions: ["settings", "retry"] },
+  content: { icon: "file-warning", title: "Lỗi nội dung", hint: "AI trả sai định dạng hoặc lời quá dài — chạy lại thường qua; vẫn lỗi thì bấm vào ô để sửa nội dung.", actions: ["retry"] },
+  missing: { icon: "file-x", title: "Thiếu file", hint: "File gốc hoặc kịch bản không còn — chạy lại cũng không được, bỏ các mục này khỏi loạt.", actions: ["remove"] },
+  other: { icon: "circle-alert", title: "Lỗi khác", hint: "Bấm vào từng ô để xem chi tiết.", actions: ["retry"] },
+};
+
+/** Mỗi nhóm lỗi một dòng: số mục, cách xử lý, nút làm cho cả nhóm. Chỉ một loại lỗi thì vẫn hiện — dòng gợi ý có ích. */
+function renderBatchErrGroups(b) {
+  const groups = {};
+  for (const it of b.items) {
+    if (it.status !== "error") continue;
+    (groups[it.errorGroup ?? "other"] ??= []).push(it.id);
+  }
+  const keys = Object.keys(BT_ERR_GROUPS).filter((k) => groups[k]);
+  $("batchErrGroups").hidden = keys.length === 0;
+  $("batchErrGroups").innerHTML = keys.map((k) => {
+    const g = BT_ERR_GROUPS[k];
+    const ids = groups[k].join(",");
+    const buttons = g.actions.map((act) => act === "settings"
+      ? `<button type="button" class="btn" data-errgroup-act="settings">${icon("settings")} Mở Cài đặt</button>`
+      : act === "remove"
+        ? `<button type="button" class="btn" data-errgroup-act="remove" data-ids="${ids}">${icon("trash-2")} Bỏ ${groups[k].length} mục</button>`
+        : `<button type="button" class="btn" data-errgroup-act="retry" data-ids="${ids}">${icon("rotate-cw")} Chạy lại ${groups[k].length}</button>`).join("");
+    return `<div class="bt-errgroup">${icon(g.icon)} <b>${g.title} · ${groups[k].length}</b><span class="muted">${g.hint}</span>${buttons}</div>`;
+  }).join("");
+}
+
+async function onBatchErrGroupClick(e) {
+  const button = e.target.closest("[data-errgroup-act]");
+  if (!button) return;
+  const act = button.dataset.errgroupAct;
+  if (act === "settings") return openSettings();
+  const ids = button.dataset.ids.split(",");
+  if (act === "remove") {
+    const ok = await confirmDialog({
+      title: `Bỏ ${ids.length} mục khỏi loạt?`,
+      message: "Chỉ bỏ khỏi loạt — video đã tạo (nếu có) vẫn còn trong Thư viện.",
+      okText: "Bỏ khỏi loạt",
+    });
+    if (!ok) return;
+  }
+  button.disabled = true;
+  await batchAction(act, ids);
+}
+
+// ---- việc chạy nền cho cả loạt (tự soát, ảnh bìa): server chạy, ở đây chỉ hỏi tiến độ ----
+/** Nút đang chờ việc nền — lúc đó lần vẽ lại loạt không đè nhãn tiến độ của nó. */
+const batchJobBusy = new Set();
+
+/**
+ * POST /api/batch/<id>/<action> rồi hỏi GET cùng đường dẫn tới khi xong; xong thì nạp lại loạt.
+ * `label(run)` = nhãn nút trong lúc chạy.
+ */
+async function runBatchJob(action, button, label, body = {}) {
+  if (!batchCur) return;
+  const id = batchCur.id;
+  button.disabled = true;
+  batchJobBusy.add(button.id);
+  $("batchRunHint").textContent = "";
+  $("batchRunHint").classList.remove("err");
+  const finish = (run) => {
+    batchJobBusy.delete(button.id);
+    if (run?.failed) {
+      $("batchRunHint").textContent = `${run.failed} video lỗi: ${run.error ?? ""}`;
+      $("batchRunHint").classList.add("err");
+    }
+    if (batchCur?.id === id) loadBatch(id);
+  };
+  try {
+    let { run } = await postJson(`/api/batch/${id}/${action}`, body);
+    const tick = () => {
+      button.innerHTML = `${icon("loader-circle", "spin")} ${label(run)}`;
+      // Nút nằm trong menu Công cụ (thường đang đóng): hiện tiến độ ngay trên nút Công cụ.
+      if ($("batchToolsPanel").contains(button)) $("batchToolsLabel").textContent = `Công cụ · ${label(run)}`;
+      if (!run.running) return finish(run);
+      setTimeout(async () => {
+        try { ({ run } = await api(`/api/batch/${id}/${action}`)); } catch { /* thử lại ở nhịp sau */ }
+        tick();
+      }, 1200);
+    };
+    tick();
+  } catch (e) {
+    finish(null);
+    $("batchRunHint").textContent = e.message;
+    $("batchRunHint").classList.add("err");
+  }
+}
+
+/** Menu xuất thêm khung: một khung, hoặc mọi khung khác khung gốc. Chạy lại được để thêm khung khác. */
+function openBatchExportMenu() {
+  const own = new Set((batchCur?.items ?? []).filter((it) => it.status === "done").map((it) => it.override?.aspect ?? batchCur.settings.aspect));
+  const others = aspects.filter((a) => !own.has(a.id) || own.size > 1);
+  openMenu($("batchExports"), {
+    id: "batchExports", title: "Xuất thêm khung cho cả loạt", value: "",
+    onPick: (value) => {
+      const list = value === "all" ? others.map((a) => a.id) : [value];
+      runBatchJob("exports", $("batchExports"), (run) => `Đang xuất ${run.done + run.failed}/${run.total}…`, { aspects: list });
+    },
+    options: [
+      ...others.map((a) => ({ value: a.id, icon: icon("ratio"), title: a.id, sub: `${a.label.split("—")[1]?.trim() ?? ""} · ${a.width}×${a.height}` })),
+      { value: "all", icon: icon("layers"), title: "Tất cả khung trên", sub: "Render mỗi video thêm một bản cho từng khung — lâu bằng ngần ấy lần dựng" },
+    ],
+  });
+}
+
+// ---- kết quả sau khi đăng (server/batch.ts › saveResults) ----
+const RS_PLATFORMS = [["tiktok", "TikTok"], ["youtube", "YouTube"], ["facebook", "Facebook"], ["instagram", "Instagram"]];
+const RS_COLS = [["views", "Lượt xem"], ["watch", "% xem hết"], ["likes", "Thích"], ["comments", "Bình luận"], ["shares", "Chia sẻ"]];
+const HOOK_LETTERS = "ABCDE";
+let resultsPlatform = "tiktok";
+
+const resultRows = () => (batchCur?.items ?? []).filter((it) => it.status === "done");
+const fmtNum = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, "")}M` : n >= 1e4 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, "")}K` : String(Math.round(n)));
+
+/** Đọc số giống server (parseStat) để phần tóm tắt tính ngay khi gõ, chưa cần lưu. */
+function parseStatInput(raw) {
+  let text = String(raw ?? "").trim().toLowerCase().replace(/%$/, "").trim();
+  if (!text) return null;
+  const unit = /(k|n|nghìn|ngàn|m|tr|triệu|b|tỷ)$/.exec(text)?.[1];
+  if (unit) text = text.slice(0, -unit.length).trim();
+  text = text.replace(/\s/g, "").replace(/[.,](?=\d{3}(?:[.,]|$))/g, "").replace(",", ".");
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n * (!unit ? 1 : /^(k|n|nghìn|ngàn)$/.test(unit) ? 1e3 : /^(m|tr|triệu)$/.test(unit) ? 1e6 : 1e9);
+}
+
+function readResultInputs() {
+  const rows = {};
+  $("resultsTable").querySelectorAll("tr[data-id]").forEach((tr) => {
+    const row = {};
+    tr.querySelectorAll("input[data-k]").forEach((input) => { row[input.dataset.k] = input.value.trim(); });
+    rows[tr.dataset.id] = row;
+  });
+  return rows;
+}
+
+function renderResultsTable() {
+  $("resultsTabs").innerHTML = RS_PLATFORMS.map(([id, label]) =>
+    `<button type="button" role="tab" data-rs-platform="${id}" aria-selected="${id === resultsPlatform}">${label}${
+      batchCur.results?.[id] ? ` · ${Object.keys(batchCur.results[id]).length}` : ""}</button>`).join("");
+  const saved = batchCur.results?.[resultsPlatform] ?? {};
+  $("resultsTable").innerHTML = `<thead><tr><th>#</th><th>Video</th>${RS_COLS.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>${
+    resultRows().map((it) => {
+      const i = batchCur.items.indexOf(it);
+      const hook = it.variant?.hook;
+      return `<tr data-id="${it.id}"><td>${i + 1}</td><td class="t">${hook === undefined ? "" : `<span class="hook">Hook ${HOOK_LETTERS[hook]}</span>`}${escapeHtml(shorten(it.title || it.input, 60))}</td>${
+        RS_COLS.map(([k]) => `<td><input data-k="${k}" inputmode="decimal" value="${saved[it.id]?.[k] ?? ""}" aria-label="${k}" /></td>`).join("")}</tr>`;
+    }).join("")}</tbody>`;
+  renderResultsSummary();
+}
+
+/** Video nhiều lượt xem nhất, giữ chân tốt nhất; loạt thử hook thì so trung bình từng hook với bản gốc A. */
+function renderResultsSummary() {
+  const rows = readResultInputs();
+  const data = resultRows().map((it) => ({
+    it,
+    views: parseStatInput(rows[it.id]?.views),
+    watch: parseStatInput(rows[it.id]?.watch),
+  }));
+  const withViews = data.filter((d) => d.views !== null);
+  const lines = [];
+  if (withViews.length === 0) {
+    $("resultsSummary").innerHTML = `<span class="muted">Nhập lượt xem của vài video để thấy video nào tốt nhất.</span>`;
+    return;
+  }
+  const best = [...withViews].sort((a, b) => b.views - a.views)[0];
+  lines.push(`${icon("trophy")} Nhiều lượt xem nhất: <b>${escapeHtml(shorten(best.it.title || best.it.input, 50))}</b> — ${fmtNum(best.views)} lượt`);
+  const withWatch = data.filter((d) => d.watch !== null);
+  if (withWatch.length) {
+    const keep = [...withWatch].sort((a, b) => b.watch - a.watch)[0];
+    lines.push(`${icon("timer")} Giữ chân tốt nhất: <b>${escapeHtml(shorten(keep.it.title || keep.it.input, 50))}</b> — ${keep.watch}% xem hết`);
+  }
+  // Loạt thử hook: gom theo hook (một hook có thể có nhiều bản khác khung/giọng) rồi lấy trung bình.
+  const byHook = new Map();
+  for (const d of data) {
+    const hook = d.it.variant?.hook;
+    if (hook === undefined || (d.views === null && d.watch === null)) continue;
+    const g = byHook.get(hook) ?? { views: [], watch: [] };
+    if (d.views !== null) g.views.push(d.views);
+    if (d.watch !== null) g.watch.push(d.watch);
+    byHook.set(hook, g);
+  }
+  if (byHook.size > 1) {
+    const avg = (list) => (list.length ? list.reduce((a, b) => a + b, 0) / list.length : null);
+    const hooks = [...byHook.entries()].map(([hook, g]) => ({ hook, views: avg(g.views), watch: avg(g.watch) }));
+    // Hook quyết định người xem có ở lại — so theo % xem hết nếu có, không thì theo lượt xem.
+    const metric = hooks.every((h) => h.watch !== null) ? "watch" : "views";
+    const win = [...hooks].sort((a, b) => (b[metric] ?? -1) - (a[metric] ?? -1))[0];
+    const base = hooks.find((h) => h.hook === 0);
+    const diff = base && base[metric] ? Math.round(((win[metric] - base[metric]) / base[metric]) * 100) : null;
+    lines.push(`${icon("flask-conical")} Hook thắng: <b>Hook ${HOOK_LETTERS[win.hook]}</b> — ${
+      metric === "watch" ? `${win.watch.toFixed(1)}% xem hết` : `${fmtNum(win.views)} lượt xem`} trung bình${
+      win.hook !== 0 && diff !== null ? ` (${diff >= 0 ? "+" : ""}${diff}% so với hook gốc A)` : win.hook === 0 ? " — hook gốc vẫn tốt nhất" : ""}. ` +
+      `<span class="muted">${hooks.sort((a, b) => a.hook - b.hook).map((h) => `${HOOK_LETTERS[h.hook]}: ${
+        metric === "watch" ? `${h.watch.toFixed(1)}%` : fmtNum(h.views)}`).join(" · ")}</span>`);
+  }
+  $("resultsSummary").innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
+}
+
+function openResultsDialog() {
+  if (!batchCur) return;
+  // Mở ở nền tảng đã có số gần nhất, không thì TikTok.
+  resultsPlatform = RS_PLATFORMS.map(([id]) => id).find((id) => batchCur.results?.[id]) ?? "tiktok";
+  $("resultsHint").textContent = "";
+  renderResultsTable();
+  $("resultsDlg").showModal();
+}
+
+/** Dán một khối (tab/xuống dòng) vào một ô: rải sang phải và xuống dưới, như dán vào bảng tính. */
+function pasteResults(e) {
+  const input = e.target.closest("input[data-k]");
+  const text = e.clipboardData?.getData("text") ?? "";
+  if (!input || !/[\t\n]/.test(text.trim())) return;
+  e.preventDefault();
+  const trs = [...$("resultsTable").querySelectorAll("tr[data-id]")];
+  const r0 = trs.indexOf(input.closest("tr"));
+  const c0 = RS_COLS.findIndex(([k]) => k === input.dataset.k);
+  text.replace(/\r/g, "").split("\n").filter((line, i, all) => line || i < all.length - 1).forEach((line, r) => {
+    line.split("\t").forEach((cell, c) => {
+      const target = trs[r0 + r]?.querySelectorAll("input[data-k]")[c0 + c];
+      if (target) target.value = cell.trim();
+    });
+  });
+  renderResultsSummary();
+}
+
+async function saveResultsDialog(e) {
+  e.preventDefault();
+  try {
+    const { results } = await postJson(`/api/batch/${batchCur.id}/results`, { platform: resultsPlatform, rows: readResultInputs() });
+    batchCur.results = results;
+    $("resultsHint").textContent = "Đã lưu — có cả trong file CSV.";
+    $("resultsHint").classList.remove("err");
+    renderResultsTable();
+  } catch (err) {
+    $("resultsHint").textContent = err.message;
+    $("resultsHint").classList.add("err");
+  }
+}
+
+// ---- nhân cả loạt: loạt "variants" mới với mọi video đã xong làm gốc ----
+let clonePick = { langs: [], aspects: [] };
+
+const cloneSources = () => (batchCur?.items ?? []).filter((it) => it.status === "done" && it.slug);
+
+function renderCloneDialog() {
+  const chip = (list, value, label, attr) =>
+    `<button type="button" class="bt-pick ${list.includes(value) ? "on" : ""}" data-${attr}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
+  $("cloneLangs").innerHTML = (batchLangs ?? []).map((l) => chip(clonePick.langs, l.code, l.label, "clone-lang")).join("") ||
+    `<span class="muted">Đang tải…</span>`;
+  $("cloneAspects").innerHTML = aspects.map((a) => chip(clonePick.aspects, a.id, a.id, "clone-aspect")).join("");
+  const per = Math.max(1, clonePick.langs.length) * Math.max(1, clonePick.aspects.length);
+  const n = cloneSources().length;
+  const total = Math.min(50, n * per);
+  const changes = clonePick.langs.length || clonePick.aspects.length || $("cloneVoice").value !== "__keep__";
+  $("clonePreview").textContent = changes
+    ? `${n} video × ${per} bản = ${total} video mới${n * per > 50 ? " (một loạt tối đa 50 — phần dư bị bỏ)" : ""} · dừng cho bạn duyệt lời trước khi dựng`
+    : "Chọn ít nhất một ngôn ngữ, một khung, hoặc đổi giọng.";
+  // Dịch mà giữ giọng cũ = giọng tiếng Việt đọc lời tiếng Anh. Nhắc chọn giọng đúng ngôn ngữ.
+  const voice = state.voices.catalog.find((v) => v.key === $("cloneVoice").value);
+  const langs = clonePick.langs.filter((code) => code !== "vi");
+  if (langs.length && (!voice || !langs.includes(voice.lang))) {
+    $("clonePreview").textContent += langs.length > 1
+      ? " · ⚠ Dịch nhiều ngôn ngữ một lượt thì mọi bản dùng chung một giọng — nên nhân từng ngôn ngữ với giọng của ngôn ngữ đó."
+      : ` · ⚠ Nên chọn giọng ${batchLangs?.find((l) => l.code === langs[0])?.label ?? langs[0]} — giọng hiện tại đọc lời đã dịch sẽ lơ lớ.`;
+  }
+  $("cloneGo").disabled = !changes;
+}
+
+async function openCloneDialog() {
+  if (!batchCur) return;
+  clonePick = { langs: [], aspects: [] };
+  $("cloneVoice").innerHTML = `<option value="__keep__">Giữ giọng của từng video</option><option value="">Không giọng</option>` +
+    state.voices.catalog.filter((v) => !v.paidPlan).map((v) => `<option value="${escapeHtml(v.key)}">${escapeHtml(v.label)}</option>`).join("");
+  $("cloneHint").textContent = "";
+  $("cloneHint").classList.remove("err");
+  renderCloneDialog();
+  $("cloneDlg").showModal();
+  if (!batchLangs) {
+    try { batchLangs = (await api("/api/translate/engines")).languages; } catch { batchLangs = []; }
+    renderCloneDialog();
+  }
+}
+
+async function submitClone(e) {
+  e.preventDefault();
+  const voice = $("cloneVoice").value;
+  const labels = [
+    ...clonePick.langs.map((code) => batchLangs?.find((l) => l.code === code)?.label ?? code),
+    ...clonePick.aspects,
+    ...(voice === "__keep__" ? [] : [voice ? `giọng ${voice}` : "không giọng"]),
+  ];
+  $("cloneGo").disabled = true;
+  try {
+    const batch = await postJson("/api/batch", {
+      source: "variants",
+      name: `${batchCur.name.slice(0, 36)} — ${labels.join(", ")}`.slice(0, 60),
+      settings: { ...opts, music: opts.music || null },
+      review: true,
+      start: true,
+      variants: {
+        from: cloneSources().map((it) => it.slug),
+        languages: clonePick.langs,
+        aspects: clonePick.aspects,
+        voices: voice === "__keep__" ? [] : [voice],
+      },
+    });
+    $("cloneDlg").close();
+    loadHistory();
+    location.hash = `#/batch/${batch.id}`;
+  } catch (err) {
+    $("cloneHint").textContent = err.message;
+    $("cloneHint").classList.add("err");
+    $("cloneGo").disabled = false;
+  }
+}
+
+// ---- gộp cả loạt thành video dài (server/batch.ts › startBatchCompile) ----
+function openCompileMenu() {
+  openMenu($("batchCompile"), {
+    id: "batchCompile", title: "Gộp thành một video dài", value: "",
+    onPick: (aspect) => runBatchJob("compile", $("batchCompile"),
+      (run) => (run.done + run.failed < run.total - 1 ? `Đang làm thẻ chương ${run.done + 1}/${run.total - 1}…` : "Đang ghép video…"),
+      { aspect, cards: true }),
+    options: [
+      { value: "16:9", icon: icon("monitor"), title: "16:9 — YouTube", sub: "Video dọc đặt giữa trên nền mờ; có bản 16:9 xuất sẵn thì dùng bản đó" },
+      { value: "9:16", icon: icon("smartphone"), title: "9:16 — dọc", sub: "Tổng hợp dài cho TikTok, Facebook" },
+      { value: "1:1", icon: icon("square"), title: "1:1 — vuông", sub: "Facebook, Instagram feed" },
+    ],
+  });
+}
+
+function renderCompiled(b) {
+  const c = b.compiled;
+  $("batchCompiled").hidden = !c;
+  if (!c) return;
+  const mins = `${Math.floor(c.seconds / 60)}:${String(c.seconds % 60).padStart(2, "0")}`;
+  $("batchCompiled").innerHTML = `${icon("film")} <b>Video tổng hợp ${escapeHtml(c.aspect)}</b> · ${mins}
+    <a class="btn" href="/${escapeHtml(c.file)}?t=${c.at}" download>${icon("download")} Tải</a>
+    <button type="button" class="btn" id="batchCopyChapters" title="Dán vào mô tả YouTube để video có chương">${icon("list")} Chép mốc chương</button>`;
+  $("batchCopyChapters").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(c.chapters);
+      flashNote("Đã chép mốc chương — dán vào mô tả YouTube.");
+    } catch {
+      flashNote(c.chapters);
+    }
+  };
+}
+
+// ---- ảnh bìa: xem ba bố cục của một video ----
+const COVER_LABEL = { bottom: "Bìa 1 · tiêu đề dưới", center: "Bìa 2 · tiêu đề giữa", band: "Bìa 3 · dải màu" };
+
+function openCoverDialog(itemId) {
+  const it = batchCur?.items.find((x) => x.id === itemId);
+  if (!it?.covers?.length) return;
+  $("coverGrid").innerHTML = it.covers.map((c) => `
+    <figure>
+      <img src="${escapeHtml(c.url)}" alt="${escapeHtml(COVER_LABEL[c.layout] ?? c.layout)}" loading="lazy" />
+      <figcaption><span>${escapeHtml(COVER_LABEL[c.layout] ?? c.layout)}</span>
+        <a class="btn" href="${escapeHtml(c.url.split("?")[0])}" download>${icon("download")} Tải</a></figcaption>
+    </figure>`).join("");
+  $("coverDlg").showModal();
+}
+
+// ---- lịch đăng (server/batch.ts › savePostPlan, batchCalendar) ----
+const pad2 = (v) => String(v).padStart(2, "0");
+const dateInputValue = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const fmtSlot = (ms) => new Date(ms).toLocaleString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+/** "11:30, 7h, 19:30" → [[11,30],[7,0],[19,30]] theo thứ tự trong ngày; bỏ giờ viết sai. */
+function parsePlanTimes(text) {
+  const times = String(text).split(/[,;\s]+/).map((t) => t.trim().toLowerCase()).filter(Boolean).map((t) => {
+    const m = /^(\d{1,2})(?:[:h.](\d{2})?)?$/.exec(t);
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2] ?? 0);
+    return h < 24 && min < 60 ? [h, min] : null;
+  }).filter(Boolean);
+  return [...new Map(times.map((t) => [t[0] * 60 + t[1], t])).values()].sort((a, b) => a[0] * 60 + a[1] - (b[0] * 60 + b[1]));
+}
+
+/** Mốc đăng cho các video đã xong, theo thứ tự trong loạt. Bỏ giờ đã qua và (nếu chọn) cuối tuần. */
+function planSlots() {
+  const done = (batchCur?.items ?? []).filter((it) => it.status === "done");
+  const times = parsePlanTimes($("planTimes").value);
+  const [y, mo, d] = ($("planStart").value || dateInputValue(new Date())).split("-").map(Number);
+  const slots = {};
+  if (!times.length) return { slots, done, times };
+  const day = new Date(y, mo - 1, d);
+  let i = 0;
+  for (let guard = 0; i < done.length && guard < 400; guard++) {
+    const weekend = day.getDay() === 0 || day.getDay() === 6;
+    if (!($("planWeekends").checked && weekend)) {
+      for (const [h, min] of times) {
+        if (i >= done.length) break;
+        const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, min).getTime();
+        if (at < Date.now()) continue;
+        slots[done[i++].id] = at;
+      }
+    }
+    day.setDate(day.getDate() + 1);
+  }
+  return { slots, done, times };
+}
+
+function renderPlanPreview() {
+  const { slots, done, times } = planSlots();
+  const at = Object.values(slots);
+  $("planPreview").textContent = !times.length ? "Nhập ít nhất một giờ đăng."
+    : done.length === 0 ? "Chưa có video nào xong để lên lịch."
+      : `${done.length} video · từ ${fmtSlot(Math.min(...at))} tới ${fmtSlot(Math.max(...at))}`;
+}
+
+function openPlanDialog() {
+  if (!batchCur) return;
+  const plan = batchCur.postPlan;
+  const first = plan ? Math.min(...Object.values(plan.slots)) : null;
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  $("planStart").value = dateInputValue(first ? new Date(first) : tomorrow);
+  if (!$("planTimes").value) $("planTimes").value = "11:30, 19:30";
+  $("planDlg").querySelectorAll(".plan-platforms input").forEach((c) => {
+    c.checked = plan ? plan.platforms.includes(c.value) : c.value === "tiktok";
+  });
+  $("planIcs").hidden = !plan;
+  $("planIcs").href = `/api/batch/${batchCur.id}/calendar`;
+  $("planClear").hidden = !plan;
+  $("planHint").textContent = "";
+  $("planHint").classList.remove("err");
+  renderPlanPreview();
+  $("planDlg").showModal();
+}
+
+async function savePlan(slots) {
+  const platforms = [...$("planDlg").querySelectorAll(".plan-platforms input:checked")].map((c) => c.value);
+  try {
+    const { postPlan } = await postJson(`/api/batch/${batchCur.id}/plan`, { slots, platforms });
+    batchCur.postPlan = postPlan;
+    $("planIcs").hidden = !postPlan;
+    $("planClear").hidden = !postPlan;
+    $("planHint").textContent = postPlan
+      ? `Đã lưu lịch ${Object.keys(postPlan.slots).length} video — bấm Tải file .ics để thêm vào lịch.`
+      : "Đã xoá lịch đăng.";
+    $("planHint").classList.remove("err");
+    renderBatchRun();
+  } catch (e) {
+    $("planHint").textContent = e.message;
+    $("planHint").classList.add("err");
+  }
+}
+
+// ---- mở đầu / kết thúc chung (server/batch.ts › startBatchBrand) ----
+let brandUploadTarget = null;
+
+async function openBrandDialog() {
+  if (!batchCur) return;
+  const hint = $("brandHint");
+  hint.textContent = "Đang tải thư viện…";
+  hint.classList.remove("err");
+  $("brandDlg").showModal();
+  try {
+    const { items } = await api("/api/library/media");
+    // Chỉ ảnh/video người dùng có — bỏ giọng đọc, ảnh bìa sinh tự động.
+    const media = items.filter((m) => (m.kind === "image" || m.kind === "video") && !["voices", "thumbs"].includes(m.root))
+      .sort((a, b) => b.at - a.at).slice(0, 80);
+    const fill = (id, current) => {
+      $(id).innerHTML = `<option value="">Không có</option>` + media.map((m) =>
+        `<option value="${escapeHtml(m.path)}">${m.kind === "video" ? "🎬" : "🖼"} ${escapeHtml(m.name)}</option>`).join("");
+      if (current && !media.some((m) => m.path === current)) {
+        $(id).insertAdjacentHTML("beforeend", `<option value="${escapeHtml(current)}">${escapeHtml(current.split("/").pop())}</option>`);
+      }
+      $(id).value = current ?? "";
+    };
+    fill("brandIntro", batchCur.brand?.intro);
+    fill("brandOutro", batchCur.brand?.outro);
+    const n = batchCur.items.filter((it) => it.status === "done").length;
+    $("brandGo").innerHTML = `${icon("play")} Ghép cho ${n} video`;
+    hint.textContent = "";
+  } catch (e) {
+    hint.textContent = e.message;
+    hint.classList.add("err");
+  }
+}
+
+async function uploadBrandFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file || !brandUploadTarget) return;
+  const hint = $("brandHint");
+  hint.textContent = `Đang tải ${file.name}…`;
+  try {
+    const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    const select = $(brandUploadTarget);
+    select.insertAdjacentHTML("afterbegin", `<option value="${escapeHtml(body.path)}">${file.type.startsWith("video") ? "🎬" : "🖼"} ${escapeHtml(file.name)}</option>`);
+    select.value = body.path;
+    hint.textContent = "";
+  } catch (err) {
+    hint.textContent = `Không tải lên được: ${err.message}`;
+    hint.classList.add("err");
+  }
+}
+
+function submitBrand(e) {
+  e.preventDefault();
+  const intro = $("brandIntro").value;
+  const outro = $("brandOutro").value;
+  if (!intro && !outro) {
+    $("brandHint").textContent = "Chọn ít nhất một đoạn mở đầu hoặc kết thúc.";
+    $("brandHint").classList.add("err");
+    return;
+  }
+  $("brandDlg").close();
+  runBatchJob("brand", $("batchBrand"), (run) => `Đang ghép ${run.done + run.failed}/${run.total}…`, { intro, outro });
+}
+
+const startBatchCheck = () =>
+  runBatchJob("check", $("batchCheck"), (run) => `Đang soát ${run.done}/${run.total}…`);
+
+async function startBatchCovers() {
+  // Mọi video đã có bìa mới: bấm là làm lại tất cả (sau khi đổi tên kênh, màu…) — hỏi trước.
+  const force = $("batchCovers").dataset.force === "1";
+  if (force && !(await confirmDialog({
+    title: "Làm lại ảnh bìa cho cả loạt?",
+    message: "Mọi video đã có ảnh bìa. Làm lại sẽ thay các ảnh hiện có.",
+    okText: "Làm lại tất cả",
+  }))) return;
+  runBatchJob("covers", $("batchCovers"), (run) => `Đang làm ảnh bìa ${run.done + run.failed}/${run.total}…`, { force });
+}
+
+// ---- bài đăng cho cả loạt: chạy nền trên server, ở đây chỉ hỏi tiến độ ----
+let batchPostCopyPoll = null;
+
+/** Nút "Viết bài đăng": số video còn thiếu, tiến độ khi đang viết, hay "viết lại" khi đã đủ. */
+function renderBatchPostCopy(pc) {
+  const button = $("batchPostCopy");
+  button.hidden = !pc || pc.videos === 0;
+  if (button.hidden) return;
+  const run = pc.run;
+  button.disabled = Boolean(run?.running);
+  if (run?.running) {
+    button.innerHTML = run.waiting
+      ? `${icon("hourglass")} AI hết lượt, đợi ${run.waiting}s… (${run.done + run.failed}/${run.total})`
+      : `${icon("loader-circle", "spin")} Đang viết bài đăng ${run.done + run.failed}/${run.total}…`;
+    if (!batchPostCopyPoll) pollBatchPostCopy();
+  } else if (pc.ready >= pc.videos) {
+    button.innerHTML = `${icon("megaphone")} Bài đăng đủ ${pc.ready}/${pc.videos}`;
+    button.dataset.force = "1";
+  } else {
+    button.innerHTML = `${icon("megaphone")} Viết bài đăng (${pc.videos - pc.ready})`;
+    delete button.dataset.force;
+  }
+}
+
+async function startBatchPostCopy() {
+  if (!batchCur) return;
+  const force = $("batchPostCopy").dataset.force === "1";
+  if (force) {
+    const ok = await confirmDialog({
+      title: "Viết lại bài đăng cho cả loạt?",
+      message: "Mọi video đã có gợi ý rồi. Viết lại sẽ thay toàn bộ tiêu đề, caption, hashtag hiện có.",
+      okText: "Viết lại tất cả",
+    });
+    if (!ok) return;
+  }
+  $("batchRunHint").textContent = "";
+  $("batchRunHint").classList.remove("err");
+  try {
+    renderBatchPostCopy(await postJson(`/api/batch/${batchCur.id}/post-copy`, { provider: opts.provider, force }));
+  } catch (e) {
+    $("batchRunHint").textContent = e.message;
+    $("batchRunHint").classList.add("err");
+  }
+}
+
+function pollBatchPostCopy() {
+  const id = batchCur?.id;
+  batchPostCopyPoll = setTimeout(async () => {
+    batchPostCopyPoll = null;
+    // Người dùng đã sang loạt khác hoặc rời màn này thì thôi hỏi.
+    if (!batchCur || batchCur.id !== id || $("batchRun").hidden) return;
+    try {
+      const pc = await api(`/api/batch/${id}/post-copy`);
+      batchCur.postCopy = pc;
+      renderBatchPostCopy(pc);
+      if (pc.run && !pc.run.running) {
+        const { done, failed, error } = pc.run;
+        $("batchRunHint").textContent = failed
+          ? `Viết xong ${done} bài đăng, ${failed} video lỗi: ${error}`
+          : `Đã viết bài đăng cho ${done} video — có trong CSV và file .txt khi tải cả loạt.`;
+        $("batchRunHint").classList.toggle("err", failed > 0);
+      }
+    } catch {
+      // Mạng chập chờn: lần vẽ lại sau của loạt sẽ hỏi tiếp.
+    }
+  }, 2000);
 }
 
 async function toggleBatchRun() {

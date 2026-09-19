@@ -43,7 +43,8 @@ description: Phong cách "Sách truyện" — sách tranh thiếu nhi, tranh min
 <!-- ai-guide -->
 - Giọng kể chuyện cho trẻ nhỏ: câu ngắn, từ đơn giản, ấm áp, có nhân vật và tên gọi dễ thương ("chú thỏ con", "bạn sóc").
 - Mỗi cảnh là một trang truyện: 2–3 câu, mỗi câu dưới 60 ký tự, một hành động rõ ràng.
-- Cấu trúc truyện: mở đầu ("Ngày xửa ngày xưa…") → sự việc → bài học nhẹ nhàng ở trang cuối.
+- Cấu trúc truyện: mở đầu ("Ngày xửa ngày xưa…") → sự việc → bài học nhẹ nhàng ở trang cuối. Câu mở đầu gộp luôn điều
+  kỳ lạ của truyện để bé tò mò: "Ngày xửa ngày xưa, có một chú rùa sợ nước." — không chỉ "Ngày xửa ngày xưa, có một khu rừng."
 - `tag`: tên trang ngắn, tối đa 18 ký tự — "Ngày xửa ngày xưa", "Một buổi sáng", "Từ hôm đó".
 - `punch`: chép NGUYÊN VĂN 1–4 từ trong một câu của cảnh — hành động hoặc cảm xúc chính, sẽ sáng màu và bắn sao.
 - `visual` badge cho con số hay chữ ngắn vui ("3 củ", "Bùm!") kèm caption ngắn.

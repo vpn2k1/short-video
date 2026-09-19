@@ -21,6 +21,8 @@ type Props = {
   selection: ops.Selection;
   media: MediaItem[];
   voices: VoiceOption[];
+  /** Giọng video đang dùng (null = chưa biết) — giá trị ban đầu của ô chọn giọng. */
+  videoVoice: string | null;
   onChange: (next: ShortProps, mergeKey?: string) => void;
   onSelect: (selection: ops.Selection) => void;
   onDelete: () => void;
@@ -709,12 +711,14 @@ const Panel: React.FC<{ icon: React.ReactNode; title: string; onClose?: () => vo
 
 /** Bảng thuộc tính bên phải — nội dung đổi theo mục đang chọn trên timeline. */
 export const Inspector: React.FC<Props> = ({
-  props, selection, media, voices, onChange, onSelect, onDelete, onSplit, onDuplicateText, onVoice, onRemoveAllVoice, onDetachAudio,
+  props, selection, media, voices, videoVoice, onChange, onSelect, onDelete, onSplit, onDuplicateText, onVoice, onRemoveAllVoice, onDetachAudio,
   timeMs, onSeek, onRun,
   onStartCrop, onLiftScene, onAutoSubtitles,
   uploading, onReplaceMedia, onReplaceFile, onOpenLibrary,
 }) => {
-  const [voice, setVoice] = useState("linh");
+  // Mở ra đúng giọng video đang dùng — trước đây luôn là "linh", bấm "Đổi giọng toàn bộ" là đọc lại bằng giọng khác.
+  const [voice, setVoice] = useState(videoVoice ?? "linh");
+  useEffect(() => { if (videoVoice) setVoice(videoVoice); }, [videoVoice]);
   /** Lỗi khi đổi Lấp đầy/Vừa khung của cảnh (không đọc được kích thước file). */
   const [fitError, setFitError] = useState<string | null>(null);
   useEffect(() => setFitError(null), [selection]);

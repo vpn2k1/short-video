@@ -1,0 +1,53 @@
+{
+  "style": "pen",
+  "title": "Gửi tôi của 10 năm trước",
+  "subtitle": "Những điều ước gì mình biết sớm hơn",
+  "handle": "@kenh",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "scenes": [
+    {
+      "lines": [
+        "Chào cậu, mình là cậu của mười năm sau.",
+        "Có vài điều mình muốn kể."
+      ],
+      "image": "uploads/stock/pexels-image-7525223.jpg",
+      "visual": null,
+      "tag": "Hà Nội, một tối",
+      "punch": null
+    },
+    {
+      "lines": [
+        "Đừng sợ bắt đầu từ con số không.",
+        "Ai cũng từng vụng về lúc đầu."
+      ],
+      "image": "uploads/stock/pexels-image-28377956.jpg",
+      "visual": null,
+      "tag": "Điều thứ nhất",
+      "punch": "vụng về lúc đầu"
+    },
+    {
+      "lines": [
+        "Nghe thì ít, nhưng mười năm là cả một thư viện."
+      ],
+      "image": "uploads/stock/pexels-image-15516547.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "10 phút",
+        "caption": "đọc sách mỗi tối"
+      },
+      "tag": "Điều thứ hai",
+      "punch": null
+    },
+    {
+      "lines": [
+        "Cảm ơn cậu đã không bỏ cuộc.",
+        "Hẹn gặp ở phía trước nhé."
+      ],
+      "image": "uploads/stock/pexels-image-8728173.jpg",
+      "visual": null,
+      "tag": "Thân ái",
+      "punch": null
+    }
+  ]
+}
