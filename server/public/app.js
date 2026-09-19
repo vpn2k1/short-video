@@ -3210,6 +3210,8 @@ function bindBatch() {
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
   $("batchPostCopy").addEventListener("click", startBatchPostCopy);
   $("batchCheck").addEventListener("click", startBatchCheck);
+  $("batchFix").addEventListener("click", () =>
+    runBatchJob("fix", $("batchFix"), (run) => `Đang sửa ${run.done + run.failed}/${run.total}…`));
   $("batchCovers").addEventListener("click", startBatchCovers);
   $("batchExports").addEventListener("click", openBatchExportMenu);
   $("batchBrand").addEventListener("click", openBrandDialog);
@@ -4342,6 +4344,12 @@ function renderBatchRun() {
   $("batchCsv").hidden = c.total === 0;
   $("batchCsv").href = `/api/batch/${b.id}/csv`;
   renderBatchPostCopy(b.postCopy);
+  if (!batchJobBusy.has("batchFix")) {
+    const fixable = doneItems.filter((it) => it.qa?.issues.some((x) => x.fix)).length;
+    $("batchFix").hidden = fixable === 0;
+    $("batchFix").disabled = c.running > 0;
+    $("batchFix").innerHTML = `${icon("wand-sparkles")} Sửa tự động (${fixable})`;
+  }
   if (!batchJobBusy.has("batchCheck")) {
     $("batchCheck").hidden = unchecked === 0;
     $("batchCheck").disabled = false;
@@ -4478,8 +4486,12 @@ function qaBadge(it) {
     ? `<button type="button" class="bt-qa ${cls}" data-act="qa" data-id="${it.id}" aria-expanded="${open}">
         ${icon(cls === "good" ? "circle-check" : "triangle-alert")} Tự soát ${qa.score}/10 · ${qa.issues.length} điểm cần xem ${icon(open ? "chevron-up" : "chevron-down")}</button>`
     : `<p class="bt-qa good">${icon("circle-check")} Tự soát ${qa.score}/10 · ${escapeHtml(stats)}</p>`;
+  const fixable = qa.issues.some((x) => x.fix);
   const list = open && qa.issues.length
-    ? `<ul class="bt-qa-list">${qa.issues.map((x) => `<li class="${x.level}">${escapeHtml(x.text)}</li>`).join("")}</ul>`
+    ? `<ul class="bt-qa-list">${qa.issues.map((x) => `<li class="${x.level}">${escapeHtml(x.text)}${
+      x.fix ? ` <span class="bt-qa-fixable">sửa được</span>` : ""}</li>`).join("")}</ul>${
+      fixable ? `<button type="button" class="btn bt-qa-fix" id="qafix-${it.id}" data-act="qa-fix" data-id="${it.id}"
+        title="Chuẩn hoá âm lượng, kéo chữ vào vùng an toàn — lưu thành bản mới">${icon("wand-sparkles")} Sửa tự động</button>` : ""}`
     : "";
   return head + list;
 }
@@ -4773,6 +4785,9 @@ async function onBatchItemClick(e) {
   }
   const { act, id } = button.dataset;
   if (act === "post-copy") return openPostCopy(button.dataset.slug);
+  if (act === "qa-fix") {
+    return runBatchJob("fix", button, (run) => (run.running ? "Đang sửa…" : "Xong"), { ids: [id] });
+  }
   if (act === "qa") {
     if (batchQaOpen.has(id)) batchQaOpen.delete(id); else batchQaOpen.add(id);
     return renderBatchRun();

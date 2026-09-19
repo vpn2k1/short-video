@@ -24,7 +24,8 @@
  * sửa tiếp hay xoá đi đều giống video làm bằng tay.
  */
 import { randomUUID } from "crypto";
-import { execFileSync } from "child_process";
+import { execFile as execFileCb, execFileSync } from "child_process";
+import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import type { WhisperModel } from "@remotion/install-whisper-cpp";
@@ -57,7 +58,7 @@ import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
 import { generatePostCopy, getPostCopy, type PostPlatform, type SavedPostCopy } from "../scripts/post-copy";
 import { generateHooks } from "../scripts/hooks";
-import { checkVideo, savedCheck } from "../scripts/qa-video";
+import { checkVideo, fixPlacements, savedCheck } from "../scripts/qa-video";
 import { coverPath, freshCover, makeCover } from "../scripts/cover";
 import { renderShort } from "../scripts/render";
 import { brandVideo, isBrandFile } from "../scripts/brand";
@@ -1818,6 +1819,103 @@ export const startBatchCheck = (id: unknown) => {
 };
 
 export const batchCheckStatus = (id: unknown) => ({ run: checkRuns.get(require_(id).id) ?? null });
+
+// ---------- sửa tự động theo kết quả tự soát ----------
+
+/** Mốc âm lượng khi đăng mạng xã hội: -14 LUFS, đỉnh dưới -1,5 dBTP. */
+const LOUDNORM = "I=-14:TP=-1.5:LRA=11";
+
+/**
+ * Chuẩn hoá âm lượng mp4 tại chỗ — hai lượt loudnorm: lượt đầu chỉ đo, lượt sau chỉnh tuyến tính theo số đo
+ * (một lượt với video ngắn hay lệch vài LU). Chép nguyên hình (-c:v copy), chỉ mã hoá lại tiếng, vài giây.
+ */
+const normalizeLoudness = async (file: string) => {
+  const run = promisify(execFileCb);
+  const { stderr } = await run("ffmpeg", ["-hide_banner", "-nostats", "-i", file, "-af", `loudnorm=${LOUDNORM}:print_format=json`, "-f", "null", "-"], { maxBuffer: 16 * 1024 * 1024 });
+  const json = JSON.parse(stderr.slice(stderr.lastIndexOf("{"), stderr.lastIndexOf("}") + 1)) as Record<string, string>;
+  const measured = `measured_I=${json.input_i}:measured_TP=${json.input_tp}:measured_LRA=${json.input_lra}:measured_thresh=${json.input_thresh}:offset=${json.target_offset}`;
+  const tmp = `${file}.loudnorm.mp4`;
+  await run("ffmpeg", [
+    "-v", "error", "-y", "-i", file, "-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy",
+    "-af", `loudnorm=${LOUDNORM}:${measured}:linear=true`, "-ar", "48000", "-c:a", "aac", "-b:a", "192k",
+    "-movflags", "+faststart", tmp,
+  ]);
+  fs.renameSync(tmp, file);
+};
+
+/**
+ * Sửa một video theo lỗi tự soát đánh dấu `fix`: chữ lấn vùng che → dời trong props.json rồi render lại;
+ * âm lượng → chuẩn hoá (làm SAU render, render lại là mất). Mỗi lần sửa là một bản mới trong lịch sử video.
+ */
+const fixVideo = async (batch: Batch, item: BatchItem) => {
+  const slug = item.slug!;
+  const qa = savedCheck(slug) ?? await checkVideo(slug);
+  const fixes = new Set(qa.issues.map((issue) => issue.fix).filter(Boolean));
+  const did: string[] = [];
+  if (fixes.has("safe")) {
+    const propsPath = path.join(videoDir(slug), "props.json");
+    const props = readJson(propsPath);
+    const moved = props ? fixPlacements(props) : 0;
+    if (moved > 0) {
+      shortSchema.parse(props);
+      fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
+      heavy += 1;
+      try {
+        await runRenderStage(slug, undefined, () => {});
+      } finally {
+        heavy -= 1;
+      }
+      did.push(`dời ${moved} chỗ chữ vào vùng an toàn`);
+    }
+  }
+  const mp4 = path.join(process.cwd(), "out", `${slug}.mp4`);
+  if (fixes.has("loudness")) {
+    await normalizeLoudness(mp4);
+    did.push("chuẩn hoá âm lượng về -14 LUFS");
+  }
+  if (did.length === 0) return false;
+  const mtime = Math.round(fs.statSync(mp4).mtimeMs);
+  item.mp4 = `/out/${slug}.mp4?t=${mtime}`;
+  item.poster = makePoster(slug, mp4);
+  const props = readJson(path.join(videoDir(slug), "props.json")) as { aspect?: string } | null;
+  appendAssistant(slug, { role: "assistant", at: Date.now(), text: `Đã sửa tự động: ${did.join(", ")}`, mp4: item.mp4, aspect: props?.aspect ?? itemSettings(batch, item).aspect });
+  save(batch);
+  await checkVideo(slug);
+  return true;
+};
+
+type FixRun = { running: boolean; total: number; done: number; failed: number; fixed: number; error?: string };
+const fixRuns = new Map<string, FixRun>();
+
+/** Sửa tự động các video đã xong có lỗi sửa được (`ids` = chỉ những mục này). Lần lượt, vì có thể phải render lại. */
+export const startBatchFix = (id: unknown, ids?: unknown) => {
+  const batch = require_(id);
+  const current = fixRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  if (batch.items.some((item) => item.status === "building")) throw new Error("Loạt đang dựng — đợi dựng xong rồi sửa tự động.");
+  const only = Array.isArray(ids) ? new Set(ids.map(String)) : null;
+  const targets = doneItems(batch)
+    .map(({ item }) => item)
+    .filter((item) => (!only || only.has(item.id)) && savedCheck(item.slug!)?.issues.some((issue) => issue.fix));
+  const run: FixRun = { running: targets.length > 0, total: targets.length, done: 0, failed: 0, fixed: 0 };
+  fixRuns.set(batch.id, run);
+  void (async () => {
+    for (const item of targets) {
+      try {
+        if (await fixVideo(batch, item)) run.fixed++;
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      }
+    }
+    run.running = false;
+    pump();
+  })();
+  return { run };
+};
+
+export const batchFixStatus = (id: unknown) => ({ run: fixRuns.get(require_(id).id) ?? null });
 
 // ---------- ảnh bìa (scripts/cover.ts) ----------
 

@@ -37,7 +37,7 @@ import {
 import {
   approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
   listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
-  batchCheckStatus, batchCoversStatus, batchBrandStatus, batchCalendar, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
+  batchCheckStatus, batchFixStatus, startBatchFix, batchCoversStatus, batchBrandStatus, batchCalendar, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
 } from "./batch";
 import { deletePreset, listPresets, savePreset } from "./batch-presets";
 import {
@@ -701,6 +701,9 @@ const server = http.createServer(async (req, res) => {
         if (action === "covers" && req.method === "GET") {
           return send(res, 200, batchCoversStatus(id));
         }
+        if (action === "fix" && req.method === "GET") {
+          return send(res, 200, batchFixStatus(id));
+        }
         if (action === "check" && req.method === "GET") {
           return send(res, 200, batchCheckStatus(id));
         }
@@ -716,6 +719,7 @@ const server = http.createServer(async (req, res) => {
         if (req.method === "POST") {
           const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown; provider?: unknown; force?: unknown }>(req);
           if (action === "check") return send(res, 200, startBatchCheck(id));
+          if (action === "fix") return send(res, 200, startBatchFix(id, body.ids));
           if (action === "covers") return send(res, 200, startBatchCovers(id, (body as { force?: unknown }).force === true));
           if (action === "exports") return send(res, 200, startBatchExports(id, (body as { aspects?: unknown }).aspects));
           if (action === "brand") return send(res, 200, startBatchBrand(id, body));

@@ -829,6 +829,8 @@
   .bt-errgroup b { font-weight: 600; }
   .bt-errgroup .muted { flex: 1 1 260px; }
   .bt-errgroup .btn { padding: 4px 10px; font-size: 12.5px; }
+  .bt-qa-fixable { font-size: 11px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+  .bt-qa-fix { align-self: flex-start; padding: 4px 10px; font-size: 12.5px; }
   .bt-qa-list li.error { color: var(--err, #ef4444); }
   .bt-card .chip-v { max-width: 120px; }
   .bt-add-card { display: grid; place-items: center; align-content: center; gap: 2px; min-height: 150px;
@@ -1437,6 +1439,7 @@ Lưu lại để làm theo nhé!</pre>
         <button type="button" class="btn" id="batchUnschedule" hidden><i data-icon="alarm-clock-off"></i> Huỷ hẹn</button>
         <button type="button" class="btn primary" id="batchApproveAll" hidden><i data-icon="check"></i> Duyệt tất cả</button>
         <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
+        <button type="button" class="btn" id="batchFix" hidden title="Chuẩn hoá âm lượng, kéo chữ lấn vùng che vào vùng an toàn — mỗi video lưu thành bản mới"><i data-icon="wand-sparkles"></i> Sửa tự động</button>
         <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>
         <button type="button" class="btn" id="batchExports" hidden aria-haspopup="listbox" aria-expanded="false"><i data-icon="ratio"></i> Xuất thêm khung</button>
         <button type="button" class="btn" id="batchResults" hidden title="Nhập lượt xem, tỉ lệ xem hết… sau khi đăng — xếp hạng video, so hook thắng"><i data-icon="chart-column"></i> Kết quả</button>

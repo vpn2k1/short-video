@@ -18,7 +18,9 @@ import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../src/aspects";
 const run = promisify(execFile);
 
 export type QaLevel = "error" | "warn";
-export type QaIssue = { level: QaLevel; text: string };
+/** Loại lỗi sửa tự động được (server/batch.ts › fixVideo): chuẩn hoá âm lượng, kéo chữ vào vùng an toàn. */
+export type QaFix = "loudness" | "safe";
+export type QaIssue = { level: QaLevel; text: string; fix?: QaFix };
 export type QaResult = {
   score: number;
   issues: QaIssue[];
@@ -107,7 +109,8 @@ const fmt = (s: number) => `${s.toFixed(1)}s`;
  * props thay vì đo pixel: đo pixel thì ảnh nền sáng cũng bị tính là "có chữ". Phong cách mặc định đã canh sẵn vùng
  * an toàn nên chỉ xét chỗ có toạ độ chỉnh tay.
  */
-export const unsafePlacements = (props: Props) => {
+/** Hình học chung của phần phát hiện và phần sửa: kích thước khung, vùng an toàn, chiều cao khối chữ. */
+const geometry = (props: Props) => {
   const aspect = ASPECTS[(props.aspect as AspectId) ?? DEFAULT_ASPECT] ?? ASPECTS[DEFAULT_ASPECT];
   const { width: W, height: H, safe } = aspect;
   const scale = Math.min(W, H) / 1080;
@@ -124,6 +127,17 @@ export const unsafePlacements = (props: Props) => {
     const center = (yPct / 100) * H;
     return center - height / 2 < safe.top - tolerance ? "top" : center + height / 2 > H - safe.bottom + tolerance ? "bottom" : null;
   };
+  /** y (%) gần nhất để khối chữ cao `height` nằm trọn trong vùng an toàn. */
+  const clampY = (yPct: number, height: number) => {
+    const min = ((safe.top + height / 2) / H) * 100;
+    const max = ((H - safe.bottom - height / 2) / H) * 100;
+    return Math.round(Math.min(Math.max(yPct, min), Math.max(min, max)) * 10) / 10;
+  };
+  return { block, offends, clampY };
+};
+
+export const unsafePlacements = (props: Props) => {
+  const { block, offends } = geometry(props);
   const found: string[] = [];
   const look = props.captionLook;
   const lines = (props.captions ?? []).filter((c) => c.text.trim());
@@ -145,7 +159,7 @@ export const checkVideo = async (slug: string): Promise<QaResult> => {
   const props = (readJson(path.join(videoDir(slug), "props.json")) ?? {}) as Props;
   const issues: QaIssue[] = [];
   const error = (text: string) => issues.push({ level: "error", text });
-  const warn = (text: string) => issues.push({ level: "warn", text });
+  const warn = (text: string, fix?: QaFix) => issues.push({ level: "warn", text, ...(fix ? { fix } : {}) });
 
   const info = await probe(file);
   if (!info.video) error("File không có hình — render hỏng, dựng lại video này.");
@@ -160,10 +174,10 @@ export const checkVideo = async (slug: string): Promise<QaResult> => {
 
   const m = info.video ? await measure(file, info.audio) : { lufs: null, peak: null, silences: [], blacks: [] };
   if (m.lufs !== null && Number.isFinite(m.lufs)) {
-    if (m.lufs < LUFS_QUIET) warn(`Âm lượng nhỏ (${m.lufs} LUFS) — nghe nhỏ hơn hẳn video khác trên bảng tin; nên khoảng -14 đến -16.`);
-    else if (m.lufs > LUFS_LOUD) warn(`Âm lượng quá to (${m.lufs} LUFS) — nền tảng sẽ tự hạ, dễ méo; nên khoảng -14 đến -16.`);
+    if (m.lufs < LUFS_QUIET) warn(`Âm lượng nhỏ (${m.lufs} LUFS) — nghe nhỏ hơn hẳn video khác trên bảng tin; nên khoảng -14 đến -16.`, "loudness");
+    else if (m.lufs > LUFS_LOUD) warn(`Âm lượng quá to (${m.lufs} LUFS) — nền tảng sẽ tự hạ, dễ méo; nên khoảng -14 đến -16.`, "loudness");
   }
-  if (m.peak !== null && m.peak > PEAK_MAX) warn(`Đỉnh âm ${m.peak} dBFS — sát ngưỡng méo tiếng (nên dưới ${PEAK_MAX}).`);
+  if (m.peak !== null && m.peak > PEAK_MAX) warn(`Đỉnh âm ${m.peak} dBFS — sát ngưỡng méo tiếng (nên dưới ${PEAK_MAX}).`, "loudness");
 
   // Chỉ soát khoảng lặng khi video có tiếng thật — video chỉ có chữ thì im lặng là cố ý.
   if (voiced || props.music) {
@@ -186,7 +200,7 @@ export const checkVideo = async (slug: string): Promise<QaResult> => {
   if (fast.length) warn(`${fast.length} dòng phụ đề hiện quá nhanh, đọc không kịp. Ví dụ: “${fast[0].text.slice(0, 60)}”`);
   const unsafe = unsafePlacements(props);
   if (unsafe.length) {
-    warn(`Chữ nằm trong vùng TikTok/Reels che (tên kênh ở đỉnh, nút và caption ở đáy): ${unsafe.join("; ")} — kéo vào giữa trong trình chỉnh sửa.`);
+    warn(`Chữ nằm trong vùng TikTok/Reels che (tên kênh ở đỉnh, nút và caption ở đáy): ${unsafe.join("; ")} — kéo vào giữa trong trình chỉnh sửa.`, "safe");
   }
   const first = captions[0];
   if (first && first.startMs > 3000) warn(`Câu đầu tiên tới giây ${fmt(first.startMs / 1000)} mới xuất hiện — 3 giây đầu quyết định người xem có ở lại.`);
@@ -202,6 +216,52 @@ export const checkVideo = async (slug: string): Promise<QaResult> => {
   };
   fs.writeFileSync(qaPath(slug), JSON.stringify(result, null, 2));
   return result;
+};
+
+/**
+ * Kéo chữ lấn vùng che vào vùng an toàn — sửa thẳng trên props, chỉ khi phần phát hiện có báo, giữ nguyên chiều
+ * ngang và mọi thứ khác. Trả về số chỗ đã dời.
+ *
+ * Phụ đề dời CẢ CỤM cùng một khoảng (vị trí chung + vị trí riêng từng câu): video nhiều hàng phụ đề (hàng gốc + hàng
+ * dịch) mà dời từng hàng riêng thì hàng dưới bị đẩy lên đè hàng trên. Chữ tự do độc lập nên dời từng cái.
+ */
+export const fixPlacements = (props: Props) => {
+  const { block, offends, clampY } = geometry(props);
+  let moved = 0;
+  const lines = (props.captions ?? []).filter((c) => c.text.trim());
+  const look = props.captionLook;
+  // Mọi khối phụ đề có toạ độ chỉnh tay: [y hiện tại, chiều cao, hàm ghi y mới].
+  const placed: { y: number; h: number; set: (y: number) => void }[] = [];
+  if (look?.y !== undefined) {
+    const longest = lines.filter((c) => !c.track).reduce((a, c) => (c.text.length > a.length ? c.text : a), "");
+    placed.push({ y: look.y, h: block(longest, look.size ?? 72, look.width ?? 80), set: (y) => { look.y = y; } });
+  }
+  for (const c of lines) {
+    if (c.style?.y === undefined) continue;
+    const style = c.style;
+    placed.push({ y: style.y!, h: block(c.text, style.size ?? look?.size ?? 72, style.width ?? look?.width ?? 80), set: (y) => { style.y = y; } });
+  }
+  const offending = placed.filter((p) => offends(p.y, p.h));
+  if (offending.length) {
+    // Khoảng dời chung = khoảng lớn nhất mà một khối cần để vào vùng an toàn (lên hoặc xuống).
+    const shifts = offending.map((p) => clampY(p.y, p.h) - p.y);
+    const up = Math.min(0, ...shifts);
+    const down = Math.max(0, ...shifts);
+    const delta = up < 0 ? up : down;
+    const unique = new Set<(y: number) => void>();
+    for (const p of placed) {
+      if (unique.has(p.set)) continue;
+      unique.add(p.set);
+      p.set(Math.round(Math.min(100, Math.max(0, p.y + delta)) * 10) / 10);
+    }
+    moved += offending.length;
+  }
+  for (const t of props.texts ?? []) {
+    if (!t.text.trim()) continue;
+    const h = block(t.text, t.size ?? 72, t.maxWidth ?? 80);
+    if (offends(t.y ?? 30, h)) { t.y = clampY(t.y ?? 30, h); moved++; }
+  }
+  return moved;
 };
 
 /** Kết quả soát đã lưu, nếu còn khớp bản mp4 hiện tại (render lại sau đó thì null). */
