@@ -58,6 +58,7 @@ import { generatePostCopy, getPostCopy, type SavedPostCopy } from "../scripts/po
 import { generateHooks } from "../scripts/hooks";
 import { checkVideo, savedCheck } from "../scripts/qa-video";
 import { coverPath, freshCover, makeCover } from "../scripts/cover";
+import { renderShort } from "../scripts/render";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
@@ -654,7 +655,7 @@ const refreshEdits = (batch: Batch) => {
       changed = true;
     }
     // Kết quả tự soát (scripts/qa-video.ts) — chỉ khi còn khớp bản mp4 hiện tại, sửa rồi xuất lại thì phải soát lại.
-    return { ...item, edited, draft, qa: savedCheck(item.slug), cover: freshCover(item.slug) };
+    return { ...item, edited, draft, qa: savedCheck(item.slug), cover: freshCover(item.slug), exports: exportsOf(item.slug) };
   });
   if (changed) save(batch);
   return items;
@@ -1669,6 +1670,76 @@ export const startBatchCovers = (id: unknown, force = false) => {
 
 export const batchCoversStatus = (id: unknown) => ({ run: coverRuns.get(require_(id).id) ?? null });
 
+// ---------- xuất thêm khung hình ----------
+
+/**
+ * Bản khác khung của video đã xong (vd. loạt 9:16 xuất thêm 1:1 cho Facebook, 16:9 cho YouTube): render lại
+ * từ props.json hiện có — giữ lời, giọng, chỉnh sửa tay — chỉ đổi `aspect`. Không tạo video mới trong Thư viện;
+ * file nằm ở out/exports/<slug>/<khung>.mp4 và vào gói Tải tất cả trong thư mục theo khung.
+ */
+const exportPath = (slug: string, aspect: string) =>
+  path.join(process.cwd(), "out", "exports", slug, `${aspect.replace(":", "x")}.mp4`);
+
+/** Bản xuất còn mới hơn bản mp4 chính (sửa video rồi xuất lại thì bản khác khung cũng phải làm lại). */
+const freshExport = (slug: string, aspect: string) => {
+  const file = exportPath(slug, aspect);
+  const main = path.join(process.cwd(), "out", `${slug}.mp4`);
+  return fs.existsSync(file) && (!fs.existsSync(main) || fs.statSync(file).mtimeMs >= fs.statSync(main).mtimeMs);
+};
+
+/** Các khung đã xuất (còn mới) của một video — hiện trên ô, và cho gói tải về. */
+const exportsOf = (slug: string) => ASPECT_IDS.filter((aspect) => freshExport(slug, aspect));
+
+type ExportRun = { running: boolean; total: number; done: number; failed: number; error?: string; current?: string };
+const exportRuns = new Map<string, ExportRun>();
+
+export const startBatchExports = (id: unknown, rawAspects: unknown) => {
+  const batch = require_(id);
+  const current = exportRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  // Render ăn trọn CPU: chạy chen với loạt đang dựng chỉ làm cả hai cùng chậm.
+  if (batch.items.some((item) => item.status === "building" || item.status === "preparing")) {
+    throw new Error("Loạt đang dựng — đợi dựng xong (hoặc Tạm dừng) rồi xuất thêm khung.");
+  }
+  const aspects = (Array.isArray(rawAspects) ? rawAspects : []).map(String).filter((a) => ASPECT_IDS.includes(a as never));
+  if (aspects.length === 0) throw new Error("Chọn ít nhất một khung hình để xuất.");
+  const jobs: { slug: string; aspect: string }[] = [];
+  for (const { item } of doneItems(batch)) {
+    const props = readJson(path.join(videoDir(item.slug!), "props.json")) as { aspect?: string } | null;
+    if (!props) continue;
+    for (const aspect of aspects) {
+      // Khung gốc của video đã có sẵn ở bản chính.
+      if (aspect !== (props.aspect ?? "9:16") && !freshExport(item.slug!, aspect)) jobs.push({ slug: item.slug!, aspect });
+    }
+  }
+  const run: ExportRun = { running: jobs.length > 0, total: jobs.length, done: 0, failed: 0 };
+  exportRuns.set(batch.id, run);
+  void (async () => {
+    for (const { slug, aspect } of jobs) {
+      run.current = `${slug} · ${aspect}`;
+      heavy += 1;
+      try {
+        const props = shortSchema.parse(JSON.parse(fs.readFileSync(path.join(videoDir(slug), "props.json"), "utf8")));
+        const out = exportPath(slug, aspect);
+        fs.mkdirSync(path.dirname(out), { recursive: true });
+        await renderShort({ ...props, aspect: aspect as AspectId }, out);
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      } finally {
+        heavy -= 1;
+      }
+    }
+    run.running = false;
+    run.current = undefined;
+    pump();
+  })();
+  return { run };
+};
+
+export const batchExportsStatus = (id: unknown) => ({ run: exportRuns.get(require_(id).id) ?? null });
+
 // ---------- xuất cả loạt ----------
 
 /**
@@ -1726,7 +1797,16 @@ export function* batchZip(id: unknown): Generator<Buffer> {
       const copy = freshCopy(item.slug!);
       if (copy) yield { name: mp4Name.replace(/\.mp4$/, ".txt"), read: () => Buffer.from(postCopyText(copy), "utf8") };
       if (freshCover(item.slug!)) yield { name: mp4Name.replace(/\.mp4$/, ".jpg"), read: () => fs.readFileSync(coverPath(item.slug!)) };
-      if (batch.source !== "subs") continue;
+      // Bản khác khung: mỗi khung một thư mục, cùng tên file để dễ đối chiếu.
+      for (const aspect of exportsOf(item.slug!)) {
+        yield { name: `${aspect.replace(":", "x")}/${mp4Name}`, read: () => fs.readFileSync(exportPath(item.slug!, aspect)) };
+      }
+      if (batch.source !== "subs") {
+        // Mọi loạt đều kèm .srt — YouTube, Facebook nhận phụ đề bật/tắt được, tốt cho người xem lẫn tìm kiếm.
+        const srt = srtFor(item.slug!);
+        if (srt) yield { name: mp4Name.replace(/\.mp4$/, ".srt"), read: () => Buffer.from(srt, "utf8") };
+        continue;
+      }
       // Loạt nhiều hàng: hàng đầu là <tên>.srt, các hàng sau <tên>.<mã ngôn ngữ>.srt.
       const tracks = batch.subs?.tracks ?? [{ lang: "" as const }];
       for (const [k, track] of tracks.entries()) {

@@ -3169,6 +3169,7 @@ function bindBatch() {
   $("batchPostCopy").addEventListener("click", startBatchPostCopy);
   $("batchCheck").addEventListener("click", startBatchCheck);
   $("batchCovers").addEventListener("click", startBatchCovers);
+  $("batchExports").addEventListener("click", openBatchExportMenu);
   $("batchErrGroups").addEventListener("click", onBatchErrGroupClick);
   $("batchDelete").addEventListener("click", deleteBatchRun);
   // Cuộn tới đâu thì gắn video của những ô vừa hiện ra tới đó.
@@ -4164,6 +4165,12 @@ function renderBatchRun() {
     $("batchCheck").disabled = false;
     $("batchCheck").innerHTML = `${icon("scan-search")} Soát ${unchecked} video`;
   }
+  if (!batchJobBusy.has("batchExports")) {
+    $("batchExports").hidden = doneItems.length === 0;
+    $("batchExports").disabled = c.running > 0;
+    $("batchExports").title = c.running > 0 ? "Đợi loạt dựng xong rồi xuất thêm khung" : "Render thêm bản khác khung (1:1, 16:9…) cho mọi video đã xong";
+    $("batchExports").innerHTML = `${icon("ratio")} Xuất thêm khung`;
+  }
   if (!batchJobBusy.has("batchCovers")) {
     const covered = doneItems.filter((it) => it.cover).length;
     const all = doneItems.length > 0 && covered === doneItems.length;
@@ -4293,6 +4300,7 @@ function batchItemTile(it, i) {
   if (it.scenes) bits.push(`${it.scenes} cảnh`);
   if (it.title && it.input && it.input !== it.title) bits.push(shorten(it.input, 60));
   if (it.edited) bits.push("đã chỉnh sửa");
+  if (it.exports?.length) bits.push(`có thêm ${it.exports.join(", ")}`);
 
   const btn = (act, label, cls = "") =>
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
@@ -4690,6 +4698,23 @@ async function runBatchJob(action, button, label, body = {}) {
     $("batchRunHint").textContent = e.message;
     $("batchRunHint").classList.add("err");
   }
+}
+
+/** Menu xuất thêm khung: một khung, hoặc mọi khung khác khung gốc. Chạy lại được để thêm khung khác. */
+function openBatchExportMenu() {
+  const own = new Set((batchCur?.items ?? []).filter((it) => it.status === "done").map((it) => it.override?.aspect ?? batchCur.settings.aspect));
+  const others = aspects.filter((a) => !own.has(a.id) || own.size > 1);
+  openMenu($("batchExports"), {
+    id: "batchExports", title: "Xuất thêm khung cho cả loạt", value: "",
+    onPick: (value) => {
+      const list = value === "all" ? others.map((a) => a.id) : [value];
+      runBatchJob("exports", $("batchExports"), (run) => `Đang xuất ${run.done + run.failed}/${run.total}…`, { aspects: list });
+    },
+    options: [
+      ...others.map((a) => ({ value: a.id, icon: icon("ratio"), title: a.id, sub: `${a.label.split("—")[1]?.trim() ?? ""} · ${a.width}×${a.height}` })),
+      { value: "all", icon: icon("layers"), title: "Tất cả khung trên", sub: "Render mỗi video thêm một bản cho từng khung — lâu bằng ngần ấy lần dựng" },
+    ],
+  });
 }
 
 const startBatchCheck = () =>
