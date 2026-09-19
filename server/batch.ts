@@ -659,9 +659,27 @@ const refreshEdits = (batch: Batch) => {
   return items;
 };
 
+/**
+ * Gom lỗi theo nguyên nhân để xử lý cả nhóm một lần: loạt 30 video mà 12 cái dính hết hạn mức thì chỉ cần
+ * một nút "Chạy lại 12", không phải đọc từng câu lỗi. Dựa vào tiền tố emoji của scripts/provider-error.ts
+ * (⏳ 📅 💳 🔑 🔥 📏) và vài câu lỗi quen thuộc của app.
+ */
+export type ErrorGroup = "wait" | "quota" | "key" | "content" | "missing" | "other";
+
+export const errorGroup = (message: string): ErrorGroup => {
+  if (/⏳|🔥|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|socket hang up|network|timed? ?out|quá tải/i.test(message)) return "wait";
+  if (/📅|💳|hết lượt|hết tiền|credit|quota/i.test(message)) return "quota";
+  if (/🔑|Chưa có (key|AI nào|model)|Cần key|cần key|thiếu key|key sai|API key|401|403/i.test(message)) return "key";
+  if (/Không thấy file|không còn|chưa có kịch bản|không có kịch bản|chưa dựng lần nào|ENOENT/i.test(message)) return "missing";
+  if (/📏|sai cấu trúc|JSON|không trả về|trả thiếu|quá dài|không hiểu|cú pháp|không nghe ra/i.test(message)) return "content";
+  return "other";
+};
+
 export const readBatch = (id: unknown) => {
   const batch = require_(id);
-  return { ...batch, items: refreshEdits(batch), counts: counts(batch), postCopy: batchPostCopyStatus(batch) };
+  const items = refreshEdits(batch).map((item) =>
+    item.status === "error" && item.error ? { ...item, errorGroup: errorGroup(item.error) } : item);
+  return { ...batch, items, counts: counts(batch), postCopy: batchPostCopyStatus(batch) };
 };
 
 export const deleteBatch = (id: unknown) => {

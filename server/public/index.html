@@ -806,6 +806,12 @@
   .bt-qa.warn { color: #f0b429; border-color: color-mix(in srgb, #f0b429 45%, transparent); }
   .bt-qa.bad { color: var(--err, #ef4444); border-color: color-mix(in srgb, var(--err, #ef4444) 45%, transparent); }
   .bt-qa-list { margin: 0; padding: 0 0 0 18px; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .bt-errgroups { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .bt-errgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; border-radius: 12px;
+                 background: color-mix(in srgb, var(--err, #ef4444) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--err, #ef4444) 25%, var(--line)); font-size: 13px; }
+  .bt-errgroup b { font-weight: 600; }
+  .bt-errgroup .muted { flex: 1 1 260px; }
+  .bt-errgroup .btn { padding: 4px 10px; font-size: 12.5px; }
   .bt-qa-list li.error { color: var(--err, #ef4444); }
   .bt-card .chip-v { max-width: 120px; }
   .bt-add-card { display: grid; place-items: center; align-content: center; gap: 2px; min-height: 150px;
@@ -1410,6 +1416,7 @@ Lưu lại để làm theo nhé!</pre>
         <span class="muted" id="batchEta"></span>
       </div>
       <p class="muted bt-runmeta" id="batchRunMeta"></p>
+      <div class="bt-errgroups" id="batchErrGroups" hidden></div>
     </div>
     <div class="bt-cards" id="batchItems"></div>
     <p class="hint" id="batchRunHint"></p>

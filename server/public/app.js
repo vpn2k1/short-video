@@ -3168,6 +3168,7 @@ function bindBatch() {
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
   $("batchPostCopy").addEventListener("click", startBatchPostCopy);
   $("batchCheck").addEventListener("click", startBatchCheck);
+  $("batchErrGroups").addEventListener("click", onBatchErrGroupClick);
   $("batchDelete").addEventListener("click", deleteBatchRun);
   // Cuộn tới đâu thì gắn video của những ô vừa hiện ra tới đó.
   let mounting = false;
@@ -4148,6 +4149,7 @@ function renderBatchRun() {
   pause.innerHTML = b.state === "running" ? `${icon("pause")} Tạm dừng` : `${icon("play")} Chạy tiếp`;
   $("batchApproveAll").hidden = c.review === 0;
   $("batchApproveAll").innerHTML = `${icon("check")} Duyệt tất cả (${c.review})`;
+  renderBatchErrGroups(b);
   $("batchRetryAll").hidden = c.error === 0;
   $("batchRetryAll").innerHTML = `${icon("rotate-cw")} Chạy lại ${c.error} lỗi`;
   $("batchZip").hidden = c.done === 0;
@@ -4586,6 +4588,55 @@ async function batchAction(act, ids) {
     $("batchRunHint").textContent = e.message;
     $("batchRunHint").classList.add("err");
   }
+}
+
+// ---- lỗi gom theo nguyên nhân (server/batch.ts, errorGroup) ----
+const BT_ERR_GROUPS = {
+  wait: { icon: "hourglass", title: "Lỗi tạm thời", hint: "AI hết lượt trong phút, máy chủ quá tải hoặc mạng chập chờn — đợi một chút rồi chạy lại là được.", actions: ["retry"] },
+  quota: { icon: "calendar-x", title: "Hết lượt trong ngày / hết tiền", hint: "Thêm key nhà cung cấp khác (Gemini, Groq, OpenRouter có gói miễn phí) rồi chạy lại, hoặc đợi sang ngày mai.", actions: ["settings", "retry"] },
+  key: { icon: "key-round", title: "Thiếu key hoặc key sai", hint: "Kiểm tra key trong Cài đặt rồi chạy lại.", actions: ["settings", "retry"] },
+  content: { icon: "file-warning", title: "Lỗi nội dung", hint: "AI trả sai định dạng hoặc lời quá dài — chạy lại thường qua; vẫn lỗi thì bấm vào ô để sửa nội dung.", actions: ["retry"] },
+  missing: { icon: "file-x", title: "Thiếu file", hint: "File gốc hoặc kịch bản không còn — chạy lại cũng không được, bỏ các mục này khỏi loạt.", actions: ["remove"] },
+  other: { icon: "circle-alert", title: "Lỗi khác", hint: "Bấm vào từng ô để xem chi tiết.", actions: ["retry"] },
+};
+
+/** Mỗi nhóm lỗi một dòng: số mục, cách xử lý, nút làm cho cả nhóm. Chỉ một loại lỗi thì vẫn hiện — dòng gợi ý có ích. */
+function renderBatchErrGroups(b) {
+  const groups = {};
+  for (const it of b.items) {
+    if (it.status !== "error") continue;
+    (groups[it.errorGroup ?? "other"] ??= []).push(it.id);
+  }
+  const keys = Object.keys(BT_ERR_GROUPS).filter((k) => groups[k]);
+  $("batchErrGroups").hidden = keys.length === 0;
+  $("batchErrGroups").innerHTML = keys.map((k) => {
+    const g = BT_ERR_GROUPS[k];
+    const ids = groups[k].join(",");
+    const buttons = g.actions.map((act) => act === "settings"
+      ? `<button type="button" class="btn" data-errgroup-act="settings">${icon("settings")} Mở Cài đặt</button>`
+      : act === "remove"
+        ? `<button type="button" class="btn" data-errgroup-act="remove" data-ids="${ids}">${icon("trash-2")} Bỏ ${groups[k].length} mục</button>`
+        : `<button type="button" class="btn" data-errgroup-act="retry" data-ids="${ids}">${icon("rotate-cw")} Chạy lại ${groups[k].length}</button>`).join("");
+    return `<div class="bt-errgroup">${icon(g.icon)} <b>${g.title} · ${groups[k].length}</b><span class="muted">${g.hint}</span>${buttons}</div>`;
+  }).join("");
+}
+
+async function onBatchErrGroupClick(e) {
+  const button = e.target.closest("[data-errgroup-act]");
+  if (!button) return;
+  const act = button.dataset.errgroupAct;
+  if (act === "settings") return openSettings();
+  const ids = button.dataset.ids.split(",");
+  if (act === "remove") {
+    const ok = await confirmDialog({
+      title: `Bỏ ${ids.length} mục khỏi loạt?`,
+      message: "Chỉ bỏ khỏi loạt — video đã tạo (nếu có) vẫn còn trong Thư viện.",
+      okText: "Bỏ khỏi loạt",
+    });
+    if (!ok) return;
+  }
+  button.disabled = true;
+  await batchAction(act, ids);
 }
 
 // ---- tự soát cả loạt: chạy nền trên server (scripts/qa-video.ts), ở đây chỉ hỏi tiến độ ----
