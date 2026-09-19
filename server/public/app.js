@@ -913,7 +913,72 @@ function selectOlderThan(days) {
   if (selectedSlugs.size === 0) flashNote(days === Infinity ? "Không có video nào để chọn." : `Không có video nào cũ hơn ${days} ngày.`);
 }
 
+// ---- dọn dung lượng (server/storage.ts) ----
+let storageReportData = null;
+
+function renderStorage() {
+  const cats = storageReportData?.categories ?? [];
+  $("storageList").innerHTML = cats.map((c) => `
+    <label class="st-row ${c.files ? "" : "empty"}">
+      <input type="checkbox" data-storage="${c.id}" ${c.files && !c.warn ? "checked" : ""} ${c.files ? "" : "disabled"} />
+      <b>${escapeHtml(c.label)}</b><span class="size">${c.files ? fmtBytes(c.bytes) : "trống"}</span>
+      <span class="muted">${escapeHtml(c.desc)}${c.files ? ` · ${c.files} mục` : ""}</span>
+      ${c.warn && c.files ? `<span class="warn">${icon("triangle-alert")} ${escapeHtml(c.warn)}</span>` : ""}
+    </label>`).join("");
+  paintStorageTotal();
+}
+
+function paintStorageTotal() {
+  const picked = [...$("storageList").querySelectorAll("[data-storage]:checked")].map((i) => i.dataset.storage);
+  const bytes = (storageReportData?.categories ?? []).filter((c) => picked.includes(c.id)).reduce((t, c) => t + c.bytes, 0);
+  $("storageGo").disabled = picked.length === 0;
+  $("storageGo").innerHTML = `${icon("trash-2")} ${picked.length ? `Dọn ${fmtBytes(bytes)}` : "Dọn"}`;
+}
+
+async function openStorageDialog() {
+  $("storageHint").textContent = "Đang tính dung lượng…";
+  $("storageHint").classList.remove("err");
+  $("storageList").innerHTML = "";
+  $("storageDlg").showModal();
+  try {
+    storageReportData = await api("/api/storage");
+    const total = storageReportData.categories.reduce((t, c) => t + c.bytes, 0);
+    $("storageHint").textContent = total ? `Dọn được tối đa ${fmtBytes(total)}.` : "Không có gì để dọn.";
+    renderStorage();
+  } catch (e) {
+    $("storageHint").textContent = e.message;
+    $("storageHint").classList.add("err");
+  }
+}
+
+async function submitStorage(e) {
+  e.preventDefault();
+  const ids = [...$("storageList").querySelectorAll("[data-storage]:checked")].map((i) => i.dataset.storage);
+  if (!ids.length) return;
+  const names = (storageReportData?.categories ?? []).filter((c) => ids.includes(c.id)).map((c) => `${c.label} — ${fmtBytes(c.bytes)}`);
+  const ok = await confirmDialog({
+    title: "Dọn những mục này?",
+    message: "Xoá hẳn, không qua thùng rác — mọi mục đều sinh lại được khi cần.",
+    items: names,
+    okText: "Dọn",
+  });
+  if (!ok) return;
+  try {
+    const res = await postJson("/api/storage", { ids });
+    storageReportData = res;
+    $("storageHint").textContent = `Đã dọn ${fmtBytes(res.freed)} (${res.removed} mục).`;
+    renderStorage();
+  } catch (err) {
+    $("storageHint").textContent = err.message;
+    $("storageHint").classList.add("err");
+  }
+}
+
 function bindLibrarySelect() {
+  $("libStorage").addEventListener("click", openStorageDialog);
+  $("storageForm").addEventListener("submit", submitStorage);
+  $("storageList").addEventListener("change", paintStorageTotal);
+  $("storageDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("storageDlg").close()));
   bindTrash();
   $("libSelect").addEventListener("click", () => setSelecting(true));
   $("libSelectDone").addEventListener("click", () => setSelecting(false));

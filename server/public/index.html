@@ -839,6 +839,15 @@
   .bt-compiled { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; padding: 8px 12px;
                  border: 1px solid var(--line); border-radius: 12px; background: var(--panel); font-size: 13px; }
   .bt-compiled .btn { padding: 4px 10px; font-size: 12.5px; }
+  .st-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .st-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; padding: 10px 12px;
+            border: 1px solid var(--line); border-radius: 12px; background: var(--bg); cursor: pointer; }
+  .st-row input { margin-top: 3px; }
+  .st-row b { font-size: 14px; }
+  .st-row .size { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .st-row .muted, .st-row .warn { grid-column: 2 / 4; font-size: 12.5px; }
+  .st-row .warn { color: #f0b429; }
+  .st-row.empty { opacity: .5; cursor: default; }
   .cover-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
   .cover-grid figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
   .cover-grid img { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #000; }
@@ -1151,6 +1160,7 @@ Lưu lại để làm theo nhé!</pre>
     <h1>Thư viện</h1>
     <input id="search" type="search" placeholder="Tìm video…" />
     <button type="button" class="btn" id="libSelect"><i data-icon="square-check"></i> Chọn nhiều</button>
+    <button type="button" class="btn" id="libStorage" title="Xem và dọn những file sinh lại được"><i data-icon="hard-drive"></i> Dọn dung lượng</button>
     <button type="button" class="btn danger" id="trashEmpty" hidden><i data-icon="eraser"></i> Dọn sạch thùng rác</button>
     <a class="btn primary" href="#/"><i data-icon="plus"></i> Tạo video</a>
   </div>
@@ -1649,6 +1659,22 @@ Lưu lại để làm theo nhé!</pre>
     <div class="dlg-foot">
       <button type="button" class="btn" data-close>Huỷ</button>
       <button type="submit" class="btn primary" id="brandGo"><i data-icon="play"></i> Ghép</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg be-dlg" id="storageDlg">
+  <form id="storageForm" autocomplete="off">
+    <div class="dlg-head">
+      <h2><i data-icon="hard-drive"></i> Dọn dung lượng</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Chỉ gồm những thứ sinh lại được. Video, bản cũ trong lịch sử, file bạn tải lên không nằm ở đây — xoá chúng trong Thư viện (vào thùng rác).</p>
+    <div class="st-list" id="storageList"></div>
+    <p class="hint" id="storageHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>Đóng</button>
+      <button type="submit" class="btn danger" id="storageGo"><i data-icon="trash-2"></i> Dọn</button>
     </div>
   </form>
 </dialog>

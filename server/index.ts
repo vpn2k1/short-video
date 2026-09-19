@@ -40,6 +40,7 @@ import {
   batchCheckStatus, batchFixStatus, clipAnalysisStatus, startClipAnalysis, startBatchFix, batchCoversStatus, batchBrandStatus, batchCalendar, batchCompileStatus, startBatchCompile, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
 } from "./batch";
 import { deletePreset, listPresets, savePreset } from "./batch-presets";
+import { cleanStorage, storageReport } from "./storage";
 import {
   CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, DEFAULT_CAPTION_LOOK,
 } from "../src/components/captionLook";
@@ -597,6 +598,12 @@ const server = http.createServer(async (req, res) => {
         fontGroups: fontGroups().map(([label, ids]) => ({ label, ids })),
         presets: CAPTION_PRESET_LABELS,
       });
+    }
+
+    // ---- dọn dung lượng: chỉ những thứ sinh lại được (server/storage.ts) ----
+    if (route === "/api/storage") {
+      if (req.method === "POST") return send(res, 200, cleanStorage(await readJson(req)));
+      return send(res, 200, storageReport());
     }
 
     // ---- cắt video dài thành nhiều video ngắn: phân tích (phiên âm + AI chọn đoạn) ----
