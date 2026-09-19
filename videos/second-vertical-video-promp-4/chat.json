@@ -15,14 +15,26 @@
       "mp4": "/out/versions/second-vertical-video-promp-4/v1.mp4?t=1789724782987",
       "aspect": "9:16",
       "version": 1
+    },
+    {
+      "role": "user",
+      "text": "sửa video",
+      "at": 1789727670832,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789727670835,
+      "error": true,
+      "text": "Video này dựng từ file audio, không có kịch bản nên chưa sửa bằng prompt được."
     }
   ],
   "settings": {
     "kind": "video",
-    "style": "auto",
-    "mode": "text",
+    "style": "plain",
+    "mode": "ai",
     "aspect": "9:16",
-    "voice": "linh",
+    "voice": "",
     "music": null,
     "video": "",
     "provider": "auto",

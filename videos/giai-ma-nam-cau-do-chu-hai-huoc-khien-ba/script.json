@@ -1,5 +1,5 @@
 {
-  "style": "quiz",
+  "style": "plain",
   "title": "Đố chữ cười ngất",
   "subtitle": "5 câu đố chữ cực hài",
   "handle": "@docvui",
@@ -8,68 +8,48 @@
   "scenes": [
     {
       "lines": [
-        "Chỉ một phần mười người đúng hết năm câu!",
-        "Con gì đập thì sống, không đập thì chết?",
-        "Suy nghĩ ba giây nhé.",
-        "Đáp án là trái tim."
+        "Con gì đập thì sống, không đập thì chết?"
       ],
       "image": "uploads/stock/pexels-image-17986579.jpg",
-      "visual": {
-        "type": "stat",
-        "text": "10%",
-        "caption": "người trả lời đúng"
-      },
-      "tag": "CÂU 1",
-      "punch": "trái tim"
+      "visual": null,
+      "tag": null,
+      "punch": null
     },
     {
       "lines": [
-        "Cái gì mà đi thì nằm, đứng thì nằm, nằm cũng nằm?",
-        "Đoán nhanh nào.",
-        "Đáp án là bàn chân."
+        "Cái gì mà đi thì nằm, đứng thì nằm, nằm cũng nằm?"
       ],
       "image": "uploads/stock/pexels-image-17856910.jpg",
       "visual": null,
-      "tag": "CÂU 2",
-      "punch": "bàn chân"
+      "tag": null,
+      "punch": null
     },
     {
       "lines": [
-        "Bệnh gì bác sĩ phải bó tay?",
-        "Bạn chọn gì?",
-        "Đáp án là gãy tay."
+        "Bệnh gì bác sĩ phải bó tay?"
       ],
       "image": "uploads/stock/pexels-image-8428406.jpg",
-      "visual": {
-        "type": "badge",
-        "text": "Câu lừa",
-        "caption": null
-      },
-      "tag": "CÂU 3",
-      "punch": "gãy tay"
+      "visual": null,
+      "tag": null,
+      "punch": null
     },
     {
       "lines": [
-        "Con gì đầu dê mặt ngựa?",
-        "Suy nghĩ ba giây nhé.",
-        "Đáp án là con giốc."
+        "Con gì đầu dê mặt ngựa?"
       ],
       "image": "uploads/stock/pexels-image-39060685.jpg",
       "visual": null,
-      "tag": "CÂU 4",
-      "punch": "con giốc"
+      "tag": null,
+      "punch": null
     },
     {
       "lines": [
-        "Nhà nào không có cửa mà vẫn ở được?",
-        "Đoán nhanh nào.",
-        "Đáp án là nhà tù.",
-        "Bạn đúng mấy câu? Bình luận nhé!"
+        "Nhà nào không có cửa mà vẫn ở được?"
       ],
       "image": "uploads/stock/pexels-image-33620232.jpg",
       "visual": null,
-      "tag": "CÂU 5",
-      "punch": "nhà tù"
+      "tag": null,
+      "punch": null
     }
   ]
 }
