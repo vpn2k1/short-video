@@ -57,6 +57,7 @@ import { transcribeSentences } from "../scripts/transcribe";
 import { generatePostCopy, getPostCopy, type SavedPostCopy } from "../scripts/post-copy";
 import { generateHooks } from "../scripts/hooks";
 import { checkVideo, savedCheck } from "../scripts/qa-video";
+import { coverPath, freshCover, makeCover } from "../scripts/cover";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
@@ -653,7 +654,7 @@ const refreshEdits = (batch: Batch) => {
       changed = true;
     }
     // Kết quả tự soát (scripts/qa-video.ts) — chỉ khi còn khớp bản mp4 hiện tại, sửa rồi xuất lại thì phải soát lại.
-    return { ...item, edited, draft, qa: savedCheck(item.slug) };
+    return { ...item, edited, draft, qa: savedCheck(item.slug), cover: freshCover(item.slug) };
   });
   if (changed) save(batch);
   return items;
@@ -1638,6 +1639,36 @@ export const startBatchCheck = (id: unknown) => {
 
 export const batchCheckStatus = (id: unknown) => ({ run: checkRuns.get(require_(id).id) ?? null });
 
+// ---------- ảnh bìa (scripts/cover.ts) ----------
+
+type CoverRun = { running: boolean; total: number; done: number; failed: number; error?: string };
+const coverRuns = new Map<string, CoverRun>();
+
+/** Làm ảnh bìa cho video đã xong chưa có bìa (hoặc bìa cũ hơn bản mp4). `force` = làm lại tất cả. */
+export const startBatchCovers = (id: unknown, force = false) => {
+  const batch = require_(id);
+  const current = coverRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  const slugs = doneItems(batch).map(({ item }) => item.slug!).filter((slug) => force || !freshCover(slug));
+  const run: CoverRun = { running: slugs.length > 0, total: slugs.length, done: 0, failed: 0 };
+  coverRuns.set(batch.id, run);
+  void (async () => {
+    for (const slug of slugs) {
+      try {
+        await makeCover(slug);
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      }
+    }
+    run.running = false;
+  })();
+  return { run };
+};
+
+export const batchCoversStatus = (id: unknown) => ({ run: coverRuns.get(require_(id).id) ?? null });
+
 // ---------- xuất cả loạt ----------
 
 /**
@@ -1694,6 +1725,7 @@ export function* batchZip(id: unknown): Generator<Buffer> {
       yield { name: mp4Name, read: () => fs.readFileSync(path.join(process.cwd(), "out", `${item.slug}.mp4`)) };
       const copy = freshCopy(item.slug!);
       if (copy) yield { name: mp4Name.replace(/\.mp4$/, ".txt"), read: () => Buffer.from(postCopyText(copy), "utf8") };
+      if (freshCover(item.slug!)) yield { name: mp4Name.replace(/\.mp4$/, ".jpg"), read: () => fs.readFileSync(coverPath(item.slug!)) };
       if (batch.source !== "subs") continue;
       // Loạt nhiều hàng: hàng đầu là <tên>.srt, các hàng sau <tên>.<mã ngôn ngữ>.srt.
       const tracks = batch.subs?.tracks ?? [{ lang: "" as const }];

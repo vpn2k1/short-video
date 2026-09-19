@@ -37,7 +37,7 @@ import {
 import {
   approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
   listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
-  batchCheckStatus, readBatchPostCopy, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
+  batchCheckStatus, batchCoversStatus, readBatchPostCopy, startBatchCovers, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
 } from "./batch";
 import { deletePreset, listPresets, savePreset } from "./batch-presets";
 import {
@@ -679,6 +679,9 @@ const server = http.createServer(async (req, res) => {
         if (action === "script" && req.method === "GET") {
           return send(res, 200, readItemScript(id, url.searchParams.get("item")));
         }
+        if (action === "covers" && req.method === "GET") {
+          return send(res, 200, batchCoversStatus(id));
+        }
         if (action === "check" && req.method === "GET") {
           return send(res, 200, batchCheckStatus(id));
         }
@@ -694,6 +697,7 @@ const server = http.createServer(async (req, res) => {
         if (req.method === "POST") {
           const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown; provider?: unknown; force?: unknown }>(req);
           if (action === "check") return send(res, 200, startBatchCheck(id));
+          if (action === "covers") return send(res, 200, startBatchCovers(id, (body as { force?: unknown }).force === true));
           if (action === "post-copy") {
             return send(res, 200, startBatchPostCopy(id, isScriptProvider(body.provider) ? body.provider : "auto", body.force === true));
           }

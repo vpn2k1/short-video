@@ -3168,6 +3168,7 @@ function bindBatch() {
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
   $("batchPostCopy").addEventListener("click", startBatchPostCopy);
   $("batchCheck").addEventListener("click", startBatchCheck);
+  $("batchCovers").addEventListener("click", startBatchCovers);
   $("batchErrGroups").addEventListener("click", onBatchErrGroupClick);
   $("batchDelete").addEventListener("click", deleteBatchRun);
   // Cuộn tới đâu thì gắn video của những ô vừa hiện ra tới đó.
@@ -4158,10 +4159,20 @@ function renderBatchRun() {
   $("batchCsv").hidden = c.total === 0;
   $("batchCsv").href = `/api/batch/${b.id}/csv`;
   renderBatchPostCopy(b.postCopy);
-  if (!batchCheckPoll) {
+  if (!batchJobBusy.has("batchCheck")) {
     $("batchCheck").hidden = unchecked === 0;
     $("batchCheck").disabled = false;
     $("batchCheck").innerHTML = `${icon("scan-search")} Soát ${unchecked} video`;
+  }
+  if (!batchJobBusy.has("batchCovers")) {
+    const covered = doneItems.filter((it) => it.cover).length;
+    const all = doneItems.length > 0 && covered === doneItems.length;
+    $("batchCovers").hidden = doneItems.length === 0;
+    $("batchCovers").disabled = false;
+    $("batchCovers").dataset.force = all ? "1" : "";
+    $("batchCovers").innerHTML = all
+      ? `${icon("image")} Ảnh bìa đủ ${covered}/${doneItems.length}`
+      : `${icon("image")} Tạo ảnh bìa (${doneItems.length - covered})`;
   }
 
   // Cả loạt vừa xong → báo một lần, vì người dùng thường để chạy rồi đi làm việc khác.
@@ -4308,6 +4319,7 @@ function batchItemTile(it, i) {
         title="Mở trình chỉnh sửa ở tab mới — sửa xong bấm Xuất video, gói Tải tất cả sẽ lấy bản đã sửa">${icon("scissors")} Chỉnh sửa</a>`);
     }
     if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>${icon("download")} Tải</a>`);
+    if (it.cover) actions.push(`<a class="btn" href="${escapeHtml(it.cover)}" target="_blank" rel="noopener" title="Xem ảnh bìa — tải cả loạt thì có file .jpg cạnh mỗi video">${icon("image")} Ảnh bìa</a>`);
     if (it.slug) actions.push(`<button type="button" class="btn" data-act="post-copy" data-slug="${escapeHtml(it.slug)}" title="Tiêu đề, caption, hashtag để đăng video này">${icon("megaphone")} Bài đăng</button>`);
     if (scriptEditable) actions.push(btn("edit", `${icon("pen-line")} Sửa lời`));
     else actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
@@ -4639,34 +4651,59 @@ async function onBatchErrGroupClick(e) {
   await batchAction(act, ids);
 }
 
-// ---- tự soát cả loạt: chạy nền trên server (scripts/qa-video.ts), ở đây chỉ hỏi tiến độ ----
-let batchCheckPoll = null;
+// ---- việc chạy nền cho cả loạt (tự soát, ảnh bìa): server chạy, ở đây chỉ hỏi tiến độ ----
+/** Nút đang chờ việc nền — lúc đó lần vẽ lại loạt không đè nhãn tiến độ của nó. */
+const batchJobBusy = new Set();
 
-async function startBatchCheck() {
+/**
+ * POST /api/batch/<id>/<action> rồi hỏi GET cùng đường dẫn tới khi xong; xong thì nạp lại loạt.
+ * `label(run)` = nhãn nút trong lúc chạy.
+ */
+async function runBatchJob(action, button, label, body = {}) {
   if (!batchCur) return;
   const id = batchCur.id;
-  const button = $("batchCheck");
   button.disabled = true;
+  batchJobBusy.add(button.id);
+  $("batchRunHint").textContent = "";
+  $("batchRunHint").classList.remove("err");
+  const finish = (run) => {
+    batchJobBusy.delete(button.id);
+    if (run?.failed) {
+      $("batchRunHint").textContent = `${run.failed} video lỗi: ${run.error ?? ""}`;
+      $("batchRunHint").classList.add("err");
+    }
+    if (batchCur?.id === id) loadBatch(id);
+  };
   try {
-    let { run } = await postJson(`/api/batch/${id}/check`, {});
-    const tick = async () => {
-      button.innerHTML = `${icon("loader-circle", "spin")} Đang soát ${run.done}/${run.total}…`;
-      if (!run.running) {
-        batchCheckPoll = null;
-        if (batchCur?.id === id) loadBatch(id);
-        return;
-      }
-      batchCheckPoll = setTimeout(async () => {
-        try { ({ run } = await api(`/api/batch/${id}/check`)); } catch { /* thử lại ở nhịp sau */ }
+    let { run } = await postJson(`/api/batch/${id}/${action}`, body);
+    const tick = () => {
+      button.innerHTML = `${icon("loader-circle", "spin")} ${label(run)}`;
+      if (!run.running) return finish(run);
+      setTimeout(async () => {
+        try { ({ run } = await api(`/api/batch/${id}/${action}`)); } catch { /* thử lại ở nhịp sau */ }
         tick();
       }, 1200);
     };
     tick();
   } catch (e) {
-    button.disabled = false;
+    finish(null);
     $("batchRunHint").textContent = e.message;
     $("batchRunHint").classList.add("err");
   }
+}
+
+const startBatchCheck = () =>
+  runBatchJob("check", $("batchCheck"), (run) => `Đang soát ${run.done}/${run.total}…`);
+
+async function startBatchCovers() {
+  // Mọi video đã có bìa mới: bấm là làm lại tất cả (sau khi đổi tên kênh, màu…) — hỏi trước.
+  const force = $("batchCovers").dataset.force === "1";
+  if (force && !(await confirmDialog({
+    title: "Làm lại ảnh bìa cho cả loạt?",
+    message: "Mọi video đã có ảnh bìa. Làm lại sẽ thay các ảnh hiện có.",
+    okText: "Làm lại tất cả",
+  }))) return;
+  runBatchJob("covers", $("batchCovers"), (run) => `Đang làm ảnh bìa ${run.done + run.failed}/${run.total}…`, { force });
 }
 
 // ---- bài đăng cho cả loạt: chạy nền trên server, ở đây chỉ hỏi tiến độ ----
