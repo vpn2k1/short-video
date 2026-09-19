@@ -262,6 +262,8 @@ export type Batch = {
   edit?: EditPlan;
   /** Thử A/B hook: số câu hook mới cần viết, và các câu đã viết (viết một lần cho cả loạt để các bản khác nhau). */
   hooks?: { count: number; lines?: string[] };
+  /** Hẹn giờ chạy (ms): loạt nằm chờ ở "idle" tới lúc đó thì tự chạy — app phải đang mở. */
+  startAt?: number;
   state: "idle" | "running" | "paused" | "done";
   items: BatchItem[];
 };
@@ -434,6 +436,8 @@ export type CreateBatchInput = {
   edit?: Record<string, unknown>;
   /** Tạo xong chạy luôn. */
   start?: unknown;
+  /** Hẹn giờ chạy (ms từ epoch). Có thì không chạy ngay dù `start`. */
+  startAt?: unknown;
 };
 
 export const createBatch = (body: CreateBatchInput) => {
@@ -531,6 +535,12 @@ export const createBatch = (body: CreateBatchInput) => {
             : "Chưa có ý tưởng nào. Mỗi dòng một video.",
     );
   }
+  // Hẹn giờ: chỉ nhận mốc trong tương lai (quá 30 giây) và trong vòng một tuần.
+  const at = Number(body.startAt);
+  const startAt = Number.isFinite(at) && at > Date.now() + 30_000 && at < Date.now() + 7 * 86_400_000 ? Math.round(at) : undefined;
+  if (body.startAt !== undefined && body.startAt !== null && !startAt) {
+    throw new Error("Giờ hẹn phải ở tương lai và trong vòng 7 ngày.");
+  }
   // Nguồn audio-video không gọi AI viết lời; đừng bắt người dùng có key mới chạy được.
   if (source === "ideas") assertSettingsUsable(settings);
   if (source === "variants") assertSettingsUsable({ ...settings, mode: "text" });
@@ -550,11 +560,12 @@ export const createBatch = (body: CreateBatchInput) => {
     ...(subs ? { subs } : {}),
     ...(edit ? { edit } : {}),
     ...(hookPlan ? { hooks: hookPlan } : {}),
+    ...(startAt ? { startAt } : {}),
     state: "idle",
     items,
   };
   save(batch);
-  if (body.start) startBatch(batch.id);
+  if (body.start && !startAt) startBatch(batch.id);
   return summary(batch);
 };
 
@@ -617,6 +628,7 @@ const summary = (batch: Batch) => ({
   source: batch.source,
   state: batch.state,
   review: batch.review,
+  ...(batch.startAt ? { startAt: batch.startAt } : {}),
   counts: counts(batch),
 });
 
@@ -694,10 +706,34 @@ export const deleteBatch = (id: unknown) => {
   return { ok: true };
 };
 
+// ---------- hẹn giờ ----------
+
+/**
+ * Mỗi 30 giây xem có loạt nào tới giờ hẹn thì chạy. Đọc từ đĩa (listBatches nạp mọi loạt vào cache) để loạt hẹn
+ * từ trước khi khởi động lại app vẫn chạy. Lỡ giờ vì app tắt thì mở app lên là chạy bù ngay.
+ */
+const scheduleTick = () => {
+  const now = Date.now();
+  try {
+    if (!fs.existsSync(batchesDir())) return;
+    for (const name of fs.readdirSync(batchesDir())) {
+      if (!name.endsWith(".json")) continue;
+      const batch = load(name.replace(/\.json$/, ""));
+      if (batch?.startAt && batch.startAt <= now && batch.state === "idle") startBatch(batch.id);
+    }
+  } catch (error) {
+    console.warn("Hẹn giờ loạt:", errorText(error));
+  }
+};
+setInterval(scheduleTick, 30_000).unref();
+setTimeout(scheduleTick, 3_000).unref();
+
 // ---------- điều khiển ----------
 
 export const startBatch = (id: unknown) => {
   const batch = require_(id);
+  // Bấm "Chạy ngay" trước giờ hẹn, hoặc tới giờ hẹn: giờ hẹn hết tác dụng.
+  delete batch.startAt;
   if (batch.source === "ideas") assertSettingsUsable(batch.settings);
   batch.state = "running";
   // Chạy lại loạt đã dừng: những mục lỗi không tự thử lại, phải bấm "Chạy lại".
@@ -708,7 +744,8 @@ export const startBatch = (id: unknown) => {
 
 export const pauseBatch = (id: unknown) => {
   const batch = require_(id);
-  // Mục đang chạy vẫn chạy nốt — dừng ngang chỉ để lại file dở.
+  // Mục đang chạy vẫn chạy nốt — dừng ngang chỉ để lại file dở. Loạt đang hẹn giờ thì huỷ hẹn.
+  delete batch.startAt;
   batch.state = "paused";
   save(batch);
   return summary(batch);

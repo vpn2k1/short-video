@@ -844,6 +844,9 @@
             position: sticky; bottom: 0; z-index: 5; padding: 12px 0;
             background: linear-gradient(to top, var(--bg) 62%, transparent); }
   .bt-run .spacer { flex: 1; }
+  #batchStartAt { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; color: var(--text); color-scheme: dark; }
+  #batchSchedule[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  .bt-plan .est { color: var(--muted); }
   .bt-run input { flex: 1; min-width: 180px; font: inherit; color: inherit; background: var(--panel);
                   border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
 
@@ -1383,6 +1386,8 @@ Lưu lại để làm theo nhé!</pre>
     <div class="bt-run">
       <input type="text" id="batchName" placeholder="Tên loạt (để trống thì tự đặt)" />
       <span class="spacer"></span>
+      <button type="button" class="tool-btn" id="batchSchedule" aria-pressed="false" title="Hẹn giờ cho loạt tự chạy — ví dụ ban đêm. App phải đang mở lúc đó."><i data-icon="alarm-clock"></i> Hẹn giờ</button>
+      <input type="datetime-local" id="batchStartAt" hidden aria-label="Giờ chạy loạt" />
       <button type="button" class="send" id="batchStart"><i data-icon="rocket"></i> Chạy loạt</button>
     </div>
     <p class="hint" id="batchHint"></p>
@@ -1404,6 +1409,7 @@ Lưu lại để làm theo nhé!</pre>
         <span class="spacer"></span>
         <button type="button" class="btn" id="batchSubsLook" hidden title="Đổi font, màu, vị trí phụ đề cho tất cả video trong loạt"><i data-icon="captions"></i> Kiểu phụ đề</button>
         <button type="button" class="btn" id="batchPause"></button>
+        <button type="button" class="btn" id="batchUnschedule" hidden><i data-icon="alarm-clock-off"></i> Huỷ hẹn</button>
         <button type="button" class="btn primary" id="batchApproveAll" hidden><i data-icon="check"></i> Duyệt tất cả</button>
         <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
         <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>

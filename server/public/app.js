@@ -3175,6 +3175,22 @@ function bindBatch() {
   bindBatchDrop();
 
   $("batchStart").addEventListener("click", createBatch);
+  $("batchSchedule").addEventListener("click", () => {
+    const input = $("batchStartAt");
+    input.hidden = !input.hidden;
+    if (!input.hidden && !input.value) {
+      // Gợi ý mặc định: 23:00 tối nay (hoặc mai nếu đã quá giờ đó).
+      const at = new Date();
+      at.setHours(23, 0, 0, 0);
+      if (at.getTime() < Date.now() + 60_000) at.setDate(at.getDate() + 1);
+      const pad = (v) => String(v).padStart(2, "0");
+      input.value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
+    }
+    if (input.hidden) input.value = "";
+    paintBatchStart();
+  });
+  $("batchStartAt").addEventListener("input", paintBatchStart);
+  $("batchUnschedule").addEventListener("click", () => batchAction("pause"));
   $("batchPause").addEventListener("click", toggleBatchRun);
   $("batchApproveAll").addEventListener("click", () => batchAction("approve"));
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
@@ -3509,6 +3525,29 @@ function renderBatchCount() {
 }
 
 /** Một dòng cho biết loạt sẽ chạy ra thế nào — để thiếu key hay thiếu nội dung lộ ra trước khi bấm. */
+/**
+ * Ước tính thô trước khi chạy — để biết loạt này tốn gì trước khi bấm, nhất là những thứ tính tiền.
+ * Số theo một video ngắn điển hình (~6 cảnh, ~700 ký tự lời, render ~1,1× thời lượng); chỉ để định cỡ.
+ */
+function batchEstimate(n, needsAi, voice) {
+  const out = [];
+  if (batchSource === "media") {
+    out.push(`phiên âm trên máy, ~${Math.max(1, Math.round(n * (batchMediaModel === "small" ? 0.5 : 1)))} phút`);
+  } else {
+    if (needsAi) out.push(`~${n * 2} lượt AI viết lời (viết + soát)`);
+    if (opts.kind === "video" && voice) {
+      out.push(voice.engine === "elevenlabs" ? `~${(n * 700).toLocaleString("vi-VN")} ký tự ElevenLabs (tính theo ký tự)`
+        : voice.engine === "gemini" ? `~${n * 8} lượt Gemini TTS`
+          : "giọng chạy trên máy, miễn phí");
+    }
+    if (opts.video) out.push(`~${n * 6} clip video AI (tính tiền theo clip)`);
+    else if (opts.images === "ai") out.push(`~${n * 6} ảnh AI${state?.keys.flux ? " (FLUX miễn phí ~100 ảnh/ngày)" : " (Gemini tính tiền theo ảnh)"}`);
+    else if (opts.images === "pexels" || opts.images === "stock-video") out.push(`~${n * 6} lượt tìm ảnh/clip miễn phí`);
+  }
+  if (batchSource !== "media") out.push(`máy chạy ~${Math.max(1, Math.round(n * (opts.video ? 4 : 1.5)))} phút`);
+  return out;
+}
+
 function renderBatchPlan() {
   const n = batchTotal();
   const voice = state?.voices.catalog.find((v) => v.key === opts.voice);
@@ -3550,7 +3589,9 @@ function renderBatchPlan() {
   }
   // Cảnh báo về cài đặt (thiếu key…): mở phần cài đặt để thấy ngay ô cần đổi.
   if (warn.length > (n === 0 ? 1 : 0)) $("batchSettings").open = true;
+  const est = n > 0 ? batchEstimate(n, needsAi, voice) : [];
   $("batchPlan").innerHTML = `${parts.join(" · ")}. Máy dựng lần lượt từng ${unit}.` +
+    (est.length ? `<br><span class="est">${icon("calculator")} Ước tính: ${est.map(escapeHtml).join(" · ")}</span>` : "") +
     warn.map((w) => `<br><span class="warn">${icon("triangle-alert")} ${escapeHtml(w)}</span>`).join("");
 }
 
@@ -3987,6 +4028,16 @@ function renderBatchVariant() {
 
 // ---------- tạo loạt ----------
 
+/** Nút chạy đổi thành "Hẹn chạy lúc …" khi đã chọn giờ. */
+function paintBatchStart() {
+  const value = $("batchStartAt").hidden ? "" : $("batchStartAt").value;
+  $("batchSchedule").setAttribute("aria-pressed", String(Boolean(value)));
+  const at = value ? new Date(value) : null;
+  $("batchStart").innerHTML = at
+    ? `${icon("alarm-clock")} Hẹn chạy ${at.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}`
+    : `${icon("rocket")} Chạy loạt`;
+}
+
 async function createBatch() {
   blurTyping();
   if (batchUploading > 0) { setBatchHint("Đợi tải file lên xong đã.", true); return; }
@@ -3998,6 +4049,8 @@ async function createBatch() {
     settings: { ...opts, music: opts.music || null },
     start: true,
   };
+  const at = $("batchStartAt").hidden ? "" : $("batchStartAt").value;
+  if (at) body.startAt = new Date(at).getTime();
   if (batchSource === "ideas") body.items = $("batchText").value;
   if (batchSource === "custom") {
     // "" trong settings nghĩa là theo cài đặt chung nên đừng gửi lên; giọng "none" = không giọng.
@@ -4035,6 +4088,9 @@ async function createBatch() {
     batchIdea = { topic: "", lines: [], undo: null, busy: false };
     paintIdeaGen("");
     $("batchName").value = "";
+    $("batchStartAt").value = "";
+    $("batchStartAt").hidden = true;
+    paintBatchStart();
     loadHistory();
     location.hash = `#/batch/${batch.id}`;
   } catch (e) {
@@ -4089,6 +4145,12 @@ async function loadBatch(id) {
 /** Chỉ hỏi lại server khi máy đang làm việc — chờ duyệt thì không có gì để đợi. */
 function scheduleBatchPoll() {
   stopBatchPoll();
+  // Loạt hẹn giờ: hỏi lại ngay sau giờ hẹn (server xét mỗi 30 giây) để thấy nó bắt đầu chạy.
+  if (batchCur?.state === "idle" && batchCur.startAt) {
+    const wait = Math.max(5_000, batchCur.startAt - Date.now() + 35_000);
+    if (wait < 2 ** 31 - 1) batchPoll = setTimeout(() => loadBatch(batchCur.id), wait);
+    return;
+  }
   if (!batchCur || batchCur.state !== "running") return;
   if (!batchCur.items.some((i) => BT_BUSY.includes(i.status))) return;
   batchPoll = setTimeout(() => loadBatch(batchCur.id), 1500);
@@ -4162,8 +4224,14 @@ function renderBatchRun() {
   $("batchEta").textContent = batchEta(b);
 
   const pause = $("batchPause");
+  const scheduled = b.state === "idle" && b.startAt;
   pause.hidden = c.waiting === 0 && c.running === 0 && c.review === 0;
-  pause.innerHTML = b.state === "running" ? `${icon("pause")} Tạm dừng` : `${icon("play")} Chạy tiếp`;
+  pause.innerHTML = b.state === "running" ? `${icon("pause")} Tạm dừng` : scheduled ? `${icon("play")} Chạy ngay` : `${icon("play")} Chạy tiếp`;
+  $("batchUnschedule").hidden = !scheduled;
+  if (scheduled) {
+    const when = new Date(b.startAt).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", weekday: "short", day: "2-digit", month: "2-digit" });
+    $("batchRunMeta").textContent = `⏰ Hẹn chạy lúc ${when} — để app mở tới lúc đó · ${$("batchRunMeta").textContent}`;
+  }
   $("batchApproveAll").hidden = c.review === 0;
   $("batchApproveAll").innerHTML = `${icon("check")} Duyệt tất cả (${c.review})`;
   renderBatchErrGroups(b);
