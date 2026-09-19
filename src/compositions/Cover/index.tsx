@@ -22,6 +22,8 @@ export const coverSchema = z.object({
   /** Ảnh nền (đường dẫn trong public/); null = nền màu. */
   image: z.string().nullable(),
   aspect: z.string(),
+  /** Bố cục: "bottom" tiêu đề dưới ảnh phủ kín · "center" tiêu đề giữa trên dải màu · "band" ảnh + khối màu. */
+  layout: z.enum(["bottom", "center", "band"]).default("bottom"),
 });
 
 export type CoverProps = z.infer<typeof coverSchema>;
@@ -34,6 +36,7 @@ export const defaultCoverProps: CoverProps = {
   background: "#0b0b12",
   image: null,
   aspect: DEFAULT_ASPECT,
+  layout: "bottom",
 };
 
 const aspectOf = (id: string) => ASPECTS[id as AspectId] ?? ASPECTS[DEFAULT_ASPECT];
@@ -43,7 +46,39 @@ export const calculateCoverMetadata: CalculateMetadataFunction<CoverProps> = ({ 
   return { width, height, durationInFrames: 1 };
 };
 
-export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, background, image, aspect }) => {
+/** Nền ảnh (phủ kín) hoặc nền màu có quầng màu nhấn khi video không có ảnh. */
+const Backdrop: React.FC<{ image: string | null; accent: string; background: string; style?: React.CSSProperties }> = ({ image, accent, background, style }) =>
+  image ? (
+    <Img src={staticFile(image)} style={{ width: "100%", height: "100%", objectFit: "cover", ...style }} />
+  ) : (
+    <AbsoluteFill style={{ background: `radial-gradient(circle at 30% 20%, ${accent}66, transparent 60%), ${background}`, ...style }} />
+  );
+
+const Handle: React.FC<{ handle: string; base: number; dark?: boolean }> = ({ handle, base, dark }) =>
+  handle ? (
+    <div
+      style={{
+        fontSize: Math.round(base * 0.034),
+        fontWeight: 600,
+        color: dark ? "#111" : "#fff",
+        background: dark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.16)",
+        borderRadius: 999,
+        padding: `${Math.round(base * 0.01)}px ${Math.round(base * 0.026)}px`,
+        alignSelf: "flex-start",
+      }}
+    >
+      {handle}
+    </div>
+  ) : null;
+
+/** Chữ đen hay trắng thì đọc rõ trên nền màu `hex`. */
+const inkOn = (hex: string) => {
+  const n = parseInt(hex.replace("#", "").slice(0, 6), 16);
+  const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.6 ? "#111111" : "#ffffff";
+};
+
+export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, background, image, aspect, layout }) => {
   useFontReady("bevietnam");
   const { width, height, safe } = aspectOf(aspect);
   const wide = width > height;
@@ -51,16 +86,50 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
   const base = Math.min(width, height);
   const titleSize = Math.round(base * (title.length > 40 ? 0.095 : title.length > 24 ? 0.115 : 0.135));
   const family = fontInfo("bevietnam").stack;
+  const pad = `${safe.top}px ${safe.side}px ${safe.bottom}px`;
+
+  // Giữa: ảnh tối hẳn, tiêu đề in hoa ở giữa, mỗi dòng một dải màu nhấn phía sau như nhãn dán.
+  if (layout === "center") {
+    const ink = inkOn(accent);
+    return (
+      <AbsoluteFill style={{ backgroundColor: background, fontFamily: family }}>
+        <Backdrop image={image} accent={accent} background={background} />
+        <AbsoluteFill style={{ background: "rgba(0,0,0,0.55)" }} />
+        <AbsoluteFill style={{ padding: pad, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: Math.round(base * 0.04), textAlign: "center" }}>
+          <Handle handle={handle} base={base} />
+          <div style={{ fontSize: Math.round(titleSize * 0.92), fontWeight: 700, lineHeight: 1.35, textTransform: "uppercase", maxWidth: "100%" }}>
+            <span style={{ background: accent, color: ink, padding: `0 ${Math.round(base * 0.02)}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", borderRadius: Math.round(base * 0.012) }}>
+              {title}
+            </span>
+          </div>
+          {subtitle ? <div style={{ fontSize: Math.round(base * 0.045), fontWeight: 500, color: "rgba(255,255,255,0.9)", maxWidth: "90%" }}>{subtitle}</div> : null}
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
+
+  // Dải: ảnh phía trên (hoặc bên trái nếu khung ngang), khối màu nhấn chứa tiêu đề phía còn lại.
+  if (layout === "band") {
+    const ink = inkOn(accent);
+    const split = wide ? { width: "55%", height: "100%" } : { width: "100%", height: "58%" };
+    return (
+      <AbsoluteFill style={{ backgroundColor: accent, fontFamily: family, flexDirection: wide ? "row" : "column" }}>
+        <div style={{ position: "relative", overflow: "hidden", flex: "none", ...split }}>
+          <Backdrop image={image} accent={accent} background={background} />
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: Math.round(base * 0.03),
+          padding: wide ? `${safe.top}px ${safe.side}px` : `${Math.round(base * 0.06)}px ${safe.side}px ${safe.bottom}px`, color: ink }}>
+          <Handle handle={handle} base={base} dark={ink === "#111111"} />
+          <div style={{ fontSize: Math.round(titleSize * (wide ? 0.8 : 0.9)), fontWeight: 700, lineHeight: 1.12, textWrap: "balance" }}>{title}</div>
+          {subtitle ? <div style={{ fontSize: Math.round(base * 0.042), fontWeight: 500, opacity: 0.85 }}>{subtitle}</div> : null}
+        </div>
+      </AbsoluteFill>
+    );
+  }
 
   return (
     <AbsoluteFill style={{ backgroundColor: background, fontFamily: family }}>
-      {image ? (
-        <Img src={staticFile(image)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      ) : (
-        <AbsoluteFill
-          style={{ background: `radial-gradient(circle at 30% 20%, ${accent}66, transparent 60%), ${background}` }}
-        />
-      )}
+      <Backdrop image={image} accent={accent} background={background} />
       <AbsoluteFill
         style={{
           background: wide
@@ -70,7 +139,7 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
       />
       <AbsoluteFill
         style={{
-          padding: `${safe.top}px ${safe.side}px ${safe.bottom}px`,
+          padding: pad,
           display: "flex",
           flexDirection: "column",
           justifyContent: wide ? "center" : "flex-end",
@@ -78,21 +147,7 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
           maxWidth: wide ? width * 0.62 : undefined,
         }}
       >
-        {handle ? (
-          <div
-            style={{
-              fontSize: Math.round(base * 0.034),
-              fontWeight: 600,
-              color: "#fff",
-              background: "rgba(255,255,255,0.16)",
-              borderRadius: 999,
-              padding: `${Math.round(base * 0.01)}px ${Math.round(base * 0.026)}px`,
-              marginBottom: Math.round(base * 0.03),
-            }}
-          >
-            {handle}
-          </div>
-        ) : null}
+        <div style={{ marginBottom: Math.round(base * 0.03) }}><Handle handle={handle} base={base} /></div>
         <div
           style={{
             fontSize: titleSize,
@@ -116,14 +171,7 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
           }}
         />
         {subtitle ? (
-          <div
-            style={{
-              fontSize: Math.round(base * 0.045),
-              fontWeight: 500,
-              lineHeight: 1.3,
-              color: "rgba(255,255,255,0.85)",
-            }}
-          >
+          <div style={{ fontSize: Math.round(base * 0.045), fontWeight: 500, lineHeight: 1.3, color: "rgba(255,255,255,0.85)" }}>
             {subtitle}
           </div>
         ) : null}

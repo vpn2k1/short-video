@@ -17,7 +17,11 @@ const run = promisify(execFile);
 
 const videoDir = (slug: string) => path.join(process.cwd(), "videos", slug);
 const mp4Path = (slug: string) => path.join(process.cwd(), "out", `${slug}.mp4`);
-export const coverPath = (slug: string) => path.join(process.cwd(), "out", "covers", `${slug}.jpg`);
+/** Ba bố cục bìa (src/compositions/Cover) — "bottom" là bìa chính, giữ tên file cũ <slug>.jpg. */
+export const COVER_LAYOUTS = ["bottom", "center", "band"] as const;
+export type CoverLayout = (typeof COVER_LAYOUTS)[number];
+const coverName = (slug: string, layout: CoverLayout) => (layout === "bottom" ? `${slug}.jpg` : `${slug}-${layout}.jpg`);
+export const coverPath = (slug: string, layout: CoverLayout = "bottom") => path.join(process.cwd(), "out", "covers", coverName(slug, layout));
 
 const IMAGE_RE = /\.(jpe?g|png|webp|gif|avif)$/i;
 const VIDEO_RE = /\.(mp4|mov|webm|m4v)$/i;
@@ -56,13 +60,13 @@ const backgroundFor = async (slug: string, scenes: Media[], overlays: Media[]) =
   }
 };
 
-export const makeCover = async (slug: string) => {
+export const makeCover = async (slug: string, layout: CoverLayout = "bottom") => {
   const props = readJson(path.join(videoDir(slug), "props.json"));
   const script = readJson(path.join(videoDir(slug), "script.json"));
   if (!props && !script) throw new Error("Video này chưa có dữ liệu để làm ảnh bìa.");
   const source = props ?? script;
   const image = await backgroundFor(slug, (props?.scenes ?? script?.scenes ?? []) as Media[], (props?.overlays ?? []) as Media[]);
-  const out = coverPath(slug);
+  const out = coverPath(slug, layout);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   await renderCover({
     title: String(source.title ?? slug).trim() || slug,
@@ -72,16 +76,21 @@ export const makeCover = async (slug: string) => {
     background: /^#[0-9a-f]{6}$/i.test(source.background ?? "") ? source.background : "#0b0b12",
     image,
     aspect: String(props?.aspect ?? "9:16"),
+    layout,
   }, out);
-  return `/out/covers/${slug}.jpg?t=${Math.round(fs.statSync(out).mtimeMs)}`;
+  return `/out/covers/${coverName(slug, layout)}?t=${Math.round(fs.statSync(out).mtimeMs)}`;
 };
 
 /** Bìa đã có và còn mới hơn bản mp4 hiện tại (sửa lời, đổi tiêu đề rồi dựng lại thì phải làm lại bìa). */
-export const freshCover = (slug: string) => {
-  const out = coverPath(slug);
+export const freshCover = (slug: string, layout: CoverLayout = "bottom") => {
+  const out = coverPath(slug, layout);
   if (!fs.existsSync(out)) return null;
   const mp4 = mp4Path(slug);
   const coverTime = fs.statSync(out).mtimeMs;
   if (fs.existsSync(mp4) && fs.statSync(mp4).mtimeMs > coverTime) return null;
-  return `/out/covers/${slug}.jpg?t=${Math.round(coverTime)}`;
+  return `/out/covers/${coverName(slug, layout)}?t=${Math.round(coverTime)}`;
 };
+
+/** Mọi bố cục bìa còn mới của một video: [{ layout, url }]. */
+export const freshCovers = (slug: string) =>
+  COVER_LAYOUTS.map((layout) => ({ layout, url: freshCover(slug, layout) })).filter((c): c is { layout: CoverLayout; url: string } => Boolean(c.url));

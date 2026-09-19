@@ -61,7 +61,7 @@ import { generateHooks } from "../scripts/hooks";
 import { pickClips, type ClipPick } from "../scripts/clip-picker";
 import { isScriptProvider } from "../scripts/generate-script";
 import { checkVideo, fixPlacements, savedCheck } from "../scripts/qa-video";
-import { coverPath, freshCover, makeCover } from "../scripts/cover";
+import { COVER_LAYOUTS, coverPath, freshCover, freshCovers, makeCover } from "../scripts/cover";
 import { renderShort } from "../scripts/render";
 import { brandVideo, isBrandFile } from "../scripts/brand";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
@@ -828,7 +828,7 @@ const refreshEdits = (batch: Batch) => {
     // Kết quả tự soát (scripts/qa-video.ts) — chỉ khi còn khớp bản mp4 hiện tại, sửa rồi xuất lại thì phải soát lại.
     return {
       ...item, edited, draft,
-      qa: savedCheck(item.slug), cover: freshCover(item.slug), exports: exportsOf(item.slug), branded: freshBrand(item.slug),
+      qa: savedCheck(item.slug), cover: freshCover(item.slug), covers: freshCovers(item.slug), exports: exportsOf(item.slug), branded: freshBrand(item.slug),
     };
   });
   if (changed) save(batch);
@@ -2211,18 +2211,22 @@ export const batchFixStatus = (id: unknown) => ({ run: fixRuns.get(require_(id).
 type CoverRun = { running: boolean; total: number; done: number; failed: number; error?: string };
 const coverRuns = new Map<string, CoverRun>();
 
-/** Làm ảnh bìa cho video đã xong chưa có bìa (hoặc bìa cũ hơn bản mp4). `force` = làm lại tất cả. */
+/**
+ * Làm ảnh bìa cho video đã xong: đủ ba bố cục mỗi video (để thử bìa nào được bấm nhiều hơn), chỉ những bìa chưa có
+ * hoặc cũ hơn bản mp4. `force` = làm lại tất cả.
+ */
 export const startBatchCovers = (id: unknown, force = false) => {
   const batch = require_(id);
   const current = coverRuns.get(batch.id);
   if (current?.running) return { run: current };
-  const slugs = doneItems(batch).map(({ item }) => item.slug!).filter((slug) => force || !freshCover(slug));
-  const run: CoverRun = { running: slugs.length > 0, total: slugs.length, done: 0, failed: 0 };
+  const jobs = doneItems(batch).flatMap(({ item }) =>
+    COVER_LAYOUTS.filter((layout) => force || !freshCover(item.slug!, layout)).map((layout) => ({ slug: item.slug!, layout })));
+  const run: CoverRun = { running: jobs.length > 0, total: jobs.length, done: 0, failed: 0 };
   coverRuns.set(batch.id, run);
   void (async () => {
-    for (const slug of slugs) {
+    for (const { slug, layout } of jobs) {
       try {
-        await makeCover(slug);
+        await makeCover(slug, layout);
         run.done++;
       } catch (error) {
         run.failed++;
@@ -2415,7 +2419,11 @@ export function* batchZip(id: unknown): Generator<Buffer> {
       yield { name: mp4Name, read: () => fs.readFileSync(path.join(process.cwd(), "out", `${item.slug}.mp4`)) };
       const copy = freshCopy(item.slug!);
       if (copy) yield { name: mp4Name.replace(/\.mp4$/, ".txt"), read: () => Buffer.from(postCopyText(copy), "utf8") };
-      if (freshCover(item.slug!)) yield { name: mp4Name.replace(/\.mp4$/, ".jpg"), read: () => fs.readFileSync(coverPath(item.slug!)) };
+      // Bìa chính <tên>.jpg, hai bố cục còn lại <tên>.bia-2.jpg, .bia-3.jpg — đăng thử bìa nào được bấm nhiều hơn.
+      for (const [k, layout] of COVER_LAYOUTS.entries()) {
+        if (!freshCover(item.slug!, layout)) continue;
+        yield { name: mp4Name.replace(/\.mp4$/, k === 0 ? ".jpg" : `.bia-${k + 1}.jpg`), read: () => fs.readFileSync(coverPath(item.slug!, layout)) };
+      }
       if (freshBrand(item.slug!)) yield { name: `co-mo-dau-ket-thuc/${mp4Name}`, read: () => fs.readFileSync(brandPath(item.slug!)) };
       // Bản khác khung: mỗi khung một thư mục, cùng tên file để dễ đối chiếu.
       for (const aspect of exportsOf(item.slug!)) {

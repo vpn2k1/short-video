@@ -4620,7 +4620,7 @@ function renderBatchRun() {
     $("batchExports").innerHTML = `${icon("ratio")} Xuất thêm khung`;
   }
   if (!batchJobBusy.has("batchCovers")) {
-    const covered = doneItems.filter((it) => it.cover).length;
+    const covered = doneItems.filter((it) => (it.covers?.length ?? 0) >= 3).length;
     const all = doneItems.length > 0 && covered === doneItems.length;
     $("batchCovers").hidden = doneItems.length === 0;
     $("batchCovers").disabled = false;
@@ -4795,7 +4795,7 @@ function batchItemTile(it, i) {
         title="Mở trình chỉnh sửa ở tab mới — sửa xong bấm Xuất video, gói Tải tất cả sẽ lấy bản đã sửa">${icon("scissors")} Chỉnh sửa</a>`);
     }
     if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>${icon("download")} Tải</a>`);
-    if (it.cover) actions.push(`<a class="btn" href="${escapeHtml(it.cover)}" target="_blank" rel="noopener" title="Xem ảnh bìa — tải cả loạt thì có file .jpg cạnh mỗi video">${icon("image")} Ảnh bìa</a>`);
+    if (it.covers?.length) actions.push(`<button type="button" class="btn" data-act="covers" data-id="${it.id}" title="Xem các bố cục ảnh bìa">${icon("image")} Ảnh bìa${it.covers.length > 1 ? ` (${it.covers.length})` : ""}</button>`);
     if (it.slug) actions.push(`<button type="button" class="btn" data-act="post-copy" data-slug="${escapeHtml(it.slug)}" title="Tiêu đề, caption, hashtag để đăng video này">${icon("megaphone")} Bài đăng</button>`);
     if (scriptEditable) actions.push(btn("edit", `${icon("pen-line")} Sửa lời`));
     else actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
@@ -5044,6 +5044,7 @@ async function onBatchItemClick(e) {
   }
   const { act, id } = button.dataset;
   if (act === "post-copy") return openPostCopy(button.dataset.slug);
+  if (act === "covers") return openCoverDialog(id);
   if (act === "qa-fix") {
     return runBatchJob("fix", button, (run) => (run.running ? "Đang sửa…" : "Xong"), { ids: [id] });
   }
@@ -5400,6 +5401,21 @@ async function submitClone(e) {
     $("cloneHint").classList.add("err");
     $("cloneGo").disabled = false;
   }
+}
+
+// ---- ảnh bìa: xem ba bố cục của một video ----
+const COVER_LABEL = { bottom: "Bìa 1 · tiêu đề dưới", center: "Bìa 2 · tiêu đề giữa", band: "Bìa 3 · dải màu" };
+
+function openCoverDialog(itemId) {
+  const it = batchCur?.items.find((x) => x.id === itemId);
+  if (!it?.covers?.length) return;
+  $("coverGrid").innerHTML = it.covers.map((c) => `
+    <figure>
+      <img src="${escapeHtml(c.url)}" alt="${escapeHtml(COVER_LABEL[c.layout] ?? c.layout)}" loading="lazy" />
+      <figcaption><span>${escapeHtml(COVER_LABEL[c.layout] ?? c.layout)}</span>
+        <a class="btn" href="${escapeHtml(c.url.split("?")[0])}" download>${icon("download")} Tải</a></figcaption>
+    </figure>`).join("");
+  $("coverDlg").showModal();
 }
 
 // ---- lịch đăng (server/batch.ts › savePostPlan, batchCalendar) ----

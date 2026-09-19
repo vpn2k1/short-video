@@ -836,6 +836,10 @@
   .bt-dub { margin-top: 10px; flex-wrap: wrap; }
   .bt-layout { margin: 4px 0 10px; }
   .bt-layout-note { margin: 0 0 10px; font-size: 12.5px; }
+  .cover-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+  .cover-grid figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .cover-grid img { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #000; }
+  .cover-grid figcaption { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--muted); }
   .kit-look { flex-wrap: wrap; }
   .kit-look select { flex: 1 1 140px; }
   .kit-look input[type="color"] { flex: none; width: 46px; height: 34px; padding: 2px; }
@@ -1641,6 +1645,17 @@ Lưu lại để làm theo nhé!</pre>
       <button type="button" class="btn" data-close>Huỷ</button>
       <button type="submit" class="btn primary" id="brandGo"><i data-icon="play"></i> Ghép</button>
     </div>
+  </form>
+</dialog>
+
+<dialog class="dlg rs-dlg" id="coverDlg">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2><i data-icon="image"></i> Ảnh bìa</h2>
+      <button type="submit" class="icon-btn" aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Ba bố cục để đăng thử bìa nào được bấm nhiều hơn. Gói Tải tất cả có đủ cả ba (<b>.jpg</b>, <b>.bia-2.jpg</b>, <b>.bia-3.jpg</b>).</p>
+    <div class="cover-grid" id="coverGrid"></div>
   </form>
 </dialog>
 
