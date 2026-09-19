@@ -77,7 +77,7 @@ HOOK — câu đọc đầu tiên quyết định người xem ở lại hay lư
 Không giải thích, không thêm emoji vào "lines".`;
 
 /** Kiểu hook gợi ý — mỗi video một kiểu (theo nội dung yêu cầu) để làm hàng loạt không ra 10 video mở đầu giống nhau. */
-const HOOK_TYPES = ["tò mò", "ngạc nhiên", "ngược thường thức", "câu hỏi chạm vấn đề", "mở giữa câu chuyện", "thách thức", "hậu quả, cái giá"];
+export const HOOK_TYPES = ["tò mò", "ngạc nhiên", "ngược thường thức", "câu hỏi chạm vấn đề", "mở giữa câu chuyện", "thách thức", "hậu quả, cái giá"];
 
 const hookHint = (prompt: string) => {
   let hash = 0;

@@ -55,6 +55,7 @@ import { slugify } from "../scripts/slug";
 import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
 import { generatePostCopy, getPostCopy, type SavedPostCopy } from "../scripts/post-copy";
+import { generateHooks } from "../scripts/hooks";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
@@ -218,7 +219,8 @@ export type BatchItem = {
   /** Đổi kiểu phụ đề trong lúc mục đang dựng — dựng xong thì dựng lại lần nữa với kiểu mới. */
   restyle?: boolean;
   /** Biến thể: lấy từ video nào và đổi gì. */
-  variant?: { from: string; aspect?: string; voice?: string; lang?: TranslateLanguage };
+  /** hook: bản thử A/B thứ mấy — 0 = giữ câu mở đầu gốc, k > 0 = câu hook thứ k do AI viết (batch.hooks). */
+  variant?: { from: string; aspect?: string; voice?: string; lang?: TranslateLanguage; hook?: number };
   /** Nguồn edit: mục này là video có sẵn (item.slug), sửa theo batch.edit. */
   edit?: EditKind;
   /** Cài đặt riêng của mục này, đè lên cài đặt chung của loạt. */
@@ -255,6 +257,8 @@ export type Batch = {
   mediaModel: WhisperModel;
   subs?: SubsOptions;
   edit?: EditPlan;
+  /** Thử A/B hook: số câu hook mới cần viết, và các câu đã viết (viết một lần cho cả loạt để các bản khác nhau). */
+  hooks?: { count: number; lines?: string[] };
   state: "idle" | "running" | "paused" | "done";
   items: BatchItem[];
 };
@@ -357,12 +361,18 @@ const splitPastedScripts = (text: string) =>
     .filter(Boolean)
     .slice(0, MAX_ITEMS);
 
+/** Tối đa bao nhiêu bản hook (tính cả bản gốc) — hơn nữa thì khó đo bản nào hơn. */
+const MAX_HOOKS = 5;
+const HOOK_LETTERS = "ABCDE";
+
 const variantItems = (
   from: string,
   aspects: string[],
   voices: string[],
   langs: TranslateLanguage[],
   settings: ChatSettings,
+  /** Tổng số bản hook, tính cả bản gốc; 0 hoặc 1 = không thử hook. */
+  hooks = 0,
 ) => {
   if (!isSlug(from)) throw new Error("Chọn video gốc để nhân bản.");
   const scriptPath = path.join(videoDir(from), "script.json");
@@ -375,23 +385,27 @@ const variantItems = (
   const aspectList = aspects.length ? aspects : [settings.aspect];
   const voiceList = voices.length ? voices : [settings.voice];
   const langList: (TranslateLanguage | undefined)[] = langs.length ? langs : [undefined];
+  const hookList: (number | undefined)[] = hooks > 1 ? [...Array(Math.min(hooks, MAX_HOOKS)).keys()] : [undefined];
 
   const items: BatchItem[] = [];
-  for (const lang of langList) {
-    for (const aspect of aspectList) {
-      for (const voice of voiceList) {
-        const label = [
-          lang ? translateLanguageLabel(lang) : null,
-          aspectList.length > 1 || aspect !== settings.aspect ? aspect : null,
-          voiceList.length > 1 || voice !== settings.voice ? (voice ? `giọng ${voice}` : "không giọng") : null,
-        ].filter(Boolean).join(" · ");
-        items.push(
-          newItem(`${sourceTitle}${label ? ` — ${label}` : ""}`, {
-            variant: { from, aspect, voice, lang },
-            override: { aspect, voice },
-          }),
-        );
-        if (items.length >= MAX_ITEMS) return items;
+  for (const hook of hookList) {
+    for (const lang of langList) {
+      for (const aspect of aspectList) {
+        for (const voice of voiceList) {
+          const label = [
+            hook === undefined ? null : `hook ${HOOK_LETTERS[hook]}${hook === 0 ? " (gốc)" : ""}`,
+            lang ? translateLanguageLabel(lang) : null,
+            aspectList.length > 1 || aspect !== settings.aspect ? aspect : null,
+            voiceList.length > 1 || voice !== settings.voice ? (voice ? `giọng ${voice}` : "không giọng") : null,
+          ].filter(Boolean).join(" · ");
+          items.push(
+            newItem(`${sourceTitle}${label ? ` — ${label}` : ""}`, {
+              variant: { from, aspect, voice, lang, ...(hook === undefined ? {} : { hook }) },
+              override: { aspect, voice },
+            }),
+          );
+          if (items.length >= MAX_ITEMS) return items;
+        }
       }
     }
   }
@@ -410,7 +424,7 @@ export type CreateBatchInput = {
   settings?: Partial<ChatSettings>;
   review?: unknown;
   mediaModel?: unknown;
-  variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown };
+  variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown; hooks?: unknown };
   /** Nguồn subs: ngôn ngữ nói, các ngôn ngữ phụ đề ("" = giữ nguyên), kiểu phụ đề chung. */
   subs?: { spoken?: unknown; languages?: unknown; look?: unknown; crop?: unknown; layout?: unknown; tracks?: unknown };
   /** Nguồn edit: items là danh sách slug video có sẵn; đây là thay đổi áp cho tất cả. */
@@ -430,6 +444,7 @@ export const createBatch = (body: CreateBatchInput) => {
   let items: BatchItem[] = [];
   let subs: SubsOptions | undefined;
   let edit: EditPlan | undefined;
+  let hookPlan: Batch["hooks"];
   if (source === "edit") {
     edit = parseEditPlan(body.edit);
     items = editItems(body.items, edit);
@@ -497,7 +512,9 @@ export const createBatch = (body: CreateBatchInput) => {
       .map(String).filter((key) => key === "" || Boolean(findVoice(key)));
     const languages = (Array.isArray(v.languages) ? v.languages : [])
       .filter(isTranslateLanguage);
-    items = variantItems(String(v.from ?? ""), aspects, voices, languages, settings);
+    const hooks = Math.max(0, Math.min(MAX_HOOKS, Math.round(Number(v.hooks) || 0)));
+    items = variantItems(String(v.from ?? ""), aspects, voices, languages, settings, hooks);
+    if (hooks > 1) hookPlan = { count: hooks - 1 };
   }
 
   if (items.length === 0) {
@@ -505,7 +522,7 @@ export const createBatch = (body: CreateBatchInput) => {
       source === "media" || source === "subs"
         ? "Chưa chọn file audio hoặc video nào."
         : source === "variants"
-          ? "Chưa chọn biến thể nào — tích ít nhất một tỉ lệ, một giọng hoặc một ngôn ngữ."
+          ? "Chưa chọn biến thể nào — tích ít nhất một tỉ lệ, một giọng, một ngôn ngữ, hoặc chọn số hook để thử."
           : source === "custom"
             ? "Chưa ô nào có nội dung. Nhập lời hoặc ý tưởng vào ít nhất một ô."
             : "Chưa có ý tưởng nào. Mỗi dòng một video.",
@@ -529,6 +546,7 @@ export const createBatch = (body: CreateBatchInput) => {
     mediaModel,
     ...(subs ? { subs } : {}),
     ...(edit ? { edit } : {}),
+    ...(hookPlan ? { hooks: hookPlan } : {}),
     state: "idle",
     items,
   };
@@ -1057,6 +1075,15 @@ const prepareVariant = async (batch: Batch, item: BatchItem, log: (line: string)
 
   log("__STEP__ script");
   let script = source;
+  const hook = item.variant!.hook;
+  if (hook) {
+    const hooks = await batchHooks(batch, source, settings, log);
+    const line = hooks[hook - 1];
+    if (!line) throw new Error(`AI chỉ viết được ${hooks.length} câu hook — bỏ qua bản này hoặc bấm Chạy lại.`);
+    script = JSON.parse(JSON.stringify(source)) as VideoScript;
+    script.scenes[0].lines[0] = line;
+    log(`Hook ${HOOK_LETTERS[hook]}: ${line}`);
+  }
   if (lang) {
     const engine = pickTranslateEngine();
     if (!engine) {
@@ -1065,12 +1092,13 @@ const prepareVariant = async (batch: Batch, item: BatchItem, log: (line: string)
       );
     }
     log(`Đang dịch sang ${translateLanguageLabel(lang)}…`);
-    script = await translateScript(source, lang, engine, log);
+    script = await translateScript(script, lang, engine, log);
   }
 
   // Tên thư mục: tiêu đề gốc rút ngắn + hậu tố cho biết đây là biến thể nào, để đừng
   // ra "…-2", "…-3" không đọc được là bản nào.
-  const suffix = [lang, item.variant!.aspect?.replace(":", "x"), item.variant!.voice || "khong-giong"]
+  const suffix = [hook === undefined ? null : `hook-${HOOK_LETTERS[hook].toLowerCase()}`,
+    lang, item.variant!.aspect?.replace(":", "x"), item.variant!.voice || "khong-giong"]
     .filter(Boolean).join(" ");
   const slug = item.slug ?? freshSlug(`${source.title.slice(0, 28)} ${suffix}`.trim());
   item.slug = slug;
@@ -1085,6 +1113,31 @@ const prepareVariant = async (batch: Batch, item: BatchItem, log: (line: string)
     settings,
   });
   Object.assign(item, previewOf(script));
+};
+
+/**
+ * Câu hook dùng chung cho cả loạt: viết MỘT lần rồi lưu vào batch.hooks, để mọi bản (khác khung, khác giọng)
+ * cùng hook B thì đúng là cùng một câu. Hai mục chạy song song cùng chờ một lượt gọi AI, không gọi hai lần.
+ */
+const hookJobs = new Map<string, Promise<string[]>>();
+
+const batchHooks = async (batch: Batch, source: VideoScript, settings: ChatSettings, log: (line: string) => void) => {
+  const plan = batch.hooks;
+  if (!plan) throw new Error("Loạt này không thử hook.");
+  if (plan.lines?.length) return plan.lines;
+  let job = hookJobs.get(batch.id);
+  if (!job) {
+    log(`AI đang viết ${plan.count} câu hook khác nhau…`);
+    job = generateHooks(source, plan.count, settings.provider)
+      .then((lines) => {
+        plan.lines = lines;
+        save(batch);
+        return lines;
+      })
+      .finally(() => hookJobs.delete(batch.id));
+    hookJobs.set(batch.id, job);
+  }
+  return job;
 };
 
 const pickTranslateEngine = (): TranslateEngine | null =>

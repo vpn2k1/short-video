@@ -2995,7 +2995,8 @@ let batchCards = [];
 let batchMediaModel = "medium";
 let batchMedia = [];        // file thu sẵn đã tải lên: [{ path, name }]
 let batchUploading = 0;
-let batchVariant = { from: "", aspects: [], voices: [], langs: [] };
+/** hooks: tổng số bản thử A/B câu mở đầu, tính cả bản gốc — 0 = không thử. */
+let batchVariant = { from: "", aspects: [], voices: [], langs: [], hooks: 0 };
 let batchLangs = null;      // ngôn ngữ dịch được — lấy một lần từ /api/translate/engines
 let batchProjects = null;   // video có kịch bản, để chọn làm gốc nhân bản
 let batchCur = null;        // loạt đang mở ở màn theo dõi
@@ -3352,7 +3353,8 @@ function batchTotal() {
     if (!batchVariant.from) return 0;
     return Math.min(50, Math.max(1, batchVariant.aspects.length || 1) *
       Math.max(1, batchVariant.voices.length || 1) *
-      Math.max(1, batchVariant.langs.length || 1));
+      Math.max(1, batchVariant.langs.length || 1) *
+      Math.max(1, batchVariant.hooks));
   }
   return batchLines().length;
 }
@@ -3818,6 +3820,11 @@ function renderBatchVariant() {
         voicePreviewButton(v.key, v.key)}</span>`).join("");
   $("batchVariantLangs").innerHTML = pickChips(
     (batchLangs ?? []).map((l) => ({ value: l.code, label: l.label })), batchVariant.langs, "lang");
+  // Thử hook: chọn MỘT số (không phải bật/tắt nhiều), nên dùng chip đơn chọn.
+  $("batchVariantHooks").innerHTML = pickChips([
+    { value: "0", label: "Không thử" },
+    ...[2, 3, 4, 5].map((n) => ({ value: String(n), icon: icon("flask-conical"), label: `${n} bản` })),
+  ], [String(batchVariant.hooks)], "hooks");
 
   const toggle = (list, value) => {
     const i = list.indexOf(value);
@@ -3831,6 +3838,13 @@ function renderBatchVariant() {
     b.addEventListener("click", () => toggle(batchVariant.voices, b.dataset.voice)));
   $("batchVariantLangs").querySelectorAll("[data-lang]").forEach((b) =>
     b.addEventListener("click", () => toggle(batchVariant.langs, b.dataset.lang)));
+  $("batchVariantHooks").querySelectorAll("[data-hooks]").forEach((b) =>
+    b.addEventListener("click", () => {
+      batchVariant.hooks = Number(b.dataset.hooks);
+      // Thử hook: bật sẵn chốt duyệt để đọc câu AI viết trước khi dựng (người dùng vẫn tắt được).
+      if (batchVariant.hooks > 1) batchReview = true;
+      renderBatchNew();
+    }));
 
   $("batchVariantCount").textContent = batchVariant.from ? `${batchTotal()} video` : "Chọn video gốc trong Cài đặt cho cả loạt";
 }
@@ -3865,6 +3879,7 @@ async function createBatch() {
       aspects: batchVariant.aspects,
       voices: batchVariant.voices,
       languages: batchVariant.langs,
+      hooks: batchVariant.hooks,
     };
   }
   $("batchStart").disabled = true;
