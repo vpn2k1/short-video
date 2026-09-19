@@ -383,6 +383,8 @@ const variantItems = (
   settings: ChatSettings,
   /** Tổng số bản hook, tính cả bản gốc; 0 hoặc 1 = không thử hook. */
   hooks = 0,
+  /** Không chọn khung/giọng thì giữ khung, giọng của chính video gốc (nhân cả loạt) thay vì cài đặt chung. */
+  ownDefaults = false,
 ) => {
   if (!isSlug(from)) throw new Error("Chọn video gốc để nhân bản.");
   const scriptPath = path.join(videoDir(from), "script.json");
@@ -392,8 +394,9 @@ const variantItems = (
     );
   }
   const sourceTitle = (readJson(scriptPath) as { title?: string } | null)?.title ?? from;
-  const aspectList = aspects.length ? aspects : [settings.aspect];
-  const voiceList = voices.length ? voices : [settings.voice];
+  const base = ownDefaults ? readChat(from).settings : settings;
+  const aspectList = aspects.length ? aspects : [base.aspect];
+  const voiceList = voices.length ? voices : [base.voice];
   const langList: (TranslateLanguage | undefined)[] = langs.length ? langs : [undefined];
   const hookList: (number | undefined)[] = hooks > 1 ? [...Array(Math.min(hooks, MAX_HOOKS)).keys()] : [undefined];
 
@@ -405,8 +408,8 @@ const variantItems = (
           const label = [
             hook === undefined ? null : `hook ${HOOK_LETTERS[hook]}${hook === 0 ? " (gốc)" : ""}`,
             lang ? translateLanguageLabel(lang) : null,
-            aspectList.length > 1 || aspect !== settings.aspect ? aspect : null,
-            voiceList.length > 1 || voice !== settings.voice ? (voice ? `giọng ${voice}` : "không giọng") : null,
+            aspectList.length > 1 || aspect !== base.aspect ? aspect : null,
+            voiceList.length > 1 || voice !== base.voice ? (voice ? `giọng ${voice}` : "không giọng") : null,
           ].filter(Boolean).join(" · ");
           items.push(
             newItem(`${sourceTitle}${label ? ` — ${label}` : ""}`, {
@@ -525,7 +528,14 @@ export const createBatch = (body: CreateBatchInput) => {
     const languages = (Array.isArray(v.languages) ? v.languages : [])
       .filter(isTranslateLanguage);
     const hooks = Math.max(0, Math.min(MAX_HOOKS, Math.round(Number(v.hooks) || 0)));
-    items = variantItems(String(v.from ?? ""), aspects, voices, languages, settings, hooks);
+    // Nhân cả loạt: `from` là danh sách video gốc (các video đã xong của một loạt) — mỗi gốc × mỗi biến thể.
+    // Thử hook chỉ cho một gốc: câu hook viết chung một lần cho cả loạt, nhiều gốc thì không dùng chung được.
+    const froms = Array.isArray(v.from) ? [...new Set(v.from.map(String))] : [String(v.from ?? "")];
+    if (froms.length > 1 && hooks > 1) throw new Error("Thử hook chỉ làm cho một video gốc mỗi lần.");
+    for (const from of froms) {
+      items.push(...variantItems(from, aspects, voices, languages, settings, hooks, froms.length > 1).slice(0, MAX_ITEMS - items.length));
+      if (items.length >= MAX_ITEMS) break;
+    }
     if (hooks > 1) hookPlan = { count: hooks - 1 };
   }
 

@@ -3200,6 +3200,18 @@ function bindBatch() {
   $("batchExports").addEventListener("click", openBatchExportMenu);
   $("batchBrand").addEventListener("click", openBrandDialog);
   $("batchPlan2").addEventListener("click", openPlanDialog);
+  $("batchClone").addEventListener("click", openCloneDialog);
+  $("cloneForm").addEventListener("submit", submitClone);
+  $("cloneVoice").addEventListener("change", renderCloneDialog);
+  $("cloneDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("cloneDlg").close()));
+  $("cloneDlg").addEventListener("click", (e) => {
+    const lang = e.target.closest("[data-clone-lang]")?.dataset.cloneLang;
+    const aspect = e.target.closest("[data-clone-aspect]")?.dataset.cloneAspect;
+    const toggle = (list, v) => { const i = list.indexOf(v); if (i >= 0) list.splice(i, 1); else list.push(v); };
+    if (lang) toggle(clonePick.langs, lang);
+    if (aspect) toggle(clonePick.aspects, aspect);
+    if (lang || aspect) renderCloneDialog();
+  });
   ["planStart", "planTimes", "planWeekends"].forEach((id) => $(id).addEventListener("input", renderPlanPreview));
   $("planWeekends").addEventListener("change", renderPlanPreview);
   $("planForm").addEventListener("submit", (e) => {
@@ -4273,6 +4285,8 @@ function renderBatchRun() {
   }
   const planned = b.postPlan ? Object.keys(b.postPlan.slots).length : 0;
   $("batchPlan2").hidden = doneItems.length === 0;
+  // Nguồn file thu sẵn / phụ đề không có kịch bản để nhân.
+  $("batchClone").hidden = doneItems.length === 0 || b.source === "media" || b.source === "subs";
   $("batchPlan2").innerHTML = `${icon("calendar-days")} ${planned ? `Lịch đăng (${planned})` : "Lịch đăng"}`;
   if (!batchJobBusy.has("batchBrand")) {
     const branded = doneItems.filter((it) => it.branded).length;
@@ -4833,6 +4847,83 @@ function openBatchExportMenu() {
       { value: "all", icon: icon("layers"), title: "Tất cả khung trên", sub: "Render mỗi video thêm một bản cho từng khung — lâu bằng ngần ấy lần dựng" },
     ],
   });
+}
+
+// ---- nhân cả loạt: loạt "variants" mới với mọi video đã xong làm gốc ----
+let clonePick = { langs: [], aspects: [] };
+
+const cloneSources = () => (batchCur?.items ?? []).filter((it) => it.status === "done" && it.slug);
+
+function renderCloneDialog() {
+  const chip = (list, value, label, attr) =>
+    `<button type="button" class="bt-pick ${list.includes(value) ? "on" : ""}" data-${attr}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
+  $("cloneLangs").innerHTML = (batchLangs ?? []).map((l) => chip(clonePick.langs, l.code, l.label, "clone-lang")).join("") ||
+    `<span class="muted">Đang tải…</span>`;
+  $("cloneAspects").innerHTML = aspects.map((a) => chip(clonePick.aspects, a.id, a.id, "clone-aspect")).join("");
+  const per = Math.max(1, clonePick.langs.length) * Math.max(1, clonePick.aspects.length);
+  const n = cloneSources().length;
+  const total = Math.min(50, n * per);
+  const changes = clonePick.langs.length || clonePick.aspects.length || $("cloneVoice").value !== "__keep__";
+  $("clonePreview").textContent = changes
+    ? `${n} video × ${per} bản = ${total} video mới${n * per > 50 ? " (một loạt tối đa 50 — phần dư bị bỏ)" : ""} · dừng cho bạn duyệt lời trước khi dựng`
+    : "Chọn ít nhất một ngôn ngữ, một khung, hoặc đổi giọng.";
+  // Dịch mà giữ giọng cũ = giọng tiếng Việt đọc lời tiếng Anh. Nhắc chọn giọng đúng ngôn ngữ.
+  const voice = state.voices.catalog.find((v) => v.key === $("cloneVoice").value);
+  const langs = clonePick.langs.filter((code) => code !== "vi");
+  if (langs.length && (!voice || !langs.includes(voice.lang))) {
+    $("clonePreview").textContent += langs.length > 1
+      ? " · ⚠ Dịch nhiều ngôn ngữ một lượt thì mọi bản dùng chung một giọng — nên nhân từng ngôn ngữ với giọng của ngôn ngữ đó."
+      : ` · ⚠ Nên chọn giọng ${batchLangs?.find((l) => l.code === langs[0])?.label ?? langs[0]} — giọng hiện tại đọc lời đã dịch sẽ lơ lớ.`;
+  }
+  $("cloneGo").disabled = !changes;
+}
+
+async function openCloneDialog() {
+  if (!batchCur) return;
+  clonePick = { langs: [], aspects: [] };
+  $("cloneVoice").innerHTML = `<option value="__keep__">Giữ giọng của từng video</option><option value="">Không giọng</option>` +
+    state.voices.catalog.filter((v) => !v.paidPlan).map((v) => `<option value="${escapeHtml(v.key)}">${escapeHtml(v.label)}</option>`).join("");
+  $("cloneHint").textContent = "";
+  $("cloneHint").classList.remove("err");
+  renderCloneDialog();
+  $("cloneDlg").showModal();
+  if (!batchLangs) {
+    try { batchLangs = (await api("/api/translate/engines")).languages; } catch { batchLangs = []; }
+    renderCloneDialog();
+  }
+}
+
+async function submitClone(e) {
+  e.preventDefault();
+  const voice = $("cloneVoice").value;
+  const labels = [
+    ...clonePick.langs.map((code) => batchLangs?.find((l) => l.code === code)?.label ?? code),
+    ...clonePick.aspects,
+    ...(voice === "__keep__" ? [] : [voice ? `giọng ${voice}` : "không giọng"]),
+  ];
+  $("cloneGo").disabled = true;
+  try {
+    const batch = await postJson("/api/batch", {
+      source: "variants",
+      name: `${batchCur.name.slice(0, 36)} — ${labels.join(", ")}`.slice(0, 60),
+      settings: { ...opts, music: opts.music || null },
+      review: true,
+      start: true,
+      variants: {
+        from: cloneSources().map((it) => it.slug),
+        languages: clonePick.langs,
+        aspects: clonePick.aspects,
+        voices: voice === "__keep__" ? [] : [voice],
+      },
+    });
+    $("cloneDlg").close();
+    loadHistory();
+    location.hash = `#/batch/${batch.id}`;
+  } catch (err) {
+    $("cloneHint").textContent = err.message;
+    $("cloneHint").classList.add("err");
+    $("cloneGo").disabled = false;
+  }
 }
 
 // ---- lịch đăng (server/batch.ts › savePostPlan, batchCalendar) ----
