@@ -1477,7 +1477,9 @@ export const transcribeCached = async (
   log: (line: string) => void,
 ): Promise<Caption[]> => {
   const stat = fs.statSync(source);
-  const key = slugify(`${file} ${stat.size} ${stat.mtimeMs} ${spoken} ${model}`, 120);
+  // "dtw": bản phiên âm có mốc từng từ — bản cũ khớp phụ đề sai với video có nhạc nền, không dùng lại.
+  // Tên file để cuối: tên dài bị cắt ở 120 ký tự thì chỉ mất đuôi tên, không mất ngôn ngữ/model.
+  const key = slugify(`dtw ${stat.size} ${stat.mtimeMs} ${spoken} ${model} ${file}`, 120);
   const cacheFile = path.join(batchesDir(), "transcripts", `${key}.json`);
   const hit = transcriptMemory.get(key) ?? readJson(cacheFile);
   if (hit) {
