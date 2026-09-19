@@ -3199,6 +3199,21 @@ function bindBatch() {
   $("batchCovers").addEventListener("click", startBatchCovers);
   $("batchExports").addEventListener("click", openBatchExportMenu);
   $("batchBrand").addEventListener("click", openBrandDialog);
+  $("batchPlan2").addEventListener("click", openPlanDialog);
+  ["planStart", "planTimes", "planWeekends"].forEach((id) => $(id).addEventListener("input", renderPlanPreview));
+  $("planWeekends").addEventListener("change", renderPlanPreview);
+  $("planForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const { slots, times } = planSlots();
+    if (!times.length || !Object.keys(slots).length) {
+      $("planHint").textContent = "Chưa có mốc nào — kiểm tra giờ đăng và ngày bắt đầu.";
+      $("planHint").classList.add("err");
+      return;
+    }
+    savePlan(slots);
+  });
+  $("planClear").addEventListener("click", () => savePlan({}));
+  $("planDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("planDlg").close()));
   $("brandForm").addEventListener("submit", submitBrand);
   $("brandFile").addEventListener("change", uploadBrandFile);
   $("brandDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("brandDlg").close()));
@@ -4256,6 +4271,9 @@ function renderBatchRun() {
     $("batchCheck").disabled = false;
     $("batchCheck").innerHTML = `${icon("scan-search")} Soát ${unchecked} video`;
   }
+  const planned = b.postPlan ? Object.keys(b.postPlan.slots).length : 0;
+  $("batchPlan2").hidden = doneItems.length === 0;
+  $("batchPlan2").innerHTML = `${icon("calendar-days")} ${planned ? `Lịch đăng (${planned})` : "Lịch đăng"}`;
   if (!batchJobBusy.has("batchBrand")) {
     const branded = doneItems.filter((it) => it.branded).length;
     $("batchBrand").hidden = doneItems.length === 0;
@@ -4399,6 +4417,8 @@ function batchItemTile(it, i) {
   if (it.edited) bits.push("đã chỉnh sửa");
   if (it.exports?.length) bits.push(`có thêm ${it.exports.join(", ")}`);
   if (it.branded) bits.push("có bản mở đầu/kết thúc");
+  const slot = batchCur?.postPlan?.slots[it.id];
+  if (slot) bits.push(`đăng ${fmtSlot(slot)}`);
 
   const btn = (act, label, cls = "") =>
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
@@ -4813,6 +4833,92 @@ function openBatchExportMenu() {
       { value: "all", icon: icon("layers"), title: "Tất cả khung trên", sub: "Render mỗi video thêm một bản cho từng khung — lâu bằng ngần ấy lần dựng" },
     ],
   });
+}
+
+// ---- lịch đăng (server/batch.ts › savePostPlan, batchCalendar) ----
+const pad2 = (v) => String(v).padStart(2, "0");
+const dateInputValue = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const fmtSlot = (ms) => new Date(ms).toLocaleString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+/** "11:30, 7h, 19:30" → [[11,30],[7,0],[19,30]] theo thứ tự trong ngày; bỏ giờ viết sai. */
+function parsePlanTimes(text) {
+  const times = String(text).split(/[,;\s]+/).map((t) => t.trim().toLowerCase()).filter(Boolean).map((t) => {
+    const m = /^(\d{1,2})(?:[:h.](\d{2})?)?$/.exec(t);
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2] ?? 0);
+    return h < 24 && min < 60 ? [h, min] : null;
+  }).filter(Boolean);
+  return [...new Map(times.map((t) => [t[0] * 60 + t[1], t])).values()].sort((a, b) => a[0] * 60 + a[1] - (b[0] * 60 + b[1]));
+}
+
+/** Mốc đăng cho các video đã xong, theo thứ tự trong loạt. Bỏ giờ đã qua và (nếu chọn) cuối tuần. */
+function planSlots() {
+  const done = (batchCur?.items ?? []).filter((it) => it.status === "done");
+  const times = parsePlanTimes($("planTimes").value);
+  const [y, mo, d] = ($("planStart").value || dateInputValue(new Date())).split("-").map(Number);
+  const slots = {};
+  if (!times.length) return { slots, done, times };
+  const day = new Date(y, mo - 1, d);
+  let i = 0;
+  for (let guard = 0; i < done.length && guard < 400; guard++) {
+    const weekend = day.getDay() === 0 || day.getDay() === 6;
+    if (!($("planWeekends").checked && weekend)) {
+      for (const [h, min] of times) {
+        if (i >= done.length) break;
+        const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, min).getTime();
+        if (at < Date.now()) continue;
+        slots[done[i++].id] = at;
+      }
+    }
+    day.setDate(day.getDate() + 1);
+  }
+  return { slots, done, times };
+}
+
+function renderPlanPreview() {
+  const { slots, done, times } = planSlots();
+  const at = Object.values(slots);
+  $("planPreview").textContent = !times.length ? "Nhập ít nhất một giờ đăng."
+    : done.length === 0 ? "Chưa có video nào xong để lên lịch."
+      : `${done.length} video · từ ${fmtSlot(Math.min(...at))} tới ${fmtSlot(Math.max(...at))}`;
+}
+
+function openPlanDialog() {
+  if (!batchCur) return;
+  const plan = batchCur.postPlan;
+  const first = plan ? Math.min(...Object.values(plan.slots)) : null;
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  $("planStart").value = dateInputValue(first ? new Date(first) : tomorrow);
+  if (!$("planTimes").value) $("planTimes").value = "11:30, 19:30";
+  $("planDlg").querySelectorAll(".plan-platforms input").forEach((c) => {
+    c.checked = plan ? plan.platforms.includes(c.value) : c.value === "tiktok";
+  });
+  $("planIcs").hidden = !plan;
+  $("planIcs").href = `/api/batch/${batchCur.id}/calendar`;
+  $("planClear").hidden = !plan;
+  $("planHint").textContent = "";
+  $("planHint").classList.remove("err");
+  renderPlanPreview();
+  $("planDlg").showModal();
+}
+
+async function savePlan(slots) {
+  const platforms = [...$("planDlg").querySelectorAll(".plan-platforms input:checked")].map((c) => c.value);
+  try {
+    const { postPlan } = await postJson(`/api/batch/${batchCur.id}/plan`, { slots, platforms });
+    batchCur.postPlan = postPlan;
+    $("planIcs").hidden = !postPlan;
+    $("planClear").hidden = !postPlan;
+    $("planHint").textContent = postPlan
+      ? `Đã lưu lịch ${Object.keys(postPlan.slots).length} video — bấm Tải file .ics để thêm vào lịch.`
+      : "Đã xoá lịch đăng.";
+    $("planHint").classList.remove("err");
+    renderBatchRun();
+  } catch (e) {
+    $("planHint").textContent = e.message;
+    $("planHint").classList.add("err");
+  }
 }
 
 // ---- mở đầu / kết thúc chung (server/batch.ts › startBatchBrand) ----

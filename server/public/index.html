@@ -807,6 +807,8 @@
   .bt-qa.bad { color: var(--err, #ef4444); border-color: color-mix(in srgb, var(--err, #ef4444) 45%, transparent); }
   .bt-qa-list { margin: 0; padding: 0 0 0 18px; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
   #batchIdeaSeries[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  .plan-platforms { flex-wrap: wrap; gap: 14px !important; }
+  #planPreview { margin: 12px 0 0; white-space: pre-line; }
   .bt-errgroups { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
   .bt-errgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; border-radius: 12px;
                  background: color-mix(in srgb, var(--err, #ef4444) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--err, #ef4444) 25%, var(--line)); font-size: 13px; }
@@ -1414,6 +1416,7 @@ Lưu lại để làm theo nhé!</pre>
         <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
         <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>
         <button type="button" class="btn" id="batchExports" hidden aria-haspopup="listbox" aria-expanded="false"><i data-icon="ratio"></i> Xuất thêm khung</button>
+        <button type="button" class="btn" id="batchPlan2" hidden title="Rải video ra nhiều ngày, xuất file lịch .ics kèm bài đăng"><i data-icon="calendar-days"></i> Lịch đăng</button>
         <button type="button" class="btn" id="batchBrand" hidden title="Ghép đoạn mở đầu / kết thúc chung (logo, lời kêu gọi theo dõi) vào mọi video"><i data-icon="clapperboard"></i> Mở đầu / kết thúc</button>
         <button type="button" class="btn" id="batchCovers" hidden title="Ảnh bìa từng video: tiêu đề to trên ảnh cảnh đầu, đúng khung video — có trong gói Tải tất cả"><i data-icon="image"></i> Tạo ảnh bìa</button>
         <button type="button" class="btn" id="batchPostCopy" hidden title="AI viết tiêu đề, caption, hashtag cho từng video đã xong — có trong CSV và file .txt khi tải cả loạt"><i data-icon="megaphone"></i> Viết bài đăng</button>
@@ -1450,6 +1453,42 @@ Lưu lại để làm theo nhé!</pre>
     <div class="dlg-foot">
       <button type="submit" class="btn" value="cancel">Huỷ</button>
       <button type="submit" class="btn danger" value="ok" id="confirmOk">Xoá</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg" id="planDlg">
+  <form id="planForm" autocomplete="off">
+    <div class="dlg-head">
+      <h2><i data-icon="calendar-days"></i> Lịch đăng</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Rải các video đã xong theo thứ tự trong loạt. Lưu xong tải file <b>.ics</b> mở bằng Google Calendar / Lịch của Apple — mỗi video một lịch hẹn, nhắc trước 15 phút, kèm sẵn caption và hashtag.</p>
+    <div class="field">
+      <label for="planStart">Bắt đầu từ ngày</label>
+      <div class="row"><input type="date" id="planStart" /></div>
+    </div>
+    <div class="field">
+      <label for="planTimes">Giờ đăng mỗi ngày</label>
+      <div class="row"><input id="planTimes" placeholder="ví dụ: 11:30, 19:30" /></div>
+      <div class="help">Mỗi giờ một video — hai giờ là hai video mỗi ngày.</div>
+    </div>
+    <label class="be-check" style="margin-top:12px"><input type="checkbox" id="planWeekends" /> Bỏ qua thứ 7, chủ nhật</label>
+    <div class="field">
+      <label>Đưa bài đăng của</label>
+      <div class="row plan-platforms">
+        <label class="be-check"><input type="checkbox" value="tiktok" checked /> TikTok</label>
+        <label class="be-check"><input type="checkbox" value="youtube" /> YouTube</label>
+        <label class="be-check"><input type="checkbox" value="facebook" /> Facebook</label>
+        <label class="be-check"><input type="checkbox" value="instagram" /> Instagram</label>
+      </div>
+    </div>
+    <p class="muted" id="planPreview"></p>
+    <p class="hint" id="planHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="planClear" hidden>Xoá lịch</button>
+      <a class="btn" id="planIcs" hidden download><i data-icon="download"></i> Tải file .ics</a>
+      <button type="submit" class="btn primary" id="planSave"><i data-icon="check"></i> Lưu lịch</button>
     </div>
   </form>
 </dialog>

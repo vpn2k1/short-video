@@ -54,7 +54,7 @@ import { findVoice } from "../scripts/voices";
 import { slugify } from "../scripts/slug";
 import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
-import { generatePostCopy, getPostCopy, type SavedPostCopy } from "../scripts/post-copy";
+import { generatePostCopy, getPostCopy, type PostPlatform, type SavedPostCopy } from "../scripts/post-copy";
 import { generateHooks } from "../scripts/hooks";
 import { checkVideo, savedCheck } from "../scripts/qa-video";
 import { coverPath, freshCover, makeCover } from "../scripts/cover";
@@ -265,6 +265,8 @@ export type Batch = {
   hooks?: { count: number; lines?: string[] };
   /** Đoạn mở đầu / kết thúc chung đã gắn lần gần nhất (đường dẫn trong public/). */
   brand?: { intro: string | null; outro: string | null };
+  /** Lịch đăng: mốc đăng (ms) của từng mục theo id, và bài đăng của nền tảng nào đưa vào lịch. */
+  postPlan?: { slots: Record<string, number>; platforms: PostPlatform[] };
   /** Hẹn giờ chạy (ms): loạt nằm chờ ở "idle" tới lúc đó thì tự chạy — app phải đang mở. */
   startAt?: number;
   state: "idle" | "running" | "paused" | "done";
@@ -1988,6 +1990,87 @@ const srtFor = (slug: string, track = 0) => {
     .join("\n");
 };
 
+// ---------- lịch đăng ----------
+
+const PLATFORMS: PostPlatform[] = ["tiktok", "youtube", "facebook", "instagram"];
+const PLATFORM_LABEL: Record<PostPlatform, string> = { tiktok: "TikTok", youtube: "YouTube", facebook: "Facebook", instagram: "Instagram" };
+
+/**
+ * Lưu lịch đăng. Trình duyệt tính sẵn mốc từng video (nó biết múi giờ người dùng); server chỉ kiểm tra rồi giữ lại
+ * để ô video hiện "Đăng: T7 19/09 19:30", CSV có cột lịch, và xuất được file .ics.
+ */
+export const savePostPlan = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const raw = (body ?? {}) as { slots?: unknown; platforms?: unknown };
+  const ids = new Set(batch.items.map((item) => item.id));
+  const slots: Record<string, number> = {};
+  for (const [itemId, at] of Object.entries((raw.slots ?? {}) as Record<string, unknown>)) {
+    const ms = Number(at);
+    if (ids.has(itemId) && Number.isFinite(ms) && ms > 0) slots[itemId] = Math.round(ms);
+  }
+  if (Object.keys(slots).length === 0) {
+    delete batch.postPlan;
+  } else {
+    const platforms = (Array.isArray(raw.platforms) ? raw.platforms : []).filter((p): p is PostPlatform => PLATFORMS.includes(p as PostPlatform));
+    batch.postPlan = { slots, platforms: platforms.length ? platforms : ["tiktok"] };
+  }
+  save(batch);
+  return { postPlan: batch.postPlan ?? null };
+};
+
+/** Chuỗi trong file .ics: thoát \ ; , và xuống dòng; gấp dòng dài 75 byte theo RFC 5545. */
+const icsText = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+const icsFold = (line: string) => {
+  const out: string[] = [];
+  let rest = Buffer.from(line, "utf8");
+  while (rest.length > 75) {
+    // Không cắt giữa một ký tự UTF-8 nhiều byte (byte tiếp nối có dạng 10xxxxxx).
+    let cut = out.length ? 74 : 75;
+    while (cut > 0 && (rest[cut] & 0xc0) === 0x80) cut--;
+    out.push(rest.subarray(0, cut).toString("utf8"));
+    rest = rest.subarray(cut);
+  }
+  out.push(rest.toString("utf8"));
+  return out.join("\r\n ");
+};
+const icsTime = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+/** File lịch: mỗi video đã lên lịch một sự kiện 15 phút, nhắc trước 15 phút, mô tả là bài đăng dán sẵn. */
+export const batchCalendar = (id: unknown) => {
+  const batch = require_(id);
+  const plan = batch.postPlan;
+  if (!plan) throw new Error("Loạt này chưa có lịch đăng.");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AI Video Studio//Lich dang//VI", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+  batch.items.forEach((item, index) => {
+    const at = plan.slots[item.id];
+    if (!at) return;
+    const copy = item.slug ? freshCopy(item.slug) : null;
+    const desc = [
+      `File: ${exportName(item, index)}`,
+      ...plan.platforms.map((p) => {
+        if (!copy) return "";
+        const part = copy[p] as { caption?: string; title?: string; description?: string; hashtags: string[] };
+        const body = p === "youtube" ? `${part.title}\n${part.description}` : part.caption;
+        return `— ${PLATFORM_LABEL[p]} —\n${body}\n${part.hashtags.join(" ")}`;
+      }).filter(Boolean),
+      copy ? "" : "(Chưa có bài đăng — bấm Viết bài đăng trong loạt rồi xuất lại lịch.)",
+    ].filter(Boolean).join("\n\n");
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${batch.id}-${item.id}@ai-video-studio`,
+      `DTSTAMP:${icsTime(Date.now())}`,
+      `DTSTART:${icsTime(at)}`,
+      `DTEND:${icsTime(at + 15 * 60_000)}`,
+      icsFold(`SUMMARY:${icsText(`Đăng ${plan.platforms.map((p) => PLATFORM_LABEL[p]).join(", ")}: ${item.title ?? item.input.slice(0, 60)}`)}`),
+      icsFold(`DESCRIPTION:${icsText(desc)}`),
+      "BEGIN:VALARM", "ACTION:DISPLAY", "TRIGGER:-PT15M", icsFold(`DESCRIPTION:${icsText(`Sắp tới giờ đăng: ${item.title ?? ""}`)}`), "END:VALARM",
+      "END:VEVENT",
+    );
+  });
+  lines.push("END:VCALENDAR");
+  return { name: `${slugify(batch.name, 40) || "loat-video"}-lich-dang.ics`, body: `${lines.join("\r\n")}\r\n` };
+};
+
 /** Số video đã xong và tên file gói tải về — UI hỏi trước khi hiện nút. */
 export const batchExportInfo = (id: unknown) => {
   const batch = require_(id);
@@ -2005,7 +2088,7 @@ export const batchCsv = (id: unknown) => {
   const header = [
     "STT", "Tiêu đề", "Trạng thái", "Nội dung đã nhập", "Lời đọc", "File", "Khung", "Phong cách",
     "TikTok", "YouTube — tiêu đề", "YouTube — mô tả", "Facebook", "Instagram",
-    "Điểm tự soát", "Cần xem",
+    "Điểm tự soát", "Cần xem", "Lịch đăng",
   ];
   const rows = batch.items.map((item, index) => {
     const settings = item.override ?? batch.settings;
@@ -2031,6 +2114,7 @@ export const batchCsv = (id: unknown) => {
       copy ? withTags(copy.instagram.caption, copy.instagram.hashtags) : "",
       qa ? `${qa.score}/10` : "",
       qa ? qa.issues.map((issue) => issue.text).join(" | ") : "",
+      batch.postPlan?.slots[item.id] ? new Date(batch.postPlan.slots[item.id]).toLocaleString("vi-VN") : "",
     ].map(csvCell).join(",");
   });
   return `﻿${header.map(csvCell).join(",")}\n${rows.join("\n")}\n`;
