@@ -67,7 +67,7 @@ import { brandVideo, isBrandFile } from "../scripts/brand";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
-  isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
+  guessLanguage, isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
   TRANSLATE_ENGINES, type TranslateEngine, type TranslateLanguage,
 } from "../scripts/translate";
 
@@ -1452,7 +1452,9 @@ const translateScript = async (
     }
   });
 
-  const translated = await translateLines(slots.map((slot) => slot.get()), { to, from: "vi", engine }, log);
+  // Ngôn ngữ nguồn đoán theo chữ của chính kịch bản — ý tưởng viết bằng tiếng Anh thì dịch "từ tiếng Anh".
+  const texts = slots.map((slot) => slot.get());
+  const translated = await translateLines(texts, { to, from: guessLanguage(texts.join(" ")), engine }, log);
   slots.forEach((slot, i) => slot.set(translated[i] ?? slot.get()));
   return parseScript(draft);
 };
