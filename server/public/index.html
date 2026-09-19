@@ -807,6 +807,17 @@
   .bt-qa.bad { color: var(--err, #ef4444); border-color: color-mix(in srgb, var(--err, #ef4444) 45%, transparent); }
   .bt-qa-list { margin: 0; padding: 0 0 0 18px; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
   #batchIdeaSeries[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  .rs-dlg { width: min(860px, calc(100vw - 32px)); }
+  .rs-dlg form { display: flex; flex-direction: column; max-height: calc(100vh - 80px); }
+  .rs-table-wrap { overflow: auto; min-height: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; }
+  .rs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rs-table th, .rs-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  .rs-table th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; }
+  .rs-table td.t { white-space: normal; min-width: 180px; }
+  .rs-table input { width: 84px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: var(--text); font-size: 13px; }
+  .rs-table .hook { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: var(--panel-2); font-size: 11.5px; }
+  .rs-summary { margin-top: 12px; font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
+  .rs-summary b { color: var(--text); }
   .plan-platforms { flex-wrap: wrap; gap: 14px !important; }
   #planPreview { margin: 12px 0 0; white-space: pre-line; }
   .bt-errgroups { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
@@ -1416,6 +1427,7 @@ Lưu lại để làm theo nhé!</pre>
         <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
         <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>
         <button type="button" class="btn" id="batchExports" hidden aria-haspopup="listbox" aria-expanded="false"><i data-icon="ratio"></i> Xuất thêm khung</button>
+        <button type="button" class="btn" id="batchResults" hidden title="Nhập lượt xem, tỉ lệ xem hết… sau khi đăng — xếp hạng video, so hook thắng"><i data-icon="chart-column"></i> Kết quả</button>
         <button type="button" class="btn" id="batchClone" hidden title="Tạo loạt mới: mọi video của loạt này sang ngôn ngữ, khung hay giọng khác"><i data-icon="copy-plus"></i> Nhân cả loạt</button>
         <button type="button" class="btn" id="batchPlan2" hidden title="Rải video ra nhiều ngày, xuất file lịch .ics kèm bài đăng"><i data-icon="calendar-days"></i> Lịch đăng</button>
         <button type="button" class="btn" id="batchBrand" hidden title="Ghép đoạn mở đầu / kết thúc chung (logo, lời kêu gọi theo dõi) vào mọi video"><i data-icon="clapperboard"></i> Mở đầu / kết thúc</button>
@@ -1454,6 +1466,24 @@ Lưu lại để làm theo nhé!</pre>
     <div class="dlg-foot">
       <button type="submit" class="btn" value="cancel">Huỷ</button>
       <button type="submit" class="btn danger" value="ok" id="confirmOk">Xoá</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg rs-dlg" id="resultsDlg">
+  <form id="resultsForm" autocomplete="off">
+    <div class="dlg-head">
+      <h2><i data-icon="chart-column"></i> Kết quả sau khi đăng</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Chép số từ trang thống kê của nền tảng. Gõ được “12,3K”, “1.2M”, “45%”; dán cả bảng từ Excel/Sheets vào một ô là tự rải ra các ô sau.</p>
+    <div class="pc-tabs" id="resultsTabs" role="tablist"></div>
+    <div class="rs-summary" id="resultsSummary"></div>
+    <div class="rs-table-wrap"><table class="rs-table" id="resultsTable"></table></div>
+    <p class="hint" id="resultsHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>Đóng</button>
+      <button type="submit" class="btn primary" id="resultsSave"><i data-icon="check"></i> Lưu</button>
     </div>
   </form>
 </dialog>

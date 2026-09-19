@@ -3201,6 +3201,17 @@ function bindBatch() {
   $("batchBrand").addEventListener("click", openBrandDialog);
   $("batchPlan2").addEventListener("click", openPlanDialog);
   $("batchClone").addEventListener("click", openCloneDialog);
+  $("batchResults").addEventListener("click", openResultsDialog);
+  $("resultsForm").addEventListener("submit", saveResultsDialog);
+  $("resultsTable").addEventListener("input", renderResultsSummary);
+  $("resultsTable").addEventListener("paste", pasteResults);
+  $("resultsTabs").addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-rs-platform]");
+    if (!tab) return;
+    resultsPlatform = tab.dataset.rsPlatform;
+    renderResultsTable();
+  });
+  $("resultsDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("resultsDlg").close()));
   $("cloneForm").addEventListener("submit", submitClone);
   $("cloneVoice").addEventListener("change", renderCloneDialog);
   $("cloneDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("cloneDlg").close()));
@@ -4285,6 +4296,7 @@ function renderBatchRun() {
   }
   const planned = b.postPlan ? Object.keys(b.postPlan.slots).length : 0;
   $("batchPlan2").hidden = doneItems.length === 0;
+  $("batchResults").hidden = doneItems.length === 0;
   // Nguồn file thu sẵn / phụ đề không có kịch bản để nhân.
   $("batchClone").hidden = doneItems.length === 0 || b.source === "media" || b.source === "subs";
   $("batchPlan2").innerHTML = `${icon("calendar-days")} ${planned ? `Lịch đăng (${planned})` : "Lịch đăng"}`;
@@ -4847,6 +4859,141 @@ function openBatchExportMenu() {
       { value: "all", icon: icon("layers"), title: "Tất cả khung trên", sub: "Render mỗi video thêm một bản cho từng khung — lâu bằng ngần ấy lần dựng" },
     ],
   });
+}
+
+// ---- kết quả sau khi đăng (server/batch.ts › saveResults) ----
+const RS_PLATFORMS = [["tiktok", "TikTok"], ["youtube", "YouTube"], ["facebook", "Facebook"], ["instagram", "Instagram"]];
+const RS_COLS = [["views", "Lượt xem"], ["watch", "% xem hết"], ["likes", "Thích"], ["comments", "Bình luận"], ["shares", "Chia sẻ"]];
+const HOOK_LETTERS = "ABCDE";
+let resultsPlatform = "tiktok";
+
+const resultRows = () => (batchCur?.items ?? []).filter((it) => it.status === "done");
+const fmtNum = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, "")}M` : n >= 1e4 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, "")}K` : String(Math.round(n)));
+
+/** Đọc số giống server (parseStat) để phần tóm tắt tính ngay khi gõ, chưa cần lưu. */
+function parseStatInput(raw) {
+  let text = String(raw ?? "").trim().toLowerCase().replace(/%$/, "").trim();
+  if (!text) return null;
+  const unit = /(k|n|nghìn|ngàn|m|tr|triệu|b|tỷ)$/.exec(text)?.[1];
+  if (unit) text = text.slice(0, -unit.length).trim();
+  text = text.replace(/\s/g, "").replace(/[.,](?=\d{3}(?:[.,]|$))/g, "").replace(",", ".");
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n * (!unit ? 1 : /^(k|n|nghìn|ngàn)$/.test(unit) ? 1e3 : /^(m|tr|triệu)$/.test(unit) ? 1e6 : 1e9);
+}
+
+function readResultInputs() {
+  const rows = {};
+  $("resultsTable").querySelectorAll("tr[data-id]").forEach((tr) => {
+    const row = {};
+    tr.querySelectorAll("input[data-k]").forEach((input) => { row[input.dataset.k] = input.value.trim(); });
+    rows[tr.dataset.id] = row;
+  });
+  return rows;
+}
+
+function renderResultsTable() {
+  $("resultsTabs").innerHTML = RS_PLATFORMS.map(([id, label]) =>
+    `<button type="button" role="tab" data-rs-platform="${id}" aria-selected="${id === resultsPlatform}">${label}${
+      batchCur.results?.[id] ? ` · ${Object.keys(batchCur.results[id]).length}` : ""}</button>`).join("");
+  const saved = batchCur.results?.[resultsPlatform] ?? {};
+  $("resultsTable").innerHTML = `<thead><tr><th>#</th><th>Video</th>${RS_COLS.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>${
+    resultRows().map((it) => {
+      const i = batchCur.items.indexOf(it);
+      const hook = it.variant?.hook;
+      return `<tr data-id="${it.id}"><td>${i + 1}</td><td class="t">${hook === undefined ? "" : `<span class="hook">Hook ${HOOK_LETTERS[hook]}</span>`}${escapeHtml(shorten(it.title || it.input, 60))}</td>${
+        RS_COLS.map(([k]) => `<td><input data-k="${k}" inputmode="decimal" value="${saved[it.id]?.[k] ?? ""}" aria-label="${k}" /></td>`).join("")}</tr>`;
+    }).join("")}</tbody>`;
+  renderResultsSummary();
+}
+
+/** Video nhiều lượt xem nhất, giữ chân tốt nhất; loạt thử hook thì so trung bình từng hook với bản gốc A. */
+function renderResultsSummary() {
+  const rows = readResultInputs();
+  const data = resultRows().map((it) => ({
+    it,
+    views: parseStatInput(rows[it.id]?.views),
+    watch: parseStatInput(rows[it.id]?.watch),
+  }));
+  const withViews = data.filter((d) => d.views !== null);
+  const lines = [];
+  if (withViews.length === 0) {
+    $("resultsSummary").innerHTML = `<span class="muted">Nhập lượt xem của vài video để thấy video nào tốt nhất.</span>`;
+    return;
+  }
+  const best = [...withViews].sort((a, b) => b.views - a.views)[0];
+  lines.push(`${icon("trophy")} Nhiều lượt xem nhất: <b>${escapeHtml(shorten(best.it.title || best.it.input, 50))}</b> — ${fmtNum(best.views)} lượt`);
+  const withWatch = data.filter((d) => d.watch !== null);
+  if (withWatch.length) {
+    const keep = [...withWatch].sort((a, b) => b.watch - a.watch)[0];
+    lines.push(`${icon("timer")} Giữ chân tốt nhất: <b>${escapeHtml(shorten(keep.it.title || keep.it.input, 50))}</b> — ${keep.watch}% xem hết`);
+  }
+  // Loạt thử hook: gom theo hook (một hook có thể có nhiều bản khác khung/giọng) rồi lấy trung bình.
+  const byHook = new Map();
+  for (const d of data) {
+    const hook = d.it.variant?.hook;
+    if (hook === undefined || (d.views === null && d.watch === null)) continue;
+    const g = byHook.get(hook) ?? { views: [], watch: [] };
+    if (d.views !== null) g.views.push(d.views);
+    if (d.watch !== null) g.watch.push(d.watch);
+    byHook.set(hook, g);
+  }
+  if (byHook.size > 1) {
+    const avg = (list) => (list.length ? list.reduce((a, b) => a + b, 0) / list.length : null);
+    const hooks = [...byHook.entries()].map(([hook, g]) => ({ hook, views: avg(g.views), watch: avg(g.watch) }));
+    // Hook quyết định người xem có ở lại — so theo % xem hết nếu có, không thì theo lượt xem.
+    const metric = hooks.every((h) => h.watch !== null) ? "watch" : "views";
+    const win = [...hooks].sort((a, b) => (b[metric] ?? -1) - (a[metric] ?? -1))[0];
+    const base = hooks.find((h) => h.hook === 0);
+    const diff = base && base[metric] ? Math.round(((win[metric] - base[metric]) / base[metric]) * 100) : null;
+    lines.push(`${icon("flask-conical")} Hook thắng: <b>Hook ${HOOK_LETTERS[win.hook]}</b> — ${
+      metric === "watch" ? `${win.watch.toFixed(1)}% xem hết` : `${fmtNum(win.views)} lượt xem`} trung bình${
+      win.hook !== 0 && diff !== null ? ` (${diff >= 0 ? "+" : ""}${diff}% so với hook gốc A)` : win.hook === 0 ? " — hook gốc vẫn tốt nhất" : ""}. ` +
+      `<span class="muted">${hooks.sort((a, b) => a.hook - b.hook).map((h) => `${HOOK_LETTERS[h.hook]}: ${
+        metric === "watch" ? `${h.watch.toFixed(1)}%` : fmtNum(h.views)}`).join(" · ")}</span>`);
+  }
+  $("resultsSummary").innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
+}
+
+function openResultsDialog() {
+  if (!batchCur) return;
+  // Mở ở nền tảng đã có số gần nhất, không thì TikTok.
+  resultsPlatform = RS_PLATFORMS.map(([id]) => id).find((id) => batchCur.results?.[id]) ?? "tiktok";
+  $("resultsHint").textContent = "";
+  renderResultsTable();
+  $("resultsDlg").showModal();
+}
+
+/** Dán một khối (tab/xuống dòng) vào một ô: rải sang phải và xuống dưới, như dán vào bảng tính. */
+function pasteResults(e) {
+  const input = e.target.closest("input[data-k]");
+  const text = e.clipboardData?.getData("text") ?? "";
+  if (!input || !/[\t\n]/.test(text.trim())) return;
+  e.preventDefault();
+  const trs = [...$("resultsTable").querySelectorAll("tr[data-id]")];
+  const r0 = trs.indexOf(input.closest("tr"));
+  const c0 = RS_COLS.findIndex(([k]) => k === input.dataset.k);
+  text.replace(/\r/g, "").split("\n").filter((line, i, all) => line || i < all.length - 1).forEach((line, r) => {
+    line.split("\t").forEach((cell, c) => {
+      const target = trs[r0 + r]?.querySelectorAll("input[data-k]")[c0 + c];
+      if (target) target.value = cell.trim();
+    });
+  });
+  renderResultsSummary();
+}
+
+async function saveResultsDialog(e) {
+  e.preventDefault();
+  try {
+    const { results } = await postJson(`/api/batch/${batchCur.id}/results`, { platform: resultsPlatform, rows: readResultInputs() });
+    batchCur.results = results;
+    $("resultsHint").textContent = "Đã lưu — có cả trong file CSV.";
+    $("resultsHint").classList.remove("err");
+    renderResultsTable();
+  } catch (err) {
+    $("resultsHint").textContent = err.message;
+    $("resultsHint").classList.add("err");
+  }
 }
 
 // ---- nhân cả loạt: loạt "variants" mới với mọi video đã xong làm gốc ----

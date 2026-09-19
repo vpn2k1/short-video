@@ -80,6 +80,10 @@ export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs" | "
  * Trường để trống (undefined) = giữ như video đang có.
  */
 export type EditKind = "props" | "rebuild";
+
+/** Số liệu một video trên một nền tảng. `watch` = tỉ lệ xem hết, %. Ô bỏ trống = chưa có số. */
+export type PostStats = { views?: number; watch?: number; likes?: number; comments?: number; shares?: number };
+const STAT_KEYS = ["views", "watch", "likes", "comments", "shares"] as const;
 export type EditPlan = {
   kind: EditKind;
   /** Đường dẫn nhạc, "random", hoặc null = bỏ nhạc. */
@@ -265,6 +269,8 @@ export type Batch = {
   hooks?: { count: number; lines?: string[] };
   /** Đoạn mở đầu / kết thúc chung đã gắn lần gần nhất (đường dẫn trong public/). */
   brand?: { intro: string | null; outro: string | null };
+  /** Kết quả sau khi đăng, người dùng tự nhập: nền tảng → id mục → số liệu. */
+  results?: Partial<Record<PostPlatform, Record<string, PostStats>>>;
   /** Lịch đăng: mốc đăng (ms) của từng mục theo id, và bài đăng của nền tảng nào đưa vào lịch. */
   postPlan?: { slots: Record<string, number>; platforms: PostPlatform[] };
   /** Hẹn giờ chạy (ms): loạt nằm chờ ở "idle" tới lúc đó thì tự chạy — app phải đang mở. */
@@ -2028,6 +2034,51 @@ export const savePostPlan = (id: unknown, body: unknown) => {
   return { postPlan: batch.postPlan ?? null };
 };
 
+/**
+ * Đọc số người dùng gõ hoặc dán từ trang thống kê: "12.345" / "12,345" (phân cách hàng nghìn), "45,5" / "45.5"
+ * (thập phân), "12,3K", "1.2M", "1,5 tr", "38%". Không đọc được hoặc âm → null.
+ */
+export const parseStat = (raw: unknown): number | null => {
+  let text = String(raw ?? "").trim().toLowerCase().replace(/%$/, "").trim();
+  if (!text) return null;
+  const unit = /(k|n|nghìn|ngàn|m|tr|triệu|b|tỷ)$/.exec(text)?.[1];
+  if (unit) text = text.slice(0, -unit.length).trim();
+  // Dấu . hoặc , đứng trước đúng 3 chữ số ở cuối cụm = phân cách hàng nghìn; còn lại là dấu thập phân.
+  text = text.replace(/\s/g, "").replace(/[.,](?=\d{3}(?:[.,]|$))/g, "").replace(",", ".");
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return null;
+  const mul = !unit ? 1 : /^(k|n|nghìn|ngàn)$/.test(unit) ? 1e3 : /^(m|tr|triệu)$/.test(unit) ? 1e6 : 1e9;
+  return n * mul;
+};
+
+/**
+ * Lưu số liệu sau khi đăng của một nền tảng (ghi đè đúng các ô gửi lên). Số âm, chữ hay tỉ lệ ngoài 0–100 bị bỏ.
+ * Ô trống = xoá số đó; video không còn số nào thì bỏ khỏi bảng.
+ */
+export const saveResults = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const raw = (body ?? {}) as { platform?: unknown; rows?: unknown };
+  const platform = PLATFORMS.find((p) => p === raw.platform);
+  if (!platform) throw new Error("Chọn nền tảng trước đã.");
+  const ids = new Set(batch.items.map((item) => item.id));
+  const table: Record<string, PostStats> = {};
+  for (const [itemId, row] of Object.entries((raw.rows ?? {}) as Record<string, Record<string, unknown>>)) {
+    if (!ids.has(itemId)) continue;
+    const stats: PostStats = {};
+    for (const key of STAT_KEYS) {
+      const value = parseStat(row?.[key]);
+      if (value === null) continue;
+      if (key === "watch" && value > 100) continue;
+      stats[key] = key === "watch" ? Math.round(value * 10) / 10 : Math.round(value);
+    }
+    if (Object.keys(stats).length) table[itemId] = stats;
+  }
+  batch.results = { ...(batch.results ?? {}), [platform]: table };
+  if (Object.keys(table).length === 0) delete batch.results[platform];
+  save(batch);
+  return { results: batch.results };
+};
+
 /** Chuỗi trong file .ics: thoát \ ; , và xuống dòng; gấp dòng dài 75 byte theo RFC 5545. */
 const icsText = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 const icsFold = (line: string) => {
@@ -2099,6 +2150,7 @@ export const batchCsv = (id: unknown) => {
     "STT", "Tiêu đề", "Trạng thái", "Nội dung đã nhập", "Lời đọc", "File", "Khung", "Phong cách",
     "TikTok", "YouTube — tiêu đề", "YouTube — mô tả", "Facebook", "Instagram",
     "Điểm tự soát", "Cần xem", "Lịch đăng",
+    ...PLATFORMS.filter((p) => batch.results?.[p]).flatMap((p) => [`${PLATFORM_LABEL[p]} — lượt xem`, `${PLATFORM_LABEL[p]} — % xem hết`]),
   ];
   const rows = batch.items.map((item, index) => {
     const settings = item.override ?? batch.settings;
@@ -2125,6 +2177,9 @@ export const batchCsv = (id: unknown) => {
       qa ? `${qa.score}/10` : "",
       qa ? qa.issues.map((issue) => issue.text).join(" | ") : "",
       batch.postPlan?.slots[item.id] ? new Date(batch.postPlan.slots[item.id]).toLocaleString("vi-VN") : "",
+      ...PLATFORMS.filter((p) => batch.results?.[p]).flatMap((p) => [
+        batch.results![p]![item.id]?.views ?? "", batch.results![p]![item.id]?.watch ?? "",
+      ]),
     ].map(csvCell).join(",");
   });
   return `﻿${header.map(csvCell).join(",")}\n${rows.join("\n")}\n`;
