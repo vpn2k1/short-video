@@ -25,6 +25,8 @@ export type SavedPostCopy = PostCopy & {
   generatedAt: number;
   provider: ScriptProvider;
   providerLabel: string;
+  /** Nhà cung cấp kèm model thật đã trả lời, vd "Gemini (gemini-flash-lite-latest)" khi model chính quá tải. */
+  writtenBy?: string;
   /** Vân tay lời video lúc viết gợi ý. */
   source: string;
 };
@@ -183,14 +185,15 @@ export const generatePostCopy = async (slug: string, provider: ProviderChoice = 
   const { value, provider: chosen } = await askJson(
     provider,
     { system: SYSTEM, user, schema: SCHEMA, temperature: 0.7, maxTokens: 2000, slowHint: "thử lại, hoặc dùng AI trên mạng" },
-    readCopy(text.vertical),
+    (reply) => ({ copy: readCopy(text.vertical)(reply), who: reply.who }),
     "Chưa có AI nào để viết gợi ý bài đăng. Điền key trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí).",
   );
   const saved: SavedPostCopy = {
-    ...value,
+    ...value.copy,
     generatedAt: Date.now(),
     provider: chosen,
     providerLabel: providerLabel(chosen),
+    writtenBy: value.who,
     source: fingerprint(text),
   };
   fs.writeFileSync(cachePath(slug), JSON.stringify(saved, null, 2));

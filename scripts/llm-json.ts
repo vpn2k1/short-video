@@ -102,15 +102,16 @@ const compatAsk = async (
 
 const claudeAsk = async (ask: JsonAsk): Promise<JsonReply> => {
   const client = new Anthropic();
+  const model = process.env.CLAUDE_MODEL || "claude-opus-5";
   const response = await client.messages.create({
-    model: process.env.CLAUDE_MODEL || "claude-opus-5",
+    model,
     max_tokens: ask.maxTokens ?? 4000,
     system: ask.system,
     messages: [{ role: "user", content: ask.user }],
   });
   return {
     raw: response.content.map((block) => (block.type === "text" ? block.text : "")).join(""),
-    who: "Claude",
+    who: `Claude (${model})`,
   };
 };
 
