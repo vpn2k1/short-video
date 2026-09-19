@@ -37,7 +37,7 @@ import {
 import {
   approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
   listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
-  SPOKEN_LANGUAGES,
+  readBatchPostCopy, SPOKEN_LANGUAGES, startBatchPostCopy,
 } from "./batch";
 import {
   CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, DEFAULT_CAPTION_LOOK,
@@ -669,6 +669,9 @@ const server = http.createServer(async (req, res) => {
         if (action === "script" && req.method === "GET") {
           return send(res, 200, readItemScript(id, url.searchParams.get("item")));
         }
+        if (action === "post-copy" && req.method === "GET") {
+          return send(res, 200, readBatchPostCopy(id));
+        }
         if (action === "csv" && req.method === "GET") {
           return send(res, 200, batchCsv(id), {
             "Content-Type": "text/csv; charset=utf-8",
@@ -676,7 +679,10 @@ const server = http.createServer(async (req, res) => {
           });
         }
         if (req.method === "POST") {
-          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown }>(req);
+          const body = await readJson<{ ids?: unknown; alsoVideo?: boolean; look?: unknown; looks?: unknown; provider?: unknown; force?: unknown }>(req);
+          if (action === "post-copy") {
+            return send(res, 200, startBatchPostCopy(id, isScriptProvider(body.provider) ? body.provider : "auto", body.force === true));
+          }
           if (action === "restyle") return send(res, 200, restyleSubs(id, body.look, body.looks));
           if (action === "edit") return send(res, 200, editItem(id, body));
           if (action === "script") return send(res, 200, saveItemScript(id, body));

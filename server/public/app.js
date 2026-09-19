@@ -3124,6 +3124,7 @@ function bindBatch() {
   $("batchPause").addEventListener("click", toggleBatchRun);
   $("batchApproveAll").addEventListener("click", () => batchAction("approve"));
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
+  $("batchPostCopy").addEventListener("click", startBatchPostCopy);
   $("batchDelete").addEventListener("click", deleteBatchRun);
   // Cuộn tới đâu thì gắn video của những ô vừa hiện ra tới đó.
   let mounting = false;
@@ -3986,6 +3987,7 @@ function renderBatchRun() {
   $("batchZip").innerHTML = `${icon("download")} ${subs ? `Tải tất cả (${c.done} video + .srt)` : `Tải tất cả (${c.done})`}`;
   $("batchCsv").hidden = c.total === 0;
   $("batchCsv").href = `/api/batch/${b.id}/csv`;
+  renderBatchPostCopy(b.postCopy);
 
   // Cả loạt vừa xong → báo một lần, vì người dùng thường để chạy rồi đi làm việc khác.
   if (batchWasRunning && b.state === "done") notifyBatchDone(b);
@@ -4110,6 +4112,7 @@ function batchItemTile(it, i) {
         title="Mở trình chỉnh sửa ở tab mới — sửa xong bấm Xuất video, gói Tải tất cả sẽ lấy bản đã sửa">${icon("scissors")} Chỉnh sửa</a>`);
     }
     if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>${icon("download")} Tải</a>`);
+    if (it.slug) actions.push(`<button type="button" class="btn" data-act="post-copy" data-slug="${escapeHtml(it.slug)}" title="Tiêu đề, caption, hashtag để đăng video này">${icon("megaphone")} Bài đăng</button>`);
     if (scriptEditable) actions.push(btn("edit", `${icon("pen-line")} Sửa lời`));
     else actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
   } else if (it.status === "skipped") {
@@ -4355,6 +4358,7 @@ async function onBatchItemClick(e) {
     return;
   }
   const { act, id } = button.dataset;
+  if (act === "post-copy") return openPostCopy(button.dataset.slug);
   if (act === "edit") return openBatchEdit(id);
   if (act === "edit-idea") return openBatchEdit(id, "idea");
   if (act === "save-script") return saveBatchScript(id, false);
@@ -4383,6 +4387,74 @@ async function batchAction(act, ids) {
     $("batchRunHint").textContent = e.message;
     $("batchRunHint").classList.add("err");
   }
+}
+
+// ---- bài đăng cho cả loạt: chạy nền trên server, ở đây chỉ hỏi tiến độ ----
+let batchPostCopyPoll = null;
+
+/** Nút "Viết bài đăng": số video còn thiếu, tiến độ khi đang viết, hay "viết lại" khi đã đủ. */
+function renderBatchPostCopy(pc) {
+  const button = $("batchPostCopy");
+  button.hidden = !pc || pc.videos === 0;
+  if (button.hidden) return;
+  const run = pc.run;
+  button.disabled = Boolean(run?.running);
+  if (run?.running) {
+    button.innerHTML = run.waiting
+      ? `${icon("hourglass")} AI hết lượt, đợi ${run.waiting}s… (${run.done + run.failed}/${run.total})`
+      : `${icon("loader-circle", "spin")} Đang viết bài đăng ${run.done + run.failed}/${run.total}…`;
+    if (!batchPostCopyPoll) pollBatchPostCopy();
+  } else if (pc.ready >= pc.videos) {
+    button.innerHTML = `${icon("megaphone")} Bài đăng đủ ${pc.ready}/${pc.videos}`;
+    button.dataset.force = "1";
+  } else {
+    button.innerHTML = `${icon("megaphone")} Viết bài đăng (${pc.videos - pc.ready})`;
+    delete button.dataset.force;
+  }
+}
+
+async function startBatchPostCopy() {
+  if (!batchCur) return;
+  const force = $("batchPostCopy").dataset.force === "1";
+  if (force) {
+    const ok = await confirmDialog({
+      title: "Viết lại bài đăng cho cả loạt?",
+      message: "Mọi video đã có gợi ý rồi. Viết lại sẽ thay toàn bộ tiêu đề, caption, hashtag hiện có.",
+      okText: "Viết lại tất cả",
+    });
+    if (!ok) return;
+  }
+  $("batchRunHint").textContent = "";
+  $("batchRunHint").classList.remove("err");
+  try {
+    renderBatchPostCopy(await postJson(`/api/batch/${batchCur.id}/post-copy`, { provider: opts.provider, force }));
+  } catch (e) {
+    $("batchRunHint").textContent = e.message;
+    $("batchRunHint").classList.add("err");
+  }
+}
+
+function pollBatchPostCopy() {
+  const id = batchCur?.id;
+  batchPostCopyPoll = setTimeout(async () => {
+    batchPostCopyPoll = null;
+    // Người dùng đã sang loạt khác hoặc rời màn này thì thôi hỏi.
+    if (!batchCur || batchCur.id !== id || $("batchRun").hidden) return;
+    try {
+      const pc = await api(`/api/batch/${id}/post-copy`);
+      batchCur.postCopy = pc;
+      renderBatchPostCopy(pc);
+      if (pc.run && !pc.run.running) {
+        const { done, failed, error } = pc.run;
+        $("batchRunHint").textContent = failed
+          ? `Viết xong ${done} bài đăng, ${failed} video lỗi: ${error}`
+          : `Đã viết bài đăng cho ${done} video — có trong CSV và file .txt khi tải cả loạt.`;
+        $("batchRunHint").classList.toggle("err", failed > 0);
+      }
+    } catch {
+      // Mạng chập chờn: lần vẽ lại sau của loạt sẽ hỏi tiếp.
+    }
+  }, 2000);
 }
 
 async function toggleBatchRun() {

@@ -51,6 +51,8 @@ import { findVoice } from "../scripts/voices";
 import { slugify } from "../scripts/slug";
 import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
+import { generatePostCopy, getPostCopy, type SavedPostCopy } from "../scripts/post-copy";
+import type { ProviderChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
   isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
@@ -598,7 +600,7 @@ const refreshEdits = (batch: Batch) => {
 
 export const readBatch = (id: unknown) => {
   const batch = require_(id);
-  return { ...batch, items: refreshEdits(batch), counts: counts(batch) };
+  return { ...batch, items: refreshEdits(batch), counts: counts(batch), postCopy: batchPostCopyStatus(batch) };
 };
 
 export const deleteBatch = (id: unknown) => {
@@ -1363,6 +1365,8 @@ export function* batchZip(id: unknown): Generator<Buffer> {
     for (const { item, index } of files) {
       const mp4Name = exportName(item, index);
       yield { name: mp4Name, read: () => fs.readFileSync(path.join(process.cwd(), "out", `${item.slug}.mp4`)) };
+      const copy = freshCopy(item.slug!);
+      if (copy) yield { name: mp4Name.replace(/\.mp4$/, ".txt"), read: () => Buffer.from(postCopyText(copy), "utf8") };
       if (batch.source !== "subs") continue;
       // Loạt nhiều hàng: hàng đầu là <tên>.srt, các hàng sau <tên>.<mã ngôn ngữ>.srt.
       const tracks = batch.subs?.tracks ?? [{ lang: "" as const }];
@@ -1462,12 +1466,17 @@ const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""').
  */
 export const batchCsv = (id: unknown) => {
   const batch = require_(id);
-  const header = ["STT", "Tiêu đề", "Trạng thái", "Nội dung đã nhập", "Lời đọc", "File", "Khung", "Phong cách"];
+  const header = [
+    "STT", "Tiêu đề", "Trạng thái", "Nội dung đã nhập", "Lời đọc", "File", "Khung", "Phong cách",
+    "TikTok", "YouTube — tiêu đề", "YouTube — mô tả", "Facebook", "Instagram",
+  ];
   const rows = batch.items.map((item, index) => {
     const settings = item.override ?? batch.settings;
     const script = item.slug
       ? readJson(path.join(videoDir(item.slug), "script.json")) as { style?: string } | null
       : null;
+    const copy = item.status === "done" && item.slug ? freshCopy(item.slug) : null;
+    const withTags = (text: string, tags: string[]) => [text, tags.join(" ")].filter(Boolean).join(" ");
     return [
       index + 1,
       item.title ?? "",
@@ -1477,6 +1486,11 @@ export const batchCsv = (id: unknown) => {
       item.status === "done" ? exportName(item, index) : "",
       settings.aspect,
       script?.style ?? "",
+      copy ? withTags(copy.tiktok.caption, copy.tiktok.hashtags) : "",
+      copy?.youtube.title ?? "",
+      copy ? withTags(copy.youtube.description, copy.youtube.hashtags) : "",
+      copy ? withTags(copy.facebook.caption, copy.facebook.hashtags) : "",
+      copy ? withTags(copy.instagram.caption, copy.instagram.hashtags) : "",
     ].map(csvCell).join(",");
   });
   return `﻿${header.map(csvCell).join(",")}\n${rows.join("\n")}\n`;
@@ -1485,4 +1499,93 @@ export const batchCsv = (id: unknown) => {
 const BATCH_STATUS_TEXT: Record<ItemStatus, string> = {
   queued: "chờ", preparing: "đang chuẩn bị", review: "chờ duyệt", ready: "chờ dựng",
   building: "đang dựng", done: "xong", error: "lỗi", skipped: "bỏ qua",
+};
+
+// ---------- bài đăng cho cả loạt ----------
+
+/**
+ * Viết tiêu đề, caption, hashtag (scripts/post-copy.ts) cho mọi video đã xong trong loạt.
+ *
+ * Chạy lần lượt từng video chứ không song song: đây là việc chờ mạng nhưng key miễn phí (Gemini, Groq)
+ * giới hạn số lượt mỗi phút — bắn cả loạt cùng lúc là dính lỗi hạn mức ngay giữa chừng.
+ * Trạng thái chỉ giữ trong bộ nhớ: tắt app giữa chừng thì những video đã viết xong vẫn còn
+ * post-copy.json, bấm lại chỉ viết tiếp phần còn thiếu.
+ */
+type PostCopyRun = {
+  running: boolean; total: number; done: number; failed: number; error?: string;
+  /** Đang đợi hết hạn mức của AI, tính bằng giây. */
+  waiting?: number;
+};
+const postCopyRuns = new Map<string, PostCopyRun>();
+
+/** Gợi ý đã lưu và còn khớp lời video (sửa lời sau đó thì coi như chưa có). */
+const freshCopy = (slug: string): SavedPostCopy | null => {
+  const { copy, stale } = getPostCopy(slug);
+  return copy && !stale ? copy : null;
+};
+
+/** Nội dung file .txt cạnh video trong gói tải về — dán thẳng lên từng nền tảng. */
+const postCopyText = (copy: SavedPostCopy) => {
+  const block = (label: string, ...parts: (string | string[])[]) =>
+    `== ${label} ==\n${parts.map((p) => (Array.isArray(p) ? p.join(" ") : p)).filter(Boolean).join("\n\n")}`;
+  return [
+    block("TikTok", copy.tiktok.caption, copy.tiktok.hashtags),
+    block("YouTube", copy.youtube.title, copy.youtube.description, copy.youtube.hashtags),
+    block("Facebook", copy.facebook.caption, copy.facebook.hashtags),
+    block("Instagram", copy.instagram.caption, copy.instagram.hashtags),
+  ].join("\n\n") + "\n";
+};
+
+const batchPostCopyStatus = (batch: Batch) => {
+  const files = doneItems(batch);
+  const ready = files.filter(({ item }) => freshCopy(item.slug!)).length;
+  const run = postCopyRuns.get(batch.id);
+  return { ready, videos: files.length, run: run ?? null };
+};
+
+export const readBatchPostCopy = (id: unknown) => batchPostCopyStatus(require_(id));
+
+/** `force` = viết lại cả những video đã có gợi ý; mặc định chỉ viết video chưa có hoặc đã sửa lời. */
+export const startBatchPostCopy = (id: unknown, provider: ProviderChoice = "auto", force = false) => {
+  const batch = require_(id);
+  if (postCopyRuns.get(batch.id)?.running) return batchPostCopyStatus(batch);
+  const slugs = doneItems(batch)
+    .map(({ item }) => item.slug!)
+    .filter((slug) => force || !freshCopy(slug));
+  if (slugs.length === 0) {
+    postCopyRuns.delete(batch.id);
+    return batchPostCopyStatus(batch);
+  }
+  const run: PostCopyRun = { running: true, total: slugs.length, done: 0, failed: 0 };
+  postCopyRuns.set(batch.id, run);
+  void (async () => {
+    for (const slug of slugs) {
+      // Hết hạn mức theo phút (429) là chuyện thường khi viết cả loạt bằng key miễn phí: đợi đúng số giây
+      // nhà cung cấp báo rồi thử lại, tối đa hai lần, thay vì bỏ qua video đó.
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await generatePostCopy(slug, provider);
+          run.done++;
+          delete run.waiting;
+          break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (attempt < 2 && /hết hạn mức|429/.test(message)) {
+            const seconds = Math.min(65, Number(/Đợi khoảng (\d+) giây/.exec(message)?.[1] ?? 20) + 3);
+            run.waiting = seconds;
+            await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+            continue;
+          }
+          run.failed++;
+          run.error = message;
+          delete run.waiting;
+          break;
+        }
+      }
+      // Không có AI nào dùng được thì video sau cũng lỗi y hệt — dừng luôn cho khỏi chờ.
+      if (run.error && /Chưa có AI nào/.test(run.error)) break;
+    }
+    run.running = false;
+  })();
+  return batchPostCopyStatus(batch);
 };
