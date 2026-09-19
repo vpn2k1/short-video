@@ -85,6 +85,39 @@ export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs" | "
  */
 export type EditKind = "props" | "rebuild";
 
+/**
+ * Nhận diện kênh áp cho mọi video của loạt (lưu cùng Mẫu cài đặt): tên kênh, màu nhấn, đoạn mở đầu/kết thúc,
+ * và — tuỳ chọn — kiểu phụ đề riêng. Kiểu phụ đề riêng THAY hiệu ứng phụ đề của phong cách (vd. Chữ động bật từng
+ * chữ) ở các phong cách cho phép, nên chỉ áp khi người dùng bật.
+ */
+export type Kit = {
+  handle?: string;
+  accent?: string;
+  intro?: string | null;
+  outro?: string | null;
+  captionLook?: Partial<CaptionLook> | null;
+};
+
+export const parseKit = (raw: unknown): Kit | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const kit: Kit = {};
+  if (typeof r.handle === "string" && r.handle.trim()) {
+    const handle = r.handle.trim().slice(0, 30);
+    kit.handle = handle.startsWith("@") ? handle : `@${handle}`;
+  }
+  if (typeof r.accent === "string" && /^#[0-9a-f]{6}$/i.test(r.accent)) kit.accent = r.accent;
+  for (const key of ["intro", "outro"] as const) {
+    const rel = typeof r[key] === "string" ? String(r[key]).trim().replace(/^\/+/, "") : "";
+    if (rel && !rel.includes("..") && isBrandFile(rel) && fs.existsSync(path.join(process.cwd(), "public", rel))) kit[key] = rel;
+  }
+  if (r.captionLook && typeof r.captionLook === "object") {
+    const look = captionLookSchema.partial().safeParse(r.captionLook);
+    if (look.success && Object.keys(look.data).length) kit.captionLook = look.data;
+  }
+  return Object.keys(kit).length ? kit : undefined;
+};
+
 /** Số liệu một video trên một nền tảng. `watch` = tỉ lệ xem hết, %. Ô bỏ trống = chưa có số. */
 export type PostStats = { views?: number; watch?: number; likes?: number; comments?: number; shares?: number };
 const STAT_KEYS = ["views", "watch", "likes", "comments", "shares"] as const;
@@ -282,6 +315,8 @@ export type Batch = {
   spoken?: string;
   /** Nguồn clips: video gốc đã in sẵn phụ đề — không gắn thêm (chồng hai lớp chữ). */
   noCaptions?: boolean;
+  /** Nhận diện kênh áp cho mọi video (chọn cùng Mẫu cài đặt lúc tạo loạt). */
+  kit?: Kit;
   /** Đoạn mở đầu / kết thúc chung đã gắn lần gần nhất (đường dẫn trong public/). */
   brand?: { intro: string | null; outro: string | null };
   /** Kết quả sau khi đăng, người dùng tự nhập: nền tảng → id mục → số liệu. */
@@ -507,6 +542,8 @@ export type CreateBatchInput = {
   spoken?: unknown;
   clips?: unknown;
   noCaptions?: unknown;
+  /** Nhận diện kênh (xem Kit). */
+  kit?: unknown;
   /** Nguồn edit: items là danh sách slug video có sẵn; đây là thay đổi áp cho tất cả. */
   edit?: Record<string, unknown>;
   /** Tạo xong chạy luôn. */
@@ -668,6 +705,8 @@ export const createBatch = (body: CreateBatchInput) => {
     ...(startAt ? { startAt } : {}),
     ...(spoken ? { spoken } : {}),
     ...(source === "clips" && body.noCaptions === true ? { noCaptions: true } : {}),
+    // Sửa hàng loạt có kế hoạch riêng; các nguồn còn lại nhận nhận diện kênh.
+    ...(source !== "edit" && parseKit(body.kit) ? { kit: parseKit(body.kit) } : {}),
     state: "idle",
     items,
   };
@@ -1191,6 +1230,7 @@ const run = async (batch: Batch, item: BatchItem, phase: "prepare" | "build") =>
     } else {
       await build(batch, item, log);
       await autoCheck(item, log);
+      await applyKitBrand(batch, item, log);
       item.status = "done";
       item.finishedAt = Date.now();
       if (item.restyle) {
@@ -1895,6 +1935,8 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
 
   // Nguồn file thu sẵn không có kịch bản, và sửa hàng loạt kiểu giữ chỉnh sửa — render thẳng từ props.json.
   if (item.file || item.edit === "props") {
+    // Nhận diện kênh cho video dựng từ file (file thu sẵn, cắt từ video dài) — ghi vào props trước khi render.
+    if (item.file && batch.kit) applyKitToProps(slug, batch.kit);
     log("__STEP__ render");
     const result = await runRenderStage(slug, undefined, log);
     item.mp4 = `${result.mp4}?t=${Date.now()}`;
@@ -1920,7 +1962,15 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   const voiceScript = parentSlug && fs.existsSync(path.join(videoDir(parentSlug), "script.json"))
     ? parseScript(JSON.parse(fs.readFileSync(path.join(videoDir(parentSlug), "script.json"), "utf8")))
     : undefined;
-  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit), voiceScript);
+  // Nhận diện kênh: tên kênh, màu nhấn vào kịch bản (lưu lại để sửa sau vẫn giữ); kiểu phụ đề vào props lúc dựng.
+  const kit = item.edit ? undefined : batch.kit;
+  if (kit?.handle || kit?.accent) {
+    if (kit.handle) script.handle = kit.handle;
+    if (kit.accent) script.accent = kit.accent;
+    fs.writeFileSync(scriptPath, JSON.stringify(script, null, 2));
+  }
+  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit), voiceScript,
+    kit?.captionLook ? { captionLook: kit.captionLook } : undefined);
   if (item.edit) result.text = `Đã sửa hàng loạt: ${editSummary(batch.edit)} · ${result.text}`;
 
   item.mp4 = result.mp4;
@@ -1931,6 +1981,33 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   item.title = script.title;
   item.scenes = script.scenes.length;
   appendAssistant(slug, { role: "assistant", at: Date.now(), ...result });
+};
+
+// ---------- nhận diện kênh ----------
+
+const applyKitToProps = (slug: string, kit: Kit) => {
+  const propsPath = path.join(videoDir(slug), "props.json");
+  const props = readJson(propsPath);
+  if (!props) return;
+  if (kit.handle) props.handle = kit.handle;
+  if (kit.accent) props.accent = kit.accent;
+  if (kit.captionLook) props.captionLook = { ...(props.captionLook ?? {}), ...kit.captionLook };
+  fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
+};
+
+/** Dựng xong thì ghép luôn mở đầu/kết thúc của kênh — bản gốc giữ nguyên, bản ghép vào thư mục riêng của gói tải. */
+const applyKitBrand = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const kit = batch.kit;
+  if (!kit || (!kit.intro && !kit.outro) || !item.slug || item.edit) return;
+  const mp4 = path.join(process.cwd(), "out", `${item.slug}.mp4`);
+  if (!fs.existsSync(mp4)) return;
+  try {
+    log("Ghép mở đầu / kết thúc của kênh…");
+    await brandVideo(mp4, brandPath(item.slug), { intro: kit.intro, outro: kit.outro });
+    batch.brand = { intro: kit.intro ?? null, outro: kit.outro ?? null };
+  } catch (error) {
+    log(`Không ghép được mở đầu/kết thúc: ${errorText(error)}`);
+  }
 };
 
 // ---------- tự soát chất lượng ----------

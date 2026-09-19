@@ -1166,6 +1166,8 @@ export const buildFromScript = async (
    * hình lấy từ `script` đã dịch. Giọng có bộ nhớ theo chữ nên đọc lại lời gốc không tốn thêm lượt gọi.
    */
   voiceScript?: VideoScript,
+  /** Ghi đè vào props trước khi render — nhận diện kênh của loạt (kiểu phụ đề…). */
+  patch?: Partial<ShortProps>,
 ) => {
   const sceneSummary = script.scenes.map((sc) => ({ lines: sc.lines, image: sc.image }));
   const styleMeta = STYLES[script.style] ?? STYLES.caption;
@@ -1236,6 +1238,7 @@ export const buildFromScript = async (
       aspect: settings.aspect,
     }),
   );
+  if (patch) Object.assign(props, patch);
   const aiNote = settings.video
     ? await addAiClips(slug, script, props, settings, log)
     : await addSceneImages(slug, script, props, settings, log);

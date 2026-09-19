@@ -9,8 +9,10 @@ import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 import { DEFAULT_SETTINGS, normalizeSettings, type ChatSettings } from "./chat";
+import { parseKit, type Kit } from "./batch";
 
-export type BatchPreset = { id: string; name: string; settings: ChatSettings; review: boolean; updatedAt: number };
+/** Mẫu = cài đặt loạt + (tuỳ chọn) nhận diện kênh: tên kênh, màu, mở đầu/kết thúc, kiểu phụ đề. */
+export type BatchPreset = { id: string; name: string; settings: ChatSettings; review: boolean; kit?: Kit; updatedAt: number };
 
 const MAX_PRESETS = 30;
 const presetsFile = () => path.join(process.cwd(), "data", "batch-presets.json");
@@ -37,7 +39,7 @@ export const listPresets = () => ({
 });
 
 export const savePreset = (body: unknown) => {
-  const { name, settings, review } = (body ?? {}) as { name?: unknown; settings?: Partial<ChatSettings>; review?: unknown };
+  const { name, settings, review, kit } = (body ?? {}) as { name?: unknown; settings?: Partial<ChatSettings>; review?: unknown; kit?: unknown };
   const title = String(name ?? "").trim().slice(0, 40);
   if (!title) throw new Error("Đặt tên cho mẫu trước đã.");
   const presets = readAll();
@@ -47,6 +49,7 @@ export const savePreset = (body: unknown) => {
     name: title,
     settings: normalizeSettings(settings, DEFAULT_SETTINGS),
     review: review !== false,
+    ...(parseKit(kit) ? { kit: parseKit(kit) } : {}),
     updatedAt: Date.now(),
   };
   const rest = presets.filter((p) => p.id !== preset.id);

@@ -3105,7 +3105,9 @@ function bindBatch() {
   // Mỗi ô cài đặt mở menu của đúng cài đặt đó.
   $("batchFields").addEventListener("click", (e) => {
     const field = e.target.closest("[data-field]");
-    if (field) openMenu(field, batchMenuFor(field.dataset.field));
+    // Ô "Nhận diện kênh" mở hộp thoại thay vì menu (batchMenuFor trả null).
+    const menu = field ? batchMenuFor(field.dataset.field) : null;
+    if (menu) openMenu(field, menu);
   });
 
   $("batchText").addEventListener("input", () => { renderBatchCount(); renderBatchPlan(); });
@@ -3201,6 +3203,16 @@ function bindBatch() {
       renderClips();
     }
   });
+  $("kitForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    batchKit = readKitDialog();
+    $("kitDlg").close();
+    renderBatchNew();
+  });
+  $("kitClear").addEventListener("click", () => { batchKit = {}; $("kitDlg").close(); renderBatchNew(); });
+  $("kitAccent").addEventListener("input", () => { $("kitAccentOn").checked = true; });
+  ["kitFont", "kitPreset", "kitColor", "kitLookAccent"].forEach((id) => $(id).addEventListener("input", () => { $("kitLookOn").checked = true; }));
+  $("kitDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("kitDlg").close()));
   $("batchLangPicks").addEventListener("click", (e) => {
     const code = e.target.closest("[data-sublang]")?.dataset.sublang;
     if (!code) return;
@@ -3457,6 +3469,7 @@ function renderBatchFields() {
     fields.push(["music", "Nhạc nền", musicLabel(opts.music), musicIcon(opts.music)]);
   }
   fields.push(["review", "Duyệt lời", batchReview ? "Dừng cho tôi đọc" : "Chạy thẳng", batchReview ? icon("check") : icon("fast-forward")]);
+  fields.push(["kit", "Nhận diện kênh", kitSummary(batchKit), icon("badge-check")]);
   // Mẫu đứng đầu: chọn mẫu là đổi cả các ô phía sau.
   const preset = batchPresets.find((p) => p.id === batchPresetId);
   fields.unshift(["preset", "Mẫu cài đặt", preset ? `${preset.name}${presetChanged(preset) ? " (đã đổi)" : ""}` : "Không dùng mẫu",
@@ -3471,6 +3484,56 @@ function renderBatchFields() {
        aria-haspopup="listbox" aria-expanded="false">
       <span>${escapeHtml(label)}</span><b><i>${ic ? `${ic} ` : ""}${escapeHtml(value)}</i>${CARET}</b>
     </button>`).join("");
+}
+
+// ---- nhận diện kênh (server/batch.ts › Kit): tên kênh, màu, mở đầu/kết thúc, kiểu phụ đề ----
+let batchKit = {};
+let kitOptions = null;   // font, kiểu chữ — lấy một lần từ /api/subs/options
+
+const kitSummary = (kit) => {
+  const bits = [kit.handle, kit.accent ? "màu riêng" : "", kit.intro || kit.outro ? "mở đầu/kết thúc" : "", kit.captionLook ? "kiểu phụ đề" : ""].filter(Boolean);
+  return bits.length ? bits.join(" · ") : "Chưa đặt";
+};
+
+async function openKitDialog() {
+  const k = batchKit;
+  $("kitHandle").value = k.handle ?? "";
+  $("kitAccentOn").checked = Boolean(k.accent);
+  $("kitAccent").value = k.accent ?? "#e8590c";
+  $("kitLookOn").checked = Boolean(k.captionLook);
+  $("kitDlg").showModal();
+  try {
+    kitOptions ??= await api("/api/subs/options");
+    const { items } = await api("/api/library/media");
+    const media = items.filter((m) => (m.kind === "image" || m.kind === "video") && !["voices", "thumbs"].includes(m.root))
+      .sort((a, b) => b.at - a.at).slice(0, 80);
+    for (const [id, current] of [["kitIntro", k.intro], ["kitOutro", k.outro]]) {
+      $(id).innerHTML = `<option value="">Không có</option>` + media.map((m) =>
+        `<option value="${escapeHtml(m.path)}">${m.kind === "video" ? "🎬" : "🖼"} ${escapeHtml(m.name)}</option>`).join("");
+      $(id).value = current ?? "";
+    }
+    const look = { ...kitOptions.look, ...(k.captionLook ?? {}) };
+    $("kitFont").innerHTML = Object.entries(kitOptions.fonts).map(([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`).join("");
+    $("kitPreset").innerHTML = Object.entries(kitOptions.presets).map(([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`).join("");
+    $("kitFont").value = look.font;
+    $("kitPreset").value = look.preset;
+    $("kitColor").value = look.color;
+    $("kitLookAccent").value = look.accent;
+  } catch (e) {
+    setBatchHint(e.message, true);
+  }
+}
+
+function readKitDialog() {
+  const kit = {};
+  if ($("kitHandle").value.trim()) kit.handle = $("kitHandle").value.trim();
+  if ($("kitAccentOn").checked) kit.accent = $("kitAccent").value;
+  if ($("kitIntro").value) kit.intro = $("kitIntro").value;
+  if ($("kitOutro").value) kit.outro = $("kitOutro").value;
+  if ($("kitLookOn").checked) {
+    kit.captionLook = { font: $("kitFont").value, preset: $("kitPreset").value, color: $("kitColor").value, accent: $("kitLookAccent").value };
+  }
+  return kit;
 }
 
 // ---- mẫu loạt (server/batch-presets.ts) ----
@@ -3489,7 +3552,8 @@ async function loadBatchPresets() {
 }
 
 const presetChanged = (preset) =>
-  batchReview !== preset.review || PRESET_KEYS.some((k) => (opts[k] || null) !== (preset.settings[k] || null));
+  batchReview !== preset.review || PRESET_KEYS.some((k) => (opts[k] || null) !== (preset.settings[k] || null)) ||
+  JSON.stringify(batchKit) !== JSON.stringify(preset.kit ?? {});
 
 const presetSummary = (p) => [
   `${styleMeta(p.settings.style).emoji} ${styleMeta(p.settings.style).label}`,
@@ -3497,11 +3561,13 @@ const presetSummary = (p) => [
   p.settings.voice || "không giọng",
   IMAGE_SOURCES[p.settings.images] ?? p.settings.images,
   p.review ? "duyệt lời" : "chạy thẳng",
-].join(" · ");
+  p.kit ? kitSummary(p.kit) : "",
+].filter(Boolean).join(" · ");
 
 function applyBatchPreset(preset) {
   for (const k of PRESET_KEYS) if (k in preset.settings) opts[k] = preset.settings[k] ?? "";
   batchReview = preset.review;
+  batchKit = structuredClone(preset.kit ?? {});
   batchPresetId = preset.id;
   renderComposer();
   renderProjectBar();
@@ -3519,7 +3585,7 @@ async function saveBatchPreset() {
   });
   if (!name) return;
   try {
-    const res = await postJson("/api/batch-presets", { name, settings: { ...opts, music: opts.music || null }, review: batchReview });
+    const res = await postJson("/api/batch-presets", { name, settings: { ...opts, music: opts.music || null }, review: batchReview, kit: batchKit });
     batchPresets = res.presets;
     batchPresetId = res.preset.id;
     renderBatchNew();
@@ -3541,6 +3607,11 @@ async function deleteBatchPreset() {
 
 /** Menu cho một ô cài đặt: phần lớn dùng chung với ô soạn chat, ba ô riêng của màn này. */
 function batchMenuFor(key) {
+  if (key === "kit") {
+    // Ô này mở hộp thoại, không phải menu — trả menu một mục cho khớp cách bấm của các ô khác.
+    openKitDialog();
+    return null;
+  }
   if (key === "preset") {
     return {
       id: "preset", title: "Mẫu cài đặt", value: batchPresetId ?? "",
@@ -4293,6 +4364,7 @@ async function createBatch() {
     review: batchReview,
     settings: { ...opts, music: opts.music || null },
     start: true,
+    ...(Object.keys(batchKit).length ? { kit: batchKit } : {}),
   };
   const at = $("batchStartAt").hidden ? "" : $("batchStartAt").value;
   if (at) body.startAt = new Date(at).getTime();
