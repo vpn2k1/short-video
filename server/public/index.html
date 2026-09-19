@@ -799,6 +799,14 @@
   .bt-card-preview { margin: 0; font-size: 14px; line-height: 1.5; }
   .bt-card-preview.empty { color: var(--muted); }
   .bt-card-own { margin: 0; font-size: 12px; color: var(--accent); }
+  .bt-qa { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 3px 9px; border-radius: 999px; font-size: 12px;
+           border: 1px solid var(--line); background: transparent; color: var(--muted); align-self: flex-start; cursor: default; }
+  button.bt-qa { cursor: pointer; }
+  .bt-qa.good { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+  .bt-qa.warn { color: #f0b429; border-color: color-mix(in srgb, #f0b429 45%, transparent); }
+  .bt-qa.bad { color: var(--err, #ef4444); border-color: color-mix(in srgb, var(--err, #ef4444) 45%, transparent); }
+  .bt-qa-list { margin: 0; padding: 0 0 0 18px; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .bt-qa-list li.error { color: var(--err, #ef4444); }
   .bt-card .chip-v { max-width: 120px; }
   .bt-add-card { display: grid; place-items: center; align-content: center; gap: 2px; min-height: 150px;
                  border: 1px dashed var(--line-2); border-radius: 14px; background: transparent;
@@ -1389,6 +1397,7 @@ Lưu lại để làm theo nhé!</pre>
         <button type="button" class="btn" id="batchPause"></button>
         <button type="button" class="btn primary" id="batchApproveAll" hidden><i data-icon="check"></i> Duyệt tất cả</button>
         <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
+        <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>
         <button type="button" class="btn" id="batchPostCopy" hidden title="AI viết tiêu đề, caption, hashtag cho từng video đã xong — có trong CSV và file .txt khi tải cả loạt"><i data-icon="megaphone"></i> Viết bài đăng</button>
         <a class="btn" id="batchZip" hidden download><i data-icon="download"></i> Tải tất cả</a>
         <a class="btn" id="batchCsv" hidden download title="Bảng theo dõi để đăng bài (mở bằng Excel, Google Sheets)"><i data-icon="file-spreadsheet"></i> CSV</a>

@@ -3016,7 +3016,11 @@ const BT_LABEL = {
   queued: "Chờ tới lượt", preparing: "Đang chuẩn bị", review: "Chờ bạn duyệt",
   ready: "Đã duyệt · chờ dựng", building: "Đang dựng", done: "Xong", error: "Lỗi", skipped: "Đã bỏ qua",
 };
-const BT_STEP = { script: "viết lời", voice: "giọng đọc", images: "tìm hình", render: "render" };
+const BT_STEP = { script: "viết lời", voice: "giọng đọc", images: "tìm hình", render: "render", check: "tự soát" };
+/** Ô đang mở danh sách lỗi tự soát — giữ qua các lần vẽ lại lưới. */
+const batchQaOpen = new Set();
+/** Dưới điểm này thì tính là "cần xem lại". */
+const QA_GOOD = 8;
 const BT_SOURCE_LABEL = {
   ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề", edit: "Sửa hàng loạt",
 };
@@ -3137,6 +3141,7 @@ function bindBatch() {
   $("batchApproveAll").addEventListener("click", () => batchAction("approve"));
   $("batchRetryAll").addEventListener("click", () => batchAction("retry"));
   $("batchPostCopy").addEventListener("click", startBatchPostCopy);
+  $("batchCheck").addEventListener("click", startBatchCheck);
   $("batchDelete").addEventListener("click", deleteBatchRun);
   // Cuộn tới đâu thì gắn video của những ô vừa hiện ra tới đó.
   let mounting = false;
@@ -4007,6 +4012,10 @@ function renderBatchRun() {
   const ratio = c.total === 0 ? 0 : Math.min(1, (c.done + c.skipped + partial) / c.total);
   $("batchProgressBar").style.width = `${Math.round(ratio * 100)}%`;
 
+  // Video đã xong mà tự soát dưới mức tốt — nên mở xem trước khi đăng.
+  const doneItems = b.items.filter((it) => it.status === "done");
+  const needLook = doneItems.filter((it) => it.qa && it.qa.score < QA_GOOD).length;
+  const unchecked = doneItems.filter((it) => !it.qa).length;
   const stat = (cls, label, value, show = true) =>
     show ? `<span class="bt-stat ${cls}">${label} <b>${value}</b></span>` : "";
   $("batchStats").innerHTML = [
@@ -4015,6 +4024,7 @@ function renderBatchRun() {
     stat("review", `${icon("eye")} Chờ duyệt`, c.review, c.review > 0),
     stat("", `${icon("hourglass")} Chờ`, c.waiting, c.waiting > 0),
     stat("err", `${icon("triangle-alert")} Lỗi`, c.error, c.error > 0),
+    stat("review", `${icon("scan-search")} Cần xem lại`, needLook, needLook > 0),
     stat("", `${icon("skip-forward")} Bỏ qua`, c.skipped, c.skipped > 0),
   ].join("");
   $("batchEta").textContent = batchEta(b);
@@ -4032,6 +4042,11 @@ function renderBatchRun() {
   $("batchCsv").hidden = c.total === 0;
   $("batchCsv").href = `/api/batch/${b.id}/csv`;
   renderBatchPostCopy(b.postCopy);
+  if (!batchCheckPoll) {
+    $("batchCheck").hidden = unchecked === 0;
+    $("batchCheck").disabled = false;
+    $("batchCheck").innerHTML = `${icon("scan-search")} Soát ${unchecked} video`;
+  }
 
   // Cả loạt vừa xong → báo một lần, vì người dùng thường để chạy rồi đi làm việc khác.
   if (batchWasRunning && b.state === "done") notifyBatchDone(b);
@@ -4121,6 +4136,26 @@ const shorten = (text, max = 90) => {
  * Một mục = một ô chữ nhật giống hệt ô lúc soạn. Xong thì chính ô đó hiện video;
  * bấm vào ô (hoặc nút Sửa) là ra lại ô nhập để sửa nội dung rồi làm lại.
  */
+/** Điểm tự soát trên ô video: bấm để mở/đóng danh sách điểm cần xem. */
+function qaBadge(it) {
+  const qa = it.qa;
+  if (!qa) return `<p class="bt-qa none">${icon("scan-search")} Chưa soát</p>`;
+  const cls = qa.issues.some((x) => x.level === "error") || qa.score < 6 ? "bad" : qa.score < QA_GOOD ? "warn" : "good";
+  const open = batchQaOpen.has(it.id);
+  const stats = [
+    `${qa.stats.seconds}s`,
+    qa.stats.lufs === null ? "" : `${qa.stats.lufs} LUFS`,
+  ].filter(Boolean).join(" · ");
+  const head = qa.issues.length
+    ? `<button type="button" class="bt-qa ${cls}" data-act="qa" data-id="${it.id}" aria-expanded="${open}">
+        ${icon(cls === "good" ? "circle-check" : "triangle-alert")} Tự soát ${qa.score}/10 · ${qa.issues.length} điểm cần xem ${icon(open ? "chevron-up" : "chevron-down")}</button>`
+    : `<p class="bt-qa good">${icon("circle-check")} Tự soát ${qa.score}/10 · ${escapeHtml(stats)}</p>`;
+  const list = open && qa.issues.length
+    ? `<ul class="bt-qa-list">${qa.issues.map((x) => `<li class="${x.level}">${escapeHtml(x.text)}</li>`).join("")}</ul>`
+    : "";
+  return head + list;
+}
+
 function batchItemTile(it, i) {
   if (batchEdit?.itemId === it.id) return batchEditTile(it, i);
 
@@ -4201,6 +4236,7 @@ function batchItemTile(it, i) {
     <p class="bt-card-preview">${escapeHtml(title)}</p>
     ${bits.length ? `<p class="bt-card-own">${escapeHtml(bits.join(" · "))}</p>` : ""}
     ${it.error ? `<p class="bt-err">${escapeHtml(it.error)}</p>` : ""}
+    ${it.status === "done" ? qaBadge(it) : ""}
     ${it.draft ? `<p class="bt-err" title="Gói Tải tất cả dùng bản đã xuất gần nhất">${icon("triangle-alert")} Có chỉnh sửa chưa xuất — mở Chỉnh sửa, bấm Xuất video để tải bản mới.</p>` : ""}
     <div class="bt-actions">${actions.join("")}</div>
   </div>`;
@@ -4404,6 +4440,10 @@ async function onBatchItemClick(e) {
   }
   const { act, id } = button.dataset;
   if (act === "post-copy") return openPostCopy(button.dataset.slug);
+  if (act === "qa") {
+    if (batchQaOpen.has(id)) batchQaOpen.delete(id); else batchQaOpen.add(id);
+    return renderBatchRun();
+  }
   if (act === "edit") return openBatchEdit(id);
   if (act === "edit-idea") return openBatchEdit(id, "idea");
   if (act === "save-script") return saveBatchScript(id, false);
@@ -4429,6 +4469,36 @@ async function batchAction(act, ids) {
     await postJson(`/api/batch/${batchCur.id}/${act}`, ids ? { ids } : {});
     await loadBatch(batchCur.id);
   } catch (e) {
+    $("batchRunHint").textContent = e.message;
+    $("batchRunHint").classList.add("err");
+  }
+}
+
+// ---- tự soát cả loạt: chạy nền trên server (scripts/qa-video.ts), ở đây chỉ hỏi tiến độ ----
+let batchCheckPoll = null;
+
+async function startBatchCheck() {
+  if (!batchCur) return;
+  const id = batchCur.id;
+  const button = $("batchCheck");
+  button.disabled = true;
+  try {
+    let { run } = await postJson(`/api/batch/${id}/check`, {});
+    const tick = async () => {
+      button.innerHTML = `${icon("loader-circle", "spin")} Đang soát ${run.done}/${run.total}…`;
+      if (!run.running) {
+        batchCheckPoll = null;
+        if (batchCur?.id === id) loadBatch(id);
+        return;
+      }
+      batchCheckPoll = setTimeout(async () => {
+        try { ({ run } = await api(`/api/batch/${id}/check`)); } catch { /* thử lại ở nhịp sau */ }
+        tick();
+      }, 1200);
+    };
+    tick();
+  } catch (e) {
+    button.disabled = false;
     $("batchRunHint").textContent = e.message;
     $("batchRunHint").classList.add("err");
   }

@@ -56,6 +56,7 @@ import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
 import { generatePostCopy, getPostCopy, type SavedPostCopy } from "../scripts/post-copy";
 import { generateHooks } from "../scripts/hooks";
+import { checkVideo, savedCheck } from "../scripts/qa-video";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
@@ -651,7 +652,8 @@ const refreshEdits = (batch: Batch) => {
       item.mp4 = `/out/${item.slug}.mp4?t=${mtime}`;
       changed = true;
     }
-    return { ...item, edited, draft };
+    // Kết quả tự soát (scripts/qa-video.ts) — chỉ khi còn khớp bản mp4 hiện tại, sửa rồi xuất lại thì phải soát lại.
+    return { ...item, edited, draft, qa: savedCheck(item.slug) };
   });
   if (changed) save(batch);
   return items;
@@ -1000,6 +1002,7 @@ const run = async (batch: Batch, item: BatchItem, phase: "prepare" | "build") =>
       item.status = keep === false ? "skipped" : batch.review ? "review" : "ready";
     } else {
       await build(batch, item, log);
+      await autoCheck(item, log);
       item.status = "done";
       item.finishedAt = Date.now();
       if (item.restyle) {
@@ -1573,6 +1576,50 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   appendAssistant(slug, { role: "assistant", at: Date.now(), ...result });
 };
 
+// ---------- tự soát chất lượng ----------
+
+/**
+ * Soát ngay sau khi render xong, vẫn trong suất "việc nặng" của mục đó — một lượt ffmpeg vài giây.
+ * Soát lỗi thì chỉ ghi log: video đã render xong, không vì bước soát mà đánh dấu lỗi cả mục.
+ */
+const autoCheck = async (item: BatchItem, log: (line: string) => void) => {
+  if (!item.slug || !fs.existsSync(path.join(process.cwd(), "out", `${item.slug}.mp4`))) return;
+  log("__STEP__ check");
+  try {
+    const qa = await checkVideo(item.slug);
+    log(`Tự soát: ${qa.score}/10${qa.issues.length ? ` — ${qa.issues.length} điểm cần xem` : ""}`);
+  } catch (error) {
+    log(`Không soát được: ${errorText(error)}`);
+  }
+};
+
+/** Soát lại cả loạt (loạt làm trước khi có tính năng này, hoặc video đã sửa rồi xuất lại). Chạy nền, lần lượt. */
+type CheckRun = { running: boolean; total: number; done: number };
+const checkRuns = new Map<string, CheckRun>();
+
+export const startBatchCheck = (id: unknown) => {
+  const batch = require_(id);
+  const current = checkRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  const slugs = doneItems(batch).map(({ item }) => item.slug!).filter((slug) => !savedCheck(slug));
+  const run: CheckRun = { running: slugs.length > 0, total: slugs.length, done: 0 };
+  checkRuns.set(batch.id, run);
+  void (async () => {
+    for (const slug of slugs) {
+      try {
+        await checkVideo(slug);
+      } catch {
+        // video lỗi file thì bỏ qua — ô đó hiện "chưa soát", bấm lại được
+      }
+      run.done++;
+    }
+    run.running = false;
+  })();
+  return { run };
+};
+
+export const batchCheckStatus = (id: unknown) => ({ run: checkRuns.get(require_(id).id) ?? null });
+
 // ---------- xuất cả loạt ----------
 
 /**
@@ -1731,6 +1778,7 @@ export const batchCsv = (id: unknown) => {
   const header = [
     "STT", "Tiêu đề", "Trạng thái", "Nội dung đã nhập", "Lời đọc", "File", "Khung", "Phong cách",
     "TikTok", "YouTube — tiêu đề", "YouTube — mô tả", "Facebook", "Instagram",
+    "Điểm tự soát", "Cần xem",
   ];
   const rows = batch.items.map((item, index) => {
     const settings = item.override ?? batch.settings;
@@ -1738,6 +1786,7 @@ export const batchCsv = (id: unknown) => {
       ? readJson(path.join(videoDir(item.slug), "script.json")) as { style?: string } | null
       : null;
     const copy = item.status === "done" && item.slug ? freshCopy(item.slug) : null;
+    const qa = item.status === "done" && item.slug ? savedCheck(item.slug) : null;
     const withTags = (text: string, tags: string[]) => [text, tags.join(" ")].filter(Boolean).join(" ");
     return [
       index + 1,
@@ -1753,6 +1802,8 @@ export const batchCsv = (id: unknown) => {
       copy ? withTags(copy.youtube.description, copy.youtube.hashtags) : "",
       copy ? withTags(copy.facebook.caption, copy.facebook.hashtags) : "",
       copy ? withTags(copy.instagram.caption, copy.instagram.hashtags) : "",
+      qa ? `${qa.score}/10` : "",
+      qa ? qa.issues.map((issue) => issue.text).join(" | ") : "",
     ].map(csvCell).join(",");
   });
   return `﻿${header.map(csvCell).join(",")}\n${rows.join("\n")}\n`;

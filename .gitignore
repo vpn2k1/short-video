@@ -49,3 +49,6 @@ videos/*/.running.json
 
 # Thống kê lượt gọi dịch vụ theo ngày (⚙ Cài đặt › 📊 Hôm nay) — dữ liệu của từng máy
 data/usage.json
+
+# Kết quả tự soát video (scripts/qa-video.ts) — gắn với file mp4 trong out/, soát lại được bất cứ lúc nào
+videos/*/qa.json
