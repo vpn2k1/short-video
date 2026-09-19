@@ -107,7 +107,7 @@ const fmt = (s: number) => `${s.toFixed(1)}s`;
  * props thay vì đo pixel: đo pixel thì ảnh nền sáng cũng bị tính là "có chữ". Phong cách mặc định đã canh sẵn vùng
  * an toàn nên chỉ xét chỗ có toạ độ chỉnh tay.
  */
-const unsafePlacements = (props: Props) => {
+export const unsafePlacements = (props: Props) => {
   const aspect = ASPECTS[(props.aspect as AspectId) ?? DEFAULT_ASPECT] ?? ASPECTS[DEFAULT_ASPECT];
   const { width: W, height: H, safe } = aspect;
   const scale = Math.min(W, H) / 1080;

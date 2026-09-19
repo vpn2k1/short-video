@@ -2080,8 +2080,8 @@ export const saveResults = (id: unknown, body: unknown) => {
 };
 
 /** Chuỗi trong file .ics: thoát \ ; , và xuống dòng; gấp dòng dài 75 byte theo RFC 5545. */
-const icsText = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
-const icsFold = (line: string) => {
+export const icsText = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+export const icsFold = (line: string) => {
   const out: string[] = [];
   let rest = Buffer.from(line, "utf8");
   while (rest.length > 75) {
