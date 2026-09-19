@@ -54,7 +54,7 @@ const Backdrop: React.FC<{ image: string | null; accent: string; background: str
     <AbsoluteFill style={{ background: `radial-gradient(circle at 30% 20%, ${accent}66, transparent 60%), ${background}`, ...style }} />
   );
 
-const Handle: React.FC<{ handle: string; base: number; dark?: boolean }> = ({ handle, base, dark }) =>
+const Handle: React.FC<{ handle: string; base: number; dark?: boolean; center?: boolean }> = ({ handle, base, dark, center }) =>
   handle ? (
     <div
       style={{
@@ -64,7 +64,7 @@ const Handle: React.FC<{ handle: string; base: number; dark?: boolean }> = ({ ha
         background: dark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.16)",
         borderRadius: 999,
         padding: `${Math.round(base * 0.01)}px ${Math.round(base * 0.026)}px`,
-        alignSelf: "flex-start",
+        alignSelf: center ? "center" : "flex-start",
       }}
     >
       {handle}
@@ -96,7 +96,7 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
         <Backdrop image={image} accent={accent} background={background} />
         <AbsoluteFill style={{ background: "rgba(0,0,0,0.55)" }} />
         <AbsoluteFill style={{ padding: pad, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: Math.round(base * 0.04), textAlign: "center" }}>
-          <Handle handle={handle} base={base} />
+          <Handle handle={handle} base={base} center />
           <div style={{ fontSize: Math.round(titleSize * 0.92), fontWeight: 700, lineHeight: 1.35, textTransform: "uppercase", maxWidth: "100%" }}>
             <span style={{ background: accent, color: ink, padding: `0 ${Math.round(base * 0.02)}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", borderRadius: Math.round(base * 0.012) }}>
               {title}

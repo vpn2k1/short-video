@@ -61,8 +61,9 @@ import { generateHooks } from "../scripts/hooks";
 import { pickClips, type ClipPick } from "../scripts/clip-picker";
 import { isScriptProvider } from "../scripts/generate-script";
 import { checkVideo, fixPlacements, savedCheck } from "../scripts/qa-video";
-import { COVER_LAYOUTS, coverPath, freshCover, freshCovers, makeCover } from "../scripts/cover";
-import { renderShort } from "../scripts/render";
+import { COVER_LAYOUTS, coverInput, coverPath, freshCover, freshCovers, makeCover } from "../scripts/cover";
+import { compileVideos } from "../scripts/compile";
+import { renderCover, renderShort } from "../scripts/render";
 import { brandVideo, isBrandFile } from "../scripts/brand";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
@@ -317,6 +318,8 @@ export type Batch = {
   spoken?: string;
   /** Nguồn clips: video gốc đã in sẵn phụ đề — không gắn thêm (chồng hai lớp chữ). */
   noCaptions?: boolean;
+  /** Video tổng hợp gộp từ cả loạt (startBatchCompile): file trong out/, mốc chương, thời lượng. */
+  compiled?: { aspect: string; file: string; chapters: string; seconds: number; at: number };
   /** Nhận diện kênh áp cho mọi video (chọn cùng Mẫu cài đặt lúc tạo loạt). */
   kit?: Kit;
   /** Đoạn mở đầu / kết thúc chung đã gắn lần gần nhất (đường dẫn trong public/). */
@@ -2363,6 +2366,72 @@ export const startBatchBrand = (id: unknown, body: unknown) => {
 
 export const batchBrandStatus = (id: unknown) => ({ run: brandRuns.get(require_(id).id) ?? null });
 
+// ---------- gộp cả loạt thành một video dài (scripts/compile.ts) ----------
+
+type CompileRun = { running: boolean; total: number; done: number; failed: number; error?: string };
+const compileRuns = new Map<string, CompileRun>();
+const compiledName = (aspect: string) => `tong-hop-${aspect.replace(":", "x")}.mp4`;
+
+/**
+ * Gộp mọi video đã xong (theo thứ tự trong loạt) thành một video: thẻ chương "Phần k: tiêu đề" trước mỗi phần
+ * (bố cục bìa "giữa"), video khác khung đặt trên nền mờ. Có bản xuất sẵn đúng khung thì dùng bản đó cho nét.
+ */
+export const startBatchCompile = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const current = compileRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  if (batch.items.some((item) => item.status === "building")) throw new Error("Loạt đang dựng — đợi dựng xong rồi gộp.");
+  const raw = (body ?? {}) as { aspect?: unknown; cards?: unknown };
+  const aspect = ASPECT_IDS.includes(raw.aspect as AspectId) ? (raw.aspect as AspectId) : "16:9";
+  const cards = raw.cards !== false;
+  const items = doneItems(batch);
+  if (items.length < 2) throw new Error("Cần ít nhất 2 video đã xong để gộp.");
+  const { width: W, height: H } = ASPECTS[aspect];
+  const dir = path.join(process.cwd(), "out", "exports", `loat-${batch.id}`);
+  // Mỗi thẻ chương là một bước, cộng một bước ghép cuối.
+  const run: CompileRun = { running: true, total: (cards ? items.length : 0) + 1, done: 0, failed: 0 };
+  compileRuns.set(batch.id, run);
+  void (async () => {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const parts = [];
+      for (const [k, { item }] of items.entries()) {
+        const slug = item.slug!;
+        const title = `Phần ${k + 1}: ${item.title ?? item.input.slice(0, 50)}`;
+        let card: string | null = null;
+        if (cards) {
+          card = path.join(dir, `chuong-${k + 1}.jpg`);
+          await renderCover({ ...(await coverInput(slug, "center")), title, subtitle: "", aspect }, card);
+          run.done++;
+        }
+        const video = freshExport(slug, aspect) ? exportPath(slug, aspect) : path.join(process.cwd(), "out", `${slug}.mp4`);
+        parts.push({ card, video, title });
+      }
+      heavy += 1;
+      try {
+        const output = path.join(dir, compiledName(aspect));
+        const result = await compileVideos(parts, output, W, H);
+        batch.compiled = {
+          aspect, file: path.relative(process.cwd(), output).split(path.sep).join("/"),
+          chapters: result.chapters, seconds: Math.round(result.seconds), at: Date.now(),
+        };
+        save(batch);
+        run.done++;
+      } finally {
+        heavy -= 1;
+      }
+    } catch (error) {
+      run.failed++;
+      run.error = errorText(error);
+    }
+    run.running = false;
+    pump();
+  })();
+  return { run };
+};
+
+export const batchCompileStatus = (id: unknown) => ({ run: compileRuns.get(require_(id).id) ?? null });
+
 // ---------- xuất cả loạt ----------
 
 /**
@@ -2445,7 +2514,16 @@ export function* batchZip(id: unknown): Generator<Buffer> {
     }
   };
 
-  for (const [i, entryInfo] of [...entries()].entries()) {
+  // Video tổng hợp của cả loạt (nếu đã gộp) và mốc chương để dán vào mô tả YouTube.
+  const compiled = batch.compiled && fs.existsSync(path.join(process.cwd(), batch.compiled.file)) ? batch.compiled : null;
+  const all = function* () {
+    yield* entries();
+    if (compiled) {
+      yield { name: path.posix.basename(compiled.file), read: () => fs.readFileSync(path.join(process.cwd(), compiled.file)) };
+      yield { name: "tong-hop-muc-chuong.txt", read: () => Buffer.from(`${compiled.chapters}\n`, "utf8") };
+    }
+  };
+  for (const [i, entryInfo] of [...all()].entries()) {
     const data = entryInfo.read();
     const name = Buffer.from(entryInfo.name, "utf8");
     const crc = crc32(data);

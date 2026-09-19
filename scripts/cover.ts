@@ -60,24 +60,30 @@ const backgroundFor = async (slug: string, scenes: Media[], overlays: Media[]) =
   }
 };
 
-export const makeCover = async (slug: string, layout: CoverLayout = "bottom") => {
+/** Dữ liệu cho composition "Cover" từ chính video: tiêu đề, tên kênh, màu, ảnh cảnh đầu, khung. */
+export const coverInput = async (slug: string, layout: CoverLayout = "bottom") => {
   const props = readJson(path.join(videoDir(slug), "props.json"));
   const script = readJson(path.join(videoDir(slug), "script.json"));
   if (!props && !script) throw new Error("Video này chưa có dữ liệu để làm ảnh bìa.");
   const source = props ?? script;
   const image = await backgroundFor(slug, (props?.scenes ?? script?.scenes ?? []) as Media[], (props?.overlays ?? []) as Media[]);
-  const out = coverPath(slug, layout);
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  await renderCover({
+  return {
     title: String(source.title ?? slug).trim() || slug,
     subtitle: String(source.subtitle ?? "").trim(),
     handle: String(source.handle ?? "").trim(),
-    accent: /^#[0-9a-f]{6}$/i.test(source.accent ?? "") ? source.accent : "#e8590c",
-    background: /^#[0-9a-f]{6}$/i.test(source.background ?? "") ? source.background : "#0b0b12",
+    accent: /^#[0-9a-f]{6}$/i.test(source.accent ?? "") ? source.accent as string : "#e8590c",
+    background: /^#[0-9a-f]{6}$/i.test(source.background ?? "") ? source.background as string : "#0b0b12",
     image,
     aspect: String(props?.aspect ?? "9:16"),
     layout,
-  }, out);
+  };
+};
+
+export const makeCover = async (slug: string, layout: CoverLayout = "bottom") => {
+  const input = await coverInput(slug, layout);
+  const out = coverPath(slug, layout);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  await renderCover(input, out);
   return `/out/covers/${coverName(slug, layout)}?t=${Math.round(fs.statSync(out).mtimeMs)}`;
 };
 

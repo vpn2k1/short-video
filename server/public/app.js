@@ -3265,7 +3265,7 @@ function bindBatch() {
   $("batchToolsBtn").addEventListener("click", (e) => { e.stopPropagation(); setTools(toolsPanel.hidden); });
   toolsPanel.addEventListener("click", (e) => {
     const b = e.target.closest("button");
-    if (b && b.id !== "batchExports") setTools(false);
+    if (b && b.id !== "batchExports" && b.id !== "batchCompile") setTools(false);
   });
   document.addEventListener("click", (e) => {
     if (!toolsPanel.hidden && !e.target.closest(".bt-tools") && !e.target.closest("#menu")) setTools(false);
@@ -3277,6 +3277,7 @@ function bindBatch() {
   $("batchBrand").addEventListener("click", openBrandDialog);
   $("batchPlan2").addEventListener("click", openPlanDialog);
   $("batchClone").addEventListener("click", openCloneDialog);
+  $("batchCompile").addEventListener("click", openCompileMenu);
   $("batchResults").addEventListener("click", openResultsDialog);
   $("resultsForm").addEventListener("submit", saveResultsDialog);
   $("resultsTable").addEventListener("input", renderResultsSummary);
@@ -4604,6 +4605,12 @@ function renderBatchRun() {
   const planned = b.postPlan ? Object.keys(b.postPlan.slots).length : 0;
   $("batchPlan2").hidden = doneItems.length === 0;
   $("batchResults").hidden = doneItems.length === 0;
+  renderCompiled(b);
+  if (!batchJobBusy.has("batchCompile")) {
+    $("batchCompile").hidden = doneItems.length < 2;
+    $("batchCompile").disabled = c.running > 0;
+    $("batchCompile").innerHTML = `${icon("film")} ${b.compiled ? "Gộp lại video dài" : "Gộp thành video dài"}`;
+  }
   // Nguồn file thu sẵn / phụ đề không có kịch bản để nhân.
   $("batchClone").hidden = doneItems.length === 0 || b.source === "media" || b.source === "subs";
   $("batchPlan2").innerHTML = `${icon("calendar-days")} ${planned ? `Lịch đăng (${planned})` : "Lịch đăng"}`;
@@ -5401,6 +5408,39 @@ async function submitClone(e) {
     $("cloneHint").classList.add("err");
     $("cloneGo").disabled = false;
   }
+}
+
+// ---- gộp cả loạt thành video dài (server/batch.ts › startBatchCompile) ----
+function openCompileMenu() {
+  openMenu($("batchCompile"), {
+    id: "batchCompile", title: "Gộp thành một video dài", value: "",
+    onPick: (aspect) => runBatchJob("compile", $("batchCompile"),
+      (run) => (run.done + run.failed < run.total - 1 ? `Đang làm thẻ chương ${run.done + 1}/${run.total - 1}…` : "Đang ghép video…"),
+      { aspect, cards: true }),
+    options: [
+      { value: "16:9", icon: icon("monitor"), title: "16:9 — YouTube", sub: "Video dọc đặt giữa trên nền mờ; có bản 16:9 xuất sẵn thì dùng bản đó" },
+      { value: "9:16", icon: icon("smartphone"), title: "9:16 — dọc", sub: "Tổng hợp dài cho TikTok, Facebook" },
+      { value: "1:1", icon: icon("square"), title: "1:1 — vuông", sub: "Facebook, Instagram feed" },
+    ],
+  });
+}
+
+function renderCompiled(b) {
+  const c = b.compiled;
+  $("batchCompiled").hidden = !c;
+  if (!c) return;
+  const mins = `${Math.floor(c.seconds / 60)}:${String(c.seconds % 60).padStart(2, "0")}`;
+  $("batchCompiled").innerHTML = `${icon("film")} <b>Video tổng hợp ${escapeHtml(c.aspect)}</b> · ${mins}
+    <a class="btn" href="/${escapeHtml(c.file)}?t=${c.at}" download>${icon("download")} Tải</a>
+    <button type="button" class="btn" id="batchCopyChapters" title="Dán vào mô tả YouTube để video có chương">${icon("list")} Chép mốc chương</button>`;
+  $("batchCopyChapters").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(c.chapters);
+      flashNote("Đã chép mốc chương — dán vào mô tả YouTube.");
+    } catch {
+      flashNote(c.chapters);
+    }
+  };
 }
 
 // ---- ảnh bìa: xem ba bố cục của một video ----

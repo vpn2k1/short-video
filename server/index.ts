@@ -37,7 +37,7 @@ import {
 import {
   approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
   listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
-  batchCheckStatus, batchFixStatus, clipAnalysisStatus, startClipAnalysis, startBatchFix, batchCoversStatus, batchBrandStatus, batchCalendar, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
+  batchCheckStatus, batchFixStatus, clipAnalysisStatus, startClipAnalysis, startBatchFix, batchCoversStatus, batchBrandStatus, batchCalendar, batchCompileStatus, startBatchCompile, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
 } from "./batch";
 import { deletePreset, listPresets, savePreset } from "./batch-presets";
 import {
@@ -708,6 +708,9 @@ const server = http.createServer(async (req, res) => {
             "Content-Disposition": `attachment; filename="${cal.name}"`,
           });
         }
+        if (action === "compile" && req.method === "GET") {
+          return send(res, 200, batchCompileStatus(id));
+        }
         if (action === "brand" && req.method === "GET") {
           return send(res, 200, batchBrandStatus(id));
         }
@@ -739,6 +742,7 @@ const server = http.createServer(async (req, res) => {
           if (action === "covers") return send(res, 200, startBatchCovers(id, (body as { force?: unknown }).force === true));
           if (action === "exports") return send(res, 200, startBatchExports(id, (body as { aspects?: unknown }).aspects));
           if (action === "brand") return send(res, 200, startBatchBrand(id, body));
+          if (action === "compile") return send(res, 200, startBatchCompile(id, body));
           if (action === "plan") return send(res, 200, savePostPlan(id, body));
           if (action === "results") return send(res, 200, saveResults(id, body));
           if (action === "post-copy") {
