@@ -43,6 +43,8 @@ public/thumbs
 
 # Trạng thái từng loạt video (Hàng loạt)
 data/batches
+# Mẫu cài đặt loạt người dùng tự lưu
+data/batch-presets.json
 
 # Cờ "đang chạy" của từng video — còn sót sau khi server tắt nghĩa là lượt bị gián đoạn
 videos/*/.running.json

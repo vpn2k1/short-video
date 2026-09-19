@@ -1435,6 +1435,19 @@ Lưu lại để làm theo nhé!</pre>
   </form>
 </dialog>
 
+<dialog class="dlg" id="textDlg">
+  <form method="dialog" id="textForm">
+    <div class="dlg-head"><h2 id="textTitle"></h2></div>
+    <p class="muted" id="textMessage"></p>
+    <div class="field"><div class="row"><input id="textInput" maxlength="40" autocomplete="off" /></div></div>
+    <div class="dlg-foot">
+      <!-- Huỷ là nút thường: Enter trong ô chữ gửi form bằng nút submit ĐẦU TIÊN, phải là nút Lưu. -->
+      <button type="button" class="btn" id="textCancel">Huỷ</button>
+      <button type="submit" class="btn primary" value="ok" id="textOk">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog class="dlg lk-dlg" id="subsLookDlg">
   <form method="dialog">
     <div class="dlg-head">

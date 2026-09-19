@@ -39,6 +39,7 @@ import {
   listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
   batchCheckStatus, readBatchPostCopy, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
 } from "./batch";
+import { deletePreset, listPresets, savePreset } from "./batch-presets";
 import {
   CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, DEFAULT_CAPTION_LOOK,
 } from "../src/components/captionLook";
@@ -599,6 +600,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- làm nhiều video một lượt ----
+    if (route === "/api/batch-presets") {
+      if (req.method !== "POST") return send(res, 200, listPresets());
+      try {
+        const body = await readJson<{ delete?: unknown }>(req);
+        return send(res, 200, body.delete ? deletePreset(body.delete) : savePreset(body));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
     if (route === "/api/batches") {
       return send(res, 200, listBatches());
     }

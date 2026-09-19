@@ -711,6 +711,32 @@ function renderMedia() {
  * bấm Xoá trông như không có gì xảy ra.
  */
 /** okText là HTML (để kèm icon) — chỉ truyền chuỗi cố định, không đưa dữ liệu người dùng vào. */
+/** Hỏi một dòng chữ (window.prompt không chạy trong bản desktop). Huỷ hoặc để trống → null. */
+function askText({ title, message = "", value = "", placeholder = "", okText = "Lưu" }) {
+  const dlg = $("textDlg");
+  $("textTitle").textContent = title;
+  $("textMessage").textContent = message;
+  $("textMessage").hidden = !message;
+  $("textInput").value = value;
+  $("textInput").placeholder = placeholder;
+  $("textOk").innerHTML = okText;
+  return new Promise((resolve) => {
+    dlg.returnValue = "";
+    dlg.addEventListener("close", () => {
+      const text = $("textInput").value.trim();
+      resolve(dlg.returnValue === "ok" && text ? text : null);
+    }, { once: true });
+    $("textCancel").onclick = () => dlg.close("cancel");
+    // Tự đóng với "ok" khi gửi form (bấm Lưu hoặc Enter) — không trông vào nút submit mặc định của form.
+    $("textForm").onsubmit = (e) => { e.preventDefault(); dlg.close("ok"); };
+    $("textInput").onkeydown = (e) => {
+      if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); dlg.close("ok"); }
+    };
+    dlg.showModal();
+    $("textInput").select();
+  });
+}
+
 function confirmDialog({ title, message, items = [], okText = "Xoá" }) {
   const dlg = $("confirmDlg");
   $("confirmTitle").textContent = title;
@@ -3297,9 +3323,13 @@ function renderBatchFields() {
     fields.push(["music", "Nhạc nền", musicLabel(opts.music), musicIcon(opts.music)]);
   }
   fields.push(["review", "Duyệt lời", batchReview ? "Dừng cho tôi đọc" : "Chạy thẳng", batchReview ? icon("check") : icon("fast-forward")]);
+  // Mẫu đứng đầu: chọn mẫu là đổi cả các ô phía sau.
+  const preset = batchPresets.find((p) => p.id === batchPresetId);
+  fields.unshift(["preset", "Mẫu cài đặt", preset ? `${preset.name}${presetChanged(preset) ? " (đã đổi)" : ""}` : "Không dùng mẫu",
+    icon("bookmark")]);
 
   // Dòng tóm tắt khi thu gọn: giá trị của vài cài đặt chính.
-  const SUM_KEYS = { variantFrom: "Gốc", style: "Phong cách", aspect: "Khung", voice: "Giọng", images: "Hình", review: "Duyệt" };
+  const SUM_KEYS = { preset: "Mẫu", variantFrom: "Gốc", style: "Phong cách", aspect: "Khung", voice: "Giọng", images: "Hình", review: "Duyệt" };
   $("batchSettingsSum").textContent = fields.filter(([key]) => SUM_KEYS[key])
     .map(([key, , value]) => `${SUM_KEYS[key]}: ${value}`).join(" · ");
   $("batchFields").innerHTML = fields.map(([key, label, value, ic]) =>
@@ -3309,8 +3339,91 @@ function renderBatchFields() {
     </button>`).join("");
 }
 
+// ---- mẫu loạt (server/batch-presets.ts) ----
+let batchPresets = [];
+let batchPresetId = null;
+/** Các ô cài đặt một mẫu lưu lại — cũng là những ô so để biết mẫu "đã đổi" chưa. */
+const PRESET_KEYS = ["kind", "style", "mode", "aspect", "voice", "music", "video", "provider", "images", "art", "length"];
+
+async function loadBatchPresets() {
+  try {
+    batchPresets = (await api("/api/batch-presets")).presets;
+    if (!$("view-batch").hidden && !$("batchNew").hidden) renderBatchFields();
+  } catch {
+    // không đọc được thì coi như chưa có mẫu nào
+  }
+}
+
+const presetChanged = (preset) =>
+  batchReview !== preset.review || PRESET_KEYS.some((k) => (opts[k] || null) !== (preset.settings[k] || null));
+
+const presetSummary = (p) => [
+  `${styleMeta(p.settings.style).emoji} ${styleMeta(p.settings.style).label}`,
+  p.settings.aspect,
+  p.settings.voice || "không giọng",
+  IMAGE_SOURCES[p.settings.images] ?? p.settings.images,
+  p.review ? "duyệt lời" : "chạy thẳng",
+].join(" · ");
+
+function applyBatchPreset(preset) {
+  for (const k of PRESET_KEYS) if (k in preset.settings) opts[k] = preset.settings[k] ?? "";
+  batchReview = preset.review;
+  batchPresetId = preset.id;
+  renderComposer();
+  renderProjectBar();
+  renderBatchNew();
+  setBatchHint(`Đã dùng mẫu “${preset.name}”.`);
+}
+
+async function saveBatchPreset() {
+  const current = batchPresets.find((p) => p.id === batchPresetId);
+  const name = await askText({
+    title: "Lưu cài đặt làm mẫu",
+    message: "Lưu phong cách, khung, giọng, hình, nhạc và cách duyệt lời hiện tại. Trùng tên mẫu cũ thì cập nhật mẫu đó.",
+    value: current?.name ?? "",
+    placeholder: "ví dụ: Kênh mẹo vặt — dọc, giọng Linh",
+  });
+  if (!name) return;
+  try {
+    const res = await postJson("/api/batch-presets", { name, settings: { ...opts, music: opts.music || null }, review: batchReview });
+    batchPresets = res.presets;
+    batchPresetId = res.preset.id;
+    renderBatchNew();
+    setBatchHint(res.replaced ? `Đã cập nhật mẫu “${res.preset.name}”.` : `Đã lưu mẫu “${res.preset.name}”.`);
+  } catch (e) {
+    setBatchHint(e.message, true);
+  }
+}
+
+async function deleteBatchPreset() {
+  const preset = batchPresets.find((p) => p.id === batchPresetId);
+  if (!preset) return;
+  const ok = await confirmDialog({ title: `Xoá mẫu “${preset.name}”?`, message: "Cài đặt đang chọn vẫn giữ nguyên, chỉ mẫu bị xoá.", okText: "Xoá mẫu" });
+  if (!ok) return;
+  batchPresets = (await postJson("/api/batch-presets", { delete: preset.id })).presets;
+  batchPresetId = null;
+  renderBatchNew();
+}
+
 /** Menu cho một ô cài đặt: phần lớn dùng chung với ô soạn chat, ba ô riêng của màn này. */
 function batchMenuFor(key) {
+  if (key === "preset") {
+    return {
+      id: "preset", title: "Mẫu cài đặt", value: batchPresetId ?? "",
+      onPick: (value) => {
+        if (value === "__save") return saveBatchPreset();
+        if (value === "__delete") return deleteBatchPreset();
+        const preset = batchPresets.find((p) => p.id === value);
+        if (preset) applyBatchPreset(preset);
+      },
+      options: [
+        ...batchPresets.map((p) => ({ value: p.id, group: "Mẫu đã lưu", icon: icon("bookmark"), title: p.name, sub: presetSummary(p) })),
+        { value: "__save", group: "Quản lý", icon: icon("bookmark-plus"), title: "Lưu cài đặt hiện tại làm mẫu…",
+          sub: batchPresets.length ? "Đặt tên mới, hoặc trùng tên mẫu cũ để cập nhật" : "Lần sau chọn lại một lần là đủ" },
+        ...(batchPresetId ? [{ value: "__delete", group: "Quản lý", icon: icon("trash-2"), title: "Xoá mẫu đang dùng" }] : []),
+      ],
+    };
+  }
   if (key === "review") {
     return {
       id: "review", title: "Duyệt lời trước khi render", value: batchReview ? "yes" : "no",
@@ -3914,6 +4027,7 @@ async function createBatch() {
 }
 
 async function loadBatchList() {
+  if (!batchPresets.length) loadBatchPresets();
   try {
     const { batches } = await api("/api/batches");
     $("batchRecent").hidden = batches.length === 0;
