@@ -1414,6 +1414,7 @@ Lưu lại để làm theo nhé!</pre>
         <button type="button" class="btn" id="batchRetryAll" hidden><i data-icon="rotate-cw"></i> Chạy lại lỗi</button>
         <button type="button" class="btn" id="batchCheck" hidden title="Đo âm lượng, khoảng lặng, màn đen, độ dài, phụ đề của từng video đã xong"><i data-icon="scan-search"></i> Soát cả loạt</button>
         <button type="button" class="btn" id="batchExports" hidden aria-haspopup="listbox" aria-expanded="false"><i data-icon="ratio"></i> Xuất thêm khung</button>
+        <button type="button" class="btn" id="batchBrand" hidden title="Ghép đoạn mở đầu / kết thúc chung (logo, lời kêu gọi theo dõi) vào mọi video"><i data-icon="clapperboard"></i> Mở đầu / kết thúc</button>
         <button type="button" class="btn" id="batchCovers" hidden title="Ảnh bìa từng video: tiêu đề to trên ảnh cảnh đầu, đúng khung video — có trong gói Tải tất cả"><i data-icon="image"></i> Tạo ảnh bìa</button>
         <button type="button" class="btn" id="batchPostCopy" hidden title="AI viết tiêu đề, caption, hashtag cho từng video đã xong — có trong CSV và file .txt khi tải cả loạt"><i data-icon="megaphone"></i> Viết bài đăng</button>
         <a class="btn" id="batchZip" hidden download><i data-icon="download"></i> Tải tất cả</a>
@@ -1449,6 +1450,30 @@ Lưu lại để làm theo nhé!</pre>
     <div class="dlg-foot">
       <button type="submit" class="btn" value="cancel">Huỷ</button>
       <button type="submit" class="btn danger" value="ok" id="confirmOk">Xoá</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg" id="brandDlg">
+  <form id="brandForm" autocomplete="off">
+    <div class="dlg-head">
+      <h2><i data-icon="clapperboard"></i> Mở đầu / kết thúc chung</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Ghép vào đầu và cuối mọi video đã xong — ảnh hiện 2,5 giây, video dài nhất 15 giây, tự vừa khung. Bản gốc giữ nguyên; gói Tải tất cả có thêm thư mục <b>co-mo-dau-ket-thuc</b>.</p>
+    <div class="field">
+      <label for="brandIntro">Mở đầu</label>
+      <div class="row"><select id="brandIntro"></select><button type="button" class="btn" data-brand-upload="brandIntro"><i data-icon="upload"></i> Tải lên</button></div>
+    </div>
+    <div class="field">
+      <label for="brandOutro">Kết thúc</label>
+      <div class="row"><select id="brandOutro"></select><button type="button" class="btn" data-brand-upload="brandOutro"><i data-icon="upload"></i> Tải lên</button></div>
+    </div>
+    <input type="file" id="brandFile" accept="image/*,video/*" hidden />
+    <p class="hint" id="brandHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>Huỷ</button>
+      <button type="submit" class="btn primary" id="brandGo"><i data-icon="play"></i> Ghép</button>
     </div>
   </form>
 </dialog>

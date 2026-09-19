@@ -3198,6 +3198,14 @@ function bindBatch() {
   $("batchCheck").addEventListener("click", startBatchCheck);
   $("batchCovers").addEventListener("click", startBatchCovers);
   $("batchExports").addEventListener("click", openBatchExportMenu);
+  $("batchBrand").addEventListener("click", openBrandDialog);
+  $("brandForm").addEventListener("submit", submitBrand);
+  $("brandFile").addEventListener("change", uploadBrandFile);
+  $("brandDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("brandDlg").close()));
+  $("brandDlg").querySelectorAll("[data-brand-upload]").forEach((b) => b.addEventListener("click", () => {
+    brandUploadTarget = b.dataset.brandUpload;
+    $("brandFile").click();
+  }));
   $("batchErrGroups").addEventListener("click", onBatchErrGroupClick);
   $("batchDelete").addEventListener("click", deleteBatchRun);
   // Cuộn tới đâu thì gắn video của những ô vừa hiện ra tới đó.
@@ -4248,6 +4256,12 @@ function renderBatchRun() {
     $("batchCheck").disabled = false;
     $("batchCheck").innerHTML = `${icon("scan-search")} Soát ${unchecked} video`;
   }
+  if (!batchJobBusy.has("batchBrand")) {
+    const branded = doneItems.filter((it) => it.branded).length;
+    $("batchBrand").hidden = doneItems.length === 0;
+    $("batchBrand").disabled = false;
+    $("batchBrand").innerHTML = `${icon("clapperboard")} ${branded ? `Mở đầu / kết thúc ${branded}/${doneItems.length}` : "Mở đầu / kết thúc"}`;
+  }
   if (!batchJobBusy.has("batchExports")) {
     $("batchExports").hidden = doneItems.length === 0;
     $("batchExports").disabled = c.running > 0;
@@ -4384,6 +4398,7 @@ function batchItemTile(it, i) {
   if (it.title && it.input && it.input !== it.title) bits.push(shorten(it.input, 60));
   if (it.edited) bits.push("đã chỉnh sửa");
   if (it.exports?.length) bits.push(`có thêm ${it.exports.join(", ")}`);
+  if (it.branded) bits.push("có bản mở đầu/kết thúc");
 
   const btn = (act, label, cls = "") =>
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
@@ -4798,6 +4813,72 @@ function openBatchExportMenu() {
       { value: "all", icon: icon("layers"), title: "Tất cả khung trên", sub: "Render mỗi video thêm một bản cho từng khung — lâu bằng ngần ấy lần dựng" },
     ],
   });
+}
+
+// ---- mở đầu / kết thúc chung (server/batch.ts › startBatchBrand) ----
+let brandUploadTarget = null;
+
+async function openBrandDialog() {
+  if (!batchCur) return;
+  const hint = $("brandHint");
+  hint.textContent = "Đang tải thư viện…";
+  hint.classList.remove("err");
+  $("brandDlg").showModal();
+  try {
+    const { items } = await api("/api/library/media");
+    // Chỉ ảnh/video người dùng có — bỏ giọng đọc, ảnh bìa sinh tự động.
+    const media = items.filter((m) => (m.kind === "image" || m.kind === "video") && !["voices", "thumbs"].includes(m.root))
+      .sort((a, b) => b.at - a.at).slice(0, 80);
+    const fill = (id, current) => {
+      $(id).innerHTML = `<option value="">Không có</option>` + media.map((m) =>
+        `<option value="${escapeHtml(m.path)}">${m.kind === "video" ? "🎬" : "🖼"} ${escapeHtml(m.name)}</option>`).join("");
+      if (current && !media.some((m) => m.path === current)) {
+        $(id).insertAdjacentHTML("beforeend", `<option value="${escapeHtml(current)}">${escapeHtml(current.split("/").pop())}</option>`);
+      }
+      $(id).value = current ?? "";
+    };
+    fill("brandIntro", batchCur.brand?.intro);
+    fill("brandOutro", batchCur.brand?.outro);
+    const n = batchCur.items.filter((it) => it.status === "done").length;
+    $("brandGo").innerHTML = `${icon("play")} Ghép cho ${n} video`;
+    hint.textContent = "";
+  } catch (e) {
+    hint.textContent = e.message;
+    hint.classList.add("err");
+  }
+}
+
+async function uploadBrandFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file || !brandUploadTarget) return;
+  const hint = $("brandHint");
+  hint.textContent = `Đang tải ${file.name}…`;
+  try {
+    const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    const select = $(brandUploadTarget);
+    select.insertAdjacentHTML("afterbegin", `<option value="${escapeHtml(body.path)}">${file.type.startsWith("video") ? "🎬" : "🖼"} ${escapeHtml(file.name)}</option>`);
+    select.value = body.path;
+    hint.textContent = "";
+  } catch (err) {
+    hint.textContent = `Không tải lên được: ${err.message}`;
+    hint.classList.add("err");
+  }
+}
+
+function submitBrand(e) {
+  e.preventDefault();
+  const intro = $("brandIntro").value;
+  const outro = $("brandOutro").value;
+  if (!intro && !outro) {
+    $("brandHint").textContent = "Chọn ít nhất một đoạn mở đầu hoặc kết thúc.";
+    $("brandHint").classList.add("err");
+    return;
+  }
+  $("brandDlg").close();
+  runBatchJob("brand", $("batchBrand"), (run) => `Đang ghép ${run.done + run.failed}/${run.total}…`, { intro, outro });
 }
 
 const startBatchCheck = () =>

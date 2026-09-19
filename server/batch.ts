@@ -59,6 +59,7 @@ import { generateHooks } from "../scripts/hooks";
 import { checkVideo, savedCheck } from "../scripts/qa-video";
 import { coverPath, freshCover, makeCover } from "../scripts/cover";
 import { renderShort } from "../scripts/render";
+import { brandVideo, isBrandFile } from "../scripts/brand";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
@@ -262,6 +263,8 @@ export type Batch = {
   edit?: EditPlan;
   /** Thử A/B hook: số câu hook mới cần viết, và các câu đã viết (viết một lần cho cả loạt để các bản khác nhau). */
   hooks?: { count: number; lines?: string[] };
+  /** Đoạn mở đầu / kết thúc chung đã gắn lần gần nhất (đường dẫn trong public/). */
+  brand?: { intro: string | null; outro: string | null };
   /** Hẹn giờ chạy (ms): loạt nằm chờ ở "idle" tới lúc đó thì tự chạy — app phải đang mở. */
   startAt?: number;
   state: "idle" | "running" | "paused" | "done";
@@ -667,7 +670,10 @@ const refreshEdits = (batch: Batch) => {
       changed = true;
     }
     // Kết quả tự soát (scripts/qa-video.ts) — chỉ khi còn khớp bản mp4 hiện tại, sửa rồi xuất lại thì phải soát lại.
-    return { ...item, edited, draft, qa: savedCheck(item.slug), cover: freshCover(item.slug), exports: exportsOf(item.slug) };
+    return {
+      ...item, edited, draft,
+      qa: savedCheck(item.slug), cover: freshCover(item.slug), exports: exportsOf(item.slug), branded: freshBrand(item.slug),
+    };
   });
   if (changed) save(batch);
   return items;
@@ -1777,6 +1783,59 @@ export const startBatchExports = (id: unknown, rawAspects: unknown) => {
 
 export const batchExportsStatus = (id: unknown) => ({ run: exportRuns.get(require_(id).id) ?? null });
 
+// ---------- đoạn mở đầu / kết thúc chung (scripts/brand.ts) ----------
+
+const brandPath = (slug: string) => path.join(process.cwd(), "out", "exports", slug, "brand.mp4");
+
+/** Bản có mở đầu/kết thúc còn mới hơn bản mp4 chính. */
+const freshBrand = (slug: string) => {
+  const file = brandPath(slug);
+  const main = path.join(process.cwd(), "out", `${slug}.mp4`);
+  return fs.existsSync(file) && (!fs.existsSync(main) || fs.statSync(file).mtimeMs >= fs.statSync(main).mtimeMs);
+};
+
+type BrandRun = { running: boolean; total: number; done: number; failed: number; error?: string };
+const brandRuns = new Map<string, BrandRun>();
+
+const brandFile = (value: unknown) => {
+  const rel = typeof value === "string" ? value.trim().replace(/^\/+/, "") : "";
+  if (!rel) return null;
+  if (rel.includes("..") || !isBrandFile(rel) || !fs.existsSync(path.join(process.cwd(), "public", rel))) {
+    throw new Error(`File ${rel} không dùng được — chọn ảnh hoặc video trong thư viện.`);
+  }
+  return rel;
+};
+
+/** Gắn mở đầu/kết thúc cho MỌI video đã xong (đổi file thì làm lại hết cho đồng bộ). Ghép bằng ffmpeg, vài giây mỗi video. */
+export const startBatchBrand = (id: unknown, body: unknown) => {
+  const batch = require_(id);
+  const current = brandRuns.get(batch.id);
+  if (current?.running) return { run: current };
+  const raw = (body ?? {}) as { intro?: unknown; outro?: unknown };
+  const brand = { intro: brandFile(raw.intro), outro: brandFile(raw.outro) };
+  if (!brand.intro && !brand.outro) throw new Error("Chọn ít nhất một đoạn mở đầu hoặc kết thúc.");
+  batch.brand = brand;
+  save(batch);
+  const slugs = doneItems(batch).map(({ item }) => item.slug!);
+  const run: BrandRun = { running: slugs.length > 0, total: slugs.length, done: 0, failed: 0 };
+  brandRuns.set(batch.id, run);
+  void (async () => {
+    for (const slug of slugs) {
+      try {
+        await brandVideo(path.join(process.cwd(), "out", `${slug}.mp4`), brandPath(slug), brand);
+        run.done++;
+      } catch (error) {
+        run.failed++;
+        run.error = errorText(error);
+      }
+    }
+    run.running = false;
+  })();
+  return { run };
+};
+
+export const batchBrandStatus = (id: unknown) => ({ run: brandRuns.get(require_(id).id) ?? null });
+
 // ---------- xuất cả loạt ----------
 
 /**
@@ -1834,6 +1893,7 @@ export function* batchZip(id: unknown): Generator<Buffer> {
       const copy = freshCopy(item.slug!);
       if (copy) yield { name: mp4Name.replace(/\.mp4$/, ".txt"), read: () => Buffer.from(postCopyText(copy), "utf8") };
       if (freshCover(item.slug!)) yield { name: mp4Name.replace(/\.mp4$/, ".jpg"), read: () => fs.readFileSync(coverPath(item.slug!)) };
+      if (freshBrand(item.slug!)) yield { name: `co-mo-dau-ket-thuc/${mp4Name}`, read: () => fs.readFileSync(brandPath(item.slug!)) };
       // Bản khác khung: mỗi khung một thư mục, cùng tên file để dễ đối chiếu.
       for (const aspect of exportsOf(item.slug!)) {
         yield { name: `${aspect.replace(":", "x")}/${mp4Name}`, read: () => fs.readFileSync(exportPath(item.slug!, aspect)) };
