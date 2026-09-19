@@ -460,6 +460,20 @@
   .pc-dlg .hint { text-align: left; }
   .post-copy-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
   .dlg .hint { text-align: left; margin: 12px 0 0; }
+  .be-dlg { width: min(560px, calc(100vw - 32px)); }
+  .be-dlg form { display: flex; flex-direction: column; max-height: calc(100vh - 80px); }
+  .be-kind { margin-top: 14px; align-self: flex-start; }
+  .be-desc { margin: 10px 0 0; }
+  .be-fields { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  .be-dlg [hidden] { display: none !important; }
+  .be-check { display: inline-flex; align-items: center; gap: 7px; font-weight: 400 !important; font-size: 14px; cursor: pointer; }
+  .be-check input { flex: none !important; margin: 0; }
+  .be-color { align-items: center; gap: 12px !important; }
+  .be-color input[type="color"] { flex: none; width: 46px; height: 32px; padding: 2px; }
+  .be-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 6px; align-items: center; margin-top: 6px; }
+  .be-pair input { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; outline: 0; font-size: 14px; min-width: 0; }
+  .be-review { margin-top: 16px; }
+  #beReplaceAdd { margin-top: 8px; }
   kbd { font: 11.5px ui-monospace, Menlo, monospace; background: var(--panel-2); border: 1px solid var(--line-2);
         border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--text); }
   .keys-dlg { width: min(680px, calc(100vw - 32px)); }
@@ -1067,7 +1081,7 @@ Lưu lại để làm theo nhé!</pre>
   <div class="lib-head">
     <h1>Thư viện</h1>
     <input id="search" type="search" placeholder="Tìm video…" />
-    <button type="button" class="btn" id="libSelect"><i data-icon="square-check"></i> Chọn để xoá</button>
+    <button type="button" class="btn" id="libSelect"><i data-icon="square-check"></i> Chọn nhiều</button>
     <button type="button" class="btn danger" id="trashEmpty" hidden><i data-icon="eraser"></i> Dọn sạch thùng rác</button>
     <a class="btn primary" href="#/"><i data-icon="plus"></i> Tạo video</a>
   </div>
@@ -1092,6 +1106,7 @@ Lưu lại để làm theo nhé!</pre>
       <button type="button" class="btn" data-older="all">Chọn tất cả</button>
       <button type="button" class="btn" id="libSelectNone">Bỏ chọn</button>
       <button type="button" class="btn" id="libRestore" hidden disabled><i data-icon="undo-2"></i> Khôi phục</button>
+      <button type="button" class="btn" id="libBulkEdit" disabled title="Đổi nhạc, tên kênh, phong cách, giọng, khung hay thay chữ cho mọi video đã chọn rồi dựng lại"><i data-icon="wand-sparkles"></i> Sửa hàng loạt</button>
       <button type="button" class="btn danger" id="libDelete" disabled><i data-icon="trash-2"></i> Xoá</button>
       <button type="button" class="btn" id="libSelectDone">Xong</button>
     </div>
@@ -1487,10 +1502,65 @@ Lưu lại để làm theo nhé!</pre>
   </form>
 </dialog>
 
+<dialog class="dlg be-dlg" id="bulkEditDlg">
+  <form id="bulkEditForm" autocomplete="off">
+    <div class="dlg-head">
+      <h2><i data-icon="wand-sparkles"></i> <span id="beTitle">Sửa hàng loạt</span></h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <div class="seg be-kind" role="radiogroup" aria-label="Cách sửa">
+      <button type="button" role="radio" data-be-kind="props" aria-checked="true"><i data-icon="shield-check"></i> Giữ chỉnh sửa</button>
+      <button type="button" role="radio" data-be-kind="rebuild" aria-checked="false"><i data-icon="refresh-cw"></i> Dựng lại từ kịch bản</button>
+    </div>
+    <p class="muted be-desc" id="beDesc"></p>
+    <div class="be-fields">
+      <div class="field" data-be-only="rebuild">
+        <label for="beStyle">Phong cách</label>
+        <div class="row"><select id="beStyle"></select></div>
+      </div>
+      <div class="field" data-be-only="rebuild">
+        <label for="beVoice">Giọng đọc</label>
+        <div class="row"><select id="beVoice"></select></div>
+      </div>
+      <div class="field" data-be-only="rebuild">
+        <label for="beAspect">Khung hình</label>
+        <div class="row"><select id="beAspect"></select></div>
+      </div>
+      <div class="field">
+        <label for="beMusic">Nhạc nền</label>
+        <div class="row"><select id="beMusic"></select></div>
+      </div>
+      <div class="field">
+        <label for="beHandle">Tên kênh</label>
+        <div class="row"><input id="beHandle" maxlength="30" placeholder="Giữ nguyên — ví dụ @kenhcuaban" /></div>
+      </div>
+      <div class="field">
+        <label for="beAccentOn">Màu nhấn</label>
+        <div class="row be-color">
+          <label class="be-check"><input type="checkbox" id="beAccentOn" /> Đổi màu</label>
+          <input type="color" id="beAccent" value="#e8590c" disabled aria-label="Màu nhấn mới" />
+        </div>
+      </div>
+      <div class="field" data-be-only="rebuild">
+        <div class="field-top"><label>Thay chữ trong lời</label><span class="state">giọng sẽ đọc lại câu mới</span></div>
+        <div id="beReplace"></div>
+        <button type="button" class="tool-btn" id="beReplaceAdd"><i data-icon="plus"></i> Thêm cặp</button>
+      </div>
+      <label class="be-check be-review" data-be-only="rebuild"><input type="checkbox" id="beReview" /> Dừng cho tôi đọc lại lời trước khi dựng</label>
+    </div>
+    <p class="hint" id="beHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>Huỷ</button>
+      <button type="submit" class="btn primary" id="beGo"><i data-icon="play"></i> Sửa và dựng lại</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="/app.js"></script>
 <script src="/subs.js"></script>
 <script src="/bili.js"></script>
 <script src="/post-copy.js"></script>
 <script src="/batch-sheet.js"></script>
+<script src="/bulk-edit.js"></script>
 </body>
 </html>

@@ -246,7 +246,7 @@ async function showLibrary(tab = "videos") {
   $("trashGrid").hidden = tab !== "trash";
   $("libFilter").hidden = tab !== "media";
   $("search").placeholder = { media: "Tìm tài nguyên…", trash: "Tìm trong thùng rác…" }[tab] ?? "Tìm video…";
-  $("libSelect").innerHTML = `${icon("square-check")} ${tab === "media" ? "Chọn để dọn" : tab === "trash" ? "Chọn nhiều" : "Chọn để xoá"}`;
+  $("libSelect").innerHTML = `${icon("square-check")} ${tab === "media" ? "Chọn để dọn" : "Chọn nhiều"}`;
 
   const target = { media: $("mediaGrid"), trash: $("trashGrid") }[tab] ?? $("grid");
   target.innerHTML = `<p class="empty-lib">Đang tải…</p>`;
@@ -814,6 +814,7 @@ function renderSelectBar() {
   const bar = $("libSelectBar");
   bar.hidden = !selecting;
   $("libRestore").hidden = libTab !== "trash";
+  $("libBulkEdit").hidden = libTab !== "videos";
   if (!selecting) return;
   if (libTab === "trash") {
     const chosen = trashItems.filter((t) => selectedTrash.has(t.id));
@@ -844,6 +845,10 @@ function renderSelectBar() {
     : "Bấm vào video để chọn, hoặc chọn nhanh:";
   $("libDelete").disabled = picked.length === 0;
   $("libDelete").innerHTML = `${icon("trash-2")} ${picked.length ? `Xoá ${picked.length} video` : "Xoá"}`;
+  // Sửa hàng loạt chỉ áp cho video đã dựng (bộ ảnh tĩnh không có nhạc, giọng để đổi).
+  const editable = picked.filter((p) => p.kind === "video" && p.editable && !p.running);
+  $("libBulkEdit").disabled = editable.length === 0;
+  $("libBulkEdit").innerHTML = `${icon("wand-sparkles")} ${editable.length ? `Sửa ${editable.length} video` : "Sửa hàng loạt"}`;
 }
 
 /** Chọn nhanh: video không mở/sửa từ N ngày trước (Infinity = tất cả). */
@@ -889,6 +894,8 @@ function bindLibrarySelect() {
   $("libSelectBar").querySelectorAll("[data-older]").forEach((b) =>
     b.addEventListener("click", () => selectOlderThan(b.dataset.older === "all" ? Infinity : Number(b.dataset.older))));
   $("libSelectNone").addEventListener("click", () => { selectedSlugs.clear(); selectedMedia.clear(); renderCurrentLib(); });
+  $("libBulkEdit").addEventListener("click", () =>
+    openBulkEdit(libraryItems.filter((p) => selectedSlugs.has(p.slug) && p.kind === "video" && p.editable && !p.running)));
   $("libDelete").addEventListener("click", async () => {
     const done = libTab === "trash"
       ? await deleteTrashForever([...selectedTrash])
@@ -3010,10 +3017,11 @@ const BT_LABEL = {
 };
 const BT_STEP = { script: "viết lời", voice: "giọng đọc", images: "tìm hình", render: "render" };
 const BT_SOURCE_LABEL = {
-  ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề",
+  ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề", edit: "Sửa hàng loạt",
 };
 const BT_SOURCE_ICON = {
   ideas: icon("lightbulb"), custom: icon("puzzle"), media: icon("mic"), variants: icon("repeat"), subs: icon("captions"),
+  edit: icon("wand-sparkles"),
 };
 const BT_SOURCE_DESC = {
   ideas: "Mỗi dòng một video. Gõ tay, tải file .txt/.csv, hoặc để AI nghĩ ý tưởng giúp.",
@@ -3934,6 +3942,19 @@ function scheduleBatchPoll() {
   batchPoll = setTimeout(() => loadBatch(batchCur.id), 1500);
 }
 
+/** "giọng linh · nhạc calm · “A” → “B”" — dòng mô tả thay đổi của loạt sửa hàng loạt. */
+function editPlanText(plan) {
+  const parts = [];
+  if (plan.style) parts.push(`${styleMeta(plan.style).emoji} ${styleMeta(plan.style).label}`);
+  if (plan.voice !== undefined) parts.push(plan.voice ? `giọng ${plan.voice}` : "không giọng");
+  if (plan.aspect) parts.push(`▭ ${plan.aspect}`);
+  if (plan.music !== undefined) parts.push(plan.music === null ? "không nhạc" : musicLabel(plan.music));
+  if (plan.handle) parts.push(plan.handle);
+  if (plan.accent) parts.push(`màu ${plan.accent}`);
+  for (const r of plan.replace ?? []) parts.push(`“${r.find}” → “${r.to}”`);
+  return parts.join(" · ");
+}
+
 function renderBatchRun() {
   const b = batchCur;
   if (!b) return;
@@ -3953,6 +3974,14 @@ function renderBatchRun() {
     `▭ ${b.settings.aspect}`,
     b.settings.voice ? `giọng ${b.settings.voice}` : "không giọng",
   ]).join(" · ");
+  // Sửa hàng loạt: cài đặt chung của loạt không có nghĩa gì — ghi những thay đổi đang áp.
+  if (b.source === "edit" && b.edit) {
+    $("batchRunMeta").textContent = [
+      BT_SOURCE_LABEL.edit, `${c.total} video`,
+      b.edit.kind === "props" ? "giữ chỉnh sửa" : "dựng lại từ kịch bản",
+      editPlanText(b.edit),
+    ].filter(Boolean).join(" · ");
+  }
   $("batchSubsLook").hidden = !subs;
   setNav(subs ? "subs" : "batch");
 
@@ -4091,9 +4120,10 @@ function batchItemTile(it, i) {
   const btn = (act, label, cls = "") =>
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
   // Mục dựng từ file thu sẵn hoặc từ video gốc không có "nội dung đã gõ" để sửa lại.
-  const editable = !it.file && !it.variant && !busy;
+  const editable = !it.file && !it.variant && !it.edit && !busy;
   // Có kịch bản (script.json) thì sửa được cả lời — kể cả biến thể; file thu sẵn thì không có kịch bản.
-  const scriptEditable = !it.file && !busy && Boolean(it.slug);
+  // Sửa hàng loạt kiểu giữ chỉnh sửa: lời không đổi, sửa lời thì mở trình chỉnh sửa.
+  const scriptEditable = !it.file && it.edit !== "props" && !busy && Boolean(it.slug);
 
   const actions = [];
   if (it.status === "review") {

@@ -8,6 +8,9 @@
  *   variants — một kịch bản có sẵn nhân ra nhiều tỉ lệ / giọng / ngôn ngữ
  *   subs     — gắn phụ đề cho nhiều video có sẵn: mỗi file × mỗi ngôn ngữ phụ đề một video,
  *              kiểu phụ đề chung cho cả loạt, đổi kiểu một lần là dựng lại tất cả
+ *   edit     — sửa hàng loạt video ĐÃ CÓ trong Thư viện (chọn nhiều ở đó): đổi nhạc, tên kênh, màu
+ *              mà giữ chỉnh sửa tay, hoặc dựng lại từ kịch bản với phong cách/giọng/khung/lời mới.
+ *              Mỗi video ra một bản mới, bản cũ vẫn còn (server/versions.ts)
  *
  * Mỗi mục chạy hai bước tách rời: **chuẩn bị** (viết kịch bản, hoặc phiên âm) rồi **dựng**
  * (giọng → hình → render). Bật "chốt duyệt" thì cả loạt dừng sau bước chuẩn bị để người
@@ -52,14 +55,39 @@ import { slugify } from "../scripts/slug";
 import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
 import { generatePostCopy, getPostCopy, type SavedPostCopy } from "../scripts/post-copy";
-import type { ProviderChoice } from "../scripts/generate-script";
+import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
   isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
   TRANSLATE_ENGINES, type TranslateEngine, type TranslateLanguage,
 } from "../scripts/translate";
 
-export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs";
+export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs" | "edit";
+
+/**
+ * Sửa hàng loạt video có sẵn. Hai cách, vì chúng giữ lại những thứ khác nhau:
+ *  - "props":   ghi thẳng vào props.json đang dùng rồi render lại. Giữ mọi chỉnh sửa trong trình chỉnh sửa
+ *               (cắt cảnh, phụ đề sửa tay…) và giữ nguyên giọng đã đọc, nên chỉ đổi được thứ không đụng lời:
+ *               nhạc nền, tên kênh, màu nhấn.
+ *  - "rebuild": sửa script.json rồi dựng lại từ đầu (giọng → hình → render). Đổi được phong cách, giọng, khung
+ *               và thay chữ trong lời (giọng đọc lại câu mới), nhưng props.json được tạo lại — chỉnh sửa tay
+ *               của bản đang dùng không mang sang bản mới.
+ * Trường để trống (undefined) = giữ như video đang có.
+ */
+export type EditKind = "props" | "rebuild";
+export type EditPlan = {
+  kind: EditKind;
+  /** Đường dẫn nhạc, "random", hoặc null = bỏ nhạc. */
+  music?: string | null;
+  handle?: string;
+  accent?: string;
+  style?: StyleChoice;
+  /** "" = bỏ giọng đọc. */
+  voice?: string;
+  aspect?: string;
+  /** Thay chữ trong lời (chỉ "rebuild" — lời đổi thì giọng phải đọc lại). */
+  replace?: { find: string; to: string }[];
+};
 
 /** Tuỳ chọn của nguồn "subs": video nói tiếng gì, và kiểu phụ đề chung cho cả loạt. */
 export type SubsOptions = {
@@ -191,6 +219,8 @@ export type BatchItem = {
   restyle?: boolean;
   /** Biến thể: lấy từ video nào và đổi gì. */
   variant?: { from: string; aspect?: string; voice?: string; lang?: TranslateLanguage };
+  /** Nguồn edit: mục này là video có sẵn (item.slug), sửa theo batch.edit. */
+  edit?: EditKind;
   /** Cài đặt riêng của mục này, đè lên cài đặt chung của loạt. */
   override?: Partial<ChatSettings>;
   slug?: string;
@@ -224,6 +254,7 @@ export type Batch = {
   /** Model whisper cho nguồn audio-video. */
   mediaModel: WhisperModel;
   subs?: SubsOptions;
+  edit?: EditPlan;
   state: "idle" | "running" | "paused" | "done";
   items: BatchItem[];
 };
@@ -382,20 +413,27 @@ export type CreateBatchInput = {
   variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown };
   /** Nguồn subs: ngôn ngữ nói, các ngôn ngữ phụ đề ("" = giữ nguyên), kiểu phụ đề chung. */
   subs?: { spoken?: unknown; languages?: unknown; look?: unknown; crop?: unknown; layout?: unknown; tracks?: unknown };
+  /** Nguồn edit: items là danh sách slug video có sẵn; đây là thay đổi áp cho tất cả. */
+  edit?: Record<string, unknown>;
   /** Tạo xong chạy luôn. */
   start?: unknown;
 };
 
 export const createBatch = (body: CreateBatchInput) => {
   const source: BatchSource =
-    body.source === "media" || body.source === "variants" || body.source === "custom" || body.source === "subs"
+    body.source === "media" || body.source === "variants" || body.source === "custom" || body.source === "subs" ||
+    body.source === "edit"
       ? body.source : "ideas";
   const settings = normalizeSettings(body.settings, DEFAULT_SETTINGS);
   const mediaModel: WhisperModel = body.mediaModel === "small" ? "small" : "medium";
 
   let items: BatchItem[] = [];
   let subs: SubsOptions | undefined;
-  if (source === "subs") {
+  let edit: EditPlan | undefined;
+  if (source === "edit") {
+    edit = parseEditPlan(body.edit);
+    items = editItems(body.items, edit);
+  } else if (source === "subs") {
     const raw = body.subs ?? {};
     const spoken = SPOKEN_LANGUAGES.some((l) => l.code === raw.spoken) ? String(raw.spoken) : "auto";
     const wanted = Array.isArray(raw.languages) ? raw.languages : [""];
@@ -481,13 +519,16 @@ export const createBatch = (body: CreateBatchInput) => {
     id: `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 6)}`,
     name: String(body.name ?? "").trim().slice(0, 60) ||
       (source === "media" ? "Từ file thu sẵn" : source === "subs" ? "Thêm phụ đề"
-        : source === "variants" ? "Biến thể" : items[0].input.slice(0, 40)),
+        : source === "variants" ? "Biến thể" : source === "edit" ? `Sửa ${items.length} video`
+          : items[0].input.slice(0, 40)),
     createdAt: Date.now(),
     source,
     settings,
-    review: body.review !== false,
+    // Sửa hàng loạt: lời thường không đổi nên mặc định chạy thẳng; các nguồn khác mặc định dừng cho duyệt lời.
+    review: source === "edit" ? body.review === true : body.review !== false,
     mediaModel,
     ...(subs ? { subs } : {}),
+    ...(edit ? { edit } : {}),
     state: "idle",
     items,
   };
@@ -688,7 +729,7 @@ export const editItem = (id: unknown, body: unknown) => {
   };
   const item = batch.items.find((i) => i.id === String(itemId));
   if (!item) throw new Error("Không thấy ô này trong loạt.");
-  if (item.file || item.variant) {
+  if (item.file || item.variant || item.edit) {
     throw new Error("Ô này dựng từ file thu sẵn hoặc từ video gốc — sửa trong chính video đó.");
   }
   if (item.status === "preparing" || item.status === "building") {
@@ -752,6 +793,9 @@ export const saveItemScript = (id: unknown, body: unknown) => {
   if (item.status === "preparing" || item.status === "building") {
     throw new Error("Ô này đang chạy — đợi xong rồi sửa.");
   }
+  if (item.edit === "props") {
+    throw new Error("Loạt này giữ nguyên lời và chỉnh sửa tay của video — muốn sửa lời thì mở video trong trình chỉnh sửa.");
+  }
   const old = itemScript(item);
   if (!old || !item.slug) throw new Error("Ô này chưa có lời để sửa — dùng Viết lại từ ý tưởng.");
 
@@ -813,7 +857,8 @@ export const removeItems = (id: unknown, ids: unknown, alsoVideo = false) => {
   const slugs = picked
     .map((item) => item.slug)
     .filter((slug): slug is string => Boolean(slug) && fs.existsSync(videoDir(slug as string)));
-  if (alsoVideo && slugs.length > 0) {
+  // Loạt sửa hàng loạt trỏ vào video người dùng đã có từ trước — bỏ khỏi loạt không bao giờ xoá video đó.
+  if (alsoVideo && slugs.length > 0 && batch.source !== "edit") {
     // Video đi vào thùng rác của app, không xoá thẳng — người dùng khôi phục được.
     deleteProjects(slugs);
   }
@@ -933,8 +978,8 @@ const run = async (batch: Batch, item: BatchItem, phase: "prepare" | "build") =>
 
   try {
     if (phase === "prepare") {
-      await prepare(batch, item, log);
-      item.status = batch.review ? "review" : "ready";
+      const keep = await prepare(batch, item, log);
+      item.status = keep === false ? "skipped" : batch.review ? "review" : "ready";
     } else {
       await build(batch, item, log);
       item.status = "done";
@@ -971,9 +1016,11 @@ const previewOf = (script: VideoScript) => ({
   lines: allLines(script).slice(0, 40),
 });
 
-const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+/** Trả về false = mục này không có gì để làm (ví dụ không chứa chữ cần thay) — đánh dấu bỏ qua, khỏi render. */
+const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => void): Promise<boolean | void> => {
   if (item.file) return prepareMedia(batch, item, log);
   if (item.variant) return prepareVariant(batch, item, log);
+  if (item.edit) return prepareEdit(batch, item, log);
 
   const settings = itemSettings(batch, item);
   // Dán cả kịch bản: đặt tên thư mục theo tiêu đề, không theo cả khối văn bản.
@@ -1243,6 +1290,164 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   item.lines = captions.filter((caption) => !caption.track).map((caption) => caption.text).slice(0, 40);
 };
 
+// ---------- sửa hàng loạt video có sẵn ----------
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+const parseEditPlan = (raw: Record<string, unknown> | undefined): EditPlan => {
+  const r = raw ?? {};
+  const kind: EditKind = r.kind === "rebuild" ? "rebuild" : "props";
+  const plan: EditPlan = { kind };
+  // Nhạc: normalizeSettings đã biết luật đường dẫn nhạc hợp lệ — mượn nó thay vì chép lại.
+  if (r.music !== undefined) {
+    const music = normalizeSettings({ music: r.music as string | null }, { ...DEFAULT_SETTINGS, music: "__keep__" }).music;
+    if (music === "__keep__") throw new Error("Nhạc nền không hợp lệ.");
+    plan.music = music;
+  }
+  if (typeof r.handle === "string" && r.handle.trim()) plan.handle = r.handle.trim().slice(0, 30);
+  if (typeof r.accent === "string" && r.accent.trim()) {
+    if (!HEX.test(r.accent.trim())) throw new Error("Màu nhấn phải có dạng #rrggbb.");
+    plan.accent = r.accent.trim();
+  }
+  if (kind === "rebuild") {
+    const own = normalizeSettings(
+      { style: r.style, voice: r.voice, aspect: r.aspect } as Partial<ChatSettings>,
+      { ...DEFAULT_SETTINGS, style: "__keep__" as never, voice: "__keep__", aspect: "__keep__" },
+    );
+    if (r.style !== undefined && own.style !== ("__keep__" as never)) plan.style = own.style;
+    if (r.voice !== undefined && own.voice !== "__keep__") plan.voice = own.voice;
+    if (r.aspect !== undefined && own.aspect !== "__keep__") plan.aspect = own.aspect;
+    const pairs = Array.isArray(r.replace) ? r.replace : [];
+    const replace = pairs
+      .map((pair) => pair as { find?: unknown; to?: unknown })
+      .map((pair) => ({ find: String(pair.find ?? ""), to: String(pair.to ?? "") }))
+      .filter((pair) => pair.find.trim() && pair.find !== pair.to)
+      .slice(0, 20);
+    if (replace.length) plan.replace = replace;
+  }
+  const { kind: _kind, ...changes } = plan;
+  if (Object.keys(changes).length === 0) throw new Error("Chưa chọn thay đổi nào để áp cho các video.");
+  return plan;
+};
+
+/** Mô tả ngắn những gì đã đổi — ghi vào lịch sử chat của từng video. */
+const editSummary = (plan: EditPlan | undefined) => {
+  if (!plan) return "";
+  const parts: string[] = [];
+  if (plan.style) parts.push(`phong cách ${plan.style}`);
+  if (plan.voice !== undefined) parts.push(plan.voice ? `giọng ${plan.voice}` : "bỏ giọng");
+  if (plan.aspect) parts.push(`khung ${plan.aspect}`);
+  if (plan.replace) parts.push(plan.replace.map((r) => `“${r.find}” → “${r.to}”`).join(", "));
+  if (plan.music !== undefined) {
+    parts.push(plan.music === null ? "bỏ nhạc" : plan.music === "random" ? "nhạc ngẫu nhiên" : `nhạc ${path.basename(plan.music)}`);
+  }
+  if (plan.handle) parts.push(`tên kênh ${plan.handle}`);
+  if (plan.accent) parts.push(`màu ${plan.accent}`);
+  return parts.join(" · ");
+};
+
+/** Mỗi video được chọn là một mục; báo lỗi ngay nếu video không sửa được theo cách đã chọn. */
+const editItems = (raw: unknown, plan: EditPlan): BatchItem[] => {
+  const slugs = [...new Set((Array.isArray(raw) ? raw : []).map(String))].filter(isSlug).slice(0, MAX_ITEMS);
+  const need = plan.kind === "rebuild" ? "script.json" : "props.json";
+  const missing: string[] = [];
+  const items: BatchItem[] = [];
+  for (const slug of slugs) {
+    if (!fs.existsSync(path.join(videoDir(slug), need))) {
+      missing.push(slug);
+      continue;
+    }
+    const script = readJson(path.join(videoDir(slug), "script.json")) as { title?: string } | null;
+    const props = readJson(path.join(videoDir(slug), "props.json")) as { title?: string } | null;
+    items.push(newItem(script?.title ?? props?.title ?? slug, { slug, edit: plan.kind }));
+  }
+  if (missing.length) {
+    throw new Error(plan.kind === "rebuild"
+      ? `${missing.length} video không có kịch bản (dựng từ file thu sẵn hoặc nhiều cảnh) nên không dựng lại được — bỏ chọn chúng, hoặc dùng cách “Giữ chỉnh sửa”.`
+      : `${missing.length} video chưa dựng lần nào nên chưa có gì để sửa — bỏ chọn chúng.`);
+  }
+  return items;
+};
+
+/** Thay chữ trong mọi chuỗi người xem thấy của kịch bản. Trả về số chỗ đã thay. */
+const replaceInScript = (script: VideoScript, pairs: { find: string; to: string }[]) => {
+  let count = 0;
+  const swap = (text: string, max: number) => {
+    let out = text;
+    for (const { find, to } of pairs) {
+      const parts = out.split(find);
+      count += parts.length - 1;
+      out = parts.join(to);
+    }
+    return fit(out, max);
+  };
+  script.title = swap(script.title, 60);
+  script.subtitle = swap(script.subtitle, 90);
+  for (const scene of script.scenes) {
+    scene.lines = scene.lines.map((line) => swap(line, 90));
+    if (scene.tag) scene.tag = swap(scene.tag, 18);
+    if (scene.punch) scene.punch = swap(scene.punch, 48);
+    if (scene.visual?.caption) scene.visual.caption = swap(scene.visual.caption, 40);
+  }
+  return count;
+};
+
+const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const plan = batch.edit;
+  const slug = item.slug;
+  if (!plan || !slug) throw new Error("Mục sửa hàng loạt thiếu thông tin.");
+  if (!fs.existsSync(videoDir(slug))) throw new Error("Video này không còn trong Thư viện.");
+  log("__STEP__ script");
+  const chat = readChat(slug);
+  const settings = normalizeSettings({
+    ...chat.settings,
+    ...(plan.music !== undefined ? { music: plan.music } : {}),
+    ...(plan.style ? { style: plan.style } : {}),
+    ...(plan.voice !== undefined ? { voice: plan.voice } : {}),
+    ...(plan.aspect ? { aspect: plan.aspect } : {}),
+  }, chat.settings);
+  // Bước dựng đọc cài đặt từ item.override; chat.json cũng ghi theo để lần sửa bằng prompt sau dùng đúng giọng, khung mới.
+  item.override = settings;
+
+  if (plan.kind === "props") {
+    const propsPath = path.join(videoDir(slug), "props.json");
+    const props = readJson(propsPath);
+    if (!props) throw new Error("Video này chưa dựng lần nào nên chưa có gì để sửa.");
+    if (plan.music !== undefined) props.music = await resolveMusicChoice(plan.music, log);
+    if (plan.handle) props.handle = plan.handle;
+    if (plan.accent) props.accent = plan.accent;
+    // Kiểm tra cho chắc nhưng ghi nguyên object: parse của zod bỏ mất trường lạ mà trình chỉnh sửa có thể đã thêm.
+    shortSchema.parse(props);
+    fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));
+    log(`Đã đổi: ${editSummary(plan)}`);
+    const captions = (props.captions ?? []) as Caption[];
+    item.title = props.title;
+    item.scenes = Array.isArray(props.scenes) ? props.scenes.length : undefined;
+    item.lines = captions.filter((caption) => !caption.track).map((caption) => caption.text).slice(0, 40);
+  } else {
+    const scriptPath = path.join(videoDir(slug), "script.json");
+    if (!fs.existsSync(scriptPath)) throw new Error("Video này không có kịch bản nên không dựng lại được.");
+    const script = parseScript(JSON.parse(fs.readFileSync(scriptPath, "utf8")));
+    if (plan.replace) {
+      const count = replaceInScript(script, plan.replace);
+      const others = plan.style || plan.voice !== undefined || plan.aspect || plan.music !== undefined || plan.handle || plan.accent;
+      if (count === 0 && !others) {
+        log("Không có chữ nào cần thay trong video này — bỏ qua, không dựng lại.");
+        Object.assign(item, previewOf(script));
+        return false;
+      }
+      log(`Thay ${count} chỗ trong lời.`);
+    }
+    if (plan.style && plan.style !== "auto") script.style = plan.style;
+    if (plan.handle) script.handle = plan.handle;
+    if (plan.accent) script.accent = plan.accent;
+    fs.writeFileSync(scriptPath, JSON.stringify(parseScript(script), null, 2));
+    Object.assign(item, previewOf(script));
+  }
+  writeChat(slug, { messages: chat.messages, settings });
+  return true;
+};
+
 // ---------- bước 2: dựng ----------
 
 const appendAssistant = (slug: string, message: ChatMessage) => {
@@ -1280,18 +1485,21 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   if (!slug) throw new Error("Mục này chưa chuẩn bị xong.");
   const settings = itemSettings(batch, item);
 
-  // Nguồn file thu sẵn không có kịch bản — render thẳng từ props.json đã phiên âm.
-  if (item.file) {
+  // Nguồn file thu sẵn không có kịch bản, và sửa hàng loạt kiểu giữ chỉnh sửa — render thẳng từ props.json.
+  if (item.file || item.edit === "props") {
     log("__STEP__ render");
     const result = await runRenderStage(slug, undefined, log);
     item.mp4 = `${result.mp4}?t=${Date.now()}`;
     item.poster = makePoster(slug, path.join(process.cwd(), "out", `${slug}.mp4`));
+    const props = readJson(path.join(videoDir(slug), "props.json")) as { aspect?: string } | null;
     appendAssistant(slug, {
       role: "assistant",
       at: Date.now(),
-      text: `Đã dựng “${item.title ?? slug}” từ file thu sẵn · ${(result.durationInFrames / 30).toFixed(1)}s`,
+      text: item.edit
+        ? `Đã sửa hàng loạt: ${editSummary(batch.edit)} · ${(result.durationInFrames / 30).toFixed(1)}s`
+        : `Đã dựng “${item.title ?? slug}” từ file thu sẵn · ${(result.durationInFrames / 30).toFixed(1)}s`,
       mp4: item.mp4,
-      aspect: settings.aspect,
+      aspect: props?.aspect ?? settings.aspect,
     });
     return;
   }
@@ -1299,7 +1507,8 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   const scriptPath = path.join(videoDir(slug), "script.json");
   if (!fs.existsSync(scriptPath)) throw new Error(`${slug} chưa có kịch bản.`);
   const script = parseScript(JSON.parse(fs.readFileSync(scriptPath, "utf8")));
-  const result = await buildFromScript(slug, script, settings, log);
+  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit));
+  if (item.edit) result.text = `Đã sửa hàng loạt: ${editSummary(batch.edit)} · ${result.text}`;
 
   item.mp4 = result.mp4;
   item.images = result.images;
