@@ -13,6 +13,7 @@ import { execFile } from "child_process";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
+import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../src/aspects";
 
 const run = promisify(execFile);
 
@@ -48,10 +49,14 @@ const readJson = (file: string) => {
   }
 };
 
-type Caption = { text: string; startMs: number; endMs: number; track?: number };
+type Place = { x?: number; y?: number; size?: number; width?: number };
+type Caption = { text: string; startMs: number; endMs: number; track?: number; style?: Place | null };
+type TextOverlay = { text: string; y?: number; size?: number; maxWidth?: number };
 type Props = {
   aspect?: string;
   captions?: Caption[];
+  captionLook?: Place | null;
+  texts?: TextOverlay[];
   music?: string | null;
   voiceoverTrack?: string | null;
 };
@@ -95,6 +100,44 @@ const measure = async (file: string, hasAudio: boolean) => {
 };
 
 const fmt = (s: number) => `${s.toFixed(1)}s`;
+
+/**
+ * Chữ người dùng tự đặt vị trí (phụ đề kéo chỗ khác, kiểu riêng từng câu, chữ tự do) mà lấn vào vùng nền tảng che:
+ * đỉnh (avatar, tên nhạc) và đáy (caption của nền tảng, nút thích/chia sẻ) — src/aspects.ts. Đọc thẳng vị trí trong
+ * props thay vì đo pixel: đo pixel thì ảnh nền sáng cũng bị tính là "có chữ". Phong cách mặc định đã canh sẵn vùng
+ * an toàn nên chỉ xét chỗ có toạ độ chỉnh tay.
+ */
+const unsafePlacements = (props: Props) => {
+  const aspect = ASPECTS[(props.aspect as AspectId) ?? DEFAULT_ASPECT] ?? ASPECTS[DEFAULT_ASPECT];
+  const { width: W, height: H, safe } = aspect;
+  const scale = Math.min(W, H) / 1080;
+  /** Khối chữ cao bao nhiêu px: số dòng ước theo bề rộng chữ trung bình ~0,55 cỡ chữ. */
+  const block = (text: string, size: number, widthPct: number) => {
+    const px = size * scale;
+    const perLine = Math.max(1, Math.floor((widthPct / 100) * W / (px * 0.55)));
+    const lines = text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(line.length / perLine)), 0);
+    return lines * px * 1.2;
+  };
+  // Vị trí phụ đề mặc định (captionLook y 80%) nằm sát mép vùng che — dung sai ~2,5% chiều cao để chỉ báo chỗ lấn rõ.
+  const tolerance = 48;
+  const offends = (yPct: number, height: number) => {
+    const center = (yPct / 100) * H;
+    return center - height / 2 < safe.top - tolerance ? "top" : center + height / 2 > H - safe.bottom + tolerance ? "bottom" : null;
+  };
+  const found: string[] = [];
+  const look = props.captionLook;
+  const lines = (props.captions ?? []).filter((c) => c.text.trim());
+  if (look?.y !== undefined) {
+    const longest = lines.reduce((a, c) => (c.text.length > a.length ? c.text : a), "");
+    const where = offends(look.y, block(longest, look.size ?? 72, look.width ?? 80));
+    if (where) found.push(`phụ đề đặt ${where === "top" ? "quá cao" : "quá thấp"} (y ${look.y}%)`);
+  }
+  const ownStyle = lines.filter((c) => c.style?.y !== undefined && offends(c.style.y!, block(c.text, c.style.size ?? look?.size ?? 72, c.style.width ?? look?.width ?? 80)));
+  if (ownStyle.length) found.push(`${ownStyle.length} câu phụ đề có vị trí riêng lấn vùng che (vd. “${ownStyle[0].text.slice(0, 40)}”)`);
+  const texts = (props.texts ?? []).filter((t) => t.text.trim() && offends(t.y ?? 30, block(t.text, t.size ?? 72, t.maxWidth ?? 80)));
+  if (texts.length) found.push(`${texts.length} chữ tự do lấn vùng che (vd. “${texts[0].text.replace(/\s+/g, " ").slice(0, 40)}”)`);
+  return found;
+};
 
 export const checkVideo = async (slug: string): Promise<QaResult> => {
   const file = mp4Path(slug);
@@ -141,6 +184,10 @@ export const checkVideo = async (slug: string): Promise<QaResult> => {
   if (long.length) warn(`${long.length} dòng phụ đề dài hơn ${CAPTION_MAX} ký tự — chiếm 3 dòng, che hình. Ví dụ: “${long[0].text.slice(0, 60)}”`);
   const fast = captions.filter((c) => c.endMs > c.startMs && c.text.length / ((c.endMs - c.startMs) / 1000) > READ_CPS && c.text.length > 12);
   if (fast.length) warn(`${fast.length} dòng phụ đề hiện quá nhanh, đọc không kịp. Ví dụ: “${fast[0].text.slice(0, 60)}”`);
+  const unsafe = unsafePlacements(props);
+  if (unsafe.length) {
+    warn(`Chữ nằm trong vùng TikTok/Reels che (tên kênh ở đỉnh, nút và caption ở đáy): ${unsafe.join("; ")} — kéo vào giữa trong trình chỉnh sửa.`);
+  }
   const first = captions[0];
   if (first && first.startMs > 3000) warn(`Câu đầu tiên tới giây ${fmt(first.startMs / 1000)} mới xuất hiện — 3 giây đầu quyết định người xem có ở lại.`);
 
