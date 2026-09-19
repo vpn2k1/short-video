@@ -1285,6 +1285,7 @@ Lưu lại để làm theo nhé!</pre>
       </div>
       <div class="composer-foot">
         <button type="button" class="tool-btn" id="batchImport"><i data-icon="file-up"></i> Tải .txt / .csv</button>
+        <button type="button" class="tool-btn" id="batchSheetTemplate2" title="File CSV mẫu — thêm cột Phong cách, Khung, Giọng… để đặt riêng từng video"><i data-icon="file-down"></i> File mẫu</button>
         <button type="button" class="tool-btn" id="batchTopicToggle"><i data-icon="sparkles"></i> AI nghĩ ý tưởng</button>
         <span class="spacer"></span>
         <span class="kbd-hint" id="batchCount"></span>
@@ -1297,6 +1298,8 @@ Lưu lại để làm theo nhé!</pre>
       <div class="composer-foot">
         <span class="muted">Ô trống thì bỏ qua. Ô nào đặt riêng thì dùng cài đặt của ô đó.</span>
         <span class="spacer"></span>
+        <button type="button" class="tool-btn" id="batchSheetImport" title="Mỗi dòng một video; cột Phong cách, Khung, Giọng, Hình, Nhạc, Kiểu lời đặt riêng cho từng video"><i data-icon="file-spreadsheet"></i> Nhập bảng tính</button>
+        <button type="button" class="tool-btn" id="batchSheetTemplate" title="Tải file CSV mẫu có đủ các cột — mở bằng Excel hoặc Google Sheets"><i data-icon="file-down"></i> File mẫu</button>
         <span class="kbd-hint" id="batchCardsCount"></span>
       </div>
     </div>
@@ -1352,7 +1355,7 @@ Lưu lại để làm theo nhé!</pre>
       <div class="recent-head" style="margin-top:28px"><h2>Loạt gần đây</h2></div>
       <div class="bt-list" id="batchRecentList"></div>
     </div>
-    <input type="file" id="batchFile" accept=".txt,.csv" hidden />
+    <input type="file" id="batchFile" accept=".txt,.csv,.tsv" hidden />
     <input type="file" id="batchMediaFile" accept="audio/*,video/*" multiple hidden />
   </div>
 
@@ -1488,5 +1491,6 @@ Lưu lại để làm theo nhé!</pre>
 <script src="/subs.js"></script>
 <script src="/bili.js"></script>
 <script src="/post-copy.js"></script>
+<script src="/batch-sheet.js"></script>
 </body>
 </html>

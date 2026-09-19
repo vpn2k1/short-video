@@ -3064,6 +3064,9 @@ function bindBatch() {
   $("batchText").addEventListener("input", () => { renderBatchCount(); renderBatchPlan(); });
   $("batchImport").addEventListener("click", () => $("batchFile").click());
   $("batchFile").addEventListener("change", importBatchFile);
+  $("batchSheetImport").addEventListener("click", () => $("batchFile").click());
+  $("batchSheetTemplate").addEventListener("click", downloadBatchTemplate);
+  $("batchSheetTemplate2").addEventListener("click", downloadBatchTemplate);
   $("batchTopicToggle").addEventListener("click", () => {
     const box = $("batchIdeaGen");
     box.hidden = !box.hidden;
@@ -3412,12 +3415,9 @@ async function importBatchFile(e) {
   const file = e.target.files?.[0];
   e.target.value = "";
   if (!file) return;
-  const text = await file.text();
-  // CSV: lấy cột đầu của mỗi dòng, bỏ dòng tiêu đề thường gặp.
-  const lines = /\.csv$/i.test(file.name)
-    ? text.split(/\r?\n/).map((row) => (row.match(/^\s*"([^"]*)"|^[^,]*/) ?? [""])[0].replace(/^"|"$/g, "").trim())
-        .filter((line, i) => line && !(i === 0 && /^(tiêu đề|title|ý tưởng|idea|topic|prompt)$/i.test(line)))
-    : text.split(/\r?\n/);
+  // Bảng tính: đọc đủ các cột (batch-sheet.js) — có cột phong cách/giọng… thì mỗi dòng thành một ô riêng.
+  if (/\.(csv|tsv)$/i.test(file.name)) return importBatchSheet(file);
+  const lines = (await file.text()).split(/\r?\n/);
   const current = $("batchText").value.trim();
   $("batchText").value = (current ? `${current}\n` : "") + lines.join("\n").trim();
   renderBatchCount();
