@@ -1,7 +1,8 @@
 import { AbsoluteFill, CalculateMetadataFunction } from "remotion";
-import { FPS, msToFrames, OUTRO_FRAMES, TITLE_FRAMES } from "../../constants";
+import { FPS } from "../../constants";
 import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../../aspects";
 import type { ShortProps } from "./schema";
+import { videoDurationInFrames } from "./duration";
 import { Soundtrack } from "../../audio/Soundtrack";
 import { MediaOverlays } from "../../components/MediaOverlays";
 import { TextOverlays } from "../../components/TextOverlays";
@@ -14,27 +15,12 @@ import { FONTS } from "../../styles/shared";
 import { ensureFonts, fontsUsedBy } from "../../fonts/load";
 import type { StyleId } from "../../styles/meta";
 
-/** Duration follows the caption track, so editing captions in the Studio resizes the video. */
+/** Duration follows the timeline items (see videoDurationInFrames), so editing in the Studio resizes the video. */
 export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
   props,
 }) => {
-  // Xét cả mốc kết thúc của cảnh: với bản thu sẵn, audio có thể còn chạy sau
-  // câu cuối (khoảng lặng đuôi) — chỉ nhìn caption là cắt mất phần đó.
-  const lastEndMs = Math.max(
-    props.captions.reduce((max, caption) => Math.max(max, caption.endMs), 0),
-    props.scenes.reduce((max, scene) => Math.max(max, scene.endMs), 0),
-    // Âm thanh thêm tay kéo dài quá câu cuối thì video dài theo.
-    (props.audioClips ?? []).reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0),
-    (props.texts ?? []).reduce((max, text) => Math.max(max, text.endMs), 0),
-    // Lớp video chồng kéo dài quá cảnh cuối thì video dài theo.
-    (props.overlays ?? []).reduce((max, overlay) => Math.max(max, overlay.endMs), 0),
-  );
-
   return {
-    durationInFrames: Math.max(
-      TITLE_FRAMES,
-      msToFrames(lastEndMs) + OUTRO_FRAMES,
-    ),
+    durationInFrames: videoDurationInFrames(props),
     fps: FPS,
     ...(({ width, height }) => ({ width, height }))(
       ASPECTS[(props.aspect as AspectId) ?? DEFAULT_ASPECT] ?? ASPECTS[DEFAULT_ASPECT],
