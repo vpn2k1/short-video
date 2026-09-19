@@ -1161,6 +1161,11 @@ export const buildFromScript = async (
   log: (line: string) => void,
   /** Kịch bản đã có từ trước hay vừa viết — chỉ đổi chữ "Đã sửa" / "Đã tạo" trong câu trả lời. */
   existed = false,
+  /**
+   * Bản phụ đề dịch: giọng đọc lời của kịch bản GỐC (cùng số câu, câu thứ i ↔ câu thứ i), còn phụ đề và chữ trên
+   * hình lấy từ `script` đã dịch. Giọng có bộ nhớ theo chữ nên đọc lại lời gốc không tốn thêm lượt gọi.
+   */
+  voiceScript?: VideoScript,
 ) => {
   const sceneSummary = script.scenes.map((sc) => ({ lines: sc.lines, image: sc.image }));
   const styleMeta = STYLES[script.style] ?? STYLES.caption;
@@ -1210,7 +1215,11 @@ export const buildFromScript = async (
   let voiceNote = "";
   if (voice) {
     log(`Đang đọc bằng giọng ${voice.key}…`);
-    voiceover = await generateVoiceover(allLines(script), slug, voice.engine, voice.id, {
+    const spoken = allLines(voiceScript ?? script);
+    if (voiceScript && spoken.length !== allLines(script).length) {
+      throw new Error("Bản dịch lệch số câu so với bản gốc — bấm Chạy lại để dịch lại.");
+    }
+    voiceover = await generateVoiceover(spoken, slug, voice.engine, voice.id, {
       log, onFallback: (note) => { voiceNote = note; },
     });
   } else {

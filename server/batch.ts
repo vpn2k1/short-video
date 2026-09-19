@@ -50,7 +50,8 @@ import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type Cap
 import type { MediaCrop } from "../src/scenes/CropBox";
 import { ASPECT_IDS, ASPECTS, aspectFor, type AspectId } from "../src/aspects";
 import { DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
-import { findVoice } from "../scripts/voices";
+import { findVoice, VOICES } from "../scripts/voices";
+import { missingEngineKey } from "../scripts/tts";
 import { slugify } from "../scripts/slug";
 import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
@@ -229,6 +230,11 @@ export type BatchItem = {
   /** Biến thể: lấy từ video nào và đổi gì. */
   /** hook: bản thử A/B thứ mấy — 0 = giữ câu mở đầu gốc, k > 0 = câu hook thứ k do AI viết (batch.hooks). */
   variant?: { from: string; aspect?: string; voice?: string; lang?: TranslateLanguage; hook?: number };
+  /**
+   * Bản ngôn ngữ khác của một mục trong cùng loạt: chờ mục gốc (`parent`) dựng xong, dịch kịch bản của nó sang `lang`.
+   * `dub` = đọc lại bằng giọng ngôn ngữ đó; không thì giữ giọng gốc, chỉ phụ đề và chữ trên hình được dịch.
+   */
+  subOf?: { parent: string; lang: TranslateLanguage; dub: boolean; voice?: string };
   /** Nguồn edit: mục này là video có sẵn (item.slug), sửa theo batch.edit. */
   edit?: EditKind;
   /** Cài đặt riêng của mục này, đè lên cài đặt chung của loạt. */
@@ -377,6 +383,47 @@ const splitPastedScripts = (text: string) =>
     .filter(Boolean)
     .slice(0, MAX_ITEMS);
 
+/**
+ * Giọng dùng khi lồng tiếng một ngôn ngữ: giọng miễn phí trước (trong app, rồi macOS), rồi Gemini, cuối cùng
+ * ElevenLabs (tính theo ký tự) — và chỉ giọng đang có key, không cần gói trả phí.
+ */
+const ENGINE_ORDER: Record<string, number> = { local: 0, say: 1, gemini: 2, elevenlabs: 3 };
+const voiceForLanguage = (lang: TranslateLanguage) =>
+  VOICES
+    .filter((v) => v.lang === lang && !v.paidPlan && !missingEngineKey(v.engine) && (v.engine !== "say" || process.platform === "darwin"))
+    .sort((a, b) => (ENGINE_ORDER[a.engine] ?? 9) - (ENGINE_ORDER[b.engine] ?? 9))[0]?.key;
+
+/**
+ * Mỗi mục gốc + một mục cho mỗi ngôn ngữ (xếp liền sau mục gốc để nhìn bảng là thấy nhóm). Cắt cho vừa MAX_ITEMS
+ * theo NHÓM — không để một ý tưởng có bản gốc mà thiếu nửa số ngôn ngữ.
+ */
+const withLanguageItems = (items: BatchItem[], raw: unknown[], dub: boolean) => {
+  const langs = [...new Set(raw.filter(isTranslateLanguage))];
+  if (langs.length === 0) return items;
+  if (!pickTranslateEngine()) {
+    throw new Error("Phụ đề nhiều ngôn ngữ cần model dịch — điền key Gemini, Groq hoặc OpenRouter (có gói miễn phí) trong Cài đặt.");
+  }
+  if (dub) {
+    const missing = langs.filter((lang) => !voiceForLanguage(lang));
+    if (missing.length) {
+      throw new Error(`Chưa có giọng đọc cho ${missing.map(translateLanguageLabel).join(", ")} — bỏ “Lồng tiếng” để chỉ dịch phụ đề.`);
+    }
+  }
+  const out: BatchItem[] = [];
+  for (const item of items) {
+    if (out.length + 1 + langs.length > MAX_ITEMS) break;
+    out.push(item);
+    for (const lang of langs) {
+      const voice = dub ? voiceForLanguage(lang) : undefined;
+      out.push(newItem(`${item.input.split("\n")[0].slice(0, 80)} · ${translateLanguageLabel(lang)}${dub ? " (lồng tiếng)" : ""}`, {
+        subOf: { parent: item.id, lang, dub, ...(voice ? { voice } : {}) },
+      }));
+    }
+  }
+  if (out.length === 0) throw new Error(`Một loạt tối đa ${MAX_ITEMS} video — bớt ngôn ngữ hoặc số ý tưởng.`);
+  return out;
+};
+
 /** Tối đa bao nhiêu bản hook (tính cả bản gốc) — hơn nữa thì khó đo bản nào hơn. */
 const MAX_HOOKS = 5;
 const HOOK_LETTERS = "ABCDE";
@@ -450,6 +497,9 @@ export type CreateBatchInput = {
   edit?: Record<string, unknown>;
   /** Tạo xong chạy luôn. */
   start?: unknown;
+  /** Nguồn ideas/custom: thêm một bản cho mỗi ngôn ngữ phụ đề; `dub` = đọc lại bằng giọng ngôn ngữ đó. */
+  languages?: unknown;
+  dub?: unknown;
   /** Hẹn giờ chạy (ms từ epoch). Có thì không chạy ngay dù `start`. */
   startAt?: unknown;
 };
@@ -555,6 +605,10 @@ export const createBatch = (body: CreateBatchInput) => {
             ? "Chưa ô nào có nội dung. Nhập lời hoặc ý tưởng vào ít nhất một ô."
             : "Chưa có ý tưởng nào. Mỗi dòng một video.",
     );
+  }
+  // Phụ đề nhiều ngôn ngữ lúc tạo: mỗi mục gốc thêm một mục cho mỗi ngôn ngữ, đặt ngay sau mục gốc.
+  if ((source === "ideas" || source === "custom") && Array.isArray(body.languages) && body.languages.length) {
+    items = withLanguageItems(items, body.languages, body.dub === true);
   }
   // Hẹn giờ: chỉ nhận mốc trong tương lai (quá 30 giây) và trong vòng một tuần.
   const at = Number(body.startAt);
@@ -799,6 +853,13 @@ export const retryItems = (id: unknown, ids: unknown) => {
   const batch = require_(id);
   const picked = pickItems(batch, ids, (item) =>
     item.status === "error" || item.status === "done" || item.status === "skipped");
+  // Chạy lại bản gốc thì các bản ngôn ngữ của nó (đang lỗi vì chờ bản gốc) cũng vào hàng lại.
+  const pickedIds = new Set(picked.map((item) => item.id));
+  for (const item of batch.items) {
+    if (item.subOf && pickedIds.has(item.subOf.parent) && item.status === "error" && !item.slug) {
+      Object.assign(item, { status: "queued" as ItemStatus, error: undefined, progress: 0 });
+    }
+  }
   for (const item of picked) {
     // Đã có kịch bản rồi thì chạy lại từ bước dựng, khỏi gọi AI viết lại lời.
     const hasScript = item.slug
@@ -830,7 +891,7 @@ export const editItem = (id: unknown, body: unknown) => {
   };
   const item = batch.items.find((i) => i.id === String(itemId));
   if (!item) throw new Error("Không thấy ô này trong loạt.");
-  if (item.file || item.variant || item.edit) {
+  if (item.file || item.variant || item.edit || item.subOf) {
     throw new Error("Ô này dựng từ file thu sẵn hoặc từ video gốc — sửa trong chính video đó.");
   }
   if (item.status === "preparing" || item.status === "building") {
@@ -1041,6 +1102,20 @@ const pump = () => {
     }
     for (const item of batch.items) {
       if (item.status !== "queued") continue;
+      // Bản ngôn ngữ khác chờ bản gốc dựng xong (có lời đã duyệt và ảnh đã tìm) rồi mới dịch.
+      if (item.subOf) {
+        const parent = batch.items.find((i) => i.id === item.subOf!.parent);
+        if (!parent || parent.status === "error" || parent.status === "skipped") {
+          Object.assign(item, {
+            status: "error" as ItemStatus,
+            error: "Bản gốc lỗi hoặc bị bỏ — chạy lại bản gốc, bản ngôn ngữ này tự chạy theo.",
+            finishedAt: Date.now(),
+          });
+          save(batch);
+          continue;
+        }
+        if (parent.status !== "done") continue;
+      }
       if (isHeavyPrepare(item) ? heavy >= HEAVY_LIMIT : light >= LIGHT_LIMIT) continue;
       void run(batch, item, "prepare");
     }
@@ -1123,6 +1198,7 @@ const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => voi
   if (item.file) return prepareMedia(batch, item, log);
   if (item.variant) return prepareVariant(batch, item, log);
   if (item.edit) return prepareEdit(batch, item, log);
+  if (item.subOf) return prepareLanguage(batch, item, log);
 
   const settings = itemSettings(batch, item);
   // Dán cả kịch bản: đặt tên thư mục theo tiêu đề, không theo cả khối văn bản.
@@ -1144,6 +1220,43 @@ const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => voi
 
   log("__STEP__ script");
   const { script } = await prepareScript(slug, item.input, [], settings, log);
+  Object.assign(item, previewOf(script));
+};
+
+/**
+ * Bản ngôn ngữ khác: dịch kịch bản CỦA BẢN GỐC ĐÃ DỰNG (lời đã duyệt, ảnh đã tìm nằm sẵn trong script.json) sang
+ * `lang`. Cùng ảnh, cùng phong cách; giọng giữ nguyên hoặc đổi sang giọng ngôn ngữ đó (lồng tiếng).
+ */
+const prepareLanguage = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const { parent: parentId, lang, dub, voice } = item.subOf!;
+  const parent = batch.items.find((i) => i.id === parentId);
+  if (!parent?.slug) throw new Error("Không thấy bản gốc của bản ngôn ngữ này.");
+  const sourcePath = path.join(videoDir(parent.slug), "script.json");
+  if (!fs.existsSync(sourcePath)) throw new Error("Bản gốc không có kịch bản để dịch.");
+  const source = parseScript(JSON.parse(fs.readFileSync(sourcePath, "utf8")));
+  const engine = pickTranslateEngine();
+  if (!engine) throw new Error("Chưa có model dịch — điền key Gemini, Groq hoặc OpenRouter trong Cài đặt.");
+
+  log("__STEP__ script");
+  log(`Dịch sang ${translateLanguageLabel(lang)}…`);
+  const script = await translateScript(source, lang, engine, log);
+  if (allLines(script).length !== allLines(source).length) throw new Error("Bản dịch lệch số câu — bấm Chạy lại.");
+
+  const base = readChat(parent.slug).settings;
+  const settings = normalizeSettings({ ...base, ...(dub ? { voice: voice ?? "" } : {}), mode: "text" }, base);
+  item.override = settings;
+  const slug = item.slug ?? freshSlug(`${source.title.slice(0, 36)} ${lang}`);
+  item.slug = slug;
+  fs.mkdirSync(videoDir(slug), { recursive: true });
+  fs.writeFileSync(path.join(videoDir(slug), "script.json"), JSON.stringify(script, null, 2));
+  writeChat(slug, {
+    messages: [{
+      role: "user",
+      text: `Bản ${translateLanguageLabel(lang)}${dub ? " (lồng tiếng)" : " (phụ đề)"} của “${source.title}”`,
+      at: Date.now(),
+    }],
+    settings,
+  });
   Object.assign(item, previewOf(script));
 };
 
@@ -1644,7 +1757,12 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   const scriptPath = path.join(videoDir(slug), "script.json");
   if (!fs.existsSync(scriptPath)) throw new Error(`${slug} chưa có kịch bản.`);
   const script = parseScript(JSON.parse(fs.readFileSync(scriptPath, "utf8")));
-  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit));
+  // Bản chỉ dịch phụ đề: giọng đọc lời của bản gốc, phụ đề và chữ trên hình theo bản dịch.
+  const parentSlug = item.subOf && !item.subOf.dub ? batch.items.find((i) => i.id === item.subOf!.parent)?.slug : undefined;
+  const voiceScript = parentSlug && fs.existsSync(path.join(videoDir(parentSlug), "script.json"))
+    ? parseScript(JSON.parse(fs.readFileSync(path.join(videoDir(parentSlug), "script.json"), "utf8")))
+    : undefined;
+  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit), voiceScript);
   if (item.edit) result.text = `Đã sửa hàng loạt: ${editSummary(batch.edit)} · ${result.text}`;
 
   item.mp4 = result.mp4;
