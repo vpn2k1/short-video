@@ -47,10 +47,10 @@ import {
 import { runRenderStage } from "./pipeline";
 import { versionsDir } from "./versions";
 import { allLines, parseScript, type VideoScript } from "../src/compositions/Short/script";
-import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type CaptionLook } from "../src/compositions/Short/schema";
+import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type CaptionLook, type ShortProps } from "../src/compositions/Short/schema";
 import type { MediaCrop } from "../src/scenes/CropBox";
 import { ASPECT_IDS, ASPECTS, aspectFor, type AspectId } from "../src/aspects";
-import { DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
+import { canCustomizeCaptions, DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
 import { findVoice, VOICES } from "../scripts/voices";
 import { missingEngineKey } from "../scripts/tts";
 import { slugify } from "../scripts/slug";
@@ -271,6 +271,8 @@ export type BatchItem = {
    * `dub` = đọc lại bằng giọng ngôn ngữ đó; không thì giữ giọng gốc, chỉ phụ đề và chữ trên hình được dịch.
    */
   subOf?: { parent: string; lang: TranslateLanguage; dub: boolean; voice?: string };
+  /** Song ngữ trong cùng video: thêm một hàng phụ đề dịch cho mỗi ngôn ngữ, hiện cùng lúc với hàng gốc. */
+  stack?: TranslateLanguage[];
   /** Nguồn clips: đoạn cắt ra từ video dài `file` (giây), kèm câu hook làm tiêu đề. */
   clip?: { start: number; end: number; title: string };
   /** Nguồn edit: mục này là video có sẵn (item.slug), sửa theo batch.edit. */
@@ -551,6 +553,8 @@ export type CreateBatchInput = {
   /** Nguồn ideas/custom: thêm một bản cho mỗi ngôn ngữ phụ đề; `dub` = đọc lại bằng giọng ngôn ngữ đó. */
   languages?: unknown;
   dub?: unknown;
+  /** "stack" = song ngữ trong cùng video (hàng phụ đề dịch), không tạo video riêng cho từng ngôn ngữ. */
+  layout?: unknown;
   /** Hẹn giờ chạy (ms từ epoch). Có thì không chạy ngay dù `start`. */
   startAt?: unknown;
 };
@@ -674,7 +678,16 @@ export const createBatch = (body: CreateBatchInput) => {
   }
   // Phụ đề nhiều ngôn ngữ lúc tạo: mỗi mục gốc thêm một mục cho mỗi ngôn ngữ, đặt ngay sau mục gốc.
   if ((source === "ideas" || source === "custom") && Array.isArray(body.languages) && body.languages.length) {
-    items = withLanguageItems(items, body.languages, body.dub === true);
+    if (body.layout === "stack") {
+      // Song ngữ: tối đa hai hàng dịch — nhiều hơn thì chữ phủ gần hết khung.
+      const langs = [...new Set(body.languages.filter(isTranslateLanguage))].slice(0, 2);
+      if (langs.length && !pickTranslateEngine()) {
+        throw new Error("Phụ đề song ngữ cần model dịch — điền key Gemini, Groq hoặc OpenRouter (có gói miễn phí) trong Cài đặt.");
+      }
+      if (langs.length) items.forEach((item) => { item.stack = langs; });
+    } else {
+      items = withLanguageItems(items, body.languages, body.dub === true);
+    }
   }
   // Hẹn giờ: chỉ nhận mốc trong tương lai (quá 30 giây) và trong vòng một tuần.
   const at = Number(body.startAt);
@@ -1969,8 +1982,21 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
     if (kit.accent) script.accent = kit.accent;
     fs.writeFileSync(scriptPath, JSON.stringify(script, null, 2));
   }
-  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit), voiceScript,
-    kit?.captionLook ? { captionLook: kit.captionLook } : undefined);
+  // Song ngữ: dịch sẵn lời của từng ngôn ngữ, rồi lúc dựng thêm mỗi ngôn ngữ một hàng phụ đề cùng mốc giờ.
+  const stacked: { lang: TranslateLanguage; lines: string[] }[] = [];
+  if (item.stack?.length) {
+    const engine = pickTranslateEngine();
+    if (!engine) throw new Error("Chưa có model dịch — điền key Gemini, Groq hoặc OpenRouter trong Cài đặt.");
+    for (const lang of item.stack) {
+      log(`Dịch phụ đề sang ${translateLanguageLabel(lang)}…`);
+      stacked.push({ lang, lines: allLines(await translateScript(script, lang, engine, log)) });
+    }
+  }
+  const patch = (props: ShortProps) => {
+    if (kit?.captionLook) props.captionLook = { ...(props.captionLook ?? {}), ...kit.captionLook };
+    if (stacked.length) addStackedCaptions(props, stacked, log);
+  };
+  const result = await buildFromScript(slug, script, settings, log, Boolean(item.edit), voiceScript, patch);
   if (item.edit) result.text = `Đã sửa hàng loạt: ${editSummary(batch.edit)} · ${result.text}`;
 
   item.mp4 = result.mp4;
@@ -1981,6 +2007,33 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   item.title = script.title;
   item.scenes = script.scenes.length;
   appendAssistant(slug, { role: "assistant", at: Date.now(), ...result });
+};
+
+// ---------- phụ đề song ngữ ----------
+
+/** Kiểu hàng dịch: nhỏ hơn hàng gốc và khác màu để mắt tách được hai ngôn ngữ. Hàng thứ ba nhạt hơn nữa. */
+const STACK_LOOKS: Partial<CaptionLook>[] = [
+  { size: 48, weight: 700, color: "#ffe066" },
+  { size: 42, weight: 600, color: "#9ee7ff" },
+];
+
+/**
+ * Thêm hàng phụ đề dịch (track 1, 2) cùng mốc giờ với hàng gốc. Không kèm audio — tiếng chỉ phát theo hàng gốc.
+ * Phong cách lấy phụ đề làm nội dung (Tin nhắn, Câu đố…) không có chỗ cho hàng thứ hai → bỏ qua, báo trong log.
+ */
+const addStackedCaptions = (props: ShortProps, stacked: { lang: TranslateLanguage; lines: string[] }[], log: (line: string) => void) => {
+  if (!canCustomizeCaptions(props.style)) {
+    log(`Phong cách này dùng phụ đề làm nội dung (bong bóng, thẻ câu hỏi…) nên không thêm được hàng song ngữ — giữ một ngôn ngữ.`);
+    return;
+  }
+  const base = props.captions.filter((c) => !c.track);
+  stacked.forEach(({ lang, lines }, k) => {
+    if (lines.length !== base.length) {
+      log(`Bản ${translateLanguageLabel(lang)} lệch số câu — bỏ hàng này.`);
+      return;
+    }
+    props.captions.push(...base.map((c, i) => ({ ...c, text: lines[i], audio: null, track: k + 1, style: STACK_LOOKS[k] ?? STACK_LOOKS[0] })));
+  });
 };
 
 // ---------- nhận diện kênh ----------

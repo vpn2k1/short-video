@@ -3019,6 +3019,8 @@ let batchIdea = { topic: "", lines: [], undo: null, busy: false };
 /** Phụ đề nhiều ngôn ngữ lúc tạo: mã ngôn ngữ đã chọn, và có lồng tiếng không. */
 let batchSubLangs = [];
 let batchDub = false;
+/** "split" = mỗi ngôn ngữ một video; "stack" = song ngữ trong cùng video (thêm hàng phụ đề dịch). */
+let batchLangLayout = "split";
 /** Bật "Nối tiếp thành tập": AI lên dàn ý một loạt nhiều tập thay vì các ý tưởng rời. */
 let batchIdeaSeries = false;
 /** Nguồn "mỗi video một ô": [{ id, text, settings }] — settings trống = theo cài đặt chung. */
@@ -3224,6 +3226,15 @@ function bindBatch() {
     renderBatchPlan();
   });
   $("batchDub").addEventListener("change", () => { batchDub = $("batchDub").checked; renderBatchPlan(); });
+  $("batchLangLayout").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-layout]");
+    if (!b) return;
+    batchLangLayout = b.dataset.layout;
+    renderBatchLangs();
+    renderBatchCount();
+    renderBatchCardsCount();
+    renderBatchPlan();
+  });
   $("batchSchedule").addEventListener("click", () => {
     const input = $("batchStartAt");
     input.hidden = !input.hidden;
@@ -3781,10 +3792,14 @@ async function renderBatchLangs() {
   }
   $("batchLangPicks").innerHTML = pickChips((batchLangs ?? []).map((l) => ({ value: l.code, label: l.label })), batchSubLangs, "sublang");
   $("batchDub").checked = batchDub;
+  const stack = batchLangLayout === "stack";
+  $("batchLangLayout").querySelectorAll("[data-layout]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.layout === batchLangLayout)));
+  $("batchLayoutNote").hidden = !stack;
+  $("batchDub").closest("label").hidden = stack;
 }
 
 /** Số video của mỗi ý tưởng: bản gốc + một bản mỗi ngôn ngữ. */
-const perIdea = () => (langSource() ? 1 + batchSubLangs.length : 1);
+const perIdea = () => (langSource() && batchLangLayout === "split" ? 1 + batchSubLangs.length : 1);
 
 /** Số video sẽ tạo, theo nguồn đang chọn. */
 function batchTotal() {
@@ -3835,7 +3850,7 @@ function batchEstimate(n, needsAi, voice) {
     out.push(`phiên âm trên máy, ~${Math.max(1, Math.round(n * (batchMediaModel === "small" ? 0.5 : 1)))} phút`);
   } else {
     const originals = Math.ceil(n / perIdea());
-    const translated = n - originals;
+    const translated = batchLangLayout === "stack" && langSource() ? n * Math.min(2, batchSubLangs.length) : n - originals;
     if (needsAi) out.push(`~${originals * 2} lượt AI viết lời (viết + soát)`);
     if (translated > 0) out.push(`~${translated} lượt AI dịch`);
     if (opts.kind === "video" && voice) {
@@ -3877,7 +3892,9 @@ function renderBatchPlan() {
   }
   if (langSource() && batchSubLangs.length) {
     const names = batchSubLangs.map((code) => batchLangs?.find((l) => l.code === code)?.label ?? code);
-    parts.push(`mỗi video thêm bản <b>${escapeHtml(names.join(", "))}</b> (${batchDub ? "lồng tiếng" : "phụ đề, giữ giọng gốc"})`);
+    parts.push(batchLangLayout === "stack"
+      ? `phụ đề song ngữ thêm hàng <b>${escapeHtml(names.slice(0, 2).join(", "))}</b>${names.length > 2 ? " (chỉ lấy 2 ngôn ngữ đầu)" : ""}`
+      : `mỗi video thêm bản <b>${escapeHtml(names.join(", "))}</b> (${batchDub ? "lồng tiếng" : "phụ đề, giữ giọng gốc"})`);
     if (batchBaseTotal() * perIdea() > 50) parts.push(`<b>tối đa 50 video</b> — bớt ý tưởng hoặc ngôn ngữ`);
   }
   parts.push(batchReview ? "<b>dừng cho bạn duyệt lời</b> trước khi render" : "chạy thẳng tới mp4");
@@ -4372,6 +4389,7 @@ async function createBatch() {
   if (langSource() && batchSubLangs.length) {
     body.languages = batchSubLangs;
     body.dub = batchDub;
+    body.layout = batchLangLayout;
   }
   if (batchSource === "custom") {
     // "" trong settings nghĩa là theo cài đặt chung nên đừng gửi lên; giọng "none" = không giọng.

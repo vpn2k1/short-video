@@ -834,6 +834,8 @@
   .bt-langs { padding: 12px 14px; }
   .bt-langs .bt-group { margin: 0; }
   .bt-dub { margin-top: 10px; flex-wrap: wrap; }
+  .bt-layout { margin: 4px 0 10px; }
+  .bt-layout-note { margin: 0 0 10px; font-size: 12.5px; }
   .kit-look { flex-wrap: wrap; }
   .kit-look select { flex: 1 1 140px; }
   .kit-look input[type="color"] { flex: none; width: 46px; height: 34px; padding: 2px; }
@@ -1443,6 +1445,11 @@ Lưu lại để làm theo nhé!</pre>
     <div class="composer bt-composer bt-langs" id="batchLangsBox" hidden>
       <div class="bt-group">
         <div class="bt-group-head"><i data-icon="languages"></i> Phụ đề nhiều ngôn ngữ <span class="muted">— mỗi video thêm một bản cho mỗi ngôn ngữ chọn, dùng chung hình và phong cách</span></div>
+        <div class="seg bt-layout" id="batchLangLayout" role="radiogroup" aria-label="Cách dùng ngôn ngữ">
+          <button type="button" role="radio" data-layout="split" aria-checked="true"><i data-icon="copy"></i> Mỗi ngôn ngữ một video</button>
+          <button type="button" role="radio" data-layout="stack" aria-checked="false"><i data-icon="rows-2"></i> Song ngữ trong cùng video</button>
+        </div>
+        <p class="muted bt-layout-note" id="batchLayoutNote" hidden>Phụ đề gốc ở dưới, bản dịch một hàng phía trên (tối đa 2 ngôn ngữ). Song ngữ thay hiệu ứng phụ đề của phong cách bằng phụ đề thường; phong cách Tin nhắn, Câu đố, Top, Sách… giữ một ngôn ngữ.</p>
         <div class="bt-picks" id="batchLangPicks"></div>
         <label class="be-check bt-dub"><input type="checkbox" id="batchDub" /> Lồng tiếng — đọc lại bằng giọng của ngôn ngữ đó <span class="muted">(không chọn: giữ giọng gốc, chỉ dịch phụ đề và chữ trên hình — không tốn thêm lượt giọng)</span></label>
       </div>
