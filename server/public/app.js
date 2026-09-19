@@ -3016,6 +3016,8 @@ let batchIdeaProvider = "auto";
  * tự gõ hoặc đã sửa thì giữ. `undo`: ô danh sách ngay trước lượt đó, cho nút Hoàn tác.
  */
 let batchIdea = { topic: "", lines: [], undo: null, busy: false };
+/** Bật "Nối tiếp thành tập": AI lên dàn ý một loạt nhiều tập thay vì các ý tưởng rời. */
+let batchIdeaSeries = false;
 /** Nguồn "mỗi video một ô": [{ id, text, settings }] — settings trống = theo cài đặt chung. */
 let batchCards = [];
 let batchMediaModel = "medium";
@@ -3112,6 +3114,16 @@ function bindBatch() {
     if (!box.hidden) $("batchTopic").focus();
   });
   $("batchTopicGo").addEventListener("click", () => askForIdeas());
+  $("batchIdeaSeries").addEventListener("click", () => {
+    batchIdeaSeries = !batchIdeaSeries;
+    $("batchIdeaSeries").setAttribute("aria-pressed", String(batchIdeaSeries));
+    // Loạt nhiều tập tối đa 12 tập (scripts/ideas.ts, MAX_EPISODES) — 5 tập là cỡ hay dùng.
+    const count = $("batchTopicCount");
+    count.max = batchIdeaSeries ? "12" : "50";
+    if (batchIdeaSeries && Number(count.value) > 12) count.value = "5";
+    $("batchTopicGo").textContent = batchIdeaSeries ? "Lên dàn ý các tập" : "Nghĩ ý tưởng";
+    $("batchTopic").placeholder = batchIdeaSeries ? "ví dụ: học chơi guitar từ số 0" : "ví dụ: mẹo tiết kiệm điện trong nhà";
+  });
   $("batchTopic").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); askForIdeas(); }
   });
@@ -3563,7 +3575,7 @@ function paintIdeaGen(note, isError = false) {
   $("batchIdeaAi").title = "Chọn AI nghĩ ý tưởng — chỉ AI đã có key trong Cài đặt";
   $("batchIdeaAi").disabled = busy;
   $("batchTopicGo").disabled = busy;
-  $("batchTopicGo").textContent = busy ? "Đang nghĩ…" : "Nghĩ ý tưởng";
+  $("batchTopicGo").textContent = busy ? "Đang nghĩ…" : batchIdeaSeries ? "Lên dàn ý các tập" : "Nghĩ ý tưởng";
   if (note === undefined) return;
   const status = $("batchIdeaStatus");
   status.hidden = !note;
@@ -3589,13 +3601,16 @@ async function askForIdeas(again = false) {
     input.focus();
     return;
   }
-  const count = Math.max(1, Math.min(50, Number($("batchTopicCount").value) || 10));
+  const series = batchIdeaSeries;
+  const count = Math.max(series ? 2 : 1, Math.min(series ? 12 : 50, Number($("batchTopicCount").value) || (series ? 5 : 10)));
   if (!again) input.value = "";
   batchIdea.busy = true;
-  paintIdeaGen(`Đang nghĩ ${count} ý tưởng ${again ? "khác " : ""}cho <b>“${escapeHtml(topic)}”</b>…`);
+  paintIdeaGen(series
+    ? `Đang lên dàn ý loạt ${count} tập ${again ? "khác " : ""}cho <b>“${escapeHtml(topic)}”</b>…`
+    : `Đang nghĩ ${count} ý tưởng ${again ? "khác " : ""}cho <b>“${escapeHtml(topic)}”</b>…`);
   try {
     const { ideas, provider } = await postJson("/api/batch/ideas", {
-      topic, count, provider: batchIdeaProvider, avoid: again ? batchIdea.lines : [],
+      topic, count, provider: batchIdeaProvider, avoid: again ? batchIdea.lines : [], series,
     });
     const before = $("batchText").value;
     const fromAi = new Set(batchIdea.lines);
@@ -3610,7 +3625,7 @@ async function askForIdeas(again = false) {
     renderBatchCount();
     renderBatchPlan();
     const who = scriptProviders().find((p) => p.id === provider)?.label ?? "AI";
-    paintIdeaGen(`${icon("check")} ${escapeHtml(who)} nghĩ ${fresh.length} ý tưởng cho <b>“${escapeHtml(topic)}”</b>${
+    paintIdeaGen(`${icon("check")} ${escapeHtml(who)} ${series ? `lên dàn ý ${fresh.length} tập` : `nghĩ ${fresh.length} ý tưởng`} cho <b>“${escapeHtml(topic)}”</b>${
       kept.length ? ` · giữ ${kept.length} dòng bạn tự gõ/sửa` : ""}`);
   } catch (err) {
     batchIdea.busy = false;

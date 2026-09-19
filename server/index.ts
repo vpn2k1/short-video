@@ -43,7 +43,7 @@ import { deletePreset, listPresets, savePreset } from "./batch-presets";
 import {
   CAPTION_FONT_LABELS, CAPTION_PRESET_LABELS, CAPTION_TEMPLATES, DEFAULT_CAPTION_LOOK,
 } from "../src/components/captionLook";
-import { generateIdeas } from "../scripts/ideas";
+import { generateIdeas, generateSeries } from "../scripts/ideas";
 import { generatePostCopy, getPostCopy } from "../scripts/post-copy";
 import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
@@ -616,9 +616,15 @@ const server = http.createServer(async (req, res) => {
     // AI nghĩ danh sách ý tưởng từ một chủ đề — đặt trước /api/batch/<id> để không bị nuốt.
     if (route === "/api/batch/ideas" && req.method === "POST") {
       try {
-        const body = await readJson<{ topic?: string; count?: number; provider?: string; avoid?: unknown }>(req);
+        const body = await readJson<{ topic?: string; count?: number; provider?: string; avoid?: unknown; series?: unknown }>(req);
         if (!body.topic?.trim()) {
           return send(res, 400, { error: "Nhập chủ đề trước đã." });
+        }
+        // Loạt nhiều tập: AI lên dàn ý cả loạt một lượt, mỗi tập một dòng ý tưởng.
+        if (body.series === true) {
+          return send(res, 200, await generateSeries(
+            body.topic.trim(), Number(body.count) || 5, isScriptProvider(body.provider) ? body.provider : "auto",
+          ));
         }
         return send(res, 200, await generateIdeas(
           body.topic.trim(),
