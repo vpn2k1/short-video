@@ -458,6 +458,10 @@
   .pc-text.pc-multi { white-space: pre-wrap; }
   .pc-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
   .pc-dlg .hint { text-align: left; }
+  .pc-dlg .dlg-foot { flex-wrap: wrap; }
+  .pc-gen { display: flex; align-items: center; gap: 8px; margin-right: auto; min-width: 0; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .pc-gen select { flex: 1 1 180px; min-width: 0; max-width: 260px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; outline: 0; color: var(--text); font-size: 13px; }
+  .pc-gen select:focus { border-color: var(--line-2); }
   .post-copy-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
   .dlg .hint { text-align: left; margin: 12px 0 0; }
   .be-dlg { width: min(560px, calc(100vw - 32px)); }
@@ -1809,7 +1813,11 @@ Lưu lại để làm theo nhé!</pre>
     <div id="postCopyBody"></div>
     <p class="hint" id="postCopyHint"></p>
     <div class="dlg-foot">
-      <button type="button" class="btn" id="postCopyRegen" hidden><i data-icon="rotate-cw"></i> Viết lại</button>
+      <div class="pc-gen" id="postCopyGen" hidden>
+        <label for="postCopyAi">AI viết</label>
+        <select id="postCopyAi" title="Chọn AI viết gợi ý — chỉ AI đã có key trong Cài đặt"></select>
+        <button type="button" class="btn" id="postCopyRegen"><i data-icon="rotate-cw"></i> Viết lại</button>
+      </div>
       <button type="button" class="btn" data-close>Đóng</button>
     </div>
   </form>

@@ -1,0 +1,302 @@
+{
+  "title": "I love this jacket.",
+  "subtitle": "",
+  "handle": "@kenh",
+  "accent": "#e8590c",
+  "background": "#0b0b12",
+  "captions": [
+    {
+      "text": "I love this jacket.",
+      "startMs": 1698,
+      "endMs": 2880,
+      "audio": null
+    },
+    {
+      "text": "Tôi thích chiếc áo khoác này.",
+      "startMs": 1698,
+      "endMs": 2880,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Can I try it on?",
+      "startMs": 2880,
+      "endMs": 3780,
+      "audio": null
+    },
+    {
+      "text": "Tôi thử nó được không?",
+      "startMs": 2880,
+      "endMs": 3780,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Of course, let's find your size.",
+      "startMs": 5108,
+      "endMs": 7103,
+      "audio": null
+    },
+    {
+      "text": "Tất nhiên rồi, để tìm cỡ của bạn nhé.",
+      "startMs": 5108,
+      "endMs": 7103,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "It looks great on you.",
+      "startMs": 11974,
+      "endMs": 13136,
+      "audio": null
+    },
+    {
+      "text": "Trông bạn mặc hợp lắm.",
+      "startMs": 11974,
+      "endMs": 13136,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Thanks.",
+      "startMs": 13732,
+      "endMs": 14260,
+      "audio": null
+    },
+    {
+      "text": "Cảm ơn bạn.",
+      "startMs": 13732,
+      "endMs": 14260,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Is there a discount?",
+      "startMs": 14260,
+      "endMs": 16060,
+      "audio": null
+    },
+    {
+      "text": "Có giảm giá không ạ?",
+      "startMs": 14260,
+      "endMs": 16060,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Let's ask the cashier.",
+      "startMs": 16060,
+      "endMs": 17889,
+      "audio": null
+    },
+    {
+      "text": "Hãy hỏi nhân viên thu ngân xem.",
+      "startMs": 16060,
+      "endMs": 17889,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Where do you go to try on clothes?",
+      "startMs": 21822,
+      "endMs": 24333,
+      "audio": null
+    },
+    {
+      "text": "Bạn đến đâu để thử quần áo?",
+      "startMs": 21822,
+      "endMs": 24333,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 88,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    }
+  ],
+  "aspect": "9:16",
+  "style": "plain",
+  "scenes": [
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 30016
+    }
+  ],
+  "overlays": [
+    {
+      "src": "uploads/1789806327837-second-vertical-video-promp-6.mp4",
+      "startMs": 0,
+      "endMs": 26233,
+      "trimStartMs": 0,
+      "volume": 0,
+      "track": 0,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "aspect": 0.563,
+      "rotate": 0,
+      "opacity": 1,
+      "radius": 0,
+      "fit": "contain",
+      "crop": {
+        "x": 0.0605,
+        "y": 0,
+        "w": 0.879,
+        "h": 0.879,
+        "mediaAspect": 0.5625,
+        "ratio": "frame",
+        "rotate": 0,
+        "flipH": false,
+        "flipV": false,
+        "fit": "cover"
+      },
+      "fadeMs": 0,
+      "keyframes": []
+    }
+  ],
+  "captionPosition": "bottom",
+  "captionLook": {
+    "font": "sans",
+    "size": 64,
+    "weight": 900,
+    "color": "#ffd400",
+    "accent": "#000000",
+    "preset": "outline",
+    "x": 50,
+    "y": 80,
+    "uppercase": false,
+    "italic": false,
+    "width": 86,
+    "align": "center"
+  },
+  "showTitle": false,
+  "voiceoverTrack": "voices/second-vertical-video-promp-6/track.mp3",
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

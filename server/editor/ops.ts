@@ -8,7 +8,8 @@ import { overlayKeyframes, overlayTransformAt, type MotionTarget, type OverlayTr
 import { noMotion, type AudioClip, type Caption, type CaptionLook, type MediaOverlay, type OverlayKeyframe, type Scene, type ShortProps, type TextOverlay } from "../../src/compositions/Short/schema";
 import { textPatch } from "../../src/components/captionLook";
 import { ASPECTS, DEFAULT_ASPECT, type AspectId } from "../../src/aspects";
-import { FPS, msToFrames, OUTRO_FRAMES, TITLE_FRAMES } from "../../src/constants";
+import { FPS } from "../../src/constants";
+import { videoDurationInFrames } from "../../src/compositions/Short/duration";
 
 export type Selection =
   | { type: "scene" | "caption" | "clip" | "text" | "overlay"; index: number }
@@ -31,17 +32,10 @@ export const overlaysOf = (p: ShortProps): MediaOverlay[] => p.overlays ?? [];
 /** Mốc chuyển động của một lớp, đã xếp theo thời gian. */
 export const overlayKeyframesOf = overlayKeyframes;
 
-/** Giống calculateShortMetadata trong src/compositions/Short — giữ hai chỗ khớp nhau. */
+/** Kích thước và độ dài video — cùng phép tính với calculateShortMetadata (videoDurationInFrames). */
 export const videoMeta = (p: ShortProps) => {
-  const lastEndMs = Math.max(
-    p.captions.reduce((m, c) => Math.max(m, c.endMs), 0),
-    p.scenes.reduce((m, s) => Math.max(m, s.endMs), 0),
-    p.audioClips.reduce((m, c) => Math.max(m, c.startMs + c.durationMs), 0),
-    p.texts.reduce((m, t) => Math.max(m, t.endMs), 0),
-    overlaysOf(p).reduce((m, o) => Math.max(m, o.endMs), 0),
-  );
   const aspect = ASPECTS[p.aspect as AspectId] ?? ASPECTS[DEFAULT_ASPECT];
-  const durationInFrames = Math.max(TITLE_FRAMES, msToFrames(lastEndMs) + OUTRO_FRAMES);
+  const durationInFrames = videoDurationInFrames(p);
   return {
     durationInFrames,
     width: aspect.width,

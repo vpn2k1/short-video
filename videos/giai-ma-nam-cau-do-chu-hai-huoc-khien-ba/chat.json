@@ -57,11 +57,58 @@
         }
       ],
       "version": 1
+    },
+    {
+      "role": "user",
+      "text": "Đổi sang phong cách Video gốc.",
+      "at": 1789727693323,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789727713841,
+      "text": "Đã sửa \"Đố chữ cười ngất\" · 🎬 Video gốc · 5 cảnh · 14.3s\n🎙 giọng truc-ly · không nhạc nền",
+      "style": "plain",
+      "mp4": "/out/versions/giai-ma-nam-cau-do-chu-hai-huoc-khien-ba/v2.mp4?t=1789727713860",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Con gì đập thì sống, không đập thì chết?"
+          ],
+          "image": "uploads/stock/pexels-image-17986579.jpg"
+        },
+        {
+          "lines": [
+            "Cái gì mà đi thì nằm, đứng thì nằm, nằm cũng nằm?"
+          ],
+          "image": "uploads/stock/pexels-image-17856910.jpg"
+        },
+        {
+          "lines": [
+            "Bệnh gì bác sĩ phải bó tay?"
+          ],
+          "image": "uploads/stock/pexels-image-8428406.jpg"
+        },
+        {
+          "lines": [
+            "Con gì đầu dê mặt ngựa?"
+          ],
+          "image": "uploads/stock/pexels-image-39060685.jpg"
+        },
+        {
+          "lines": [
+            "Nhà nào không có cửa mà vẫn ở được?"
+          ],
+          "image": "uploads/stock/pexels-image-33620232.jpg"
+        }
+      ],
+      "version": 2
     }
   ],
   "settings": {
     "kind": "video",
-    "style": "quiz",
+    "style": "plain",
     "mode": "ai",
     "aspect": "9:16",
     "voice": "truc-ly",

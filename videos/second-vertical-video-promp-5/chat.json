@@ -1,0 +1,44 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Dựng video từ file 1789806327922-second-vertical-video-promp-5.mp4",
+      "at": 1789806447481,
+      "attachments": [
+        "uploads/1789806327922-second-vertical-video-promp-5.mp4"
+      ]
+    },
+    {
+      "role": "assistant",
+      "at": 1789806489622,
+      "text": "Đã dựng “second-vertical-video-promp-5 en+vi” từ file thu sẵn · 31.0s",
+      "mp4": "/out/versions/second-vertical-video-promp-5/v1.mp4?t=1789806489876",
+      "aspect": "9:16",
+      "version": 1
+    },
+    {
+      "role": "assistant",
+      "at": 1789806710857,
+      "text": "Đã xuất từ trình chỉnh sửa (chỉnh từ bản 1) · 31.0s",
+      "mp4": "/out/versions/second-vertical-video-promp-5/v2.mp4?t=1789806711003",
+      "aspect": "9:16",
+      "style": "plain",
+      "edited": true,
+      "from": 1,
+      "version": 2
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "text",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto"
+  }
+}

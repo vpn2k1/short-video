@@ -5699,6 +5699,8 @@ function renderBatchPostCopy(pc) {
   if (button.hidden) return;
   const run = pc.run;
   button.disabled = Boolean(run?.running);
+  button.title = `AI viết tiêu đề, caption, hashtag cho từng video đã xong — có trong CSV và file .txt khi tải cả loạt. AI: ${
+    providerChipLabel(postCopyProviderChoice())} (đổi trong ô Bài đăng của một video)`;
   if (run?.running) {
     button.innerHTML = run.waiting
       ? `${icon("hourglass")} AI hết lượt, đợi ${run.waiting}s… (${run.done + run.failed}/${run.total})`
@@ -5727,7 +5729,8 @@ async function startBatchPostCopy() {
   $("batchRunHint").textContent = "";
   $("batchRunHint").classList.remove("err");
   try {
-    renderBatchPostCopy(await postJson(`/api/batch/${batchCur.id}/post-copy`, { provider: opts.provider, force }));
+    // Cùng AI đã chọn trong hộp thoại Bài đăng (post-copy.js).
+    renderBatchPostCopy(await postJson(`/api/batch/${batchCur.id}/post-copy`, { provider: postCopyProviderChoice(), force }));
   } catch (e) {
     $("batchRunHint").textContent = e.message;
     $("batchRunHint").classList.add("err");
