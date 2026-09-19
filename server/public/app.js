@@ -3024,6 +3024,8 @@ let batchIdeaSeries = false;
 /** Nguồn "mỗi video một ô": [{ id, text, settings }] — settings trống = theo cài đặt chung. */
 let batchCards = [];
 let batchMediaModel = "medium";
+/** Nguồn "cắt từ video dài": file đã tải lên, lượt phân tích, các đoạn AI chọn (on = có làm video). */
+let batchClips = { file: null, name: "", seconds: 0, busy: false, clips: [], preview: -1 };
 let batchMedia = [];        // file thu sẵn đã tải lên: [{ path, name }]
 let batchUploading = 0;
 /** hooks: tổng số bản thử A/B câu mở đầu, tính cả bản gốc — 0 = không thử. */
@@ -3053,16 +3055,17 @@ const batchQaOpen = new Set();
 /** Dưới điểm này thì tính là "cần xem lại". */
 const QA_GOOD = 8;
 const BT_SOURCE_LABEL = {
-  ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề", edit: "Sửa hàng loạt",
+  ideas: "Ý tưởng", custom: "Từng ô", media: "File thu sẵn", variants: "Biến thể", subs: "Phụ đề", edit: "Sửa hàng loạt", clips: "Cắt từ video dài",
 };
 const BT_SOURCE_ICON = {
   ideas: icon("lightbulb"), custom: icon("puzzle"), media: icon("mic"), variants: icon("repeat"), subs: icon("captions"),
-  edit: icon("wand-sparkles"),
+  edit: icon("wand-sparkles"), clips: icon("scissors"),
 };
 const BT_SOURCE_DESC = {
   ideas: "Mỗi dòng một video. Gõ tay, tải file .txt/.csv, hoặc để AI nghĩ ý tưởng giúp.",
   custom: "Tự nhập từng video. Ô nào muốn khác thì đặt riêng phong cách, khung, giọng.",
   media: "Kéo thả nhiều file audio/video — tự phiên âm, gắn phụ đề rồi render.",
+  clips: "Một video dài → nhiều video ngắn: AI nghe hết, chọn đoạn hay, cắt khung dọc, gắn phụ đề và câu hook.",
   variants: "Nhân một video có sẵn ra nhiều tỉ lệ khung, giọng đọc, ngôn ngữ.",
 };
 /** Cài đặt đặt riêng được cho từng ô; còn lại theo cài đặt chung của loạt. */
@@ -3178,6 +3181,26 @@ function bindBatch() {
   bindBatchDrop();
 
   $("batchStart").addEventListener("click", createBatch);
+  $("clipDrop").addEventListener("click", () => $("clipFile").click());
+  $("clipFile").addEventListener("change", (e) => { uploadClipFile(e.target.files?.[0]); e.target.value = ""; });
+  $("batchClipsBox").addEventListener("dragover", (e) => { if ([...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+  $("batchClipsBox").addEventListener("drop", (e) => { e.preventDefault(); uploadClipFile(e.dataTransfer.files?.[0]); });
+  $("clipAnalyze").addEventListener("click", analyzeClips);
+  $("clipList").addEventListener("click", (e) => {
+    const on = e.target.closest("[data-clip-on]");
+    if (on) {
+      batchClips.clips[Number(on.dataset.clipOn)].on = on.checked;
+      renderClips();
+      renderBatchPlan();
+      return;
+    }
+    const play = e.target.closest("[data-clip-play]");
+    if (play) {
+      const i = Number(play.dataset.clipPlay);
+      batchClips.preview = batchClips.preview === i ? -1 : i;
+      renderClips();
+    }
+  });
   $("batchLangPicks").addEventListener("click", (e) => {
     const code = e.target.closest("[data-sublang]")?.dataset.sublang;
     if (!code) return;
@@ -3371,6 +3394,8 @@ function renderBatchNew() {
   $("batchCustomBox").hidden = batchSource !== "custom";
   $("batchMediaBox").hidden = batchSource !== "media";
   $("batchVariantBox").hidden = batchSource !== "variants";
+  $("batchClipsBox").hidden = batchSource !== "clips";
+  if (batchSource === "clips") renderClips();
   $("batchLangsBox").hidden = !langSource();
   renderBatchLangs();
   $("batchSourceDesc").textContent = BT_SOURCE_DESC[batchSource];
@@ -3417,15 +3442,15 @@ function renderBatchFields() {
     const from = batchProjects?.find((p) => p.slug === batchVariant.from);
     fields.push(["variantFrom", "Video gốc", from ? from.title : batchProjects ? "Chọn video…" : "Đang tải…"]);
   }
-  if (batchSource === "media") {
+  if (fileSource()) {
     fields.push(["mediaModel", "Độ chính xác", batchMediaModel === "small" ? "Nhanh (small)" : "Chuẩn (medium)",
       batchMediaModel === "small" ? icon("zap") : icon("target")]);
   }
 
   fields.push(["aspect", def("Khung hình"), `▭ ${opts.aspect}`]);
-  if (batchSource !== "media") fields.push(["images", "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
-  if (batchSource !== "media" && aiDraws()) fields.push(["art", "Kiểu vẽ", artChipLabel(), artIcon(opts.art)]);
-  if (opts.kind === "video" && batchSource !== "media") {
+  if (!fileSource()) fields.push(["images", "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
+  if (!fileSource() && aiDraws()) fields.push(["art", "Kiểu vẽ", artChipLabel(), artIcon(opts.art)]);
+  if (opts.kind === "video" && !fileSource()) {
     fields.push(["voice", def("Giọng đọc"), voice ? voice.key : "Không giọng", voiceIcon(voice?.key)]);
   }
   if (opts.kind === "video") {
@@ -3572,6 +3597,108 @@ function batchMenuFor(key) {
   return menuFor(key);
 }
 
+// ---- nguồn "cắt từ video dài" (server/batch.ts › startClipAnalysis, prepareClip) ----
+const clipClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+async function loadClipSpoken() {
+  if ($("clipSpoken").options.length) return;
+  try {
+    const { spoken } = await api("/api/subs/options");
+    $("clipSpoken").innerHTML = spoken.map((l) => `<option value="${escapeHtml(l.code)}">${escapeHtml(l.label)}</option>`).join("");
+    $("clipSpoken").value = "vi";
+  } catch {
+    $("clipSpoken").innerHTML = `<option value="auto">Tự nhận</option>`;
+  }
+}
+
+function renderClips() {
+  loadClipSpoken();
+  $("clipFileLabel").textContent = batchClips.file
+    ? `${batchClips.name}${batchClips.seconds ? ` · ${clipClock(batchClips.seconds)}` : ""} — bấm để đổi file`
+    : "Chọn hoặc kéo thả một video dài";
+  $("clipAnalyze").disabled = !batchClips.file || batchClips.busy;
+  $("clipAnalyze").innerHTML = batchClips.busy ? `${icon("loader-circle", "spin")} Đang phân tích…`
+    : `${icon("sparkles")} ${batchClips.clips.length ? "Phân tích lại" : "Phân tích và chọn đoạn"}`;
+  $("clipList").innerHTML = batchClips.clips.map((c, i) => `
+    <div class="clip-card ${c.on ? "" : "off"}">
+      <input type="checkbox" data-clip-on="${i}" ${c.on ? "checked" : ""} aria-label="Làm video từ đoạn ${i + 1}" />
+      <input class="clip-title" data-clip-title="${i}" maxlength="60" aria-label="Câu hook của đoạn ${i + 1}" />
+      <div class="clip-meta" style="grid-column:2">
+        <span>${icon("clock")} ${clipClock(c.start)}–${clipClock(c.end)} · ${Math.round(c.end - c.start)}s</span>
+        <button type="button" data-clip-play="${i}">${icon(batchClips.preview === i ? "x" : "play")} ${batchClips.preview === i ? "Đóng" : "Xem đoạn"}</button>
+        ${c.reason ? `<span>${escapeHtml(c.reason)}</span>` : ""}
+      </div>
+      <div class="clip-meta" style="grid-column:2">“${escapeHtml(c.firstLine.slice(0, 140))}”</div>
+      ${batchClips.preview === i ? `<video src="/public/${escapeHtml(batchClips.file)}#t=${c.start.toFixed(1)},${c.end.toFixed(1)}" controls autoplay playsinline></video>` : ""}
+    </div>`).join("");
+  // Gán value bằng JS cho khỏi lo escape; gõ thì chỉ cập nhật state.
+  $("clipList").querySelectorAll("[data-clip-title]").forEach((el) => {
+    const clip = batchClips.clips[Number(el.dataset.clipTitle)];
+    el.value = clip.title;
+    el.addEventListener("input", () => { clip.title = el.value; });
+  });
+}
+
+async function uploadClipFile(file) {
+  if (!file) return;
+  batchClips = { file: null, name: file.name, seconds: 0, busy: true, clips: [], preview: -1 };
+  $("clipStatus").hidden = false;
+  $("clipStatus").textContent = `Đang tải ${file.name} lên…`;
+  renderClips();
+  try {
+    const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    batchClips.file = body.path;
+    $("clipStatus").textContent = "Đã tải lên — bấm Phân tích và chọn đoạn.";
+  } catch (err) {
+    $("clipStatus").textContent = `Không tải lên được: ${err.message}`;
+  } finally {
+    batchClips.busy = false;
+    renderClips();
+    renderBatchPlan();
+  }
+}
+
+async function analyzeClips() {
+  if (!batchClips.file || batchClips.busy) return;
+  batchClips.busy = true;
+  batchClips.preview = -1;
+  $("clipStatus").hidden = false;
+  $("clipStatus").textContent = "Bắt đầu phân tích…";
+  renderClips();
+  try {
+    const { id } = await postJson("/api/clips/analyze", {
+      file: batchClips.file,
+      spoken: $("clipSpoken").value,
+      model: batchMediaModel,
+      count: Number($("clipCount").value),
+      maxSeconds: Number($("clipMax").value),
+      provider: opts.provider,
+    });
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const job = await api(`/api/clips/analyze/${id}`);
+      $("clipStatus").textContent = job.step;
+      if (job.status === "running") continue;
+      if (job.status === "error") throw new Error(job.error);
+      batchClips.seconds = job.seconds ?? 0;
+      batchClips.clips = job.clips.map((c) => ({ ...c, on: true }));
+      $("clipStatus").textContent = `AI chọn ${job.clips.length} đoạn — bỏ tích đoạn không ưng, sửa câu hook nếu cần, rồi bấm Chạy loạt.`;
+      break;
+    }
+  } catch (err) {
+    $("clipStatus").textContent = err.message;
+  } finally {
+    batchClips.busy = false;
+    renderClips();
+    renderBatchPlan();
+  }
+}
+
+/** Nguồn dựng từ file có sẵn (không viết lời, không tìm hình, không giọng đọc). */
+const fileSource = () => batchSource === "media" || batchSource === "clips";
+
 /** Nguồn cho chọn phụ đề nhiều ngôn ngữ: những nguồn viết lời mới (ý tưởng, từng ô). */
 const langSource = () => batchSource === "ideas" || batchSource === "custom";
 
@@ -3596,6 +3723,7 @@ function batchTotal() {
 function batchBaseTotal() {
   if (batchSource === "custom") return batchCards.filter((c) => c.text.trim()).length;
   if (batchSource === "media") return batchMedia.length;
+  if (batchSource === "clips") return batchClips.clips.filter((c) => c.on).length;
   if (batchSource === "variants") {
     if (!batchVariant.from) return 0;
     return Math.min(50, Math.max(1, batchVariant.aspects.length || 1) *
@@ -3630,7 +3758,9 @@ function renderBatchCount() {
  */
 function batchEstimate(n, needsAi, voice) {
   const out = [];
-  if (batchSource === "media") {
+  if (batchSource === "clips") {
+    out.push(`cắt ${n} đoạn, dùng lại bản phiên âm lúc phân tích`);
+  } else if (batchSource === "media") {
     out.push(`phiên âm trên máy, ~${Math.max(1, Math.round(n * (batchMediaModel === "small" ? 0.5 : 1)))} phút`);
   } else {
     const originals = Math.ceil(n / perIdea());
@@ -3649,7 +3779,8 @@ function batchEstimate(n, needsAi, voice) {
     else if (opts.images === "ai") out.push(`~${originals * 6} ảnh AI${state?.keys.flux ? " (FLUX miễn phí ~100 ảnh/ngày)" : " (Gemini tính tiền theo ảnh)"}`);
     else if (opts.images === "pexels" || opts.images === "stock-video") out.push(`~${originals * 6} lượt tìm ảnh/clip miễn phí`);
   }
-  if (batchSource !== "media") out.push(`máy chạy ~${Math.max(1, Math.round(n * (opts.video ? 4 : 1.5)))} phút`);
+  if (batchSource === "clips") out.push(`máy chạy ~${Math.max(1, Math.round(batchClips.clips.filter((c) => c.on).reduce((t, c) => t + c.end - c.start, 0) / 50))} phút`);
+  else if (batchSource !== "media") out.push(`máy chạy ~${Math.max(1, Math.round(n * (opts.video ? 4 : 1.5)))} phút`);
   return out;
 }
 
@@ -3657,9 +3788,11 @@ function batchEstimate(n, needsAi, voice) {
 function renderBatchPlan() {
   const n = batchTotal();
   const voice = state?.voices.catalog.find((v) => v.key === opts.voice);
-  const unit = opts.kind === "image" && batchSource !== "media" ? "bộ ảnh" : "video";
+  const unit = opts.kind === "image" && !fileSource() ? "bộ ảnh" : "video";
   const parts = [`Sẽ tạo <b>${n} ${unit}</b>`, `khung <b>${opts.aspect}</b>`];
-  if (batchSource === "media") {
+  if (batchSource === "clips") {
+    parts.push(batchClips.file ? `cắt từ <b>${escapeHtml(batchClips.name)}</b>, cắt khung giữa cho vừa ${opts.aspect}` : "chưa chọn video");
+  } else if (batchSource === "media") {
     parts.push(`phiên âm bằng <b>${batchMediaModel}</b>`);
   } else {
     if (opts.kind === "video") {
@@ -3680,7 +3813,8 @@ function renderBatchPlan() {
 
   const warn = [];
   if (n === 0) {
-    warn.push(batchSource === "media" ? "Thêm file audio/video ở trên trước đã."
+    warn.push(batchSource === "clips" ? (batchClips.clips.length ? "Tích chọn ít nhất một đoạn." : "Chọn video dài rồi bấm Phân tích.")
+      : batchSource === "media" ? "Thêm file audio/video ở trên trước đã."
       : batchSource === "variants" ? "Chọn video gốc và tích ít nhất một biến thể."
       : batchSource === "custom" ? "Nhập nội dung vào ít nhất một ô."
       : "Thêm ít nhất một dòng ý tưởng.");
@@ -3692,10 +3826,10 @@ function renderBatchPlan() {
   if (needsAi && !hasScriptKey()) {
     warn.push("Chưa có AI viết lời — đổi ô “Lời video” sang Có sẵn, hoặc thêm key trong Cài đặt.");
   }
-  if (batchSource !== "media" && (opts.images === "pexels" || opts.images === "stock-video") && !state?.keys.pexels) {
+  if (!fileSource() && (opts.images === "pexels" || opts.images === "stock-video") && !state?.keys.pexels) {
     warn.push("Chưa có key Pexels/Pixabay — đổi ô “Hình ảnh” sang Không hình hoặc Ảnh của tôi.");
   }
-  if (batchSource !== "media" && opts.images === "ai" && !state?.keys.gemini && !state?.keys.flux) {
+  if (!fileSource() && opts.images === "ai" && !state?.keys.gemini && !state?.keys.flux) {
     warn.push("Chưa có key Gemini để vẽ ảnh — đổi ô “Hình ảnh”.");
   }
   // Cảnh báo về cài đặt (thiếu key…): mở phần cài đặt để thấy ngay ô cần đổi.
@@ -4177,6 +4311,13 @@ async function createBatch() {
     body.items = batchMedia.map((f) => f.path);
     body.mediaModel = batchMediaModel;
   }
+  if (batchSource === "clips") {
+    body.file = batchClips.file;
+    body.spoken = $("clipSpoken").value;
+    body.noCaptions = $("clipNoCaptions").checked;
+    body.mediaModel = batchMediaModel;
+    body.clips = batchClips.clips.filter((c) => c.on).map(({ start, end, title }) => ({ start, end, title }));
+  }
   if (batchSource === "variants") {
     body.variants = {
       from: batchVariant.from,
@@ -4199,6 +4340,7 @@ async function createBatch() {
     $("batchText").value = "";
     batchCards = [];
     batchMedia = [];
+    batchClips = { file: null, name: "", seconds: 0, busy: false, clips: [], preview: -1 };
     // Loạt đã chạy: lượt nghĩ ý tưởng cũ không còn gì để thay hay hoàn tác.
     batchIdea = { topic: "", lines: [], undo: null, busy: false };
     paintIdeaGen("");

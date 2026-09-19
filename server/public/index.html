@@ -818,6 +818,19 @@
   .rs-table .hook { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: var(--panel-2); font-size: 11.5px; }
   .rs-summary { margin-top: 12px; font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
   .rs-summary b { color: var(--text); }
+  .clip-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 12px; font-size: 13.5px; }
+  .clip-opts select { margin-left: 6px; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; color: var(--text); }
+  .clip-opts .spacer { flex: 1; }
+  .clip-status { margin: 12px 0 0; }
+  .clip-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .clip-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .clip-card.off { opacity: .5; }
+  .clip-card input[type="checkbox"] { margin-top: 8px; }
+  .clip-card .clip-title { width: 100%; background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 5px 7px; font-weight: 600; font-size: 14px; color: var(--text); }
+  .clip-card .clip-title:hover, .clip-card .clip-title:focus { border-color: var(--line-2); outline: 0; }
+  .clip-meta { font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding-left: 7px; }
+  .clip-meta button { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font-size: 12.5px; }
+  .clip-card video { grid-column: 2; max-width: 100%; max-height: 260px; border-radius: 10px; margin-top: 6px; background: #000; }
   .bt-langs { padding: 12px 14px; }
   .bt-langs .bt-group { margin: 0; }
   .bt-dub { margin-top: 10px; flex-wrap: wrap; }
@@ -1322,6 +1335,7 @@ Lưu lại để làm theo nhé!</pre>
       <button type="button" data-source="custom" aria-pressed="false"><i data-icon="puzzle"></i> Mỗi video một ô</button>
       <button type="button" data-source="media" aria-pressed="false"><i data-icon="mic"></i> File thu sẵn</button>
       <button type="button" data-source="variants" aria-pressed="false"><i data-icon="repeat"></i> Biến thể của 1 video</button>
+      <button type="button" data-source="clips" aria-pressed="false"><i data-icon="scissors"></i> Cắt từ video dài</button>
     </div>
     <p class="muted bt-source-desc" id="batchSourceDesc"></p>
 
@@ -1401,6 +1415,25 @@ Lưu lại để làm theo nhé!</pre>
         <span class="spacer"></span>
         <span class="kbd-hint" id="batchVariantCount"></span>
       </div>
+    </div>
+
+    <!-- nguồn: cắt video dài thành nhiều video ngắn -->
+    <div class="composer bt-composer" id="batchClipsBox" hidden>
+      <button type="button" class="bt-drop" id="clipDrop">
+        <b><i data-icon="upload"></i> <span id="clipFileLabel">Chọn hoặc kéo thả một video dài</span></b>
+        <span class="muted">Podcast, bài nói, phỏng vấn, livestream — AI nghe hết rồi chọn những đoạn đăng riêng được</span>
+      </button>
+      <input type="file" id="clipFile" accept="video/*,audio/*" hidden />
+      <div class="clip-opts">
+        <label>Số đoạn <select id="clipCount"><option>3</option><option selected>5</option><option>8</option><option>10</option><option>15</option></select></label>
+        <label>Mỗi đoạn tối đa <select id="clipMax"><option value="30">30 giây</option><option value="45">45 giây</option><option value="60" selected>60 giây</option><option value="90">90 giây</option></select></label>
+        <label>Ngôn ngữ nói <select id="clipSpoken"></select></label>
+        <label class="be-check"><input type="checkbox" id="clipNoCaptions" /> Video đã có phụ đề sẵn — không gắn thêm</label>
+        <span class="spacer"></span>
+        <button type="button" class="btn primary" id="clipAnalyze" disabled><i data-icon="sparkles"></i> Phân tích và chọn đoạn</button>
+      </div>
+      <p class="muted clip-status" id="clipStatus" hidden></p>
+      <div class="clip-list" id="clipList"></div>
     </div>
 
     <!-- ý tưởng / từng ô: mỗi video thêm một bản cho mỗi ngôn ngữ -->

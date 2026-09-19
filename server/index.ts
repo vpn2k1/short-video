@@ -37,7 +37,7 @@ import {
 import {
   approveItems, batchCsv, batchExportInfo, batchZip, createBatch, deleteBatch, editItem,
   listBatches, pauseBatch, readBatch, readItemScript, removeItems, restyleSubs, retryItems, saveItemScript, skipItems, startBatch,
-  batchCheckStatus, batchFixStatus, startBatchFix, batchCoversStatus, batchBrandStatus, batchCalendar, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
+  batchCheckStatus, batchFixStatus, clipAnalysisStatus, startClipAnalysis, startBatchFix, batchCoversStatus, batchBrandStatus, batchCalendar, batchExportsStatus, savePostPlan, saveResults, readBatchPostCopy, startBatchBrand, startBatchCovers, startBatchExports, SPOKEN_LANGUAGES, startBatchCheck, startBatchPostCopy,
 } from "./batch";
 import { deletePreset, listPresets, savePreset } from "./batch-presets";
 import {
@@ -597,6 +597,22 @@ const server = http.createServer(async (req, res) => {
         fontGroups: fontGroups().map(([label, ids]) => ({ label, ids })),
         presets: CAPTION_PRESET_LABELS,
       });
+    }
+
+    // ---- cắt video dài thành nhiều video ngắn: phân tích (phiên âm + AI chọn đoạn) ----
+    if (route === "/api/clips/analyze" && req.method === "POST") {
+      try {
+        return send(res, 200, startClipAnalysis(await readJson(req)));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    if (route.startsWith("/api/clips/analyze/")) {
+      try {
+        return send(res, 200, clipAnalysisStatus(route.split("/")[4]));
+      } catch (error) {
+        return send(res, 404, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     // ---- làm nhiều video một lượt ----

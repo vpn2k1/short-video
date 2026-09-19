@@ -58,6 +58,8 @@ import { scriptToText, textToScript } from "../scripts/text-script";
 import { transcribeSentences } from "../scripts/transcribe";
 import { generatePostCopy, getPostCopy, type PostPlatform, type SavedPostCopy } from "../scripts/post-copy";
 import { generateHooks } from "../scripts/hooks";
+import { pickClips, type ClipPick } from "../scripts/clip-picker";
+import { isScriptProvider } from "../scripts/generate-script";
 import { checkVideo, fixPlacements, savedCheck } from "../scripts/qa-video";
 import { coverPath, freshCover, makeCover } from "../scripts/cover";
 import { renderShort } from "../scripts/render";
@@ -69,7 +71,7 @@ import {
   TRANSLATE_ENGINES, type TranslateEngine, type TranslateLanguage,
 } from "../scripts/translate";
 
-export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs" | "edit";
+export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs" | "edit" | "clips";
 
 /**
  * Sửa hàng loạt video có sẵn. Hai cách, vì chúng giữ lại những thứ khác nhau:
@@ -236,6 +238,8 @@ export type BatchItem = {
    * `dub` = đọc lại bằng giọng ngôn ngữ đó; không thì giữ giọng gốc, chỉ phụ đề và chữ trên hình được dịch.
    */
   subOf?: { parent: string; lang: TranslateLanguage; dub: boolean; voice?: string };
+  /** Nguồn clips: đoạn cắt ra từ video dài `file` (giây), kèm câu hook làm tiêu đề. */
+  clip?: { start: number; end: number; title: string };
   /** Nguồn edit: mục này là video có sẵn (item.slug), sửa theo batch.edit. */
   edit?: EditKind;
   /** Cài đặt riêng của mục này, đè lên cài đặt chung của loạt. */
@@ -274,6 +278,10 @@ export type Batch = {
   edit?: EditPlan;
   /** Thử A/B hook: số câu hook mới cần viết, và các câu đã viết (viết một lần cho cả loạt để các bản khác nhau). */
   hooks?: { count: number; lines?: string[] };
+  /** Nguồn clips: ngôn ngữ nói của video dài (mã whisper) — phải trùng lúc phân tích để dùng lại bản phiên âm. */
+  spoken?: string;
+  /** Nguồn clips: video gốc đã in sẵn phụ đề — không gắn thêm (chồng hai lớp chữ). */
+  noCaptions?: boolean;
   /** Đoạn mở đầu / kết thúc chung đã gắn lần gần nhất (đường dẫn trong public/). */
   brand?: { intro: string | null; outro: string | null };
   /** Kết quả sau khi đăng, người dùng tự nhập: nền tảng → id mục → số liệu. */
@@ -494,6 +502,11 @@ export type CreateBatchInput = {
   variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown; hooks?: unknown };
   /** Nguồn subs: ngôn ngữ nói, các ngôn ngữ phụ đề ("" = giữ nguyên), kiểu phụ đề chung. */
   subs?: { spoken?: unknown; languages?: unknown; look?: unknown; crop?: unknown; layout?: unknown; tracks?: unknown };
+  /** Nguồn clips: video dài, ngôn ngữ nói, và các đoạn đã chọn { start, end, title } (giây). */
+  file?: unknown;
+  spoken?: unknown;
+  clips?: unknown;
+  noCaptions?: unknown;
   /** Nguồn edit: items là danh sách slug video có sẵn; đây là thay đổi áp cho tất cả. */
   edit?: Record<string, unknown>;
   /** Tạo xong chạy luôn. */
@@ -508,7 +521,7 @@ export type CreateBatchInput = {
 export const createBatch = (body: CreateBatchInput) => {
   const source: BatchSource =
     body.source === "media" || body.source === "variants" || body.source === "custom" || body.source === "subs" ||
-    body.source === "edit"
+    body.source === "edit" || body.source === "clips"
       ? body.source : "ideas";
   const settings = normalizeSettings(body.settings, DEFAULT_SETTINGS);
   const mediaModel: WhisperModel = body.mediaModel === "small" ? "small" : "medium";
@@ -517,7 +530,22 @@ export const createBatch = (body: CreateBatchInput) => {
   let subs: SubsOptions | undefined;
   let edit: EditPlan | undefined;
   let hookPlan: Batch["hooks"];
-  if (source === "edit") {
+  let spoken: string | undefined;
+  if (source === "clips") {
+    const file = String(body.file ?? "");
+    checkMediaFile(file);
+    spoken = SPOKEN_LANGUAGES.some((l) => l.code === body.spoken) ? String(body.spoken) : "auto";
+    const clips = (Array.isArray(body.clips) ? body.clips : []).slice(0, MAX_ITEMS);
+    for (const raw of clips) {
+      const c = (raw ?? {}) as { start?: unknown; end?: unknown; title?: unknown };
+      const start = Number(c.start);
+      const end = Number(c.end);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end - start < 3 || end - start > 180) continue;
+      const title = String(c.title ?? "").trim().slice(0, 60) || `Đoạn ${items.length + 1}`;
+      items.push(newItem(title, { file, clip: { start, end, title } }));
+    }
+    if (items.length === 0) throw new Error("Chưa chọn đoạn nào để cắt.");
+  } else if (source === "edit") {
     edit = parseEditPlan(body.edit);
     items = editItems(body.items, edit);
   } else if (source === "subs") {
@@ -625,6 +653,7 @@ export const createBatch = (body: CreateBatchInput) => {
     id: `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 6)}`,
     name: String(body.name ?? "").trim().slice(0, 60) ||
       (source === "media" ? "Từ file thu sẵn" : source === "subs" ? "Thêm phụ đề"
+        : source === "clips" ? `Cắt từ ${uploadName(String(body.file ?? ""))}`.slice(0, 60)
         : source === "variants" ? "Biến thể" : source === "edit" ? `Sửa ${items.length} video`
           : items[0].input.slice(0, 40)),
     createdAt: Date.now(),
@@ -637,6 +666,8 @@ export const createBatch = (body: CreateBatchInput) => {
     ...(edit ? { edit } : {}),
     ...(hookPlan ? { hooks: hookPlan } : {}),
     ...(startAt ? { startAt } : {}),
+    ...(spoken ? { spoken } : {}),
+    ...(source === "clips" && body.noCaptions === true ? { noCaptions: true } : {}),
     state: "idle",
     items,
   };
@@ -1196,6 +1227,7 @@ const previewOf = (script: VideoScript) => ({
 
 /** Trả về false = mục này không có gì để làm (ví dụ không chứa chữ cần thay) — đánh dấu bỏ qua, khỏi render. */
 const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => void): Promise<boolean | void> => {
+  if (item.clip) return prepareClip(batch, item, log);
   if (item.file) return prepareMedia(batch, item, log);
   if (item.variant) return prepareVariant(batch, item, log);
   if (item.edit) return prepareEdit(batch, item, log);
@@ -1379,7 +1411,7 @@ const translateScript = async (
  */
 const transcriptMemory = new Map<string, Caption[]>();
 
-const transcribeCached = async (
+export const transcribeCached = async (
   source: string,
   file: string,
   spoken: string,
@@ -1697,6 +1729,131 @@ const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) =>
   }
   writeChat(slug, { messages: chat.messages, settings });
   return true;
+};
+
+// ---------- cắt video dài thành nhiều video ngắn ----------
+
+/**
+ * Phân tích một video dài: phiên âm (có nhớ — bước tạo loạt dùng lại, không phiên âm lần hai) rồi AI chọn đoạn.
+ * Chạy nền; màn Hàng loạt hỏi tiến độ qua clipAnalysisStatus.
+ */
+type ClipAnalysis = { status: "running" | "done" | "error"; step: string; clips?: ClipPick[]; seconds?: number; error?: string };
+const clipAnalyses = new Map<string, ClipAnalysis>();
+
+export const startClipAnalysis = (body: unknown) => {
+  const raw = (body ?? {}) as { file?: unknown; spoken?: unknown; model?: unknown; count?: unknown; maxSeconds?: unknown; provider?: unknown };
+  const file = String(raw.file ?? "");
+  checkMediaFile(file);
+  const spoken = SPOKEN_LANGUAGES.some((l) => l.code === raw.spoken) ? String(raw.spoken) : "auto";
+  const model: WhisperModel = raw.model === "small" ? "small" : "medium";
+  const count = Math.max(1, Math.min(15, Math.round(Number(raw.count) || 5)));
+  const maxSeconds = Math.max(15, Math.min(180, Math.round(Number(raw.maxSeconds) || 60)));
+  const minSeconds = Math.max(10, Math.round(maxSeconds * 0.4));
+  const id = randomUUID().slice(0, 8);
+  const job: ClipAnalysis = { status: "running", step: "Đang phiên âm trên máy (video dài mất vài phút)…" };
+  clipAnalyses.set(id, job);
+  void (async () => {
+    try {
+      const source = path.join(process.cwd(), "public", file);
+      const captions = await transcribeCached(source, file, spoken, model, (line) => { if (!line.startsWith("__")) job.step = line; });
+      job.seconds = Math.round(audioDurationMs(source) / 1000);
+      job.step = `AI đang chọn ${count} đoạn hay trong ${captions.length} câu…`;
+      job.clips = await pickClips(captions, {
+        count, minSeconds, maxSeconds,
+        provider: isScriptProvider(raw.provider) ? raw.provider : "auto",
+      });
+      job.status = "done";
+    } catch (error) {
+      job.status = "error";
+      job.error = errorText(error);
+    }
+  })();
+  return { id };
+};
+
+export const clipAnalysisStatus = (id: unknown) => {
+  const job = clipAnalyses.get(String(id));
+  if (!job) throw new Error("Không thấy lượt phân tích này — phân tích lại.");
+  return job;
+};
+
+/**
+ * Một đoạn → một video: cắt đúng đoạn (mã hoá lại để mép cắt chính xác tới khung hình), lấy phụ đề từ bản phiên âm
+ * của cả video (dời mốc về 0), cắt khung giữa cho vừa khung đích, hiện câu hook ở 3 giây đầu.
+ */
+const prepareClip = async (batch: Batch, item: BatchItem, log: (line: string) => void) => {
+  const settings = itemSettings(batch, item);
+  const { start, end, title } = item.clip!;
+  const source = path.join(process.cwd(), "public", item.file!);
+  if (!fs.existsSync(source)) throw new Error(`Không thấy file: ${item.file}`);
+  const slug = item.slug ?? freshSlug(title);
+  item.slug = slug;
+  fs.mkdirSync(videoDir(slug), { recursive: true });
+
+  log("__STEP__ script");
+  const all = await transcribeCached(source, item.file!, batch.spoken ?? "auto", batch.mediaModel, log);
+  const startMs = start * 1000;
+  const endMs = end * 1000;
+  const captions = all
+    .filter((c) => c.endMs > startMs + 150 && c.startMs < endMs - 150)
+    .map((c) => ({ ...c, startMs: Math.max(0, c.startMs - startMs), endMs: Math.min(endMs, c.endMs) - startMs }));
+  if (captions.length === 0) throw new Error("Đoạn này không có lời nói nào.");
+
+  const isVideo = /\.(mp4|mov|webm)$/i.test(item.file!);
+  const cutRel = path.posix.join("uploads", "clips", `${slug}.${isVideo ? "mp4" : "mp3"}`);
+  const cutAbs = path.join(process.cwd(), "public", cutRel);
+  fs.mkdirSync(path.dirname(cutAbs), { recursive: true });
+  log(`Cắt đoạn ${start.toFixed(1)}s–${end.toFixed(1)}s…`);
+  execFileSync("ffmpeg", [
+    "-v", "error", "-y", "-ss", String(start), "-to", String(end), "-i", source,
+    ...(isVideo ? ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p"] : ["-vn"]),
+    "-c:a", isVideo ? "aac" : "libmp3lame", "-b:a", "192k", "-ar", "48000", "-ac", "2", cutAbs,
+  ]);
+  const trackRel = path.posix.join("voices", slug, "track.mp3");
+  const trackAbs = path.join(process.cwd(), "public", trackRel);
+  fs.mkdirSync(path.dirname(trackAbs), { recursive: true });
+  execFileSync("ffmpeg", ["-y", "-v", "error", "-i", cutAbs, "-vn", "-ar", "48000", "-ac", "2", trackAbs]);
+  const durationMs = audioDurationMs(trackAbs);
+
+  // Cắt khung giữa: vùng lớn nhất đúng tỉ lệ khung đích, đặt giữa hình (video ngang → dọc 9:16 lấy phần giữa).
+  const aspect = aspectFor(...(settings.aspect.split(":").map(Number) as [number, number])).id;
+  const size = isVideo ? videoSize(cutAbs) : null;
+  let crop: MediaCrop | null = null;
+  if (size) {
+    const media = size.width / size.height;
+    const target = aspectRatioOf(aspect);
+    if (Math.abs(media - target) > 0.02) {
+      const { w, h } = largestCropRect(target, media);
+      crop = mediaCropSchema.parse({ x: (1 - w) / 2, y: (1 - h) / 2, w, h, mediaAspect: media, ratio: aspect });
+    }
+  }
+  const props = shortSchema.parse({
+    title,
+    subtitle: "",
+    handle: "@kenh",
+    accent: "#e8590c",
+    background: "#0b0b12",
+    // Video gốc đã in phụ đề: không gắn thêm. Tiếng vẫn phát (voiceoverTrack), độ dài theo cảnh.
+    captions: batch.noCaptions ? [] : captions,
+    aspect,
+    style: "plain",
+    scenes: [{ image: isVideo ? cutRel : null, visual: null, startMs: 0, endMs: durationMs, ...(crop ? { crop } : {}) }],
+    captionPosition: "bottom",
+    showTitle: false,
+    voiceoverTrack: trackRel,
+    music: await resolveMusicChoice(settings.music, log),
+    sfx: false,
+    // Câu hook nổi ở phần trên khung trong 3 giây đầu — thay cho thẻ tiêu đề (lời nói chạy ngay từ giây 0).
+    texts: [{ text: title, startMs: 0, endMs: Math.min(3500, durationMs), x: 50, y: 22, size: 64, background: "#000000cc", maxWidth: 84 }],
+  });
+  fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(props, null, 2));
+  writeChat(slug, {
+    messages: [{ role: "user", text: `Cắt đoạn ${Math.round(start)}s–${Math.round(end)}s từ ${uploadName(item.file!)}: ${title}`, at: Date.now() }],
+    settings: { ...settings, mode: "text" },
+  });
+  item.title = title;
+  item.scenes = 1;
+  item.lines = captions.map((c) => c.text).slice(0, 40);
 };
 
 // ---------- bước 2: dựng ----------
