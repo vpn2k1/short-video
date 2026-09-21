@@ -1170,6 +1170,7 @@ function renderMessage(m, isLatest) {
     <div class="quick">
       <button type="button" data-quick-style>${icon("palette")} Đổi phong cách</button>
       <button type="button" data-quick-hook>${icon("zap")} Đổi câu mở đầu</button>
+      ${project?.scripted ? `<button type="button" data-hook-tool title="Chọn nhiều công thức, AI viết thử để so rồi chọn một câu">${icon("list-checks")} Công cụ Hook</button>` : ""}
       ${QUICK_EDITS.map((q, i) => `<button type="button" data-quick="${i}">${q.label}</button>`).join("")}
     </div>` : "";
   // Có kịch bản thì làm được phần sau nối liền video này (AI viết tiếp, cùng cài đặt).
@@ -1260,6 +1261,7 @@ function bindMessageActions() {
         ? `Viết lại câu đầu tiên theo công thức "${template.formula}" cho đúng nội dung video (đừng chép câu ví dụ), giữ nguyên các câu còn lại.`
         : "Viết lại câu đầu tiên bằng một kiểu hook khác hẳn, giữ nguyên các câu còn lại.");
     })));
+  thread.querySelector("[data-hook-tool]")?.addEventListener("click", () => openHookTool(current));
   thread.querySelector("[data-retry]")?.addEventListener("click", () => {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     if (lastUser) prefill(lastUser.text);

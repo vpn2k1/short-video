@@ -488,6 +488,31 @@
   .pc-gen { display: flex; align-items: center; gap: 8px; margin-right: auto; min-width: 0; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
   .pc-gen select { flex: 1 1 180px; min-width: 0; max-width: 260px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; outline: 0; color: var(--text); font-size: 13px; }
   .pc-gen select:focus { border-color: var(--line-2); }
+  .ht-dlg { width: min(720px, calc(100vw - 32px)); }
+  .ht-dlg form { display: flex; flex-direction: column; max-height: calc(100vh - 80px); }
+  .ht-scroll { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  .ht-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .ht-bar .btn { padding: 4px 10px; font-size: 12px; }
+  .ht-bar .seg button { padding: 4px 10px; font-size: 12px; }
+  .ht-group { margin-top: 12px; }
+  .ht-group-label { font-size: 13px; font-weight: 600; }
+  .ht-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .ht-chips button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .ht-chips button:hover:not(:disabled) { border-color: var(--line-2); color: var(--text); }
+  .ht-chips button[aria-pressed="true"] { background: var(--panel-2); border-color: var(--accent); color: var(--text); font-weight: 600; }
+  .ht-chips button:disabled { opacity: .4; cursor: default; }
+  .ht-results-head { margin-top: 18px; font-size: 13px; font-weight: 600; }
+  .ht-card { margin-top: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .ht-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+  .ht-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 600; }
+  .ht-words { color: var(--muted); }
+  .ht-words.err { color: var(--err, #ff6b6b); }
+  .ht-text { width: 100%; margin-top: 6px; background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px;
+             color: var(--text); font: inherit; font-size: 16px; font-weight: 600; resize: vertical; outline: 0; box-sizing: border-box; }
+  .ht-text:hover, .ht-text:focus { border-color: var(--line-2); }
+  .ht-why { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .ht-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+  .ht-actions .btn { padding: 4px 10px; font-size: 12px; }
   .post-copy-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
   .dlg .hint { text-align: left; margin: 12px 0 0; }
   .be-dlg { width: min(560px, calc(100vw - 32px)); }
@@ -1857,6 +1882,37 @@ Lưu lại để làm theo nhé!</pre>
   </form>
 </dialog>
 
+<dialog class="dlg ht-dlg" id="hookToolDlg">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2><i data-icon="zap"></i> Công cụ Hook</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Chọn vài công thức câu mở đầu, AI viết cho đúng video này để bạn so và chọn câu giữ người xem tốt nhất.
+      Rê chuột lên công thức để xem câu ví dụ.</p>
+    <div class="ht-scroll">
+      <div class="ht-bar">
+        <span id="hookToolCount"></span>
+        <button type="button" class="btn" id="hookToolShuffle"><i data-icon="shuffle"></i> Gợi ý ngẫu nhiên</button>
+        <button type="button" class="btn" id="hookToolClear"><i data-icon="eraser"></i> Bỏ chọn</button>
+        <span style="margin-left:auto">Mỗi công thức</span>
+        <div class="seg" role="radiogroup" aria-label="Số câu mỗi công thức" id="hookToolPer">
+          <button type="button" role="radio" data-ht-per="1">1 câu</button>
+          <button type="button" role="radio" data-ht-per="2">2 câu</button>
+          <button type="button" role="radio" data-ht-per="3">3 câu</button>
+        </div>
+      </div>
+      <div id="hookToolPick"></div>
+      <div id="hookToolResults"></div>
+    </div>
+    <p class="hint" id="hookToolHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>Đóng</button>
+      <button type="button" class="btn primary" id="hookToolGen"><i data-icon="sparkles"></i> Viết hook</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog class="dlg pc-dlg" id="postCopyDlg">
   <form method="dialog">
     <div class="dlg-head">
@@ -1936,6 +1992,7 @@ Lưu lại để làm theo nhé!</pre>
 <script src="/bili.js"></script>
 <script src="/hook-media.js"></script>
 <script src="/post-copy.js"></script>
+<script src="/hook-tool.js"></script>
 <script src="/batch-sheet.js"></script>
 <script src="/bulk-edit.js"></script>
 </body>

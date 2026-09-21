@@ -46,6 +46,8 @@ import {
 } from "../src/components/captionLook";
 import { generateIdeas, generateSeries } from "../scripts/ideas";
 import { generatePostCopy, getPostCopy } from "../scripts/post-copy";
+import { generateTemplateHooks } from "../scripts/hooks";
+import { parseScript } from "../src/compositions/Short/script";
 import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
 import { getIconsJs } from "./icons";
@@ -684,6 +686,24 @@ const server = http.createServer(async (req, res) => {
         }
       }
       return send(res, 200, getPostCopy(slug));
+    }
+
+    // Công cụ Hook: AI viết câu mở đầu theo các công thức người dùng chọn, cho video đang mở.
+    if (route.startsWith("/api/hook-tool/") && req.method === "POST") {
+      const slug = route.split("/")[3];
+      if (!isSlug(slug)) return send(res, 400, { error: "Tên video không hợp lệ" });
+      try {
+        const file = path.join(process.cwd(), "videos", slug, "script.json");
+        if (!fs.existsSync(file)) return send(res, 400, { error: "Video này không có kịch bản để viết lại câu mở đầu." });
+        const body = await readJson<{ templates?: unknown; per?: unknown; provider?: unknown }>(req);
+        const templates = Array.isArray(body.templates) ? body.templates.filter((t): t is string => typeof t === "string") : [];
+        const script = parseScript(JSON.parse(fs.readFileSync(file, "utf8")));
+        const hooks = await generateTemplateHooks(script, templates, Number(body.per) || 2,
+          isScriptProvider(body.provider) ? body.provider : "auto");
+        return send(res, 200, { hooks });
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     if (route === "/api/batch" && req.method === "POST") {
