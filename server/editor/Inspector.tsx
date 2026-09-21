@@ -49,6 +49,10 @@ type Props = {
   onReplaceMedia: (index: number, item: MediaItem) => void;
   /** Thay bằng file chọn từ máy (tải lên thư viện rồi thay). */
   onReplaceFile: (index: number, file: File) => void;
+  /** Gán ảnh/video cho cảnh `index` — cảnh trống hoặc đổi hình. */
+  onSceneMedia: (index: number, item: MediaItem) => void;
+  /** Gán cho cảnh bằng file chọn từ máy (tải lên thư viện rồi gán). */
+  onSceneFile: (index: number, file: File) => void;
   /** Mở một mục của thư viện bên cạnh (Kho free, Video AI…). */
   onOpenLibrary: (section: LibrarySection) => void;
 };
@@ -64,9 +68,12 @@ const ReplaceMedia: React.FC<{
   onPick: (item: MediaItem) => void;
   onFile: (file: File) => void;
   onOpenLibrary: (section: LibrarySection) => void;
+  /** Cảnh chưa có hình thì đây là "chọn", không phải "thay". */
+  title?: string;
+  note?: string;
   /** Panel gom khối theo prop này của phần tử con — đặt ở đây để mục có tab riêng. */
   "data-tab"?: string;
-}> = ({ current, media, uploading, onPick, onFile, onOpenLibrary, "data-tab": tab }) => {
+}> = ({ current, media, uploading, onPick, onFile, onOpenLibrary, title, note, "data-tab": tab }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<"all" | "image" | "video">("all");
   const [query, setQuery] = useState("");
@@ -96,8 +103,8 @@ const ReplaceMedia: React.FC<{
         firstFile(e.dataTransfer.files);
       }}
     >
-      <h3><Repeat size={16} aria-hidden /> Thay ảnh/video</h3>
-      <p className="in-note">Giữ nguyên chỗ trên timeline, vị trí, thu phóng và chuyển động — chỉ đổi hình.</p>
+      <h3><Repeat size={16} aria-hidden /> {title ?? "Thay ảnh/video"}</h3>
+      <p className="in-note">{note ?? "Giữ nguyên chỗ trên timeline, vị trí, thu phóng và chuyển động — chỉ đổi hình."}</p>
       <input ref={fileRef} type="file" hidden accept="image/*,video/*" onChange={(e) => {
         firstFile(e.target.files);
         e.target.value = "";
@@ -714,7 +721,7 @@ export const Inspector: React.FC<Props> = ({
   props, selection, media, voices, videoVoice, onChange, onSelect, onDelete, onSplit, onDuplicateText, onVoice, onRemoveAllVoice, onDetachAudio,
   timeMs, onSeek, onRun,
   onStartCrop, onLiftScene, onAutoSubtitles,
-  uploading, onReplaceMedia, onReplaceFile, onOpenLibrary,
+  uploading, onReplaceMedia, onReplaceFile, onSceneMedia, onSceneFile, onOpenLibrary,
 }) => {
   // Mở ra đúng giọng video đang dùng — trước đây luôn là "linh", bấm "Đổi giọng toàn bộ" là đọc lại bằng giọng khác.
   const [voice, setVoice] = useState(videoVoice ?? "linh");
@@ -1117,7 +1124,7 @@ export const Inspector: React.FC<Props> = ({
             {s.image ? (
               video ? <video src={`/public/${s.image}`} muted playsInline preload="metadata" /> : <img src={`/public/${s.image}`} alt="" />
             ) : (
-              <span>Chưa có ảnh — kéo một ảnh/video từ thư viện thả vào cảnh này trên timeline.</span>
+              <span>Chưa có ảnh — chọn ở mục ngay bên dưới, hoặc kéo một ảnh/video từ thư viện thả vào cảnh này trên timeline.</span>
             )}
           </div>
           <p className="in-note">
@@ -1135,6 +1142,21 @@ export const Inspector: React.FC<Props> = ({
             </div>
           ) : null}
         </section>
+
+        <ReplaceMedia
+          // Luôn ở tab Cơ bản: chọn hình là việc hay làm nhất với một cảnh, và gán xong mục này không nhảy đi đâu.
+          data-tab="Cơ bản"
+          title={s.image ? "Thay ảnh/video" : "Chọn ảnh/video cho cảnh"}
+          note={s.image
+            ? "Giữ nguyên chỗ trên timeline và độ dài cảnh — chỉ đổi hình."
+            : "Cảnh đang để nền trơn. Chọn file từ máy, lấy trong thư viện, hay tìm ảnh/clip miễn phí ở Kho free (Pexels, Pixabay)."}
+          current={s.image ?? ""}
+          media={media}
+          uploading={uploading}
+          onPick={(item) => onSceneMedia(i, item)}
+          onFile={(file) => onSceneFile(i, file)}
+          onOpenLibrary={onOpenLibrary}
+        />
 
         {video ? (
           <section className="in-sec" data-tab="Âm thanh & tốc độ">

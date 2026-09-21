@@ -631,6 +631,38 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
     await addOverlay(item, nowMs());
   };
 
+  /** Gán ảnh/video cho một cảnh từ bảng thuộc tính — cảnh trống hay đổi hình đều đi đường này. */
+  const sceneMedia = (index: number, item: MediaItem) => {
+    if (item.kind === "audio") {
+      flash("Cảnh chỉ nhận ảnh hoặc video.");
+      return;
+    }
+    withProps((p) => ({
+      props: ops.setSceneMedia(p, index, item.path),
+      selection: { type: "scene", index },
+      message: `Đã gán ${item.kind === "video" ? "video" : "ảnh"} cho cảnh ${index + 1}.`,
+    }));
+  };
+
+  /** Chọn file từ máy cho một cảnh: tải lên thư viện rồi gán luôn. */
+  const sceneMediaFromFile = async (index: number, file: File) => {
+    const kind = file.type.startsWith("video/") ? "video" : file.type.startsWith("image/") ? "image" : null;
+    if (!kind) {
+      flash("Cảnh chỉ nhận ảnh hoặc video.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const { path } = await uploadFile(file);
+      refreshMedia();
+      sceneMedia(index, { path, name: file.name, kind, bytes: file.size, at: Date.now() });
+    } catch (e) {
+      flash((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   /** Kéo file từ thư viện thả xuống timeline — giống CapCut. */
   const onDropMedia = async (path: string, atMs: number, target: DropTarget) => {
     const item = media.find((m) => m.path === path);
@@ -1227,6 +1259,8 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
             uploading={uploading}
             onReplaceMedia={replaceOverlay}
             onReplaceFile={replaceOverlayFromFile}
+            onSceneMedia={sceneMedia}
+            onSceneFile={sceneMediaFromFile}
             onOpenLibrary={(section) => setLibRequest({ section, at: Date.now() })}
           />
         </aside>
