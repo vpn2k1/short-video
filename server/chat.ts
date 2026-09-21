@@ -68,6 +68,10 @@ export type ChatSettings = {
   art: ArtStyle;
   /** Độ dài AI viết: "auto" = đọc từ prompt (không nêu thì video ngắn), "free" = không giới hạn, còn lại là số giây. */
   length: LengthChoice;
+  /** Công thức câu mở đầu (scripts/hook-library.ts): "auto" = AI chọn kiểu theo nội dung, hoặc id một mẫu. */
+  hook: string;
+  /** Ảnh/clip ghim vào câu mở đầu (đường dẫn trong public/); "" = để AI chọn hình như các cảnh khác. */
+  hookMedia: string;
 };
 
 /**
@@ -139,7 +143,7 @@ export const resolveMusicChoice = async (music: string | null, log: (line: strin
   return track.path;
 };
 
-export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", art: "auto", length: "auto" };
+export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", art: "auto", length: "auto", hook: "auto", hookMedia: "" };
 
 /** Ảnh đã dựng của một video: out/scenes/<slug>-<cảnh>.png, theo thứ tự cảnh. */
 const sceneImages = (slug: string) => {
@@ -891,6 +895,10 @@ export const normalizeSettings = (
     art: isArtStyle(s.art) ? s.art : base.art ?? "auto",
     // Cuộc chat cũ lưu trước khi có ô độ dài thì không có trường này.
     length: isLengthChoice(s.length) ? s.length : base.length ?? "auto",
+    // Cuộc chat cũ lưu trước khi có thư viện hook thì không có trường này.
+    hook: isHookChoice(s.hook) ? s.hook : base.hook ?? "auto",
+    hookMedia: typeof s.hookMedia === "string" && (s.hookMedia === "" || MEDIA_RE.test(s.hookMedia))
+      ? s.hookMedia : base.hookMedia ?? "",
   };
 };
 
@@ -1373,7 +1381,11 @@ const addSceneImages = async (
 ) => {
   if (settings.images === "none") {
     const had = props.scenes.filter((scene) => scene.image).length;
-    props.scenes.forEach((scene) => { scene.image = null; });
+    // Hình mở đầu là do người dùng tự chọn — "Không hình" chỉ bỏ hình AI tự gán cho các cảnh sau.
+    props.scenes.forEach((scene, i) => {
+      if (i === 0 && settings.hookMedia && scene.image === settings.hookMedia) return;
+      scene.image = null;
+    });
     log("Không dùng hình — video chỉ có chữ.");
     return had > 0 ? "🚫 Không dùng hình — video chỉ có chữ." : "";
   }

@@ -56,6 +56,7 @@ import { keyStatus, keyTipsSeen, loadKeys, markKeyTipsSeen, saveKeys } from "./k
 import { isStyleId, STYLE_IDS, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
 import { isScriptProvider, providerLabel, scriptProvider, scriptProviderCatalog } from "../scripts/generate-script";
+import { hookCatalog } from "../scripts/hook-library";
 import { TRANSLATE_LANGUAGES, translateEngines } from "../scripts/translate";
 import { generateAiVideo, videoModelCatalog } from "../scripts/ai-video";
 import { artStyleCatalog } from "../scripts/image-prompts";
@@ -276,6 +277,8 @@ const server = http.createServer(async (req, res) => {
         ...(({ models, defaultModel }) => ({ videoModels: models, videoDefault: defaultModel }))(videoModelCatalog()),
         /** AI viết kịch bản chọn được cho từng video (nhà cung cấp + model theo Cài đặt). */
         scriptProviders: scriptProviderCatalog(),
+        /** Thư viện công thức câu mở đầu, chia nhóm — chọn lúc tạo video (scripts/hook-library.ts). */
+        hooks: hookCatalog(),
         /** 💚 Chế độ Miễn phí: giao diện khoá các lựa chọn tính tiền. */
         freeMode: freeMode(),
         /** Watermark theo Cài đặt — trình chỉnh sửa gắn vào khung xem trước. */

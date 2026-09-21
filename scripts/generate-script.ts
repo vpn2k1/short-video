@@ -8,6 +8,7 @@ import { allLines, MAX_SCRIPT_SCENES, videoScriptSchema, type VideoScript } from
 import { DEFAULT_STYLE, isStyleId, type StyleId } from "../src/styles/meta";
 import { styleSection } from "./style-guides";
 import { textToScript } from "./text-script";
+import { hookSection, HOOK_TYPES } from "./hook-library";
 import {
   CHAPTER_LINES, lengthLabel, lengthSection, needsChapters, OVERRIDE_NOTE, planFor, resolveLength,
   type LengthChoice, type LengthTarget,
@@ -76,15 +77,8 @@ HOOK — câu đọc đầu tiên quyết định người xem ở lại hay lư
 
 Không giải thích, không thêm emoji vào "lines".`;
 
-/** Kiểu hook gợi ý — mỗi video một kiểu (theo nội dung yêu cầu) để làm hàng loạt không ra 10 video mở đầu giống nhau. */
-export const HOOK_TYPES = ["tò mò", "ngạc nhiên", "ngược thường thức", "câu hỏi chạm vấn đề", "mở giữa câu chuyện", "thách thức", "hậu quả, cái giá"];
-
-const hookHint = (prompt: string) => {
-  let hash = 0;
-  for (const ch of prompt) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
-  return `\n\nKIỂU HOOK GỢI Ý CHO VIDEO NÀY: "${HOOK_TYPES[hash % HOOK_TYPES.length]}" — dùng nếu hợp nội dung; ` +
-    "không hợp thì chọn kiểu khác trong mục HOOK. Hook vẫn phải đúng sự thật.";
-};
+/** Kiểu hook gợi ý cho "Tự động" — thư viện hook (scripts/hook-library.ts) giữ danh sách này. */
+export { HOOK_TYPES };
 
 
 const EDIT_RULES = `
@@ -280,6 +274,8 @@ export type ScriptOptions = {
   length?: LengthChoice;
   /** Báo tiến độ ra UI — video dài viết theo chương, mất nhiều lượt gọi AI. */
   log?: (line: string) => void;
+  /** Công thức mở đầu người dùng chọn (scripts/hook-library.ts); "auto" hoặc bỏ trống = AI tự chọn kiểu. */
+  hook?: string;
 };
 
 export const generateScript = async (
@@ -298,7 +294,7 @@ export const generateScript = async (
   const target = resolveLength(options.length, prompt);
   options.log?.(`Độ dài: ${lengthLabel(target)}${target.source === "ui" ? " (ô chọn)" : target.source === "prompt" ? " (theo prompt)" : ""}`);
   if (needsChapters(target)) {
-    return generateLong(prompt, target, images, uploads, model, style, provider, options.log);
+    return generateLong(prompt, target, images, uploads, model, style, provider, options.log, options.hook);
   }
   // Phong cách gửi cho model: "Tự động" + nhà cung cấp prompt gọn thì đoán bằng từ khoá
   // (như chế độ Nguyên văn) để không phải kèm hướng dẫn cả 16 phong cách. Tính theo từng nhà cung
@@ -306,7 +302,7 @@ export const generateScript = async (
   // Đợi rồi thử lại khi chạm giới hạn theo phút: làm hàng loạt, lượt soát của video trước (scripts/review-script.ts) cộng
   // lượt viết của video sau hay vượt hạn mức token/phút của gói miễn phí (Groq ~8.000).
   return withRateLimitRetry(() => callModel(
-    (chosen) => SYSTEM + hookHint(prompt) + lengthSection(target) + styleSection(styleFor(style, prompt, chosen)) + mediaSection(images, uploads),
+    (chosen) => SYSTEM + hookSection(options.hook, prompt) + lengthSection(target) + styleSection(styleFor(style, prompt, chosen)) + mediaSection(images, uploads),
     prompt, model, images, style, provider,
   ), options.log);
 };
@@ -363,6 +359,7 @@ const generateLong = async (
   style: StyleChoice,
   provider: ProviderChoice,
   log?: (line: string) => void,
+  hook?: string,
 ): Promise<VideoScript> => {
   const plan = target.seconds !== null ? planFor(target.seconds) : null;
   const chapterCount = plan
@@ -405,7 +402,7 @@ const generateLong = async (
       `${chapter.tag ?? ""} — ${chapter.lines.join(" ")}\n` +
       `Viết khoảng ${linesEach} câu, chia thành khoảng ${sceneCount} cảnh, mỗi cảnh ${perScene} câu.`;
     const part = await withRateLimitRetry(() => callModel(
-      () => SYSTEM + (i === 0 ? hookHint(prompt) : "") + chapterLength + CHAPTER_RULES + styleSection(outline.style) + mediaSection(images, uploads),
+      () => SYSTEM + (i === 0 ? hookSection(hook, prompt) : "") + chapterLength + CHAPTER_RULES + styleSection(outline.style) + mediaSection(images, uploads),
       content, model, images, outline.style, provider,
     ), log);
     scenes.push(...part.scenes);

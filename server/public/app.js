@@ -60,7 +60,7 @@ const TEXT_PLACEHOLDER = {
   edit: "Dán lời mới vào đây để dựng lại video",
 };
 
-const DEFAULT_OPTS = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: "", video: "", provider: "auto", images: "library", art: "auto", length: "auto" };
+const DEFAULT_OPTS = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: "", video: "", provider: "auto", images: "library", art: "auto", length: "auto", hook: "auto", hookMedia: "" };
 const AUTO_STYLE = { id: "auto", emoji: "✨", label: "Tự động", summary: "AI đọc nội dung và chọn phong cách hợp nhất." };
 
 // ---------- trạng thái ----------
@@ -207,6 +207,8 @@ async function showChat(slug) {
       images: chat.settings.images ?? "library",
       art: chat.settings.art ?? "auto",
       length: chat.settings.length ?? "auto",
+      hook: chat.settings.hook ?? "auto",
+      hookMedia: chat.settings.hookMedia ?? "",
     });
     project = projects.find((p) => p.slug === slug) ?? null;
     if (switching && chat.draft) restoreChatDraft(chat.draft);
@@ -1152,7 +1154,14 @@ function renderMessage(m, isLatest) {
   const quick = hasResult && aiEdit ? `
     <div class="quick">
       <button type="button" data-quick-style>${icon("palette")} Đổi phong cách</button>
+      <button type="button" data-quick-hook>${icon("zap")} Đổi câu mở đầu</button>
       ${QUICK_EDITS.map((q, i) => `<button type="button" data-quick="${i}">${q.label}</button>`).join("")}
+    </div>` : "";
+  // Có kịch bản thì làm được phần sau nối liền video này (AI viết tiếp, cùng cài đặt).
+  const cont = hasResult && !m.stale && canContinue() ? `
+    <div class="post-copy-cta">
+      <button type="button" class="btn" data-continue>${icon("step-forward")} Làm tiếp phần ${nextPart()}</button>
+      <span>Video mới nối liền cảnh và lời thoại của video này</span>
     </div>` : "";
   // Video xong: mời AI viết sẵn nội dung bài đăng.
   const postCopy = isLatest && m.mp4 && hasScriptKey() ? `
@@ -1393,6 +1402,8 @@ function renderComposer() {
   if (!textMode) chips.push(["provider", "AI", providerChipLabel(), "Chọn AI viết lời trong số key đã cài", providerIcon(opts.provider)]);
   // Độ dài chỉ có nghĩa khi AI viết lời — lời dán vào thì dài đúng bằng lời đó.
   if (!textMode) chips.push(["length", "Độ dài", lengthChipLabel(), "Độ dài video AI viết. Tự động = theo câu prompt (\"video 5 phút\"), không nêu thì video ngắn", lengthIcon(opts.length)]);
+  // Công thức câu mở đầu — chỉ có nghĩa khi AI viết lời.
+  if (!textMode) chips.push(["hook", "Hook", hookChipLabel(), "Công thức câu mở đầu 1–3 giây đầu video — thứ quyết định người xem dừng lướt hay không", hookIcon(opts.hook)]);
   chips.push(
     ["kind", "Tạo ra", opts.kind === "image" ? "Bộ ảnh" : "Video", "Làm video hay bộ ảnh", kindIcon(opts.kind)],
     ["style", "Phong cách", `${style.emoji} ${style.label}`, "Kiểu hình ảnh và chữ của video"],
@@ -1497,11 +1508,59 @@ function lengthChipLabel() {
   return LENGTHS.find((l) => l.value === opts.length)?.title ?? "Tự động";
 }
 
+// ---------- thư viện hook (công thức câu mở đầu) ----------
+const hookGroups = () => state?.hooks ?? [];
+
+/** Mẫu hook đang chọn, null = Tự động. */
+const hookTemplate = (value = opts.hook) =>
+  value && value !== "auto"
+    ? hookGroups().flatMap((g) => g.templates).find((t) => t.id === value) ?? null
+    : null;
+
+const hookChipLabel = (value = opts.hook) =>
+  `${hookTemplate(value)?.formula ?? "Tự động"}${opts.hookMedia ? " + hình" : ""}`;
+
+/**
+ * Chọn công thức câu mở đầu: "Tự động" để AI chọn kiểu theo nội dung, hoặc một mẫu cụ thể —
+ * AI viết câu đầu theo đúng công thức đó cho chủ đề của video, không chép câu ví dụ.
+ */
+function hookMenu(onPick, value = opts.hook) {
+  return {
+    id: "hook", title: "Công thức câu mở đầu (hook)", value, onPick,
+    options: [
+      {
+        value: "auto",
+        icon: icon("sparkles"),
+        title: "Tự động",
+        sub: "AI chọn kiểu hook hợp nội dung — mỗi video một kiểu khác nhau",
+      },
+      {
+        value: "__media",
+        group: "Hình mở đầu — khung hình đầu tiên người xem thấy",
+        icon: icon("image-plus"),
+        title: opts.hookMedia ? "Đổi ảnh/clip mở đầu…" : "Chọn ảnh hoặc clip mở đầu…",
+        sub: opts.hookMedia || "Tìm trong kho miễn phí, tải lên, hoặc lấy trong thư viện",
+      },
+      ...(opts.hookMedia ? [{ value: "__no-media", group: "Hình mở đầu — khung hình đầu tiên người xem thấy",
+        icon: icon("ban"), title: "Bỏ hình mở đầu", sub: "Cảnh đầu lấy hình như các cảnh khác" }] : []),
+      ...hookGroups().flatMap((group) =>
+        group.templates.map((t) => ({
+          value: t.id,
+          group: group.hint ? `${group.label} — ${group.hint}` : group.label,
+          icon: icon("zap"),
+          title: t.formula,
+          sub: t.example,
+        }))),
+    ],
+  };
+}
+
 /**
  * Icon trước nhãn của từng lựa chọn (chip, ô cài đặt, menu). Tên icon luôn viết cố định —
  * server quét mã nguồn tìm icon("…") để chỉ gửi những icon được dùng.
  */
 const lengthIcon = (value) => (value === "free" ? icon("infinity") : !value || value === "auto" ? icon("sparkles") : icon("timer"));
+const hookIcon = (value) => (opts.hookMedia ? icon("image-plus") : !value || value === "auto" ? icon("sparkles") : icon("zap"));
 const providerIcon = (id) => (id === "auto" ? icon("sparkles") : icon("bot"));
 const kindIcon = (kind) => (kind === "image" ? icon("image") : icon("clapperboard"));
 const modeIcon = (mode) => (mode === "text" ? icon("file-text") : icon("bot"));
@@ -1920,6 +1979,13 @@ function menuFor(key) {
   if (key === "images") return imageMenu();
   if (key === "art") return artMenu(pick);
   if (key === "provider") return providerMenu(pick);
+  if (key === "hook") {
+    return hookMenu((value) => {
+      if (value === "__media") return openHookMedia();
+      if (value === "__no-media") return setOpt("hookMedia", "");
+      pick(value);
+    });
+  }
   if (key === "length") {
     return {
       id: "length", title: "Độ dài video — ô này thắng độ dài ghi trong prompt", value: opts.length, onPick: pick,
@@ -3522,6 +3588,7 @@ function renderBatchFields() {
   if (batchSource === "ideas" || byCard) {
     fields.push(["mode", def("Lời video"), opts.mode === "text" ? "Có sẵn" : "AI viết", modeIcon(opts.mode)]);
     if (opts.mode !== "text") fields.push(["provider", "AI viết lời", providerChipLabel(), providerIcon(opts.provider)]);
+    if (opts.mode !== "text") fields.push(["hook", def("Hook"), hookChipLabel(), hookIcon(opts.hook)]);
     fields.push(
       ["kind", "Tạo ra", opts.kind === "image" ? "Bộ ảnh" : "Video", kindIcon(opts.kind)],
       ["style", def("Phong cách"), `${style.emoji} ${style.label}`],

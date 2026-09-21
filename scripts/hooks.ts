@@ -6,7 +6,8 @@
  *   generateHooks(script, 3)  →  ["…", "…", "…"]
  */
 import { askJson, parseJson, type JsonReply } from "./llm-json";
-import { HOOK_TYPES, type ProviderChoice } from "./generate-script";
+import { type ProviderChoice } from "./generate-script";
+import { HOOK_TYPES } from "./hook-library";
 import { allLines, type VideoScript } from "../src/compositions/Short/script";
 
 /** Giới hạn độ dài một câu trong kịch bản (videoScriptSchema). */
