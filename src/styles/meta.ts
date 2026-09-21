@@ -409,7 +409,7 @@ Suy nghĩ 3 giây nhé…
 
 [CÂU KHÓ]
 Sông nào chảy qua trung tâm Hà Nội?
-Bạn chọn gì?
+Đáp án của bạn là gì?
 Đáp án là **sông Hồng**.
 Bạn đúng mấy câu? Bình luận nhé!`,
   },

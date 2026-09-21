@@ -87,7 +87,7 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
   "Đúng hết 5 câu là cao thủ ẩm thực!".
 - Thứ tự caption trong mỗi cảnh, mỗi dòng một caption:
   1. Câu hỏi ≤ 60 ký tự, kết thúc bằng "?" ("Cố đô cuối cùng của Việt Nam là thành phố nào?"). Câu dài thì tách 2 caption, caption đầu không kết thúc bằng dấu chấm.
-  2. Một dòng chờ ngắn: "Suy nghĩ 3 giây nhé…", "Đoán nhanh nào…", "Bạn chọn gì?". Sau dòng này app tự chừa 3 giây lặng cho đồng hồ đếm 3·2·1 — đừng viết thêm câu lấp chỗ trống.
+  2. Một dòng chờ ngắn: "Suy nghĩ 3 giây nhé…", "Đoán nhanh nào…", "Đáp án của bạn là gì?". Sau dòng này app tự chừa 3 giây lặng cho đồng hồ đếm 3·2·1 — đừng viết thêm câu lấp chỗ trống.
   3. Câu đáp án bắt đầu bằng "Đáp án là …": "Đáp án là Huế."
 - `punch.text` chép NGUYÊN VĂN cụm đáp án trong câu đáp án (1–4 từ, không kèm "Đáp án là"): "Huế", "màu xanh lam", "ba trái tim". `punch.atMs` = lúc giọng đọc tới cụm đó. Mọi cảnh câu hỏi đều phải có punch.
 - `tag`: "CÂU 1", "CÂU 2"… theo thứ tự; câu khó nhất có thể dùng "CÂU KHÓ". Có thể để null (tự sinh "CÂU n/N").
