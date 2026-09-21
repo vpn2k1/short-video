@@ -1,0 +1,84 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Đố vui 4 câu về địa lý Việt Nam, mỗi câu 5 giây suy nghĩ rồi hiện đáp án.",
+      "at": 1789961195211,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789961195239,
+      "error": true,
+      "text": "Không kết nối được Ollama ở http://127.0.0.1:11434 — mở app Ollama (hoặc chạy \"ollama serve\") rồi thử lại."
+    },
+    {
+      "role": "user",
+      "text": "Đố vui 4 câu về địa lý Việt Nam, mỗi câu 5 giây suy nghĩ rồi hiện đáp án.",
+      "at": 1789961242023,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789961412251,
+      "text": "Đã tạo \"Đố vui địa lý Việt Nam\" · 🧠 Câu đố · 4 cảnh · 50.2s\n🎙 giọng ngoc-huyen · không nhạc nền\n🖼 3/4 cảnh có hình từ kho ảnh miễn phí · 1 cảnh không có ảnh · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "quiz",
+      "mp4": "/out/versions/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/v1.mp4?t=1789961412731",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Câu 1: Thành phố cuối cùng của Việt Nam là thành phố nào?",
+            "Suy nghĩ 3 giây nhé...",
+            "Bạn chọn gì?",
+            "Đáp án là Huế."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Câu 2: Thành phố nào có 28 ngày trong tháng?",
+            "Suy nghĩ 3 giây nhé...",
+            "Bạn chọn gì?",
+            "Đáp án là tháng nào cũng có."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Câu 3: Cái gì có răng mà không cắn?",
+            "Suy nghĩ 3 giây nhé...",
+            "Bạn chọn gì?",
+            "Đáp án là cái lược."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Câu 4: Cái gì càng lấy đi càng lớn?",
+            "Suy nghĩ 3 giây nhé...",
+            "Bạn chọn gì?",
+            "Đáp án là cái hố."
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "quiz",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "ngoc-huyen",
+    "music": null,
+    "video": "",
+    "provider": "local",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto",
+    "hook": "guess",
+    "hookMedia": ""
+  }
+}

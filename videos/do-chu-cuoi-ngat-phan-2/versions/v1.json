@@ -1,0 +1,139 @@
+{
+  "title": "Đố chữ cười ngất (Phần 2)",
+  "subtitle": "5 câu đố chữ tiếp theo siêu lầy",
+  "handle": "@docvui",
+  "accent": "#FFD700",
+  "background": "#1A1A1A",
+  "captions": [
+    {
+      "text": "Thử ngay 5 câu đố chữ lầy lội phần 2!",
+      "startMs": 2483,
+      "endMs": 4563,
+      "audio": "voices/do-chu-cuoi-ngat-phan-2/line-01.mp3"
+    },
+    {
+      "text": "Con gì đầu dê mình ốc?",
+      "startMs": 5413,
+      "endMs": 6693,
+      "audio": "voices/do-chu-cuoi-ngat-phan-2/line-02.mp3"
+    },
+    {
+      "text": "Cái gì bằng cái quạt mà cát không lọt qua?",
+      "startMs": 7743,
+      "endMs": 9903,
+      "audio": "voices/do-chu-cuoi-ngat-phan-2/line-03.mp3"
+    },
+    {
+      "text": "Sông nào chảy ngược?",
+      "startMs": 10953,
+      "endMs": 11913,
+      "audio": "voices/do-chu-cuoi-ngat-phan-2/line-04.mp3"
+    },
+    {
+      "text": "Lịch nào dài nhất?",
+      "startMs": 12963,
+      "endMs": 13923,
+      "audio": "voices/do-chu-cuoi-ngat-phan-2/line-05.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "plain",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-10988654.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 5013
+    },
+    {
+      "image": "uploads/stock/pexels-image-15680248.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 5413,
+      "endMs": 7343
+    },
+    {
+      "image": "uploads/stock/pexels-image-34780394.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 7743,
+      "endMs": 10553
+    },
+    {
+      "image": "uploads/stock/pixabay-image-8068674.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 10953,
+      "endMs": 12563
+    },
+    {
+      "image": "uploads/stock/pexels-image-35013837.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 12963,
+      "endMs": 14573
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

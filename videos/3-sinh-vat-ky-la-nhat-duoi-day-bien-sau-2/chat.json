@@ -1,0 +1,71 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "3 sinh vật kỳ lạ nhất dưới đáy biển sâu",
+      "at": 1789963343685,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789963536620,
+      "text": "Đã tạo \"Sinh vật kỳ lạ đáy biển\" · 🎞️ Phim tài liệu · 5 cảnh · 44.6s\n🎙 giọng linh · không nhạc nền\n🖼 5/5 cảnh có hình từ kho ảnh miễn phí · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "documentary",
+      "mp4": "/out/versions/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/v1.mp4?t=1789963536954",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Sâu 4.000 mét không có ánh sáng.",
+            "Những loài sinh vật này sống ở nơi ánh sáng không bao giờ tới."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cá rồng biển sở hữu hàm răng sắc nhọn như kim.",
+            "Chúng săn mồi trong bóng tối hoàn toàn bằng ánh sáng sinh học."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Mực ma quỷ có lớp da đỏ rực và màng bơi kỳ dị.",
+            "Chúng trôi dạt như những chiếc ô sống ở vùng nước lạnh."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cá giọt nước mang khuôn mặt buồn bã nổi tiếng thế giới.",
+            "Cơ thể chúng giống như một khối thạch gelatin khổng lồ."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Áp lực nước ở đây lớn gấp hàng trăm lần trên cạn.",
+            "Hãy bảo vệ hành tinh xanh và các loài sinh vật kỳ diệu này."
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "gemini",
+    "images": "pexels",
+    "art": "auto",
+    "length": "30",
+    "hook": "alien-but-real",
+    "hookMedia": ""
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "style": "plain",
+  "title": "Đố chữ cười ngất (Phần 2)",
+  "subtitle": "5 câu đố chữ tiếp theo siêu lầy",
+  "handle": "@docvui",
+  "accent": "#FFD700",
+  "background": "#1A1A1A",
+  "scenes": [
+    {
+      "lines": [
+        "Thử ngay 5 câu đố chữ lầy lội phần 2!"
+      ],
+      "image": "uploads/stock/pexels-image-10988654.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Con gì đầu dê mình ốc?"
+      ],
+      "image": "uploads/stock/pexels-image-15680248.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Cái gì bằng cái quạt mà cát không lọt qua?"
+      ],
+      "image": "uploads/stock/pexels-image-34780394.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Sông nào chảy ngược?"
+      ],
+      "image": "uploads/stock/pixabay-image-8068674.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Lịch nào dài nhất?"
+      ],
+      "image": "uploads/stock/pexels-image-35013837.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

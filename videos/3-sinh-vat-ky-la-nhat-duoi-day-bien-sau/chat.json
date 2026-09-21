@@ -1,0 +1,71 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "3 sinh vật kỳ lạ nhất dưới đáy biển sâu",
+      "at": 1789961863807,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789962027286,
+      "text": "Đã tạo \"3 Quái Thú Đáy Biển Sâu\" · ✂️ Cắt dán tài liệu · 5 cảnh · 44.8s\n🎙 giọng linh · không nhạc nền\n🖼 2/5 cảnh có hình từ kho ảnh miễn phí · kho không có hình đúng cho các cảnh 2, 3, 4 — để nền trơn, bấm Chỉnh sửa để tự chọn hình · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "vox",
+      "mp4": "/out/versions/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau/v1.mp4?t=1789962027396",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Sinh vật ngoài hành tinh sống dưới đáy biển.",
+            "Đáy đại dương ẩn chứa những quái thú kỳ dị tới khó tin."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cá mắt trống sở hữu chiếc đầu hoàn toàn trong suốt.",
+            "Đôi mắt hình ống màu xanh lá xoay được bên trong hộp sọ."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Mực quỷ khoác lớp màng đen như áo choàng ma cà rồng.",
+            "Chúng tự vệ bằng cách phóng ra chất nhầy phát sáng."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cá cần câu dùng một chiếc cần phát quang để săn mồi.",
+            "Hàm răng sắc nhọn nuốt chửng con mồi lớn gấp đôi cơ thể."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đại dương sâu thẳm vẫn còn hàng triệu bí ẩn chưa được biết tới.",
+            "Bạn thấy loài vật nào kỳ dị nhất, hãy bình luận nhé."
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "gemini",
+    "images": "pexels",
+    "art": "auto",
+    "length": "30",
+    "hook": "alien-but-real",
+    "hookMedia": ""
+  }
+}

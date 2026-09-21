@@ -1,0 +1,184 @@
+{
+  "title": "Sinh vật kỳ lạ đáy biển",
+  "subtitle": "Bí ẩn từ đại dương sâu thẳm",
+  "handle": "@bienducthom",
+  "accent": "#00f0ff",
+  "background": "#0b0f19",
+  "captions": [
+    {
+      "text": "Sâu 4.000 mét không có ánh sáng.",
+      "startMs": 2483,
+      "endMs": 4983,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-01.mp3"
+    },
+    {
+      "text": "Những loài sinh vật này sống ở nơi ánh sáng không bao giờ tới.",
+      "startMs": 5433,
+      "endMs": 9607,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-02.mp3"
+    },
+    {
+      "text": "Cá rồng biển sở hữu hàm răng sắc nhọn như kim.",
+      "startMs": 10457,
+      "endMs": 13656,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-03.mp3"
+    },
+    {
+      "text": "Chúng săn mồi trong bóng tối hoàn toàn bằng ánh sáng sinh học.",
+      "startMs": 14106,
+      "endMs": 17806,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-04.mp3"
+    },
+    {
+      "text": "Mực ma quỷ có lớp da đỏ rực và màng bơi kỳ dị.",
+      "startMs": 18656,
+      "endMs": 22249,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-05.mp3"
+    },
+    {
+      "text": "Chúng trôi dạt như những chiếc ô sống ở vùng nước lạnh.",
+      "startMs": 22699,
+      "endMs": 25946,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-06.mp3"
+    },
+    {
+      "text": "Cá giọt nước mang khuôn mặt buồn bã nổi tiếng thế giới.",
+      "startMs": 26796,
+      "endMs": 30321,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-07.mp3"
+    },
+    {
+      "text": "Cơ thể chúng giống như một khối thạch gelatin khổng lồ.",
+      "startMs": 30771,
+      "endMs": 34540,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-08.mp3"
+    },
+    {
+      "text": "Áp lực nước ở đây lớn gấp hàng trăm lần trên cạn.",
+      "startMs": 35390,
+      "endMs": 38595,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-09.mp3"
+    },
+    {
+      "text": "Hãy bảo vệ hành tinh xanh và các loài sinh vật kỳ diệu này.",
+      "startMs": 39045,
+      "endMs": 43150,
+      "audio": "voices/3-sinh-vat-ky-la-nhat-duoi-day-bien-sau-2/line-10.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "documentary",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-1789148.jpg",
+      "visual": null,
+      "tag": "Đại dương sâu",
+      "punch": {
+        "text": "không có ánh sáng",
+        "atMs": 3577
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 10057
+    },
+    {
+      "image": "uploads/stock/pixabay-image-8072814.jpg",
+      "visual": null,
+      "tag": "Loài thứ nhất",
+      "punch": {
+        "text": "sắc nhọn như kim",
+        "atMs": 12474
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 10457,
+      "endMs": 18256
+    },
+    {
+      "image": "uploads/stock/pixabay-image-55239.jpg",
+      "visual": null,
+      "tag": "Loài thứ hai",
+      "punch": {
+        "text": "da đỏ rực",
+        "atMs": 20062
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 18656,
+      "endMs": 26396
+    },
+    {
+      "image": "uploads/stock/pexels-image-27402084.jpg",
+      "visual": null,
+      "tag": "Loài thứ ba",
+      "punch": {
+        "text": "khối thạch gelatin",
+        "atMs": 32621
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 26796,
+      "endMs": 34990
+    },
+    {
+      "image": "uploads/stock/pexels-image-4621386.jpg",
+      "visual": null,
+      "tag": "Lời kết",
+      "punch": {
+        "text": "lớn gấp hàng trăm lần",
+        "atMs": 36567
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 35390,
+      "endMs": 43600
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

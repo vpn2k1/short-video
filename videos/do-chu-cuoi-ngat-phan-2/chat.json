@@ -1,0 +1,68 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Làm tiếp phần 2 của “Đố chữ cười ngất”",
+      "at": 1789816591694,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789816655150,
+      "text": "Đã tạo \"Đố chữ cười ngất (Phần 2)\" · 🎬 Video gốc · 5 cảnh · 15.6s\n🎙 giọng truc-ly · không nhạc nền\n🖼 5/5 cảnh có hình từ kho ảnh miễn phí · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "plain",
+      "mp4": "/out/versions/do-chu-cuoi-ngat-phan-2/v1.mp4?t=1789816655157",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Thử ngay 5 câu đố chữ lầy lội phần 2!"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Con gì đầu dê mình ốc?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Cái gì bằng cái quạt mà cát không lọt qua?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Sông nào chảy ngược?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Lịch nào dài nhất?"
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "plain",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "truc-ly",
+    "music": null,
+    "video": "",
+    "provider": "gemini",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto"
+  },
+  "series": {
+    "from": "giai-ma-nam-cau-do-chu-hai-huoc-khien-ba",
+    "part": 2
+  }
+}

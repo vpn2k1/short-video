@@ -1,0 +1,200 @@
+{
+  "title": "Đố vui địa lý Việt Nam",
+  "subtitle": "4 câu về lịch sử",
+  "handle": "@GeographyGame",
+  "accent": "#ff2e63",
+  "background": "#0b0b12",
+  "captions": [
+    {
+      "text": "Câu 1: Thành phố cuối cùng của Việt Nam là thành phố nào?",
+      "startMs": 2483,
+      "endMs": 5603,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-01.mp3"
+    },
+    {
+      "text": "Suy nghĩ 3 giây nhé...",
+      "startMs": 6253,
+      "endMs": 7533,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-02.mp3"
+    },
+    {
+      "text": "Bạn chọn gì?",
+      "startMs": 7983,
+      "endMs": 9103,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-03.mp3"
+    },
+    {
+      "text": "Đáp án là Huế.",
+      "startMs": 12103,
+      "endMs": 13303,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-04.mp3"
+    },
+    {
+      "text": "Câu 2: Thành phố nào có 28 ngày trong tháng?",
+      "startMs": 14153,
+      "endMs": 17273,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-05.mp3"
+    },
+    {
+      "text": "Suy nghĩ 3 giây nhé...",
+      "startMs": 17923,
+      "endMs": 19363,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-06.mp3"
+    },
+    {
+      "text": "Bạn chọn gì?",
+      "startMs": 19813,
+      "endMs": 20933,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-07.mp3"
+    },
+    {
+      "text": "Đáp án là tháng nào cũng có.",
+      "startMs": 23933,
+      "endMs": 25693,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-08.mp3"
+    },
+    {
+      "text": "Câu 3: Cái gì có răng mà không cắn?",
+      "startMs": 26543,
+      "endMs": 28943,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-09.mp3"
+    },
+    {
+      "text": "Suy nghĩ 3 giây nhé...",
+      "startMs": 29593,
+      "endMs": 30873,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-10.mp3"
+    },
+    {
+      "text": "Bạn chọn gì?",
+      "startMs": 31323,
+      "endMs": 32363,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-11.mp3"
+    },
+    {
+      "text": "Đáp án là cái lược.",
+      "startMs": 35363,
+      "endMs": 36723,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-12.mp3"
+    },
+    {
+      "text": "Câu 4: Cái gì càng lấy đi càng lớn?",
+      "startMs": 37573,
+      "endMs": 39973,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-13.mp3"
+    },
+    {
+      "text": "Suy nghĩ 3 giây nhé...",
+      "startMs": 40623,
+      "endMs": 42863,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-14.mp3"
+    },
+    {
+      "text": "Bạn chọn gì?",
+      "startMs": 43313,
+      "endMs": 44353,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-15.mp3"
+    },
+    {
+      "text": "Đáp án là cái hố.",
+      "startMs": 47353,
+      "endMs": 48713,
+      "audio": "voices/do-vui-4-cau-ve-dia-ly-viet-nam-moi-cau/line-16.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "quiz",
+  "scenes": [
+    {
+      "image": "uploads/stock/pixabay-image-3540898.jpg",
+      "visual": null,
+      "tag": "CÂU 1",
+      "punch": {
+        "text": "Đáp án là Huế",
+        "atMs": 12103
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 13753
+    },
+    {
+      "image": "uploads/stock/pixabay-image-5717.jpg",
+      "visual": null,
+      "tag": "CÂU 2",
+      "punch": {
+        "text": "Đáp án là tháng nào cũng có",
+        "atMs": 23933
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 14153,
+      "endMs": 26143
+    },
+    {
+      "image": "uploads/stock/pexels-image-3762441.jpg",
+      "visual": null,
+      "tag": "CÂU 3",
+      "punch": {
+        "text": "Đáp án là cái lược",
+        "atMs": 35363
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 26543,
+      "endMs": 37173
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": "CÂU 4",
+      "punch": {
+        "text": "Đáp án là cái hố",
+        "atMs": 47353
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 37573,
+      "endMs": 49163
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

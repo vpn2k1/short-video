@@ -1,0 +1,55 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "3 điều không nên làm khi bơi ở biển",
+      "at": 1789960558924,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1789960629879,
+      "text": "Đã tạo \"Sai lầm nguy hiểm khi tắm biển\" · 💬 Phụ đề nổi bật · 3 cảnh · 15.8s\n🎙 giọng linh · không nhạc nền\n🖼 2/2 cảnh có hình từ kho ảnh miễn phí · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "caption",
+      "mp4": "/out/versions/3-dieu-khong-nen-lam-khi-boi-o-bien/v1.mp4?t=1789960629961",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Đừng bơi ngược dòng khi kẹt giữa biển."
+          ],
+          "image": "uploads/stock/pexels-image-4781782.jpg"
+        },
+        {
+          "lines": [
+            "Vì nó cực kỳ nguy hiểm cho tính mạng."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Tuyệt đối không bơi ngược dòng khi gặp dòng chảy xa bờ,",
+            "hãy bơi ngang để thoát nạn."
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "gemini",
+    "images": "pexels",
+    "art": "auto",
+    "length": "15",
+    "hook": "dont-do",
+    "hookMedia": "uploads/stock/pexels-image-4781782.jpg"
+  }
+}

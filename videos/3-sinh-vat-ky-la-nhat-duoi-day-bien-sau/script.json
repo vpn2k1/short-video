@@ -1,0 +1,72 @@
+{
+  "style": "vox",
+  "title": "3 Quái Thú Đáy Biển Sâu",
+  "subtitle": "Khám phá các sinh vật kỳ dị dưới lòng đại dương",
+  "handle": "@khamphadaiduong",
+  "accent": "#00F0FF",
+  "background": "#070d18",
+  "scenes": [
+    {
+      "lines": [
+        "Sinh vật ngoài hành tinh sống dưới đáy biển.",
+        "Đáy đại dương ẩn chứa những quái thú kỳ dị tới khó tin."
+      ],
+      "image": "uploads/stock/pexels-image-12342513.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Top 3 kỳ dị",
+        "caption": "Sinh vật biển sâu"
+      },
+      "tag": "Vực thẳm bí ẩn",
+      "punch": "Sinh vật ngoài hành tinh"
+    },
+    {
+      "lines": [
+        "Cá mắt trống sở hữu chiếc đầu hoàn toàn trong suốt.",
+        "Đôi mắt hình ống màu xanh lá xoay được bên trong hộp sọ."
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "800m",
+        "caption": "Độ sâu sinh sống"
+      },
+      "tag": "Cá mắt trống",
+      "punch": "hoàn toàn trong suốt"
+    },
+    {
+      "lines": [
+        "Mực quỷ khoác lớp màng đen như áo choàng ma cà rồng.",
+        "Chúng tự vệ bằng cách phóng ra chất nhầy phát sáng."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "Mực quỷ",
+      "punch": "phóng ra chất nhầy"
+    },
+    {
+      "lines": [
+        "Cá cần câu dùng một chiếc cần phát quang để săn mồi.",
+        "Hàm răng sắc nhọn nuốt chửng con mồi lớn gấp đôi cơ thể."
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "2.000m",
+        "caption": "Nơi bóng tối tuyệt đối"
+      },
+      "tag": "Cá cần câu",
+      "punch": "chiếc cần phát quang"
+    },
+    {
+      "lines": [
+        "Đại dương sâu thẳm vẫn còn hàng triệu bí ẩn chưa được biết tới.",
+        "Bạn thấy loài vật nào kỳ dị nhất, hãy bình luận nhé."
+      ],
+      "image": "uploads/stock/pexels-image-26690659.jpg",
+      "visual": null,
+      "tag": "Khám phá",
+      "punch": "hàng triệu bí ẩn"
+    }
+  ]
+}

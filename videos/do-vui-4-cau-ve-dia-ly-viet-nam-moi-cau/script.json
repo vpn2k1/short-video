@@ -1,0 +1,58 @@
+{
+  "style": "quiz",
+  "title": "Đố vui địa lý Việt Nam",
+  "subtitle": "4 câu về lịch sử",
+  "handle": "@GeographyGame",
+  "accent": "#ff2e63",
+  "background": "#0b0b12",
+  "scenes": [
+    {
+      "lines": [
+        "Câu 1: Thành phố cuối cùng của Việt Nam là thành phố nào?",
+        "Suy nghĩ 3 giây nhé...",
+        "Bạn chọn gì?",
+        "Đáp án là Huế."
+      ],
+      "image": "uploads/stock/pixabay-image-3540898.jpg",
+      "visual": null,
+      "tag": "CÂU 1",
+      "punch": "Đáp án là Huế"
+    },
+    {
+      "lines": [
+        "Câu 2: Thành phố nào có 28 ngày trong tháng?",
+        "Suy nghĩ 3 giây nhé...",
+        "Bạn chọn gì?",
+        "Đáp án là tháng nào cũng có."
+      ],
+      "image": "uploads/stock/pixabay-image-5717.jpg",
+      "visual": null,
+      "tag": "CÂU 2",
+      "punch": "Đáp án là tháng nào cũng có"
+    },
+    {
+      "lines": [
+        "Câu 3: Cái gì có răng mà không cắn?",
+        "Suy nghĩ 3 giây nhé...",
+        "Bạn chọn gì?",
+        "Đáp án là cái lược."
+      ],
+      "image": "uploads/stock/pexels-image-3762441.jpg",
+      "visual": null,
+      "tag": "CÂU 3",
+      "punch": "Đáp án là cái lược"
+    },
+    {
+      "lines": [
+        "Câu 4: Cái gì càng lấy đi càng lớn?",
+        "Suy nghĩ 3 giây nhé...",
+        "Bạn chọn gì?",
+        "Đáp án là cái hố."
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "CÂU 4",
+      "punch": "Đáp án là cái hố"
+    }
+  ]
+}

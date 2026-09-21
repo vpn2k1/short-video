@@ -1,0 +1,42 @@
+{
+  "style": "caption",
+  "title": "Sai lầm nguy hiểm khi tắm biển",
+  "subtitle": "Bỏ túi ngay 3 lưu ý cứu mạng này",
+  "handle": "@kienthucbien",
+  "accent": "#FF3B30",
+  "background": "#0B131F",
+  "scenes": [
+    {
+      "lines": [
+        "Đừng bơi ngược dòng khi kẹt giữa biển."
+      ],
+      "image": "uploads/stock/pexels-image-4781782.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Vì nó cực kỳ nguy hiểm cho tính mạng."
+      ],
+      "image": "uploads/stock/pexels-image-2002601.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Tuyệt đối không bơi ngược dòng khi gặp dòng chảy xa bờ,",
+        "hãy bơi ngang để thoát nạn."
+      ],
+      "image": "uploads/stock/pexels-image-12997614.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Lưu ý 1",
+        "caption": "Dòng chảy xa bờ"
+      },
+      "tag": null,
+      "punch": null
+    }
+  ]
+}
