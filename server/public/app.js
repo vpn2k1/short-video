@@ -276,13 +276,25 @@ function renderProjectBar() {
   if (!current) return;
   const style = styleMeta(project?.style ?? opts.style);
   $("projectTitle").textContent = project?.title ?? messages.find((m) => m.role === "user")?.text ?? current;
-  $("projectMeta").textContent =
-    `${style.emoji} ${style.label} · ${opts.aspect} · ${opts.kind === "image" ? "Ảnh" : "Video"}`;
+  // Các phần của một loạt làm tiếp: link về phần trước và sang (các) phần sau.
+  const series = project?.series;
+  const after = historyItems.filter((p) => p.series?.from === current);
+  const partLink = (slug, label, title) =>
+    `<a href="#/v/${encodeURIComponent(slug)}" title="${escapeHtml(title ?? "")}">${label}</a>`;
+  $("projectMeta").innerHTML = [
+    escapeHtml(`${style.emoji} ${style.label} · ${opts.aspect} · ${opts.kind === "image" ? "Ảnh" : "Video"}`),
+    ...(series ? [partLink(series.from, `← Phần ${series.part - 1}`, "Mở phần trước"), `Phần ${series.part}`] : []),
+    ...after.map((p) => partLink(p.slug, `Phần ${p.series.part} →`, p.title)),
+  ].join(" · ");
   const lastVideo = [...messages].reverse().find((m) => m.mp4)?.mp4;
   $("projectDownload").hidden = !lastVideo;
   $("projectDownload").onclick = () => lastVideo && download(lastVideo);
   $("projectPostCopy").hidden = !lastVideo || busy;
   $("projectPostCopy").onclick = () => openPostCopy(current);
+  const hasResult = Boolean(lastVideo) || messages.some((m) => m.images?.length);
+  $("projectContinue").hidden = !hasResult || !canContinue();
+  $("projectContinue").title = `Làm video phần ${nextPart()}, nối liền cảnh và lời thoại của video này`;
+  $("projectContinue").onclick = continueVideo;
   $("projectMulti").hidden = !project?.multi;
   $("projectMulti").href = `#/multi/${current}`;
   // Trình chỉnh sửa cần props.json — có kết quả (video hoặc ảnh) là có.
@@ -346,6 +358,8 @@ async function loadHistory() {
   try {
     historyItems = (await api("/api/projects")).projects;
     renderHistory();
+    // Link "Phần n →" trên thanh dự án lấy từ danh sách này.
+    if (current && !$("view-chat").hidden) renderProjectBar();
   } catch { /* giữ danh sách cũ */ }
   // Còn video đang dựng (kể cả ở tab khác) thì hỏi lại để trạng thái tự cập nhật.
   if (historyItems.some((p) => p.status === "running")) {
@@ -714,7 +728,8 @@ function renderMedia() {
  */
 /** okText là HTML (để kèm icon) — chỉ truyền chuỗi cố định, không đưa dữ liệu người dùng vào. */
 /** Hỏi một dòng chữ (window.prompt không chạy trong bản desktop). Huỷ hoặc để trống → null. */
-function askText({ title, message = "", value = "", placeholder = "", okText = "Lưu" }) {
+/** `allowEmpty`: bấm OK khi ô trống vẫn nhận ("" thay vì null) — cho ô không bắt buộc. */
+function askText({ title, message = "", value = "", placeholder = "", okText = "Lưu", allowEmpty = false }) {
   const dlg = $("textDlg");
   $("textTitle").textContent = title;
   $("textMessage").textContent = message;
@@ -726,7 +741,7 @@ function askText({ title, message = "", value = "", placeholder = "", okText = "
     dlg.returnValue = "";
     dlg.addEventListener("close", () => {
       const text = $("textInput").value.trim();
-      resolve(dlg.returnValue === "ok" && text ? text : null);
+      resolve(dlg.returnValue === "ok" && (text || allowEmpty) ? text : null);
     }, { once: true });
     $("textCancel").onclick = () => dlg.close("cancel");
     // Tự đóng với "ok" khi gửi form (bấm Lưu hoặc Enter) — không trông vào nút submit mặc định của form.
@@ -1174,7 +1189,7 @@ function renderMessage(m, isLatest) {
       ? "Muốn sửa? Bấm một gợi ý ở trên hoặc gõ yêu cầu vào ô bên dưới."
       : "Muốn sửa? Dán lời mới vào ô bên dưới để dựng lại, hoặc bấm Chỉnh sửa ở thanh trên cùng."}</p>`
     : "";
-  return `<div class="msg-bot"><div class="text">${escapeHtml(m.text)}</div>${result}${postCopy}${quick}${tip}${scenes}</div>`;
+  return `<div class="msg-bot"><div class="text">${escapeHtml(m.text)}</div>${result}${cont}${postCopy}${quick}${tip}${scenes}</div>`;
 }
 
 /** Video dọc không nên rộng hết khung chat — sẽ cao quá màn hình. */
@@ -1234,12 +1249,52 @@ function bindMessageActions() {
       setOpt("style", value);
       prefill(`Đổi sang phong cách ${styleMeta(value).label}.`);
     })));
+  // Đổi hook cho video đã có: chọn công thức rồi điền sẵn yêu cầu sửa — AI chỉ viết lại câu đầu.
+  thread.querySelector("[data-quick-hook]")?.addEventListener("click", (e) =>
+    openMenu(e.currentTarget, hookMenu((value) => {
+      if (value === "__media") return openHookMedia();
+      if (value === "__no-media") return setOpt("hookMedia", "");
+      setOpt("hook", value);
+      const template = hookTemplate(value);
+      prefill(template
+        ? `Viết lại câu đầu tiên theo công thức "${template.formula}" cho đúng nội dung video (đừng chép câu ví dụ), giữ nguyên các câu còn lại.`
+        : "Viết lại câu đầu tiên bằng một kiểu hook khác hẳn, giữ nguyên các câu còn lại.");
+    })));
   thread.querySelector("[data-retry]")?.addEventListener("click", () => {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     if (lastUser) prefill(lastUser.text);
   });
   thread.querySelector("[data-open-settings]")?.addEventListener("click", openSettings);
   thread.querySelector("[data-post-copy]")?.addEventListener("click", () => openPostCopy(current));
+  thread.querySelector("[data-continue]")?.addEventListener("click", continueVideo);
+}
+
+// ---------- làm tiếp: phần sau nối liền video đang mở ----------
+/** Làm tiếp cần kịch bản (AI viết tiếp từ đó) và một AI viết lời. */
+const canContinue = () => Boolean(project?.scripted) && hasScriptKey() && !busy;
+const nextPart = () => (project?.series?.part ?? 1) + 1;
+
+async function continueVideo() {
+  const from = current;
+  if (!from || !canContinue()) return;
+  const part = nextPart();
+  const direction = await askText({
+    title: `Làm tiếp phần ${part}`,
+    message: "AI viết tiếp ngay chỗ video này dừng — cùng phong cách, giọng, khung hình, hình ảnh, nhạc, màu và tên kênh. " +
+      "Muốn phần sau đi theo hướng nào thì ghi vào đây, để trống thì AI tự đi tiếp.",
+    placeholder: "Không bắt buộc — ví dụ: kể tiếp lúc hai người gặp lại nhau",
+    okText: `${icon("step-forward")} Làm tiếp`,
+    allowEmpty: true,
+  });
+  if (direction === null || current !== from) return;
+  try {
+    const { slug } = await postJson("/api/continue", { slug: from, direction });
+    // Mở video mới: màn chat tự theo dõi lượt đang chạy của nó.
+    location.hash = `#/v/${slug}`;
+    loadHistory();
+  } catch (e) {
+    flashNote(e.message, true);
+  }
 }
 
 function scrollToEnd() {

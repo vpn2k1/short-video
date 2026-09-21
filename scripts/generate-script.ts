@@ -10,7 +10,7 @@ import { styleSection } from "./style-guides";
 import { textToScript } from "./text-script";
 import { hookSection, HOOK_TYPES } from "./hook-library";
 import {
-  CHAPTER_LINES, lengthLabel, lengthSection, needsChapters, OVERRIDE_NOTE, planFor, resolveLength,
+  CHAPTER_LINES, lengthLabel, lengthSection, needsChapters, OVERRIDE_NOTE, planFor, resolveLength, SECONDS_PER_LINE,
   type LengthChoice, type LengthTarget,
 } from "./video-length";
 import { LOCAL_AI_LABEL, LOCAL_MODEL_NAME, LocalAiStartError, localAiAvailable, localChat } from "./local-ai";
@@ -411,6 +411,96 @@ const generateLong = async (
   const script = videoScriptSchema.parse({ ...outline, scenes: scenes.slice(0, MAX_SCRIPT_SCENES) });
   log?.(`Ghép ${chapters.length} chương: ${script.scenes.length} cảnh, ${allLines(script).length} câu.`);
   return style === "auto" ? script : { ...script, style };
+};
+
+const CONTINUE_RULES = `
+
+Bạn đang viết PHẦN TIẾP THEO của một video — người xem vừa xem xong phần trước (kịch bản ở mục PHẦN TRƯỚC).
+- Đi tiếp đúng chỗ phần trước dừng, như hai tập nối liền: chuyện kể thì kể diễn biến ngay sau câu cuối; danh sách, mẹo,
+  câu đố thì làm tiếp các mục MỚI (phần trước có đánh số thì đánh số tiếp); kiến thức thì sang ý kế tiếp.
+- KHÔNG lặp lại ý, câu đố, mẹo, ví dụ hay câu chữ đã có ở phần trước.
+- Câu đầu: cho biết đây là phần tiếp và nhắc thật ngắn chỗ phần trước dừng (tối đa 14 từ), rồi vào thẳng nội dung mới.
+  Không chào hỏi lại. Câu thứ hai phải gây tò mò như một hook.
+- Giữ nguyên giọng kể, ngôi kể, nhân vật (cùng tên, cùng cách xưng hô), bối cảnh, ngôn ngữ và nhịp câu của phần trước;
+  dùng tag, punch, visual theo đúng kiểu phần trước đã dùng.
+- "title": chép nguyên "title" của phần trước (app tự thêm số phần). "subtitle": nói phần này có gì mới.
+- "handle", "accent", "background", "style": chép nguyên từ phần trước.
+- Câu cuối: chuyện còn tiếp thì hẹn phần sau bằng một câu gây tò mò; đã trọn thì kết gọn và kêu gọi.`;
+
+/** Lời phần trước gửi cho model: đủ để viết tiếp, bỏ tên file ảnh (ảnh của video khác, không dùng lại được). */
+const previousPart = (previous: VideoScript) => {
+  const head = { title: previous.title, subtitle: previous.subtitle, style: previous.style, handle: previous.handle,
+    accent: previous.accent, background: previous.background };
+  const lines = allLines(previous);
+  if (lines.length <= 60) {
+    const scenes = previous.scenes.map((s) => ({ lines: s.lines, tag: s.tag, punch: s.punch, visual: s.visual }));
+    return JSON.stringify({ ...head, scenes }, null, 2);
+  }
+  // Video dài: dàn ý theo nhãn cảnh + đoạn cuối nguyên văn — viết tiếp chỉ cần biết đã nói gì và dừng ở đâu.
+  const tags = [...new Set(previous.scenes.map((s) => s.tag).filter(Boolean))];
+  return `${JSON.stringify(head, null, 2)}\n` +
+    (tags.length ? `Các ý đã đi qua: ${tags.join(" · ")}\n` : "") +
+    `${lines.length} câu, đây là 40 câu cuối:\n${lines.slice(-40).join("\n")}`;
+};
+
+/** "Đố chữ cười ngất (Phần 2)" → "Đố chữ cười ngất": tên chung của cả loạt. */
+export const seriesBaseTitle = (title: string) =>
+  title.replace(/\s*[([]?\s*(phần|part|tập)\s*\d+\s*[)\]]?\s*$/iu, "").replace(/[\s\-–—·:|]+$/u, "").trim() || title;
+
+/** Tên loạt + số phần, vừa giới hạn 60 ký tự của tiêu đề. Lời không phải tiếng Việt thì ghi "Part". */
+export const partTitle = (previous: VideoScript, part: number) => {
+  const vietnamese = /[ăâđêôơưàáạảãầấậẩẫằắặẳẵèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]/iu.test(allLines(previous).join(" "));
+  const suffix = ` (${vietnamese ? "Phần" : "Part"} ${part})`;
+  return seriesBaseTitle(previous.title).slice(0, 60 - suffix.length).trim() + suffix;
+};
+
+/**
+ * Viết phần tiếp theo của một video đã có: nối liền nội dung và lời, giữ nguyên phong cách, tên kênh, màu.
+ * Độ dài "Tự động" = bằng phần trước; ô độ dài hoặc prompt nêu độ dài thì theo đó.
+ */
+export const continueScript = async (
+  previous: VideoScript,
+  part: number,
+  /** Lời người dùng gửi — có thể kèm hướng đi cho phần sau hoặc độ dài. */
+  request: string,
+  slug: string,
+  uploads: string[] = [],
+  model = "claude-opus-5",
+  style: StyleChoice = "auto",
+  provider: ProviderChoice = "auto",
+  options: ScriptOptions = {},
+): Promise<VideoScript> => {
+  const images = [...uploads, ...listImagesFor(slug)];
+  const keepStyle = style === "auto" ? previous.style : style;
+  const prevLines = allLines(previous).length;
+  // Cùng số câu với phần trước: planFor quy ngược số giây ra đúng số câu này (3 giây ≈ tiêu đề + đoạn kết không lời).
+  const sameLength: LengthTarget = { seconds: prevLines * SECONDS_PER_LINE + 3, free: false, source: "default" };
+  let target = resolveLength(options.length, request);
+  if (target.source === "default" && needsChapters(sameLength)) target = sameLength;
+  options.log?.(`Độ dài: ${target.source === "default" && target !== sameLength
+    ? `bằng phần trước (${prevLines} câu)` : lengthLabel(target)}`);
+
+  const context = `YÊU CẦU: ${request}\n\nPHẦN TRƯỚC (phần ${part - 1}):\n${previousPart(previous)}`;
+  const finish = (script: VideoScript): VideoScript => ({
+    ...script,
+    style: keepStyle,
+    title: partTitle(previous, part),
+    handle: previous.handle,
+    accent: previous.accent,
+    background: previous.background,
+  });
+
+  if (needsChapters(target)) {
+    return finish(await generateLong(`${CONTINUE_RULES.trim()}\n\n${context}`, target, images, uploads, model, keepStyle, provider, options.log));
+  }
+  const lengthText = target.source === "default"
+    ? `\n\nĐỘ DÀI VIDEO: giống phần trước — ${previous.scenes.length} cảnh, khoảng ${prevLines} câu, cùng cách chia câu ` +
+      `mỗi cảnh.\n${OVERRIDE_NOTE}`
+    : lengthSection(target);
+  return finish(await withRateLimitRetry(() => callModel(
+    () => SYSTEM + CONTINUE_RULES + lengthText + styleSection(keepStyle) + mediaSection(images, uploads),
+    context, model, images, keepStyle, provider,
+  ), options.log));
 };
 
 /** Sửa kịch bản có sẵn bằng một câu yêu cầu. */

@@ -7,14 +7,16 @@
 import fs from "fs";
 import path from "path";
 import {
-  allLines, lineDurationMs, parseScript, pauseAfterLine, scriptToProps, type VideoScript, type VoiceoverClip,
+  allLines, lineDurationMs, MAX_SCRIPT_SCENES, parseScript, pauseAfterLine, scriptToProps, videoScriptSchema,
+  type VideoScript, type VoiceoverClip,
 } from "../src/compositions/Short/script";
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { generateAiVideo, isVideoModelChoice, videoModelCatalog } from "../scripts/ai-video";
 import { TITLE_FRAMES } from "../src/constants";
-import { editScript, generateScript, PAID_SCRIPT_PROVIDERS, isScriptProvider, providerLabel, scriptProvider, type ProviderChoice, type ScriptProvider, type StyleChoice } from "../scripts/generate-script";
+import { continueScript, editScript, generateScript, PAID_SCRIPT_PROVIDERS, seriesBaseTitle, isScriptProvider, providerLabel, scriptProvider, type ProviderChoice, type ScriptProvider, type StyleChoice } from "../scripts/generate-script";
 import { isLengthChoice, type LengthChoice } from "../scripts/video-length";
+import { isHookChoice } from "../scripts/hook-library";
 import { moveToAppTrash } from "./app-trash";
 import { FREE_MEDIA_GROUP } from "./keys";
 import { isStyleId, STYLES } from "../src/styles/meta";
@@ -114,8 +116,14 @@ export type ChatMessage = {
 /** Lời đang gõ mà chưa gửi — lưu trên đĩa để tắt app, mất điện hay mất kết nối vẫn còn. */
 export type ChatDraft = { text: string; attachments: string[]; at: number };
 
-/** `draft` bỏ trống khi ghi = giữ bản nháp đang có trên đĩa; `null` = xoá bản nháp. */
-type Chat = { messages: ChatMessage[]; settings: ChatSettings; draft?: ChatDraft | null };
+/** Video làm tiếp từ video khác (nút "Làm tiếp"): `from` = phần ngay trước, `part` = số phần của video này. */
+export type ChatSeries = { from: string; part: number };
+
+/**
+ * `draft` bỏ trống khi ghi = giữ bản nháp đang có trên đĩa; `null` = xoá bản nháp.
+ * `series` bỏ trống khi ghi = giữ nguyên như trên đĩa.
+ */
+type Chat = { messages: ChatMessage[]; settings: ChatSettings; draft?: ChatDraft | null; series?: ChatSeries | null };
 
 /**
  * Nhạc nền hợp lệ: file trong public/music, hoặc public/music/stock (tải từ 🆓 Kho free / Freesound) —
@@ -268,10 +276,13 @@ const recentNewTurn = (key: string) => {
 
 export const readChat = (slug: string): Chat & { slug: string; jobId: string | null } => {
   recoverInterrupted(slug);
-  let chat: Chat = { messages: [], settings: { ...DEFAULT_SETTINGS }, draft: null };
+  let chat: Chat = { messages: [], settings: { ...DEFAULT_SETTINGS }, draft: null, series: null };
   if (fs.existsSync(chatPath(slug))) {
     const raw = JSON.parse(fs.readFileSync(chatPath(slug), "utf8"));
-    chat = { messages: raw.messages ?? [], settings: { ...DEFAULT_SETTINGS, ...raw.settings }, draft: raw.draft ?? null };
+    chat = {
+      messages: raw.messages ?? [], settings: { ...DEFAULT_SETTINGS, ...raw.settings }, draft: raw.draft ?? null,
+      series: raw.series ?? null,
+    };
   } else {
     // Video làm từ trước khi có chat: dựng một tin nhắn từ những gì đang có.
     const props = readJson(path.join(videoDir(slug), "props.json"));
@@ -302,9 +313,11 @@ export const writeChat = (slug: string, chat: Chat) => {
   fs.mkdirSync(videoDir(slug), { recursive: true });
   assignVersions(slug, chat.messages);
   // Job chạy xong ghi lại chat — đừng xoá lời người dùng gõ dở trong lúc chờ.
-  const draft = chat.draft === undefined ? readJson(chatPath(slug))?.draft ?? null : chat.draft;
-  const { draft: _ignored, ...rest } = chat;
-  fs.writeFileSync(chatPath(slug), JSON.stringify(draft ? { ...rest, draft } : rest, null, 2));
+  const onDisk = chat.draft === undefined || chat.series === undefined ? readJson(chatPath(slug)) : null;
+  const draft = chat.draft === undefined ? onDisk?.draft ?? null : chat.draft;
+  const series = chat.series === undefined ? onDisk?.series ?? null : chat.series;
+  const { messages, settings } = chat;
+  fs.writeFileSync(chatPath(slug), JSON.stringify({ messages, settings, ...(series ? { series } : {}), ...(draft ? { draft } : {}) }, null, 2));
 };
 
 const readJson = (file: string) =>
@@ -858,6 +871,8 @@ export const listProjects = () => {
         scripted: Boolean(script),
         /** Tạo từ tab 🎬 Nhiều cảnh — mở lại được danh sách cảnh. */
         multi: fs.existsSync(multiPath(slug)),
+        /** Làm tiếp từ video khác: { from, part } — giao diện nối các phần với nhau. */
+        series: (chatFile?.series ?? null) as ChatSeries | null,
         /** Số lần người dùng nhắn (tạo + sửa). */
         edits: turns.filter((m) => m.role === "user").length,
         /** Dung lượng xoá được (render, ảnh cảnh, giọng đọc, dự án). */
@@ -1082,13 +1097,26 @@ export const startTurn = (input: TurnInput) => {
     textToScript(prompt, { style: settings.style, uploads: attachments as string[] });
   }
 
-  const messages = chat.messages;
-  messages.push({ role: "user", text: prompt, at: Date.now(), attachments: attachments as string[] });
-  writeChat(slug, { messages, settings, draft: null });
+  const job = launchTurn(slug, prompt, attachments as string[], settings, chat.messages);
+  if (dedupeKey) recentNew.set(dedupeKey, { slug, jobId: job.id, at: Date.now() });
+  return { slug, jobId: job.id };
+};
+
+/** Ghi tin nhắn người dùng rồi chạy pipeline (kịch bản → dựng) trong nền. */
+const launchTurn = (
+  slug: string,
+  prompt: string,
+  attachments: string[],
+  settings: ChatSettings,
+  messages: ChatMessage[],
+  series?: ChatSeries,
+) => {
+  messages.push({ role: "user", text: prompt, at: Date.now(), attachments });
+  writeChat(slug, { messages, settings, draft: null, ...(series ? { series } : {}) });
 
   const job = startJob(async (log) => {
     try {
-      const result = await runPipeline(slug, prompt, attachments as string[], settings, log);
+      const result = await runPipeline(slug, prompt, attachments, settings, log);
       messages.push({ role: "assistant", at: Date.now(), ...result });
       writeChat(slug, { messages, settings });
       return result;
@@ -1104,8 +1132,74 @@ export const startTurn = (input: TurnInput) => {
     }
   });
   markRunning(slug, job.id, "turn");
-  if (dedupeKey) recentNew.set(dedupeKey, { slug, jobId: job.id, at: Date.now() });
+  return job;
+};
+
+/**
+ * "Làm tiếp": video mới là phần sau của video `slug` — AI viết tiếp ngay chỗ video đó dừng, dựng bằng đúng cài đặt
+ * của nó (phong cách, giọng, khung, hình, nhạc), nên cảnh và lời nối liền. `direction`: hướng đi cho phần sau, có thể trống.
+ */
+export const startContinuation = (body: unknown) => {
+  const input = (body ?? {}) as { slug?: unknown; direction?: unknown };
+  if (!isSlug(input.slug)) throw new Error("Tên video không hợp lệ.");
+  const from = input.slug;
+  const source = readJson(path.join(videoDir(from), "script.json"));
+  if (!source) {
+    throw new Error("Video này không có kịch bản (dựng từ audio, nhiều cảnh hoặc trình chỉnh sửa) nên chưa làm tiếp được.");
+  }
+  if (running.has(from)) throw new Error("Video này đang được xử lý — đợi xong rồi làm tiếp.");
+
+  const previous = parseScript(source);
+  const sourceChat = readChat(from);
+  const part = (sourceChat.series?.part ?? 1) + 1;
+  // Nhạc "ngẫu nhiên" thì lấy đúng bản phần trước đã dùng — hai phần nối nhau nghe cùng một nhạc.
+  const usedMusic = readJson(path.join(videoDir(from), "props.json"))?.music;
+  const settings = normalizeSettings({
+    mode: "ai",
+    style: previous.style,
+    ...(sourceChat.settings.music === RANDOM_MUSIC && isMusicPath(usedMusic) ? { music: usedMusic } : {}),
+  }, sourceChat.settings);
+  assertSettingsUsable(settings);
+
+  const direction = typeof input.direction === "string" ? input.direction.replace(/\s+/g, " ").trim().slice(0, 500) : "";
+  const base = seriesBaseTitle(previous.title);
+  const prompt = `Làm tiếp phần ${part} của “${base}”${direction ? `: ${direction}` : ""}`;
+  // Bấm hai lần liền (mạng chậm) thì trả lại đúng video vừa tạo.
+  const dedupeKey = newTurnKey(`${from}\n${prompt}`, []);
+  const recent = recentNewTurn(dedupeKey);
+  if (recent) return { slug: recent.slug, jobId: recent.jobId };
+
+  const slug = freshSlug(`${base} phan ${part}`);
+  const job = launchTurn(slug, prompt, [], settings, [], { from, part });
+  recentNew.set(dedupeKey, { slug, jobId: job.id, at: Date.now() });
   return { slug, jobId: job.id };
+};
+
+/** Giữ punch khi tách cảnh: punch phải nằm nguyên văn trong một câu của chính cảnh đó (videoScriptSchema). */
+const punchIn = (punch: string | null, lines: string[]) =>
+  punch && lines.some((line) => line.includes(punch)) ? punch : null;
+
+/**
+ * Ghim ảnh/clip người dùng chọn làm hình mở đầu vào câu hook. Cảnh đầu nhiều câu thì tách câu hook thành cảnh
+ * riêng, để hình chỉ phủ đúng 1–3 giây đầu thay vì cả cảnh; các cảnh sau giữ nguyên.
+ */
+export const withHookMedia = (script: VideoScript, media: string, log: (line: string) => void = () => {}): VideoScript => {
+  if (!fs.existsSync(path.join(process.cwd(), "public", media))) {
+    log(`⚠ Không thấy hình mở đầu ${media} — bỏ qua, cảnh đầu lấy hình như các cảnh khác.`);
+    return script;
+  }
+  const [first, ...rest] = script.scenes;
+  const split = first.lines.length > 1 && script.scenes.length < MAX_SCRIPT_SCENES;
+  const hookLines = split ? first.lines.slice(0, 1) : first.lines;
+  const scenes = [
+    { ...first, lines: hookLines, image: media, visual: split ? null : first.visual, punch: punchIn(first.punch, hookLines) },
+    ...(split
+      ? [{ ...first, lines: first.lines.slice(1), image: null, punch: punchIn(first.punch, first.lines.slice(1)) }]
+      : []),
+    ...rest,
+  ];
+  log(`Hình mở đầu: ${media}${split ? " — tách câu hook thành cảnh riêng" : ""}`);
+  return videoScriptSchema.parse({ ...script, scenes });
 };
 
 /**
@@ -1147,12 +1241,27 @@ export const prepareScript = async (
     script = await editScript(parseScript(existing), prompt, slug, uploads, undefined, settings.style, settings.provider,
       { length: settings.length, log });
   } else {
-    log(`Đang viết kịch bản bằng ${providerLabel(scriptProvider(settings.provider) ?? "gemini")}…`);
-    script = await generateScript(prompt, slug, undefined, uploads, settings.style, settings.provider,
-      { length: settings.length, log });
+    const series = readJson(chatPath(slug))?.series as ChatSeries | undefined;
+    let partTitle: string | null = null;
+    const previous = series ? readJson(path.join(videoDir(series.from), "script.json")) : null;
+    if (series && !previous) throw new Error("Không còn kịch bản của phần trước (video đó đã bị xoá?) nên không viết tiếp được.");
+    if (series && previous) {
+      const before = parseScript(previous);
+      log(`Đang viết phần ${series.part}, nối tiếp “${before.title}” (${providerLabel(scriptProvider(settings.provider) ?? "gemini")} viết)…`);
+      script = await continueScript(before, series.part, prompt, slug, uploads, undefined, settings.style, settings.provider,
+        { length: settings.length, log });
+      partTitle = script.title;
+    } else {
+      log(`Đang viết kịch bản bằng ${providerLabel(scriptProvider(settings.provider) ?? "gemini")}…`);
+      script = await generateScript(prompt, slug, undefined, uploads, settings.style, settings.provider,
+        { length: settings.length, hook: settings.hook, log });
+    }
     // Lượt soát: bắt dữ kiện sai, câu đố vô lý, số liệu bịa rồi sửa đúng chỗ đó (scripts/review-script.ts).
     script = await reviewScript(script, prompt, { slug, provider: settings.provider, log });
+    // Bản soát có thể viết lại tiêu đề — phần tiếp giữ đúng "Tên loạt (Phần n)".
+    if (partTitle) script = { ...script, title: partTitle };
   }
+  if (settings.hookMedia) script = withHookMedia(script, settings.hookMedia, log);
   fs.mkdirSync(videoDir(slug), { recursive: true });
   fs.writeFileSync(scriptPath, JSON.stringify(script, null, 2));
   log(`Kịch bản: ${script.scenes.length} cảnh, ${allLines(script).length} câu`);

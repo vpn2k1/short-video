@@ -92,6 +92,8 @@
   .pb-title b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap;
                 overflow: hidden; text-overflow: ellipsis; }
   .pb-title span { font-size: 12px; color: var(--muted); }
+  .pb-title span a { color: var(--accent); text-decoration: none; }
+  .pb-title span a:hover { text-decoration: underline; }
 
   /* ---------- chat ---------- */
   .chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -1079,6 +1081,7 @@
       <div class="pb-title"><b id="projectTitle"></b><span id="projectMeta"></span></div>
       <a class="btn" id="projectMulti" href="#" hidden title="Mở lại danh sách cảnh để sửa prompt, model, lời đọc"><i data-icon="clapperboard"></i> <span class="label">Sửa cảnh</span></a>
       <a class="btn" id="projectEdit" href="#" hidden title="Mở bản mới nhất trong trình chỉnh sửa — bản cũ mở từ nút dưới từng video"><i data-icon="scissors"></i> <span class="label">Chỉnh sửa</span></a>
+      <button type="button" class="btn" id="projectContinue" hidden><i data-icon="step-forward"></i> <span class="label">Làm tiếp</span></button>
       <button type="button" class="btn" id="projectPostCopy" hidden title="AI gợi ý tiêu đề, caption, hashtag để đăng video"><i data-icon="pen-line"></i> <span class="label">Bài đăng</span></button>
       <button type="button" class="btn primary" id="projectDownload" hidden><i data-icon="download"></i> <span class="label">Tải video</span></button>
       <button type="button" class="icon-btn" id="projectDelete" hidden title="Xoá video này" aria-label="Xoá video này"><i data-icon="trash-2"></i></button>

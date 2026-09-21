@@ -31,7 +31,7 @@ import {
 } from "./api";
 import {
   createEditorProject, deleteProjects, discardEditorDraft, isSlug, writeEditorProps, listProjects, readChat, readEditorProps, readMulti, startAutoSubtitles, startEditorRender,
-  saveChatDraft, saveMultiDraft, startMultiScene, startTurn,
+  saveChatDraft, saveMultiDraft, startContinuation, startMultiScene, startTurn,
   startVoiceChange,
 } from "./chat";
 import {
@@ -389,6 +389,14 @@ const server = http.createServer(async (req, res) => {
         return send(res, 400, { error: "Tên video không hợp lệ" });
       }
       return send(res, 200, readChat(slug));
+    }
+
+    if (route === "/api/continue" && req.method === "POST") {
+      try {
+        return send(res, 200, startContinuation(await readJson(req)));
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     if (route === "/api/chat" && req.method === "POST") {
