@@ -345,6 +345,13 @@ const wordsOf = (text: string) =>
   text.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !STOP_WORDS.has(w)).map(stem);
 
 /**
+ * Chỉ xét phần đầu mô tả của mỗi kết quả. Pexels đặt tiêu đề bằng một câu (~12 từ), còn Pixabay bằng một dãy thẻ dài
+ * mà đuôi toàn thẻ chung chung ("nature", "blue", "beautiful", "deep"). Không cắt thì ảnh Pixabay nào cũng khớp
+ * nhiều từ khoá hơn ảnh Pexels đúng chủ đề — điểm của hai kho không so với nhau được.
+ */
+const DESC_WORDS = 12;
+
+/**
  * Mức khớp của một kết quả với cảnh, theo mô tả ảnh (alt của Pexels, thẻ của Pixabay, tên trang video Pexels). Kho ảnh
  * xếp kết quả theo độ phổ biến, không theo độ đúng — ảnh đầu tiên hay là ảnh "đẹp" lệch chủ đề.
  * - Tỉ lệ từ khoá có mặt; từ khoá đầu (chủ thể chính) nặng gấp đôi.
@@ -353,7 +360,7 @@ const wordsOf = (text: string) =>
  */
 export const stockRelevance = (item: StockItem, keywords: string[], phrases: string[] = []) => {
   const want = [...new Set(keywords.flatMap(wordsOf))];
-  const seq = wordsOf(item.title);
+  const seq = wordsOf(item.title).slice(0, DESC_WORDS);
   const have = new Set(seq);
   const weight = (k: number) => (k === 0 ? 2 : 1);
   const totalWeight = want.reduce((sum, _w, k) => sum + weight(k), 0);
@@ -377,13 +384,48 @@ export const stockForScene = async (
   plan: string | { queries: string[]; keywords: string[] },
   minSeconds: number,
   used: Set<string>,
-) => {
+): Promise<SceneStock | null> => {
+  const take = async (pick: StockPick, similar: boolean): Promise<SceneStock> => {
+    used.add(`${pick.item.provider}-${pick.item.id}`);
+    const file = await downloadStock(pick.item.provider, pick.item.kind, pick.item.id);
+    return { found: true, similar, ...file, query: pick.query, matched: pick.matched, total: pick.total };
+  };
+
+  // Mô tả ảnh có nhắc đúng chủ thể không ("anglerfish", "banh mi"). Không có thì ảnh chỉ đúng bối cảnh: kho trả ảnh
+  // cá voi cho "cá rồng biển", cá mú cho "cá giọt nước" — vẫn khớp deep/sea/fish nên lọt lưới nếu chỉ đếm từ khoá.
+  const subject = typeof plan === "string" ? null : plan.keywords[0] ?? null;
+  const showsSubject = (pick: StockPick) => !subject || stockRelevance(pick.item, [subject]).matched > 0;
+
   const best = await pickStock(kind, plan, minSeconds, used);
-  if (!best) return null;
-  used.add(`${best.item.provider}-${best.item.id}`);
-  const file = await downloadStock(best.item.provider, best.item.kind, best.item.id);
-  return { ...file, query: best.query, matched: best.matched, total: best.total };
+  if (best && !isWeakMatch(best)) return take(best, !showsSubject(best));
+
+  // Kho không có đúng thứ cảnh đang nói (cá răng nanh, mực ma cà rồng…). Tìm ảnh CÙNG CHỦ ĐỀ: bỏ từ khoá chủ thể
+  // (từ đầu, nặng gấp đôi) rồi chấm lại theo bối cảnh — "đáy biển sâu" vẫn hơn hẳn nền trơn, và được đánh dấu để báo.
+  const similar = await pickStock(kind, withoutSubject(plan), minSeconds, used);
+  if (similar && !isWeakMatch(similar)) return take(similar, true);
+
+  const fallback = best ?? similar;
+  return fallback ? { found: false, query: fallback.query, matched: fallback.matched, total: fallback.total } : null;
 };
+
+/** Bỏ từ khoá chủ thể, giữ các từ khoá bối cảnh — dùng để tìm ảnh cùng chủ đề khi kho không có đúng chủ thể. */
+const withoutSubject = (plan: string | { queries: string[]; keywords: string[] }) =>
+  typeof plan !== "string" && plan.keywords.length > 1
+    ? { queries: plan.queries, keywords: plan.keywords.slice(1) }
+    : plan;
+
+/** Kết quả tìm hình cho một cảnh: đã tải về (đúng chủ thể hay chỉ cùng chủ đề), hay kho không có gì dùng được. */
+export type SceneStock =
+  | { found: true; similar: boolean; path: string; credit: string; reused: boolean; query: string; matched: number; total: number }
+  | { found: false; query: string; matched: number; total: number };
+
+/**
+ * Kết quả khớp quá ít từ khoá = kho không có thứ cảnh đang nói. Pexels và Pixabay không bao giờ trả "không có kết
+ * quả": tìm "fangtooth fish" vẫn ra 20 ảnh cá ngoài chợ, "vampire squid" ra người hoá trang ma cà rồng. Dưới 1/3 số
+ * từ khoá là dấu hiệu đủ rõ — thà để nền trơn (hoặc để người dùng tự chọn ảnh) còn hơn dán một tấm lệch chủ đề.
+ */
+export const isWeakMatch = ({ matched, total }: { matched: number; total: number }) =>
+  total > 0 && matched * 3 < total;
 
 type StockPick = { item: StockItem; rank: number; matched: number; total: number; query: string };
 

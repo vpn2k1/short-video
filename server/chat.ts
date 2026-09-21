@@ -1504,6 +1504,10 @@ const addSceneImages = async (
   if (need.length === 0) return "";
 
   const ai = settings.images === "ai";
+  /** Cảnh (đánh số từ 1) mà kho không có hình nào dùng được — liệt kê trong câu trả lời để người dùng tự đổi. */
+  const weakFit = new Set<number>();
+  /** Cảnh chỉ có ảnh cùng chủ đề, không đúng thứ đang nói — vẫn dùng nhưng nên xem lại. */
+  const similarFit = new Set<number>();
   const clips = settings.images === "stock-video";
   const label = ai ? "AI vẽ" : clips ? "kho clip miễn phí" : "kho ảnh miễn phí";
   log(ai ? `Đang để ${cloudflareImageAvailable() ? "FLUX (Cloudflare, miễn phí)" : "Gemini"} vẽ ${need.length} ảnh…` : `Đang tìm ${need.length} ${clips ? "clip" : "ảnh"} miễn phí (Pexels, Pixabay)…`);
@@ -1520,19 +1524,28 @@ const addSceneImages = async (
       const { scene } = need[k];
       const seconds = Math.ceil((scene.endMs - scene.startMs) / 1000);
       let file: string | null = null;
+      // Kho có trả kết quả nhưng lệch hẳn chủ đề — khác hẳn với lỗi mạng hay hết lượt, nên báo khác nhau.
+      let noGood = false;
       for (const kind of clips ? (["video", "image"] as const) : (["image"] as const)) {
+        const what = kind === "video" ? "clip" : "ảnh";
         try {
           const result = await stockForScene(kind, plan, seconds, used);
-          if (result) {
-            file = result.path;
-            const fit = result.total ? ` · khớp ${result.matched}/${result.total} từ khoá` : "";
-            log(`[${kind === "video" ? "clip" : "ảnh"}] cảnh ${need[k].i + 1} ("${result.query}"${fit}): ${result.credit}`);
-            break;
+          if (!result) continue;
+          const fit = result.total ? ` · khớp ${result.matched}/${result.total} từ khoá` : "";
+          if (!result.found) {
+            noGood = true;
+            log(`[${what}] cảnh ${need[k].i + 1}: kho không có ${what} đúng "${result.query}"${fit} — bỏ qua.`);
+            continue;
           }
+          file = result.path;
+          if (result.similar) similarFit.add(need[k].i + 1);
+          log(`[${what}] cảnh ${need[k].i + 1} ("${result.query}"${fit})${result.similar ? " · ảnh cùng chủ đề, không đúng chủ thể" : ""}: ${result.credit}`);
+          break;
         } catch (error) {
-          log(`Không lấy được ${kind === "video" ? "clip" : "ảnh"} cho "${plan.queries[0]}": ${error instanceof Error ? error.message : error}`);
+          log(`Không lấy được ${what} cho "${plan.queries[0]}": ${error instanceof Error ? error.message : error}`);
         }
       }
+      if (!file && noGood) weakFit.add(need[k].i + 1);
       perQuery.push(file);
     }
   }
@@ -1548,9 +1561,23 @@ const addSceneImages = async (
   if (filled > 0) fs.writeFileSync(path.join(videoDir(slug), "script.json"), JSON.stringify(script, null, 2));
 
   const missing = need.length - filled;
-  if (filled === 0) return `⚠ Không lấy được ảnh nào từ ${label} — các cảnh dùng nền trơn.`;
+  // Nói rõ cảnh nào trống vì kho không có gì đúng chủ đề — chỉ đếm "x/y cảnh có hình" thì lỗi này đi qua âm thầm.
+  // Còn key vẽ ảnh thì mách luôn — chủ đề hiếm (loài vật lạ, đồ vật đặc thù) kho miễn phí thường chịu, AI vẽ thì được.
+  const canDraw = !ai && (cloudflareImageAvailable() || Boolean(process.env.GEMINI_API_KEY));
+  const list = (scenes: Set<number>) => [...scenes].sort((a, b) => a - b).join(", ");
+  const weakNote = weakFit.size
+    ? ` · kho không có hình đúng cho ${weakFit.size === 1 ? "cảnh" : "các cảnh"} ${list(weakFit)}` +
+      ` — để nền trơn, tự chọn hình trong Chỉnh sửa${canDraw ? " hoặc đổi nút Hình ảnh sang AI vẽ" : ""}`
+    : "";
+  // Ảnh cùng chủ đề nhưng không đúng thứ đang nói (kho miễn phí không có loài/vật đó) — nói rõ để người dùng soát.
+  const similarNote = similarFit.size
+    ? ` · ${similarFit.size === 1 ? "cảnh" : "các cảnh"} ${list(similarFit)} chỉ có ảnh cùng chủ đề, không đúng thứ đang nói — xem lại trong Chỉnh sửa`
+    : "";
+  // Cảnh trống vì lý do khác (lỗi mạng, hết lượt) đếm riêng — không gộp vào "kho không có hình đúng".
+  const others = missing - weakFit.size;
+  if (filled === 0) return `⚠ Không lấy được ảnh nào từ ${label} — các cảnh dùng nền trơn.${weakNote}`;
   return `🖼 ${filled}/${need.length} cảnh có hình từ ${label}` +
-    (missing ? ` · ${missing} cảnh không có ảnh` : "") +
+    (others > 0 ? ` · ${others} cảnh không có ảnh` : "") + similarNote + weakNote +
     (ai ? "" : " · ghi nguồn trong public/uploads/stock/CREDITS.txt");
 };
 
