@@ -1,0 +1,298 @@
+{
+  "title": "These mangoes look so fresh.",
+  "subtitle": "",
+  "handle": "@kenh",
+  "accent": "#e8590c",
+  "background": "#0b0b12",
+  "captions": [
+    {
+      "text": "These mangoes look so fresh.",
+      "startMs": 1940,
+      "endMs": 3593,
+      "audio": null
+    },
+    {
+      "text": "Let's ask the vendor how much they are.",
+      "startMs": 4572,
+      "endMs": 6161,
+      "audio": null
+    },
+    {
+      "text": "How much are these?",
+      "startMs": 10812,
+      "endMs": 11683,
+      "audio": null
+    },
+    {
+      "text": "50,000 Dong.",
+      "startMs": 12071,
+      "endMs": 13115,
+      "audio": null
+    },
+    {
+      "text": "Can you give me a better price?",
+      "startMs": 14079,
+      "endMs": 16000,
+      "audio": null
+    },
+    {
+      "text": "Quick quiz.",
+      "startMs": 20611,
+      "endMs": 21300,
+      "audio": null
+    },
+    {
+      "text": "What do you call a person who",
+      "startMs": 21300,
+      "endMs": 22680,
+      "audio": null
+    },
+    {
+      "text": "sells things at a market?",
+      "startMs": 22680,
+      "endMs": 24000,
+      "audio": null
+    },
+    {
+      "text": "The answer is B, vendor.",
+      "startMs": 27560,
+      "endMs": 29677,
+      "audio": null
+    },
+    {
+      "text": "Mấy quả xoài này trông tươi quá.",
+      "startMs": 1940,
+      "endMs": 3593,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Hỏi người bán xem bao nhiêu tiền nhé.",
+      "startMs": 4572,
+      "endMs": 6161,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Cái này bao nhiêu tiền vậy?",
+      "startMs": 10812,
+      "endMs": 11683,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "50.000 đồng.",
+      "startMs": 12071,
+      "endMs": 13115,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Bớt cho tôi chút được không?",
+      "startMs": 14079,
+      "endMs": 16000,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Đố vui nhanh.",
+      "startMs": 20611,
+      "endMs": 21300,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Bạn gọi người bán hàng",
+      "startMs": 21300,
+      "endMs": 22680,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "ở chợ là gì?",
+      "startMs": 22680,
+      "endMs": 24000,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Đáp án là B, vendor (người bán hàng).",
+      "startMs": 27560,
+      "endMs": 29677,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 90,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    }
+  ],
+  "aspect": "9:16",
+  "style": "plain",
+  "scenes": [
+    {
+      "image": "uploads/1789981862338-second-vertical-video-promp-7.mp4",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 30016
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "captionLook": {
+    "font": "sans",
+    "size": 64,
+    "weight": 900,
+    "color": "#ffd400",
+    "accent": "#000000",
+    "preset": "outline",
+    "x": 50,
+    "y": 80,
+    "uppercase": false,
+    "italic": false,
+    "width": 86,
+    "align": "center"
+  },
+  "showTitle": false,
+  "voiceoverTrack": "voices/second-vertical-video-promp-7/track.mp3",
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

@@ -1,0 +1,144 @@
+{
+  "title": "Sức mạnh Hook",
+  "subtitle": "Hiểu cách hook giữ người xem",
+  "handle": "@hooktips",
+  "accent": "#FFCC00",
+  "background": "#111111",
+  "captions": [
+    {
+      "text": "Một câu mở đầu có thể tăng 200% thời gian xem",
+      "startMs": 2483,
+      "endMs": 5683,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-01.mp3"
+    },
+    {
+      "text": "Bởi vì nó kích thích tò mò ngay trong 2 giây đầu",
+      "startMs": 6756,
+      "endMs": 9636,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-02.mp3"
+    },
+    {
+      "text": "Hook ngắn, gây shock khiến não không thể bỏ qua",
+      "startMs": 10814,
+      "endMs": 13374,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-03.mp3"
+    },
+    {
+      "text": "Cảm giác muốn biết tiếp khiến người xem không nhấn skip",
+      "startMs": 14333,
+      "endMs": 17213,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-04.mp3"
+    },
+    {
+      "text": "Khi hook đáp ứng nhu cầu ngay lập tức, người xem ở lại",
+      "startMs": 18197,
+      "endMs": 21477,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-05.mp3"
+    },
+    {
+      "text": "Và chia sẻ video, tăng khả năng lan truyền",
+      "startMs": 22253,
+      "endMs": 24973,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-06.mp3"
+    },
+    {
+      "text": "Hãy thử tạo hook độc đáo cho mỗi video của bạn",
+      "startMs": 26462,
+      "endMs": 29182,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-07.mp3"
+    },
+    {
+      "text": "Nhấn theo dõi để nhận thêm bí quyết",
+      "startMs": 30051,
+      "endMs": 32131,
+      "audio": "voices/hook-anh-huong-den-nguoi-xem-ra-sao/edit-1790049739676/line-08.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "caption",
+  "scenes": [
+    {
+      "image": "uploads/stock/pixabay-image-7201000.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "200%",
+        "caption": "tăng thời gian xem"
+      },
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 10414
+    },
+    {
+      "image": "uploads/stock/pexels-image-8637954.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 10814,
+      "endMs": 17797
+    },
+    {
+      "image": "uploads/stock/pexels-image-28928630.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 18197,
+      "endMs": 26062
+    },
+    {
+      "image": "uploads/stock/pexels-image-7430339.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 26462,
+      "endMs": 32594
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

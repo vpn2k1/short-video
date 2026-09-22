@@ -1,0 +1,56 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Watch time, retention và completion quan trọng thế nào?",
+      "at": 1790046797591
+    },
+    {
+      "role": "assistant",
+      "at": 1790047793985,
+      "text": "Đã tạo \"Bạn sẽ mất lượt xem nếu không tối ưu\" · 💬 Phụ đề nổi bật · 3 cảnh · 25.2s\n🎙 giọng linh · không nhạc nền\n🖼 1/3 cảnh có hình từ kho ảnh miễn phí · cảnh 1 chỉ có ảnh cùng chủ đề, không đúng thứ đang nói — xem lại trong Chỉnh sửa · kho không có hình đúng cho các cảnh 2, 3 — để nền trơn, tự chọn hình trong Chỉnh sửa hoặc đổi nút Hình ảnh sang AI vẽ · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "caption",
+      "mp4": "/out/versions/watch-time-retention-va-completion-quan/v1.mp4?t=1790047794034",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Watch time là thước đo giá trị thực",
+            "Nền tảng ưu tiên những video giữ người xem lâu"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Retention trên 50% thường giúp video được thuật toán ưu tiên hơn",
+            "Bạn sẽ xuất hiện nhiều hơn trong đề xuất"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Completion càng cao, video được đẩy mạnh",
+            "Đừng bỏ lỡ, bắt đầu tối ưu ngay"
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto",
+    "hook": "auto",
+    "hookMedia": ""
+  }
+}

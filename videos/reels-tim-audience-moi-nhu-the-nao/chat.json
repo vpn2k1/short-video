@@ -1,0 +1,24 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Reels tìm audience mới như thế nào?",
+      "at": 1790046887565
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto",
+    "hook": "auto",
+    "hookMedia": ""
+  }
+}

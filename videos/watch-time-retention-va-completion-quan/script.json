@@ -1,0 +1,40 @@
+{
+  "style": "caption",
+  "title": "Bạn sẽ mất lượt xem nếu không tối ưu",
+  "subtitle": "Thời gian xem quyết định thành công video",
+  "handle": "@videomaster",
+  "accent": "#FFAA00",
+  "background": "#111111",
+  "scenes": [
+    {
+      "lines": [
+        "Watch time là thước đo giá trị thực",
+        "Nền tảng ưu tiên những video giữ người xem lâu"
+      ],
+      "image": "uploads/stock/pexels-image-4153314.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Retention trên 50% thường giúp video được thuật toán ưu tiên hơn",
+        "Bạn sẽ xuất hiện nhiều hơn trong đề xuất"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Completion càng cao, video được đẩy mạnh",
+        "Đừng bỏ lỡ, bắt đầu tối ưu ngay"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

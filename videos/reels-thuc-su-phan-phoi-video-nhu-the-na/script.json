@@ -1,0 +1,58 @@
+{
+  "style": "caption",
+  "title": "Reels ẩn bí mật phân phối",
+  "subtitle": "Hiểu cơ chế để tăng lượt xem nhanh chóng",
+  "handle": "@reelstips",
+  "accent": "#FF4081",
+  "background": "#111111",
+  "scenes": [
+    {
+      "lines": [
+        "Bạn nghĩ Reels chỉ dựa vào lượt thích?",
+        "Thực tế, thuật toán còn sâu hơn."
+      ],
+      "image": "uploads/stock/pexels-image-15226552.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "30% video mới được đưa lên Explore ngay lập tức",
+        "Đó là cửa ngõ đầu tiên để lan truyền."
+      ],
+      "image": null,
+      "visual": {
+        "type": "stat",
+        "text": "30%",
+        "caption": "video mới xuất hiện trong Explore"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Bước 1: video dưới 15 giây giữ người xem lâu",
+        "Cứ mỗi giây xem, điểm số tăng lên."
+      ],
+      "image": "uploads/stock/pexels-image-28374597.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Bước 1",
+        "caption": "Giữ thời lượng <15 giây"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Hãy thử áp dụng và xem lượt xem bùng nổ",
+        "Follow để nhận thêm bí quyết Reels"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

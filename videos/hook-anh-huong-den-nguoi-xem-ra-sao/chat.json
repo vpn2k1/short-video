@@ -1,0 +1,63 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Hook ảnh hưởng đến người xem ra sao?",
+      "at": 1790046754392
+    },
+    {
+      "role": "assistant",
+      "at": 1790047722312,
+      "text": "Đã tạo \"Sức mạnh Hook\" · 💬 Phụ đề nổi bật · 4 cảnh · 33.6s\n🎙 giọng linh · không nhạc nền\n🖼 4/4 cảnh có hình từ kho ảnh miễn phí · các cảnh 2, 3, 4 chỉ có ảnh cùng chủ đề, không đúng thứ đang nói — xem lại trong Chỉnh sửa · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "caption",
+      "mp4": "/out/versions/hook-anh-huong-den-nguoi-xem-ra-sao/v1.mp4?t=1790047722586",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Một câu mở đầu có thể tăng 200% thời gian xem",
+            "Bởi vì nó kích thích tò mò ngay trong 2 giây đầu"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Hook ngắn, gây shock khiến não không thể bỏ qua",
+            "Cảm giác muốn biết tiếp khiến người xem không nhấn skip"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Khi hook đáp ứng nhu cầu ngay lập tức, người xem ở lại",
+            "Và chia sẻ video, tăng khả năng lan truyền"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Hãy thử tạo hook độc đáo cho mỗi video của bạn",
+            "Nhấn theo dõi để nhận thêm bí quyết"
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "mai-anh",
+    "music": null,
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto",
+    "hook": "auto",
+    "hookMedia": ""
+  }
+}

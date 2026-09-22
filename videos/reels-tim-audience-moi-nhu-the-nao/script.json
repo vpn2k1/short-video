@@ -1,0 +1,72 @@
+{
+  "style": "caption",
+  "title": "Khám phá audience mới",
+  "subtitle": "Ba chiến thuật Reels giúp bạn mở rộng lượt xem",
+  "handle": "@audiencetips",
+  "accent": "#FF6F61",
+  "background": "#0A0A0A",
+  "scenes": [
+    {
+      "lines": [
+        "Bạn muốn tăng lượt xem Reels gấp 3 lần trong 1 tuần?",
+        "Hãy tìm cách thu hút người xem mới ngay hôm nay"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Nghiên cứu hashtag đang hot trong lĩnh vực của bạn",
+        "Thêm chúng vào mô tả Reel để xuất hiện trong tìm kiếm"
+      ],
+      "image": null,
+      "visual": {
+        "type": "badge",
+        "text": "Bước 1",
+        "caption": "Sử dụng hashtag thịnh hành"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Bình luận và thích các Reel của tài khoản cùng chủ đề",
+        "Thu hút họ bằng cách trả lời nhanh và chân thành"
+      ],
+      "image": null,
+      "visual": {
+        "type": "badge",
+        "text": "Bước 2",
+        "caption": "Tương tác với cộng đồng"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Chạy quảng cáo Reel tới độ tuổi và khu vực mong muốn",
+        "Theo dõi kết quả, tối ưu để đạt tối đa reach"
+      ],
+      "image": null,
+      "visual": {
+        "type": "badge",
+        "text": "Bước 3",
+        "caption": "Quảng cáo mục tiêu"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Áp dụng ngay và bạn sẽ thấy lượt xem tăng ít nhất 30%",
+        "Theo dõi chúng tôi để nhận thêm bí quyết"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

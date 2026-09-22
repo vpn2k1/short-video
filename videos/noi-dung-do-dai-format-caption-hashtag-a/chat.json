@@ -1,0 +1,24 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Nội dung, độ dài, format, caption, hashtag ảnh hưởng ra sao?",
+      "at": 1790047523236
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "auto",
+    "mode": "ai",
+    "aspect": "9:16",
+    "voice": "linh",
+    "music": null,
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto",
+    "hook": "auto",
+    "hookMedia": ""
+  }
+}

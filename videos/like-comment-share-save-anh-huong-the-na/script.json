@@ -1,0 +1,72 @@
+{
+  "style": "caption",
+  "title": "Mạng xã hội thực sự thay đổi gì",
+  "subtitle": "Hiểu sức mạnh của Like, Comment, Share, Save trong 30 giây",
+  "handle": "@socialtips",
+  "accent": "#ff4081",
+  "background": "#121212",
+  "scenes": [
+    {
+      "lines": [
+        "Bạn nghĩ một Like chỉ là lời khen?",
+        "Thực ra nó quyết định độ hiển thị bài viết"
+      ],
+      "image": "uploads/stock/pexels-image-8831808.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Comment khiến thuật toán coi nội dung quan trọng",
+        "Câu trả lời, câu hỏi, hay cảm xúc đều tăng độ lan truyền"
+      ],
+      "image": "uploads/stock/pexels-image-4921398.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Bước 1",
+        "caption": "Comment tạo tương tác"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Share là phép nhân, mỗi lần chia sẻ kéo thêm người xem",
+        "Nội dung được chia sẻ ba lần sẽ đạt tới gấp ba lượt xem"
+      ],
+      "image": "uploads/stock/pexels-image-7563686.jpg",
+      "visual": {
+        "type": "stat",
+        "text": "3x",
+        "caption": "Share tăng reach"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Save cho biết nội dung có giá trị lâu dài",
+        "Thuật toán ưu tiên nội dung được lưu lại"
+      ],
+      "image": "uploads/stock/pexels-image-28704057.jpg",
+      "visual": {
+        "type": "badge",
+        "text": "Bước 2",
+        "caption": "Save tạo dữ liệu dài hạn"
+      },
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Hãy tương tác thông minh, tăng tầm ảnh hưởng của bạn",
+        "Follow để nhận thêm mẹo nhanh"
+      ],
+      "image": "uploads/stock/pexels-image-4835416.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}
