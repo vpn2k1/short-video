@@ -98,6 +98,9 @@ Danh sách ở `src/styles/meta.ts`, bản vẽ ở `src/styles/<id>/`, luật t
 | `blueprint` | `style-blueprint` | cách mọi thứ hoạt động, kỹ thuật, kiến trúc, phát minh, giải phẫu sản phẩm |
 | `festive` | `style-festive` | chúc Tết, lời chúc ngày lễ, sự kiện, khuyến mãi dịp lễ |
 | `liveshop` | `style-liveshop` | bán hàng online, flash sale, giới thiệu sản phẩm kèm giá, chốt đơn |
+| `karaoke` | `style-karaoke` | bài hát có lời, cover, hát karaoke — hai dòng lời đổi màu theo tiếng hát, chấm đếm ngược |
+| `lyrics` | `style-lyrics` | lyric video, ballad, nhạc chill — lời cuộn kiểu app nghe nhạc trên nền ảnh bìa nhoè |
+| `vinyl` | `style-vinyl` | lofi, R&B, playlist, đoạn beat — đĩa than quay + vòng phổ nhạc, lời từng từ |
 
 Mỗi phong cách có `examplePrompt` trong `meta.ts` — hiện trong menu chọn phong cách của web
 và được điền sẵn vào ô chat khi chọn phong cách cho video mới.
@@ -106,6 +109,16 @@ và được điền sẵn vào ô chat khi chọn phong cách cho video mới.
 (`scripts/style-guides.ts`) — sửa skill là AI viết khác theo. Thêm phong cách mới: id trong
 `meta.ts`, component trong `src/styles/<id>/`, một dòng trong `registry.tsx`, và skill
 `style-<id>` có đoạn ai-guide.
+
+## Video bài hát (phong cách nhạc)
+
+`karaoke`, `lyrics`, `vinyl` dựng cho **bài hát có sẵn**: bài hát là `voiceoverTrack`, mỗi câu hát một dòng phụ đề
+(whisper phiên âm), hình nhảy theo nhịp **đo từ chính file nhạc** (`src/styles/music.tsx`, @remotion/media-utils).
+
+- Web: **Làm hàng loạt → Từ file**, thả mp3/mp4 bài hát, chọn Phong cách = 🎤 / 🎵 / 💿. Mặc định vẫn là "Video gốc".
+- Dòng lệnh: `npx tsx scripts/audio-to-video.ts bai-hat.mp3 --name ten-bai --style karaoke --title "Tên bài"`.
+- Whisper nghe lời hát kém hơn lời nói — luôn soát và sửa lời trong trình chỉnh sửa sau khi phiên âm.
+- Không bốc trong "Ngẫu nhiên" (`MUSIC_STYLES` trong `meta.ts`); video TTS vẫn dùng được, nhịp khi đó suy từ lời.
 
 ## Độ dài video — chốt trước khi viết
 
@@ -125,6 +138,7 @@ ghép). "Không giới hạn" = viết đủ ý rồi dừng, KHÔNG phải vi�
 | Video ngắn 9:16 từ một prompt (≤ 60s) | `short-video`, `script-writing` | `/create-short` |
 | Video dài, nhiều chương, hoặc độ dài cụ thể | `long-video` | `/create-long` |
 | Video từ file audio có sẵn | `voice-generation` (mục phiên âm) | `npm run audio-to-video` |
+| Video bài hát, lyric, karaoke | `style-karaoke` / `style-lyrics` / `style-vinyl` | `npm run audio-to-video -- bai.mp3 --style karaoke` |
 | Viết/sửa nội dung kịch bản | `script-writing` | — |
 | Chia cảnh, chọn hình cho từng cảnh | `storyboard` | — |
 | Cần ảnh nền | `image-generation` | `/generate-assets` |

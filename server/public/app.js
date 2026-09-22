@@ -3260,6 +3260,8 @@ let batchIdeaSeries = false;
 /** Nguồn "mỗi video một ô": [{ id, text, settings }] — settings trống = theo cài đặt chung. */
 let batchCards = [];
 let batchMediaModel = "medium";
+/** Nguồn "từ file thu sẵn": phong cách dựng — mặc định Video gốc; bài hát thì chọn phong cách nhạc. */
+let batchMediaStyle = "plain";
 /** Nguồn "cắt từ video dài": file đã tải lên, lượt phân tích, các đoạn AI chọn (on = có làm video). */
 let batchClips = { file: null, name: "", seconds: 0, busy: false, clips: [], preview: -1 };
 let batchMedia = [];        // file thu sẵn đã tải lên: [{ path, name }]
@@ -3705,6 +3707,10 @@ function renderBatchFields() {
     fields.push(["mediaModel", "Độ chính xác", batchMediaModel === "small" ? "Nhanh (small)" : "Chuẩn (medium)",
       batchMediaModel === "small" ? icon("zap") : icon("target")]);
   }
+  if (batchSource === "media") {
+    const look = styleMeta(batchMediaStyle);
+    fields.push(["mediaStyle", "Phong cách", `${look.emoji} ${look.label}`]);
+  }
 
   fields.push(["aspect", def("Khung hình"), `▭ ${opts.aspect}`]);
   if (!fileSource()) fields.push(["images", "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
@@ -3886,6 +3892,22 @@ function batchMenuFor(key) {
         { value: "no", icon: icon("fast-forward"), title: "Chạy thẳng",
           sub: "Viết lời xong render luôn, không hỏi lại. Nhanh nhất, nhưng lời sai thì phải làm lại cả video." },
       ],
+    };
+  }
+  if (key === "mediaStyle") {
+    // Video gốc đứng đầu (mặc định), rồi tới phong cách nhạc cho bài hát, sau cùng là các phong cách còn lại.
+    const music = ["karaoke", "lyrics", "vinyl"];
+    const all = state?.styles ?? [];
+    const ordered = [
+      ...all.filter((s) => s.id === "plain"),
+      ...all.filter((s) => music.includes(s.id)),
+      ...all.filter((s) => s.id !== "plain" && !music.includes(s.id)),
+    ];
+    return {
+      id: "mediaStyle", title: "Phong cách cho file thu sẵn — bài hát thì chọn Karaoke, Lời nhạc cuộn hoặc Đĩa than",
+      layout: "gallery", value: batchMediaStyle,
+      onPick: (value) => { batchMediaStyle = value; renderBatchNew(); },
+      options: ordered.map((s) => ({ value: s.id, title: `${s.emoji} ${s.label}`, sub: s.summary, thumb: `/style-previews/${s.id}` })),
     };
   }
   if (key === "mediaModel") {
@@ -4116,6 +4138,7 @@ function renderBatchPlan() {
     parts.push(batchClips.file ? `cắt từ <b>${escapeHtml(batchClips.name)}</b>, cắt khung giữa cho vừa ${opts.aspect}` : "chưa chọn video");
   } else if (batchSource === "media") {
     parts.push(`phiên âm bằng <b>${batchMediaModel}</b>`);
+    if (batchMediaStyle !== "plain") parts.push(`phong cách <b>${escapeHtml(styleMeta(batchMediaStyle).label)}</b>`);
   } else {
     if (opts.kind === "video") {
       parts.push(voice ? `giọng <b>${escapeHtml(voice.key)}</b>` : "không giọng");
@@ -4636,6 +4659,7 @@ async function createBatch() {
   if (batchSource === "media") {
     body.items = batchMedia.map((f) => f.path);
     body.mediaModel = batchMediaModel;
+    body.mediaStyle = batchMediaStyle;
   }
   if (batchSource === "clips") {
     body.file = batchClips.file;

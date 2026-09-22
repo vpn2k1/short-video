@@ -65,6 +65,9 @@ export const IMAGE_LOOKS: Record<StyleId, ImageLook> = {
   blueprint: { kind: "photo", look: "Clean technical product photograph, isolated object on plain background, even studio light, sharp mechanical detail" },
   festive: { kind: "photo", look: "Festive Vietnamese Lunar New Year photograph, red and gold decorations, lanterns, peach and apricot blossoms, warm joyful light" },
   liveshop: { kind: "photo", look: "Bright e-commerce product photograph, clean studio background, soft even lighting, appealing colors, sharp detail" },
+  karaoke: { kind: "photo", look: "Music video still, cinematic concert or city-at-dusk scene, warm stage lights and soft bokeh, emotional atmosphere, room at the bottom for lyrics" },
+  lyrics: { kind: "photo", look: "Album cover style photograph, one clear subject, rich saturated colors, soft moody light, simple composition that still reads when heavily blurred" },
+  vinyl: { kind: "photo", look: "Square album cover photograph, centered subject that still reads inside a small circle, moody warm film tones, lofi atmosphere" },
 };
 
 /**

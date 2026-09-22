@@ -3,9 +3,11 @@
  *
  *   npx tsx scripts/audio-to-video.ts giong.mp3 --name bai-noi
  *   npx tsx scripts/audio-to-video.ts giong.mp3 --name x --title "Hook" --sub center
+ *   npx tsx scripts/audio-to-video.ts bai-hat.mp3 --name x --style karaoke --title "Tên bài"
  *
  * Phiên âm bằng whisper.cpp chạy local (offline, không API key) theo câu, rồi khớp mép phụ đề
  * với khoảng lặng thật của file (scripts/subtitle-align.ts) — phụ đề hiện khi nói, tắt khi ngừng.
+ * --style chọn phong cách (mặc định caption); bài hát thì karaoke / lyrics / vinyl — xem src/styles/music.tsx.
  */
 import type { WhisperModel } from "@remotion/install-whisper-cpp";
 import { execFileSync } from "child_process";
@@ -18,6 +20,7 @@ import { alignCaptions, detectSilences } from "./subtitle-align";
 import { transcribeSentences } from "./transcribe";
 import { OUTRO_FRAMES, FPS } from "../src/constants";
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
+import { isStyleId, MUSIC_STYLES, STYLE_IDS, type StyleId } from "../src/styles/meta";
 
 const args = process.argv.slice(2);
 
@@ -35,6 +38,7 @@ let model: WhisperModel = "medium";
 let language = "vi";
 let music: string | null = null;
 let captionPosition: "bottom" | "center" = "bottom";
+let style: StyleId | undefined;
 
 const flags: Record<string, (value: string) => void> = {
   "--name": (v) => (name = slugify(v)),
@@ -46,6 +50,13 @@ const flags: Record<string, (value: string) => void> = {
   "--model": (v) => (model = v as WhisperModel),
   "--lang": (v) => (language = v),
   "--music": (v) => (music = v === "none" ? null : v),
+  "--style": (v) => {
+    if (!isStyleId(v)) {
+      console.error(`--style chỉ nhận: ${STYLE_IDS.join(" | ")}`);
+      process.exit(1);
+    }
+    style = v;
+  },
   "--sub": (v) => {
     if (v !== "bottom" && v !== "center") {
       console.error("--sub chỉ nhận: bottom | center");
@@ -125,13 +136,17 @@ const main = async () => {
 
   const durationMs = audioDurationMs(trackAbs);
 
+  // Bài hát: tên bài lấy theo tên file ("nang-am-xa-dan.mp3" → "nang am xa dan") thay vì câu hát đầu.
+  const song = style !== undefined && MUSIC_STYLES.has(style);
+  const fileTitle = path.basename(audioInput, path.extname(audioInput)).replace(/[-_]+/g, " ").trim();
   const props: ShortProps = shortSchema.parse({
-    title: title ?? captions[0]?.text ?? "Video",
+    title: title ?? (song ? fileTitle : captions[0]?.text) ?? "Video",
     subtitle,
     handle,
     accent,
     background,
     captions,
+    ...(style ? { style } : {}),
     // Một cảnh phủ toàn bộ; thêm ảnh bằng cách sửa props.json rồi render lại.
     scenes: [{ image: null, visual: null, startMs: 0, endMs: durationMs }],
     captionPosition,

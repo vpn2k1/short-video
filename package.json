@@ -11,6 +11,7 @@
     "@remotion/cli": "4.0.523",
     "@remotion/install-whisper-cpp": "^4.0.523",
     "@remotion/media": "4.0.523",
+    "@remotion/media-utils": "4.0.523",
     "@remotion/renderer": "^4.0.523",
     "@remotion/tailwind-v4": "4.0.523",
     "@remotion/zod-types": "4.0.523",

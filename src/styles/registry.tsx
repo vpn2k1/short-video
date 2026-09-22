@@ -39,6 +39,9 @@ import { StoryStyle } from "./story";
 import { BlueprintStyle } from "./blueprint";
 import { FestiveStyle } from "./festive";
 import { LiveshopStyle } from "./liveshop";
+import { KaraokeStyle } from "./karaoke";
+import { LyricsStyle } from "./lyrics";
+import { VinylStyle } from "./vinyl";
 
 /** Phong cách → component vẽ. Thêm phong cách mới: thêm id vào meta.ts và một dòng ở đây. */
 export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
@@ -81,6 +84,9 @@ export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
   blueprint: BlueprintStyle,
   festive: FestiveStyle,
   liveshop: LiveshopStyle,
+  karaoke: KaraokeStyle,
+  lyrics: LyricsStyle,
+  vinyl: VinylStyle,
 };
 
 /**

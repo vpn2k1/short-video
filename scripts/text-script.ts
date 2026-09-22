@@ -86,13 +86,18 @@ const guessStyle = (all: string, scenes: ScriptScene[]): StyleId => {
   }).length;
   if (lines.length >= 3 && spoken / lines.length >= 0.6) return "chat";
   if (/đố vui|câu đố|trắc nghiệm|đáp án là|bạn có đoán|câu hỏi\s*\d/i.test(all)) return "quiz";
+  // Lời bài hát: nói thẳng karaoke / đĩa than, hoặc nhãn đoạn kiểu [Điệp khúc], [Chorus] (tag của cảnh).
+  if (/karaoke|hát theo/i.test(all)) return "karaoke";
+  if (/đĩa than|\bvinyl\b|\blo-?fi\b|\bside [ab]\b/i.test(all)) return "vinyl";
+  const SONG_PART = /^(verse|pre-?chorus|chorus|bridge|điệp khúc|phiên khúc)\b/i;
+  if (/lời bài hát|\blyrics?\b/i.test(all) || scenes.some((s) => s.tag && SONG_PART.test(s.tag.trim()))) return "lyrics";
   if (/lập trình|dòng lệnh|terminal|hacker|tin tặc|an ninh mạng|mã độc|lỗ hổng bảo mật|python|javascript|github/i.test(all)) return "terminal";
   if (/\btop\s*\d+\b|xếp hạng|đếm ngược|(^|\s)#\d\b/i.test(all)) return "ranking";
   if (/\bvs\.?\s|\bversus\b|đối đầu|lầm tưởng (và|vs|hay) sự thật|nên chọn (cái|bên|loại) nào/i.test(all)) return "versus";
   if (/level up|lên level|lên cấp|8-bit|pixel art|qua màn|game thủ|\bgaming\b/i.test(all)) return "pixel";
   if (/livestream|chốt đơn|flash sale|freeship|giỏ hàng|phiên live|mã giảm giá/i.test(all)) return "liveshop";
-  if (/podcast|phỏng vấn|khách mời|talk ?show|trò chuyện cùng|người dẫn chương trình|\btập\s*\d+\s*[·|:-]/i.test(all)) return "podcast";
   if (/anime|wibu|otaku|nhân vật chính|\barc\s*\d|thức tỉnh|sức mạnh tiềm ẩn|to be continued/i.test(all)) return "anime";
+  if (/podcast|phỏng vấn|khách mời|talk ?show|trò chuyện cùng|người dẫn chương trình|\btập\s*\d+\s*[·|:-]/i.test(all)) return "podcast";
   if (/\bstory\b|một ngày (của|làm|đi)|day in (my|a) life|hậu trường|bình chọn|vote giúp|cả nhà ơi|cho mình xin ý kiến/i.test(all)) return "story";
   if (/reddit|ẩn danh|bài đăng|tâm sự|thú nhận|confession/i.test(all)) return "social";
   if (/truyện tranh|siêu anh hùng|comic|manga/i.test(all)) return "comic";
@@ -104,10 +109,10 @@ const guessStyle = (all: string, scenes: ScriptScene[]): StyleId => {
   if (/trailer|điện ảnh|thước phim/i.test(all)) return "cinematic";
   if (/album|một năm nhìn lại|nhìn lại năm|tổng kết năm|polaroid|kỷ niệm (yêu nhau|ngày cưới|\d+ năm)/i.test(all)) return "scrapbook";
   if (/tạp chí|trang bìa|thời trang|làm đẹp|trang điểm|phối đồ|outfit|lookbook|sàn diễn/i.test(all)) return "magazine";
+  if (/bài thơ|vần thơ|câu thơ|lời hay ý đẹp|danh ngôn|câu nói hay|tản văn|tuỳ bút|tùy bút|màu nước|bình yên|thương nhớ|chiều thu|mùa thu/i.test(all)) return "watercolor";
   if (/sang trọng|cao cấp|xa xỉ|trang sức|ngọc trai|kim cương|nước hoa|biệt thự|hạng sang|penthouse|sống chậm/i.test(all)) return "luxury";
   if (/nguyên liệu|sơ chế|\d+\s*người ăn|công thức (nấu|làm|pha)|pha chế|làm bánh|nấu ăn/i.test(all)) return "recipe";
   if (/đêm khuya|về đêm|cú đêm|neon|hộp đêm|quán bar|k-?pop/i.test(all)) return "neon";
-  if (/bài thơ|vần thơ|câu thơ|lời hay ý đẹp|danh ngôn|câu nói hay|tản văn|tuỳ bút|tùy bút|màu nước|bình yên|thương nhớ|chiều thu|mùa thu/i.test(all)) return "watercolor";
   if (/bóng đá|trận đấu|cầu thủ|bàn thắng|ghi bàn|tỉ số|tỷ số|highlight|vòng loại|huấn luyện viên|vận động viên|kỷ lục thế giới|siêu phẩm|world cup|sea games|v-?league|thể hình/i.test(all)) return "sport";
   if (/chứng khoán|cổ phiếu|vn-?index|bitcoin|crypto|tiền (số|điện tử|mã hoá|mã hóa)|nhà đầu tư|lãi suất|mua ròng|bán ròng|giá vàng|tỷ giá|báo cáo tài chính|lợi nhuận quý|vốn hoá|vốn hóa|danh mục đầu tư/i.test(all)) return "finance";
   if (/bản vẽ|kết cấu|cấu tạo|nguyên lý (hoạt động|làm việc)|cơ chế hoạt động|hoạt động như thế nào|vận hành (ra sao|thế nào)|chịu lực|bánh răng|kỹ sư|mặt cắt|phát minh/i.test(all)) return "blueprint";

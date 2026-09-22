@@ -46,6 +46,9 @@ export const STYLE_IDS = [
   "blueprint",
   "festive",
   "liveshop",
+  "karaoke",
+  "lyrics",
+  "vinyl",
 ] as const;
 
 export type StyleId = (typeof STYLE_IDS)[number];
@@ -53,15 +56,22 @@ export type StyleId = (typeof STYLE_IDS)[number];
 export const DEFAULT_STYLE: StyleId = "caption";
 
 /**
+ * Phong cách nhạc: dựng cho bài hát có lời (bản thu cả bài làm voiceoverTrack) — đo nhịp từ file nhạc, chữ chạy
+ * theo tiếng hát. Xem src/styles/music.tsx.
+ */
+export const MUSIC_STYLES = new Set<StyleId>(["karaoke", "lyrics", "vinyl"]);
+
+/**
  * Lựa chọn "Ngẫu nhiên": mỗi video MỚI bốc thăm một phong cách (sửa lời, làm tiếp phần sau thì giữ phong cách đang có).
- * Không bốc "Video gốc" — dành cho clip quay sẵn. Lời dán sẵn (không có AI viết lại) còn bỏ các phong cách cần lời theo
- * khuôn riêng: hội thoại "Tên: lời", câu đố có đáp án, top đếm ngược, cặp A/B, bài đăng, bước nấu, mốc năm.
+ * Không bốc "Video gốc" — dành cho clip quay sẵn — và phong cách nhạc — dành cho bài hát, bốc trúng cho video đọc
+ * lời thường thì lạc. Lời dán sẵn (không có AI viết lại) còn bỏ các phong cách cần lời theo khuôn riêng: hội thoại
+ * "Tên: lời", câu đố có đáp án, top đếm ngược, cặp A/B, bài đăng, bước nấu, mốc năm.
  */
 export const RANDOM_STYLE = "random";
 const NEEDS_OWN_SCRIPT = new Set<StyleId>(["chat", "quiz", "ranking", "versus", "social", "recipe", "timeline"]);
 
 export const randomStyle = (pastedText = false): StyleId => {
-  const pool = STYLE_IDS.filter((id) => id !== "plain" && !(pastedText && NEEDS_OWN_SCRIPT.has(id)));
+  const pool = STYLE_IDS.filter((id) => id !== "plain" && !MUSIC_STYLES.has(id) && !(pastedText && NEEDS_OWN_SCRIPT.has(id)));
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
@@ -1075,6 +1085,72 @@ Tặng kèm sữa rửa mặt mini, bấm giỏ hàng chốt liền nha!
 [Quà tặng kèm]
 Chỉ còn ba mươi suất quà, hết là thôi nha.
 Theo dõi shop để không lỡ phiên live tối mai!`,
+  },
+  karaoke: {
+    id: "karaoke",
+    label: "Karaoke",
+    emoji: "🎤",
+    summary: "Màn hình karaoke: hai dòng lời xen kẽ trái – phải, chữ đổi màu chạy theo tiếng hát, chấm đếm ngược trước câu, nền MV hoặc sân khấu đèn nhún theo nhạc.",
+    bestFor: "video bài hát có lời, cover, hát karaoke, nhạc thiếu nhi, nhạc Việt, đoạn điệp khúc cần người xem hát theo",
+    examplePrompt: "Làm video karaoke cho đoạn điệp khúc một bài hát vui về mùa hè, có chấm đếm ngược trước câu đầu.",
+    exampleScript: `# Mùa hè năm ấy
+> Nhạc & lời: Minh Khang
+
+[Phiên khúc]
+Nắng vàng rơi trên con đường nhỏ
+Gió mang theo tiếng cười của em
+Mình đạp xe qua hàng phượng đỏ
+Đếm từng ngày hè trôi rất êm
+
+[Điệp khúc]
+Mùa hè năm ấy mình **hứa sẽ bên nhau**
+Dù mai kia có đi thật xa
+Mỗi khi nghe tiếng ve ngân rất lâu
+Là nhớ em, nhớ cả mùa hoa`,
+  },
+  lyrics: {
+    id: "lyrics",
+    label: "Lời nhạc cuộn",
+    emoji: "🎵",
+    summary: "Lời bài hát đồng bộ kiểu app nghe nhạc: nền ảnh bìa nhoè đậm màu, câu đang hát sáng dần từng từ, danh sách lời cuộn lên theo nhạc, trình phát nhỏ ở trên.",
+    bestFor: "lyric video, lời bài hát, cover, nhạc chill, ballad, nhạc buồn, đoạn nhạc hay cần chia sẻ, thơ phổ nhạc",
+    examplePrompt: "Làm video lời bài hát cho một bản ballad nhẹ nhàng về nỗi nhớ nhà, chữ cuộn theo nhạc.",
+    exampleScript: `# Về nhà
+> Hà Anh
+
+[Phiên khúc]
+Chiều nay phố đã lên đèn
+Con đường quen bỗng thấy dài hơn
+Tin nhắn mẹ vẫn chờ trong máy
+"Bao giờ con về, cơm vẫn còn ấm"
+
+[Điệp khúc]
+Về nhà thôi, **về nơi có mẹ**
+Nơi mái hiên nghe mưa rất khẽ
+Bao ồn ào ngoài kia cũng lặng
+Chỉ cần một bữa cơm chiều`,
+  },
+  vinyl: {
+    id: "vinyl",
+    label: "Đĩa than",
+    emoji: "💿",
+    summary: "Đĩa than quay với ảnh bìa trên nhãn đĩa, vòng phổ nhạc nhảy theo từng nhịp quanh đĩa, lời hiện từng từ bên dưới, mở đầu bằng đĩa trượt ra khỏi bìa.",
+    bestFor: "nhạc lofi, chill, R&B, nhạc xưa, playlist, giới thiệu bài hát mới, đoạn beat, trích một câu hát hay, nhạc không lời có vài câu",
+    examplePrompt: "Làm video đĩa than cho một đoạn nhạc lofi buổi tối, lời ngắn về thành phố lúc về đêm.",
+    exampleScript: `# Phố đêm
+> Lofi · Side A
+
+[Side A]
+Đèn đường vàng như mật ong
+Xe qua rồi, phố lại trống không
+Mình ngồi đây, ly cà phê nguội
+Nghe thành phố thở rất chậm
+
+[Điệp khúc]
+Cứ để **đêm trôi thật chậm**
+Chẳng cần vội, chẳng cần nói nhiều
+Một bài hát, một góc phố
+Là đủ cho một buổi chiều`,
   },
 };
 

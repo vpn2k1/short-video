@@ -66,7 +66,7 @@ import { compileVideos } from "../scripts/compile";
 import { renderCover, renderShort } from "../scripts/render";
 import { brandVideo, isBrandFile } from "../scripts/brand";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
-import { randomStyle, RANDOM_STYLE } from "../src/styles/meta";
+import { isStyleId, MUSIC_STYLES, randomStyle, RANDOM_STYLE, type StyleId } from "../src/styles/meta";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
   guessLanguage, isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
@@ -312,6 +312,11 @@ export type Batch = {
   review: boolean;
   /** Model whisper cho nguồn audio-video. */
   mediaModel: WhisperModel;
+  /**
+   * Nguồn media: phong cách dựng file thu sẵn. Không có = "Video gốc" (giữ nguyên hình, chỉ thêm phụ đề).
+   * Bài hát thì chọn phong cách nhạc (karaoke / lyrics / vinyl) — xem src/styles/music.tsx.
+   */
+  mediaStyle?: StyleId;
   subs?: SubsOptions;
   edit?: EditPlan;
   /** Thử A/B hook: số câu hook mới cần viết, và các câu đã viết (viết một lần cho cả loạt để các bản khác nhau). */
@@ -541,6 +546,7 @@ export type CreateBatchInput = {
   settings?: Partial<ChatSettings>;
   review?: unknown;
   mediaModel?: unknown;
+  mediaStyle?: unknown;
   variants?: { from?: unknown; aspects?: unknown; voices?: unknown; languages?: unknown; hooks?: unknown };
   /** Nguồn subs: ngôn ngữ nói, các ngôn ngữ phụ đề ("" = giữ nguyên), kiểu phụ đề chung. */
   subs?: { spoken?: unknown; languages?: unknown; look?: unknown; crop?: unknown; layout?: unknown; tracks?: unknown };
@@ -717,6 +723,7 @@ export const createBatch = (body: CreateBatchInput) => {
     // Sửa hàng loạt: lời thường không đổi nên mặc định chạy thẳng; các nguồn khác mặc định dừng cho duyệt lời.
     review: source === "edit" ? body.review === true : body.review !== false,
     mediaModel,
+    ...(source === "media" && isStyleId(body.mediaStyle) && body.mediaStyle !== "plain" ? { mediaStyle: body.mediaStyle } : {}),
     ...(subs ? { subs } : {}),
     ...(edit ? { edit } : {}),
     ...(hookPlan ? { hooks: hookPlan } : {}),
@@ -1596,15 +1603,19 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   const crop = cut?.crop ?? null;
   const aspect = cut ? cut.aspect
     : batch.subs && visual ? videoAspect(source) ?? settings.aspect : settings.aspect;
+  // Loạt thêm phụ đề luôn giữ hình gốc; loạt từ file thì theo phong cách đã chọn (mặc định Video gốc).
+  const style: StyleId = !batch.subs && batch.mediaStyle ? batch.mediaStyle : "plain";
+  // Bài hát: tên bài là tên file, không phải câu hát đầu.
+  const song = MUSIC_STYLES.has(style);
   const props = shortSchema.parse({
-    title: captions[0]?.text.slice(0, 60) ?? path.basename(item.file!),
+    title: song ? baseName.slice(0, 60) : captions[0]?.text.slice(0, 60) ?? path.basename(item.file!),
     subtitle: "",
     handle: "@kenh",
     accent: "#e8590c",
     background: "#0b0b12",
     captions,
     aspect,
-    style: "plain",
+    style,
     scenes: [{ image: visual, visual: null, startMs: 0, endMs: durationMs, ...(crop ? { crop } : {}) }],
     captionPosition: "bottom",
     ...(batch.subs ? { captionLook: batch.subs.look } : {}),
