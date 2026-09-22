@@ -26,11 +26,44 @@ export const STYLE_IDS = [
   "book",
   "storybook",
   "pen",
+  "neon",
+  "scrapbook",
+  "magazine",
+  "timeline",
+  "recipe",
+  "terminal",
+  "pixel",
+  "versus",
+  "luxury",
+  "horror",
+  "anime",
+  "podcast",
+  "map",
+  "sport",
+  "finance",
+  "watercolor",
+  "story",
+  "blueprint",
+  "festive",
+  "liveshop",
 ] as const;
 
 export type StyleId = (typeof STYLE_IDS)[number];
 
 export const DEFAULT_STYLE: StyleId = "caption";
+
+/**
+ * Lựa chọn "Ngẫu nhiên": mỗi video MỚI bốc thăm một phong cách (sửa lời, làm tiếp phần sau thì giữ phong cách đang có).
+ * Không bốc "Video gốc" — dành cho clip quay sẵn. Lời dán sẵn (không có AI viết lại) còn bỏ các phong cách cần lời theo
+ * khuôn riêng: hội thoại "Tên: lời", câu đố có đáp án, top đếm ngược, cặp A/B, bài đăng, bước nấu, mốc năm.
+ */
+export const RANDOM_STYLE = "random";
+const NEEDS_OWN_SCRIPT = new Set<StyleId>(["chat", "quiz", "ranking", "versus", "social", "recipe", "timeline"]);
+
+export const randomStyle = (pastedText = false): StyleId => {
+  const pool = STYLE_IDS.filter((id) => id !== "plain" && !(pastedText && NEEDS_OWN_SCRIPT.has(id)));
+  return pool[Math.floor(Math.random() * pool.length)];
+};
 
 export type StyleMeta = {
   id: StyleId;
@@ -508,6 +541,540 @@ Nghe thì ít, nhưng mười năm là cả một thư viện.
 [Thân ái]
 Cảm ơn cậu đã không bỏ cuộc.
 Hẹn gặp ở phía trước nhé.`,
+  },
+  neon: {
+    id: "neon",
+    label: "Đêm neon",
+    emoji: "🌃",
+    summary: "Phố đêm tím xanh, chữ ống neon bật chập chờn, câu nhấn thành biển hiệu phát sáng.",
+    bestFor: "đời sống về đêm, âm nhạc, gaming, thành phố, động lực đêm khuya, K-pop, tiệc tùng",
+    examplePrompt: "Sài Gòn lúc 2 giờ sáng: những góc phố chỉ dân cú đêm mới biết.",
+    exampleScript: `# Sài Gòn lúc nửa đêm
+> Những điều chỉ dân cú đêm mới biết
+
+[QUẬN 1]
+! 24/7 | thành phố không tắt đèn
+Sài Gòn không ngủ, chỉ đổi ca thôi.
+
+[2 GIỜ SÁNG]
+Đừng xem thường những **con phố vắng** sau nửa đêm.
+Quán ốc vẫn đông, nhạc vẫn còn lớn.
+
+[OPEN]
+Đây là lúc thành phố **thật sự sống**.
+Đêm nay bạn đang ở đâu?`,
+  },
+  scrapbook: {
+    id: "scrapbook",
+    label: "Album kỷ niệm",
+    emoji: "📸",
+    summary: "Bảng bần treo tường, mỗi cảnh một tấm polaroid dán băng keo washi, lời viết tay trên thẻ ghi chú, giấy note vàng cho câu nhấn.",
+    bestFor: "du lịch, kỷ niệm, gia đình, bạn bè, kỷ niệm yêu nhau, tổng kết năm, \"một năm nhìn lại\"",
+    examplePrompt: "Một năm nhìn lại của nhà mình: những chuyến đi và khoảnh khắc đáng nhớ nhất.",
+    exampleScript: `# Một năm nhìn lại của nhà mình
+> 12 tháng, 5 thành phố, 1 lời hứa
+
+[Tháng 1 · Hà Nội]
+Tấm ảnh này suýt nữa không tồn tại.
+Cả nhà dậy từ 4 giờ sáng chỉ để ngắm **bình minh** Hồ Tây.
+
+[Tháng 4 · Đà Lạt]
+Lần đầu con thấy sương mù dày đến thế.
+Con bảo: "Mây rơi xuống đất rồi mẹ ơi!"
+
+[Tháng 7 · Phú Quốc]
+! 5 | thành phố đã đi qua
+Mùa hè ấy, bố học bơi cùng con.
+Và **không ai bị sặc nước** cả.
+
+[Tháng 12 · Ở nhà]
+Có những buổi tối chẳng kịp chụp tấm nào.
+Hẹn năm sau, vẫn **đủ cả nhà** nhé.`,
+  },
+  magazine: {
+    id: "magazine",
+    label: "Tạp chí",
+    emoji: "📰",
+    summary: "Mỗi cảnh là một trang bìa tạp chí thời trang: ảnh tràn trang, tên tạp chí chữ có chân cực đậm, tít bìa khối màu, tem MỚI!, mã vạch.",
+    bestFor: "thời trang, làm đẹp, người nổi tiếng, phong cách sống, xu hướng mùa mới, giới thiệu sản phẩm, bí quyết phối đồ/chăm da",
+    examplePrompt: "Video 25 giây: 5 xu hướng làm đẹp mùa thu năm nay, giọng biên tập viên tạp chí.",
+    exampleScript: `# 5 xu hướng làm đẹp mùa thu
+> Bí quyết từ các chuyên gia trang điểm
+
+[Xu hướng]
+Mùa thu này, cả phố đều mê lớp nền mỏng nhẹ.
+
+[Làm đẹp]
+! 5 | bí quyết giữ da căng bóng
+Dưỡng ẩm hai lớp cho **da căng bóng** cả ngày.
+
+Đừng chạy theo món đắt tiền, hãy chọn món hợp da.
+
+[Thời trang]
+Son màu gạch cháy đang dẫn đầu mọi sàn diễn.
+
+[Phong cách]
+Và nhớ rằng **tự tin là đẹp nhất**.`,
+  },
+  timeline: {
+    id: "timeline",
+    label: "Dòng thời gian",
+    emoji: "🕰️",
+    summary: "Trục thời gian cuộn qua từng mốc, năm ghi thật lớn, ảnh trong thẻ gắn vào mốc.",
+    bestFor: "lịch sử, tiểu sử, lịch sử công ty/thương hiệu, sự tiến hoá của một thứ, \"từ năm … đến nay\", trình tự các giai đoạn",
+    examplePrompt: "Hành trình của chiếc điện thoại di động: từ cục gạch 1983 đến smartphone hôm nay.",
+    exampleScript: `# Điện thoại đã thay đổi thế nào?
+> Bốn mươi năm, bốn cột mốc
+
+[1983]
+Chiếc điện thoại di động đầu tiên nặng gần một ký.
+Sạc mười tiếng chỉ để gọi ba mươi phút.
+
+[Thập niên 90]
+Điện thoại nhỏ lại vừa lòng bàn tay.
+Tin nhắn SMS ra đời và **thay đổi cách ta trò chuyện**.
+
+[2007]
+Màn hình cảm ứng xoá sạch bàn phím vật lý.
+Internet bắt đầu nằm gọn trong túi áo.
+
+[Hôm nay]
+! 6,8 tỷ | người đang dùng smartphone
+Điện thoại là máy ảnh, ví tiền và bản đồ.
+Bạn đang cầm cả bốn mươi năm trên tay.`,
+  },
+  recipe: {
+    id: "recipe",
+    label: "Công thức nấu ăn",
+    emoji: "🍳",
+    summary: "Thẻ công thức trên bàn bếp: mỗi cảnh một bước có số to, ảnh món bo góc, chấm tiến độ tích dần và giấy nhớ mẹo.",
+    bestFor: "nấu ăn, công thức món, pha chế đồ uống, làm bánh, DIY, đồ thủ công, hướng dẫn từng bước, chu trình skincare",
+    examplePrompt: "Hướng dẫn làm bánh xèo miền Tây giòn rụm tại nhà trong 60 giây.",
+    exampleScript: `# Bánh xèo miền Tây
+> 4 người ăn · 30 phút · Dễ làm
+
+[Nguyên liệu]
+300g bột gạo, 1 lon nước cốt dừa.
+Nửa muỗng bột nghệ, hành lá, tôm, thịt ba chỉ.
+Giá đỗ và rau sống ăn kèm.
+
+[Pha bột]
+! 30 phút | cho bột nghỉ
+Pha bột với nước cốt dừa và bột nghệ.
+Để bột nghỉ **ít nhất 30 phút** cho bột nở.
+
+[Đổ bánh]
+! 200g | tôm tươi
+Làm nóng chảo thật kỹ rồi mới đổ bột.
+Đậy nắp, giữ **lửa vừa** cho bánh tự giòn.
+
+[Thưởng thức]
+Cuốn bánh với rau sống, chấm nước mắm chua ngọt.
+Làm thử cuối tuần này nhé!`,
+  },
+  terminal: {
+    id: "terminal",
+    label: "Màn hình code",
+    emoji: "💻",
+    summary: "Cửa sổ terminal gõ từng câu sau dấu nhắc $, ảnh bật ra trong cửa sổ preview, số liệu thành thanh tiến độ ASCII.",
+    bestFor: "lập trình, mẹo công nghệ, AI, an ninh mạng, sự thật về hacker, hướng dẫn phần mềm",
+    examplePrompt: "Video 30 giây cảnh báo 4 lỗi bảo mật tài khoản mà ai cũng mắc, kèm cách sửa nhanh.",
+    exampleScript: `# 4 lỗi bảo mật ai cũng mắc
+> Lỗi số 3 mất tài khoản trong 1 phút
+
+[lỗi #1: mật khẩu yếu]
+Mật khẩu 8 ký tự bị bẻ khoá trong chưa tới 1 giờ.
+Hacker không đoán, máy của họ thử hàng tỷ lần mỗi giây.
+
+! 81% | vụ rò rỉ do mật khẩu yếu
+81% vụ rò rỉ dữ liệu bắt đầu từ mật khẩu yếu.
+Vậy mà ta vẫn dùng một mật khẩu cho mọi tài khoản.
+
+[cách sửa]
+Cách sửa rất đơn giản:
+**Bật xác thực hai lớp** ngay hôm nay.
+
+[bước 2]
+! 12 tỷ | mật khẩu đã bị lộ
+Dùng trình quản lý mật khẩu, mỗi nơi một mật khẩu riêng.
+Lưu lại để làm ngay tối nay.`,
+  },
+  pixel: {
+    id: "pixel",
+    label: "Game 8-bit",
+    emoji: "👾",
+    summary: "Màn hình game RPG cổ điển: ảnh điểm ảnh hoá trong cửa sổ game, hộp thoại gõ chữ, thanh XP, xu và popup CRITICAL!.",
+    bestFor: "gaming, thử thách, học mà chơi, sự thật thú vị, \"level up\" bản thân, thói quen tốt, nội dung cho trẻ em",
+    examplePrompt: "Thử thách 21 ngày level up bản thân: 3 thói quen nhỏ ai cũng làm được.",
+    exampleScript: `# Level up bản thân
+> Thử thách 21 ngày
+
+[Khởi động]
+Nhiệm vụ hôm nay: nâng cấp chính bạn.
+Mỗi thói quen là một màn chơi.
+
+[Level 1]
+! 5 phút | dọn giường mỗi sáng
+Việc nhỏ đầu ngày mở khoá cả ngày dài.
+
+[Level 2]
+Uống một cốc nước ngay khi thức dậy.
+Cơ thể bạn sẽ **hồi đầy năng lượng**.
+
+[Boss cuối]
+! 21 ngày | để thói quen thành tự động
+Kiên trì đủ lâu là thắng.
+Bạn đang ở level mấy? Bình luận nhé!`,
+  },
+  versus: {
+    id: "versus",
+    label: "So sánh đối đầu",
+    emoji: "⚔️",
+    summary: "Chia đôi màn hình hai phe, huy hiệu VS ở giữa, bảng điểm và con dấu phán quyết.",
+    bestFor: "so sánh hai lựa chọn, cái này vs cái kia, lầm tưởng vs sự thật, trước/sau, rẻ vs đắt, \"nên chọn cái nào\"",
+    examplePrompt: "So sánh thuê nhà và mua nhà trả góp cho người trẻ: nên chọn cái nào?",
+    exampleScript: `# Thuê nhà hay mua trả góp?
+> Người trẻ nên chọn bên nào
+
+[Thuê nhà]
+! 6 triệu | tiền nhà mỗi tháng
+Về chi phí, thuê nhà chỉ tốn sáu triệu mỗi tháng.
+
+[Mua trả góp]
+! 15 triệu | tiền góp mỗi tháng
+Mua trả góp phải gánh mười lăm triệu, **gấp hơn hai lần**.
+
+[Thuê nhà]
+Về tự do, thuê nhà muốn chuyển là chuyển.
+Đổi việc, đổi thành phố **không vướng bận**.
+
+[Mua trả góp]
+Nhưng tiền thuê trả đi là mất hẳn.
+Tiền góp thì dần thành **tài sản của bạn**.
+
+[Kết luận]
+Chưa ổn định thì thuê, để dành tiền.
+Thu nhập vững rồi, **mua mới là thắng**.`,
+  },
+  luxury: {
+    id: "luxury",
+    label: "Tối giản sang trọng",
+    emoji: "🤍",
+    summary: "Trang giấy ngà: ảnh đặt như bản in phòng tranh, chữ có chân hiện từng dòng giữa hai gạch vàng mảnh, hoà tan chậm rãi.",
+    bestFor: "trích dẫn, bất động sản, spa và wellness, trang sức, thời trang, câu chuyện thương hiệu, cưới hỏi, giới thiệu sản phẩm cao cấp, nội dung chậm và suy ngẫm",
+    examplePrompt: "Giới thiệu bộ sưu tập trang sức ngọc trai mới theo tinh thần sống chậm, sang trọng tối giản.",
+    exampleScript: `# Ngọc trai của biển lặng
+> Bộ sưu tập Thu 2026
+
+[Chất liệu]
+Mỗi viên ngọc cần ba năm để thành hình trong làn nước yên tĩnh.
+Không vội vàng, không khuôn mẫu.
+
+[Tay nghề]
+! 18K | vàng hồng chế tác thủ công
+Người thợ chỉ giữ lại những viên **sáng nhất dưới nắng sớm**.
+
+[Lời nhắn]
+Sang trọng không nằm ở vẻ phô trương.
+Mà ở **sự tĩnh lặng** bạn mang theo mỗi ngày.
+
+[Dành cho bạn]
+Một món quà nhỏ cho những khoảnh khắc đáng nhớ.
+Hẹn bạn tại cửa hàng, vào một buổi sáng chậm.`,
+  },
+  horror: {
+    id: "horror",
+    label: "Truyện ma",
+    emoji: "👻",
+    summary: "Không khí nửa đêm rợn người: ảnh ám lục lạnh, sương trôi, đèn chập chờn, phụ đề chữ có chân run nhẹ và cú hù chữ đỏ máu.",
+    bestFor: "truyện ma, chuyện rùng rợn, bí ẩn chưa lời giải, truyền thuyết đô thị, chuyện lạ có thật, kể chuyện hồi hộp",
+    examplePrompt: "Kể chuyện căn hộ số 13 không ai dám thuê — người thuê cuối cùng chỉ ở được ba đêm.",
+    exampleScript: `# Căn hộ số 13 không ai dám thuê
+> Người thuê cuối cùng chỉ ở được ba đêm
+
+[3:00 SÁNG · Nhà số 13]
+Căn hộ số 13 bỏ trống suốt mười năm nay.
+Hàng xóm dặn: đừng bao giờ gõ cửa phòng đó.
+
+[Đêm thứ ba]
+Cô nghe tiếng gõ cửa đúng ba giờ sáng.
+Nhưng ngoài hành lang **không có ai cả**.
+
+! 13 | dấu tay trên kính
+Sáng hôm sau, cô đếm được mười ba dấu tay.
+Và chúng in từ **phía bên trong**.
+
+[Hôm nay]
+Căn hộ vẫn để trống. Bạn có dám ở không?`,
+  },
+
+  anime: {
+    id: "anime",
+    label: "Anime",
+    emoji: "🌸",
+    summary: "Năng lượng opening anime: ảnh tươi có loé sáng, chém chéo đổi cảnh, phụ đề trắng viền màu bật nảy, câu nhấn thành khung impact có tia tốc độ và rung.",
+    bestFor: "kể chuyện kịch tính, giới thiệu nhân vật, fan anime/game, giới trẻ, câu chuyện \"hành trình trưởng thành\" truyền động lực",
+    examplePrompt: "Hành trình của nhân vật chính: từ kẻ thua trắng ngày đầu đến nhà vô địch.",
+    exampleScript: `# Từ kẻ thua cuộc đến nhà vô địch
+> Arc 1: Hành trình của nhân vật chính
+
+[Tập 1 · Khởi đầu]
+Không ai tin cậu ấy làm được.
+Ngày đầu tiên, Minh thua trắng cả ba trận.
+
+[Arc 2 · Khổ luyện]
+! 9.000 | giờ khổ luyện mỗi năm
+Mỗi sáng năm giờ, cậu ấy lại ra sân một mình.
+
+[Trận chung kết]
+Bị dẫn trước, nhưng Minh **không bỏ cuộc**.
+Và rồi cậu ấy lật ngược thế cờ.
+
+Hành trình của bạn bắt đầu từ hôm nay.
+To be continued...`,
+  },
+  podcast: {
+    id: "podcast",
+    label: "Podcast",
+    emoji: "🎙️",
+    summary: "Clip podcast trong phòng thu tối ấm: thẻ tập có ảnh khách mời, sóng âm nhảy theo lời đọc, thanh tiến độ và thẻ trích dẫn sáng dần từng từ.",
+    bestFor: "clip podcast, phỏng vấn, talkshow, câu nói đáng nhớ, bình luận, chia sẻ quan điểm, nội dung giọng nói là chính",
+    examplePrompt: "Cắt một đoạn podcast 45 giây: chuyên gia tâm lý giải thích vì sao người trẻ hay kiệt sức.",
+    exampleScript: `# Vì sao người trẻ hay kiệt sức?
+> Tập 12 · Trò chuyện cùng chuyên gia tâm lý
+
+[Khách mời: ThS. Lan Anh]
+Tôi gặp rất nhiều bạn trẻ kiệt sức mà không hiểu vì sao.
+Họ làm việc chăm chỉ, nhưng lúc nào cũng thấy mình chưa đủ.
+
+[Phần 1]
+! 1/3 | người trẻ từng kiệt sức
+Cứ ba người trẻ thì có một người từng kiệt sức.
+Nguyên nhân lớn nhất là **so sánh bản thân** với người khác.
+
+[Phần 2]
+Mạng xã hội chỉ cho bạn thấy phần đẹp nhất của người ta.
+Hãy **nghỉ ngơi trước khi kiệt sức**, đừng đợi cơ thể lên tiếng.
+
+[Lời kết]
+Bạn không cần giỏi hơn ai, chỉ cần tốt hơn hôm qua.
+Nghe trọn tập 12 và theo dõi kênh để không bỏ lỡ tập sau nhé.`,
+  },
+  map: {
+    id: "map",
+    label: "Bản đồ hành trình",
+    emoji: "🗺️",
+    summary: "Bản đồ minh hoạ vẽ tay: máy bay kéo đường gạch nối từng điểm dừng, ghim cắm xuống có nhãn địa danh, ảnh thành bưu thiếp có tem, con số quãng đường gắn vào chặng.",
+    bestFor: "lịch trình du lịch, phượt, road trip, food tour theo vùng, sự thật địa lý, hành trình lịch sử, đi từ A đến B",
+    examplePrompt: "Kể lại chuyến food tour 3 miền trong 7 ngày: Hà Nội, Hội An, Cần Thơ — mỗi nơi một món phải thử.",
+    exampleScript: `# Food tour 3 miền trong 7 ngày
+> Hà Nội · Hội An · Cần Thơ
+
+[Hà Nội · Ngày 1]
+Sáng đầu tiên, bát phở bò nóng hổi ở phố cổ.
+Chiều ra Tạ Hiện làm đĩa nem chua rán.
+
+[Hội An · Ngày 3]
+! 800 km | bay chưa tới 2 tiếng
+Bay vào Đà Nẵng rồi chạy xe ra phố Hội.
+Tô cao lầu ở đây **chỉ 35 nghìn**.
+
+[Đèo Hải Vân]
+Dừng chân giữa đèo, mây trôi ngang mặt.
+
+[Cần Thơ · Ngày 6]
+! 900 km | xe khách giường nằm
+Năm giờ sáng đã ra chợ nổi Cái Răng.
+Bún riêu ăn ngay **trên ghe**.
+
+[Về nhà · Ngày 7]
+! 1.700 km | tổng quãng đường
+Bảy ngày, ba miền, mười hai món. Bạn muốn đi chặng nào?`,
+  },
+  sport: {
+    id: "sport",
+    label: "Thể thao",
+    emoji: "🏆",
+    summary: "Giao diện truyền hình thể thao: bảng tỉ số LIVE, dải phụ đề chéo, bảng tên cầu thủ, thống kê trận và cú nổ \"GOAL!\" khi tới pha đỉnh.",
+    bestFor: "tin bóng đá, highlight trận đấu, thử thách thể hình, chuyện vận động viên, kỷ lục và thành tích, dự đoán tỉ số",
+    examplePrompt: "Kể lại pha ghi bàn phút bù giờ giúp tuyển Việt Nam thắng Thái Lan ở vòng loại, giọng bình luận viên sôi nổi.",
+    exampleScript: `# Siêu phẩm phút bù giờ ở Mỹ Đình
+> Việt Nam gặp Thái Lan · Vòng loại
+
+[PHÚT 90+2]
+Tỉ số vẫn là một đều khi trận đấu sắp khép lại.
+Cả sân Mỹ Đình nín thở chờ một phép màu.
+
+[#10 · Quang Hải]
+! 25m | khoảng cách cú sút
+Quang Hải nhận bóng, xoay người và tung cú sút xa.
+Bóng găm thẳng góc chết, **vào rồi**!
+
+[Việt Nam]
+! 72% | kiểm soát bóng
+Cả hiệp hai, Việt Nam kiểm soát bóng áp đảo.
+Ba điểm này là **xứng đáng**.
+
+[VÒNG 3]
+Việt Nam vươn lên dẫn đầu bảng sau ba lượt trận.
+Trận tới gặp Indonesia, bạn dự đoán tỉ số bao nhiêu?`,
+  },
+  finance: {
+    id: "finance",
+    label: "Biểu đồ tài chính",
+    emoji: "📈",
+    summary: "Màn hình giao dịch nền tối: biểu đồ giá tự vẽ suốt video, ảnh trong thẻ tin, con số trong phụ đề tự tô xanh/đỏ, câu nhấn thành cú vọt giá có bong bóng chú thích.",
+    bestFor: "chứng khoán, crypto, tài chính cá nhân, tin kinh tế – doanh nghiệp, báo cáo lợi nhuận, số liệu tăng giảm",
+    examplePrompt: "Video 30 giây tóm tắt phiên VN-Index vượt 1.300 điểm: khối ngoại mua ròng, nhóm ngân hàng dẫn dắt, bất động sản vẫn giảm.",
+    exampleScript: `# VN-Index vượt 1.300 điểm
+> Nhà đầu tư nên làm gì lúc này?
+
+[VN-INDEX]
+Phiên sáng nay VN-Index tăng 25 điểm, thanh khoản đạt 30 nghìn tỷ.
+Đây là mức cao nhất kể từ đầu năm.
+
+[KHỐI NGOẠI]
+Khối ngoại quay lại mua ròng 1.200 tỷ đồng sau ba tháng bán liên tục.
+! 1.200 tỷ | khối ngoại mua ròng
+
+[NGÂN HÀNG]
+Nhóm ngân hàng dẫn dắt, nhiều mã **lập đỉnh mới** trong phiên.
+
+[CẢNH BÁO]
+Nhưng cổ phiếu bất động sản vẫn giảm 8% trong tuần.
+! -8% | bất động sản trong tuần
+
+[CHIẾN LƯỢC]
+Đừng mua đuổi, hãy chia nhỏ vốn và **giữ kỷ luật** với điểm cắt lỗ.`,
+  },
+  watercolor: {
+    id: "watercolor",
+    label: "Tranh màu nước",
+    emoji: "🎨",
+    summary: "Mỗi cảnh là một bức tranh màu nước loang trên giấy vẽ, phụ đề viết tay hiện từng từ như mực thấm.",
+    bestFor: "thơ, trích dẫn, lời hay ý đẹp, suy ngẫm cảm xúc, kỷ niệm du lịch, nghệ thuật – văn hoá, kể chuyện nhẹ nhàng",
+    examplePrompt: "Video 25 giây: vài dòng tản văn về mùa thu Hà Nội và lời nhắn hãy sống chậm lại.",
+    exampleScript: `# Mùa thu về trên phố cũ
+> Vài dòng gửi những ngày bình yên
+
+[Hà Nội, tháng Mười]
+Có những buổi chiều rất lặng.
+Gió đi qua phố, **nhẹ như một cánh lá**.
+
+! 365 | ngày thương nhớ
+Ta đi qua bao mùa lá đổ.
+Mỗi mùa để lại một điều dịu dàng.
+
+[Lời hay ý đẹp]
+Đừng vội buồn vì những điều đã cũ.
+Hãy **sống chậm lại**, và thương mình hơn.`,
+  },
+  story: {
+    id: "story",
+    label: "Story điện thoại",
+    emoji: "📱",
+    summary: "Mỗi cảnh là một khung story trên điện thoại: thanh tiến độ chia đoạn, avatar vòng gradient, phụ đề là nhãn chữ trên khối màu, câu hỏi thành nhãn bình chọn Có/Không.",
+    bestFor: "hậu trường, một ngày của tôi, cập nhật cá nhân, khoe sản phẩm kiểu đời thường, hỏi ý kiến/bình chọn, phong cách sống",
+    examplePrompt: "Story hậu trường một ngày làm barista ở quán cà phê nhỏ, cuối video hỏi người xem có nên thêm món mới không.",
+    exampleScript: `# Hậu trường một ngày làm barista
+> Theo mình ra quán từ 6 giờ sáng nha
+
+[Quán quen]
+! 6 | giờ sáng mở cửa
+Cả nhà ơi, 6 giờ sáng mình đã có mặt ở quán rồi.
+Việc đầu tiên là xay mẻ cà phê cho cả ngày.
+
+[@ban_than]
+Hôm nay có bạn thân ghé phụ một tay.
+Mẻ latte đầu tiên **đẹp quá trời luôn**.
+
+! 42 | ly bán được sáng nay
+Tới trưa là tay mỏi rã rời.
+Nhưng nhìn khách cười là thấy vui liền.
+
+[Góc pha chế]
+Mình đang thử món mới: cà phê muối kem trứng.
+**Có nên bán thêm món này không?**`,
+  },
+  blueprint: {
+    id: "blueprint",
+    label: "Bản vẽ kỹ thuật",
+    emoji: "📐",
+    summary: "Tờ giấy can xanh có khung tên, ảnh thành ảnh tham chiếu có đường kích thước tự vẽ, lời đọc là ghi chú đánh số gõ từng dòng, câu nhấn được khoanh đám mây sửa đổi màu cam.",
+    bestFor: "giải thích cách mọi thứ hoạt động, kỹ thuật, kiến trúc, phát minh, DIY/xây dựng, khoa học, giải phẫu sản phẩm",
+    examplePrompt: "Video 30 giây giải thích vì sao cầu treo đứng vững: cáp chủ, trụ tháp, dây treo và khối neo.",
+    exampleScript: `# Cầu treo đứng vững nhờ đâu?
+> Giải phẫu kết cấu một cây cầu dây võng
+
+[Cáp chủ]
+Cầu treo không đứng nhờ mặt cầu.
+Toàn bộ sức nặng treo trên **hai sợi cáp chủ**.
+
+[Trụ tháp]
+! 120 m | chiều cao trụ tháp
+Hai trụ tháp cao 120 mét gánh lực căng của cáp.
+Cáp vắt qua đỉnh tháp rồi kéo xuống hai đầu cầu.
+
+[Dây treo]
+Mặt cầu treo vào cáp chủ bằng hàng trăm dây đứng.
+Mỗi dây chỉ chịu một phần nhỏ, nên cả hệ rất nhẹ.
+
+[Khối neo]
+! 7 m | độ sâu khối neo
+Hai đầu cáp chôn vào **khối neo bê tông** dưới đất.
+Lần tới qua cầu, hãy nhìn lên hai sợi cáp ấy.`,
+  },
+  festive: {
+    id: "festive",
+    label: "Lễ hội Tết",
+    emoji: "🧧",
+    summary: "Nền đỏ son viền vàng, lồng đèn đung đưa, hoa mai đào rơi, phụ đề trên dải lụa đỏ, câu nhấn bắn pháo hoa và mưa lì xì.",
+    bestFor: "chúc Tết, lời chúc ngày lễ, thông báo sự kiện/lễ hội, khuyến mãi Tết, chào năm mới, chuyện đoàn viên gia đình",
+    examplePrompt: "Video 20 giây chúc Tết năm mới 2026 gửi cả nhà, ấm áp và rộn ràng.",
+    exampleScript: `# Chúc mừng năm mới 2026
+> Lời chúc Tết gửi cả nhà
+
+[Tết]
+Một năm cũ khép lại, mùa xuân gõ cửa từng nhà.
+Cả nhà quây quần bên mâm cơm chiều ba mươi.
+
+[Giao thừa]
+Khoảnh khắc giao thừa, pháo hoa rực sáng bầu trời.
+Chúc cả nhà năm mới **an khang thịnh vượng**.
+
+! 2026 | năm Bính Ngọ rực rỡ
+Lì xì đầu năm, lộc đến đầy nhà.
+
+Tết này nhớ gọi về cho gia đình nhé!
+**Vạn sự như ý**, hẹn gặp lại mùa xuân sau.`,
+  },
+  liveshop: {
+    id: "liveshop",
+    label: "Livestream bán hàng",
+    emoji: "🛍️",
+    summary: "Màn hình phiên live bán hàng: nhãn LIVE, người xem tăng dần, bình luận trôi, tim bay, lời người dẫn ghim, thẻ sản phẩm và thẻ FLASH SALE giá lăn xuống.",
+    bestFor: "bán hàng online, giới thiệu sản phẩm, flash sale, mỹ phẩm, thời trang, đồ gia dụng, review nhanh kèm giá, chốt đơn",
+    examplePrompt: "Video 30 giây kiểu livestream chốt đơn serum vitamin C, giảm từ 399k còn 199k, tặng kèm sữa rửa mặt.",
+    exampleScript: `# Serum Vitamin C sáng da
+> Chỉ trong phiên live · Freeship toàn quốc
+
+[Serum Vitamin C]
+Chào cả nhà, hôm nay shop mở deal serum sáng da nha.
+Chai 30ml dùng hơn hai tháng, thấm nhanh không bết.
+
+[Serum Vitamin C]
+! 12.000 | Đã bán
+Tháng rồi shop bán hơn mười hai nghìn chai rồi đó.
+Da dầu, da nhạy cảm dùng đều ổn nha cả nhà.
+
+[Serum Vitamin C]
+! -50% | Chỉ hôm nay
+Trong live serum giảm **từ 399k còn 199k** thôi.
+Tặng kèm sữa rửa mặt mini, bấm giỏ hàng chốt liền nha!
+
+[Quà tặng kèm]
+Chỉ còn ba mươi suất quà, hết là thôi nha.
+Theo dõi shop để không lỡ phiên live tối mai!`,
   },
 };
 

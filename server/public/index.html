@@ -309,6 +309,32 @@
   .opt { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 10px;
          padding: 8px 10px; color: var(--text); display: flex; flex-direction: column; gap: 1px; }
   .menu.grid .opt { background: var(--bg); border-color: var(--line); padding: 10px 11px; gap: 3px; }
+  .menu.gallery { display: grid; gap: 10px; padding: 14px; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); }
+  .menu.gallery .menu-title { grid-column: 1 / -1; }
+  .menu.gallery .opt { background: var(--bg); border-color: var(--line); padding: 6px 6px 10px; gap: 4px; display: flex; flex-direction: column;
+                       transition: border-color .15s, transform .15s, background-color .15s; }
+  .menu.gallery .opt:hover:not(:disabled), .menu.gallery .opt:focus-visible { transform: translateY(-2px); border-color: var(--line-2); }
+  .menu.gallery .opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .menu.gallery .opt b { font-size: 13px; padding: 2px 4px 0; }
+  .menu.gallery .opt span:not(.opt-thumb) { font-size: 11.5px; padding: 0 4px; display: -webkit-box; -webkit-line-clamp: 3;
+                       -webkit-box-orient: vertical; overflow: hidden; }
+  .opt-thumb { position: relative; display: block; aspect-ratio: 9 / 16; border-radius: 8px; overflow: hidden; background: #0b0c10; margin-bottom: 4px; }
+  .opt-thumb img, .opt-thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .opt-thumb video { opacity: 0; transition: opacity .2s; }
+  .opt.playing .opt-thumb video { opacity: 1; }
+  .opt-thumb > svg { position: absolute; right: 7px; bottom: 7px; width: 22px; height: 22px; padding: 5px; border-radius: 50%;
+                     background: rgba(0,0,0,.55); color: #fff; transition: opacity .2s; }
+  .opt.playing .opt-thumb > svg { opacity: 0; }
+  .opt-thumb-auto { display: grid; place-content: center; justify-items: center; gap: 8px; color: #fff; text-align: center;
+                    background: conic-gradient(from 210deg at 50% 45%, #ff7a1a, #ffc46b, #ff5e9c, #7a6bff, #2ec5d3, #ff7a1a); }
+  .opt-thumb-auto svg { width: 38px; height: 38px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+  .opt-thumb-auto em { font-style: normal; font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+                       background: rgba(10,11,15,.55); backdrop-filter: blur(4px); }
+  .opt-thumb-random { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; background: #0b0c10; }
+  .opt-thumb-random img { position: static; width: 100%; height: 100%; object-fit: cover; }
+  .opt-thumb-random b { position: absolute; inset: 0; display: grid; place-items: center; }
+  .opt-thumb-random b svg { width: 46px; height: 46px; padding: 11px; border-radius: 50%; color: #fff;
+                            background: rgba(10,11,15,.62); backdrop-filter: blur(4px); box-shadow: 0 4px 18px rgba(0,0,0,.4); }
   .opt-hint { font-size: 11px; color: var(--muted); font-style: italic; opacity: .85; margin-top: 2px; }
   .opt:hover:not(:disabled), .opt:focus-visible { background: var(--panel-2); outline: none; }
   .opt.on { border-color: var(--accent); }
@@ -488,23 +514,69 @@
   .pc-gen { display: flex; align-items: center; gap: 8px; margin-right: auto; min-width: 0; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
   .pc-gen select { flex: 1 1 180px; min-width: 0; max-width: 260px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; outline: 0; color: var(--text); font-size: 13px; }
   .pc-gen select:focus { border-color: var(--line-2); }
-  .ht-dlg { width: min(720px, calc(100vw - 32px)); }
+  .ht-dlg { width: min(780px, calc(100vw - 32px)); }
   .ht-dlg form { display: flex; flex-direction: column; max-height: calc(100vh - 80px); }
   .ht-scroll { overflow-y: auto; min-height: 0; padding-right: 4px; }
-  .ht-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--muted); }
-  .ht-bar .btn { padding: 4px 10px; font-size: 12px; }
-  .ht-bar .seg button { padding: 4px 10px; font-size: 12px; }
-  .ht-group { margin-top: 12px; }
-  .ht-group-label { font-size: 13px; font-weight: 600; }
-  .ht-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .ht-chips button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; color: var(--muted); cursor: pointer; }
-  .ht-chips button:hover:not(:disabled) { border-color: var(--line-2); color: var(--text); }
-  .ht-chips button[aria-pressed="true"] { background: var(--panel-2); border-color: var(--accent); color: var(--text); font-weight: 600; }
-  .ht-chips button:disabled { opacity: .4; cursor: default; }
+  .ht-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .ht-bar .btn { padding: 6px 10px; font-size: 12px; }
+  .ht-search { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line);
+               border-radius: 10px; padding: 0 10px; color: var(--muted); }
+  .ht-search:focus-within { border-color: var(--line-2); }
+  .ht-search svg { width: 15px; height: 15px; flex: none; }
+  .ht-search input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--text); font-size: 13px; padding: 8px 0; }
+  .ht-tabs { display: flex; gap: 6px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .ht-tabs button { flex: none; display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--line);
+                    border-radius: 999px; padding: 5px 11px; font-size: 12.5px; color: var(--muted); cursor: pointer;
+                    transition: color .15s, border-color .15s, background-color .15s; }
+  .ht-tabs button svg { width: 14px; height: 14px; color: var(--ht-hue); }
+  .ht-tabs button:hover { color: var(--text); border-color: var(--line-2); }
+  .ht-tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; border-color: var(--ht-hue);
+                    background: color-mix(in srgb, var(--ht-hue) 14%, transparent); }
+  .ht-tab-count { min-width: 18px; height: 18px; border-radius: 9px; background: var(--ht-hue); color: #fff; font-size: 11px;
+                  display: inline-grid; place-items: center; padding: 0 5px; }
+  .ht-group { margin-top: 14px; }
+  .ht-group-label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
+  .ht-group-icon { width: 22px; height: 22px; border-radius: 7px; display: inline-grid; place-items: center; color: var(--ht-hue);
+                   background: color-mix(in srgb, var(--ht-hue) 16%, transparent); }
+  .ht-group-icon svg { width: 13px; height: 13px; }
+  .ht-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 8px; }
+  .ht-tpl { position: relative; display: flex; flex-direction: column; gap: 4px; text-align: left; background: var(--bg);
+            border: 1px solid var(--line); border-radius: 12px; padding: 10px 34px 10px 12px; cursor: pointer; color: var(--text);
+            transition: border-color .15s, background-color .15s, transform .15s; }
+  .ht-tpl::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0;
+                    background: var(--ht-hue); opacity: .55; }
+  .ht-tpl:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ht-hue) 60%, var(--line)); transform: translateY(-1px); }
+  .ht-tpl[aria-pressed="true"] { border-color: var(--ht-hue); background: color-mix(in srgb, var(--ht-hue) 12%, var(--bg)); }
+  .ht-tpl[aria-pressed="true"]::before { opacity: 1; }
+  .ht-tpl:disabled { opacity: .4; cursor: default; }
+  .ht-tpl-formula { font-size: 13.5px; font-weight: 650; line-height: 1.3; }
+  .ht-tpl-example { font-size: 12px; color: var(--muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical; overflow: hidden; font-style: italic; }
+  .ht-tpl-check { position: absolute; top: 9px; right: 9px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line-2);
+                  display: grid; place-items: center; color: transparent; transition: background-color .15s, border-color .15s; }
+  .ht-tpl-check svg { width: 12px; height: 12px; }
+  .ht-tpl[aria-pressed="true"] .ht-tpl-check { background: var(--ht-hue); border-color: var(--ht-hue); color: #fff; }
+  .ht-empty { margin: 18px 0; text-align: center; }
+  .ht-dock { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+  .ht-dock .dlg-foot { margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .ht-dock-top { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
+  .ht-dock-top b { color: var(--text); }
+  .ht-dock-top > span:first-child { flex: none; }
+  .ht-tray { display: flex; gap: 6px; overflow-x: auto; min-width: 0; scrollbar-width: thin; }
+  .ht-pill { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text); border-radius: 999px;
+             padding: 3px 4px 3px 10px; border: 1px solid var(--ht-hue); background: color-mix(in srgb, var(--ht-hue) 14%, transparent); }
+  .ht-pill button { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 0; background: transparent;
+                    color: var(--muted); cursor: pointer; padding: 0; }
+  .ht-pill button:hover { background: rgba(255,255,255,.1); color: var(--text); }
+  .ht-pill svg { width: 12px; height: 12px; }
+  .ht-per { display: flex; align-items: center; gap: 8px; margin-right: auto; font-size: 12.5px; color: var(--muted); }
+  .ht-per .seg button { padding: 4px 10px; font-size: 12px; }
   .ht-results-head { margin-top: 18px; font-size: 13px; font-weight: 600; }
   .ht-card { margin-top: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
   .ht-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
-  .ht-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 600; }
+  .ht-card { border-left: 3px solid var(--ht-hue, var(--accent)); }
+  .ht-tag { display: inline-flex; align-items: center; gap: 5px; color: var(--ht-hue, var(--accent)); font-weight: 600; }
+  .ht-tag svg { width: 13px; height: 13px; }
   .ht-words { color: var(--muted); }
   .ht-words.err { color: var(--err, #ff6b6b); }
   .ht-text { width: 100%; margin-top: 6px; background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px;
@@ -579,7 +651,7 @@
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .library { padding: 18px 16px; }
     .lib-head input { width: 100%; order: 3; }
-    .menu.grid { grid-template-columns: 1fr 1fr; }
+    .menu.grid, .menu.gallery { grid-template-columns: 1fr 1fr; }
     .project-bar .btn .label { display: none; }
   }
 
@@ -1888,27 +1960,31 @@ Lưu lại để làm theo nhé!</pre>
       <h2><i data-icon="zap"></i> Công cụ Hook</h2>
       <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
     </div>
-    <p class="muted">Chọn vài công thức câu mở đầu, AI viết cho đúng video này để bạn so và chọn câu giữ người xem tốt nhất.
-      Rê chuột lên công thức để xem câu ví dụ.</p>
+    <p class="muted">Chọn tối đa 6 công thức câu mở đầu, AI viết cho đúng video này để bạn so và chọn câu giữ người xem tốt nhất.</p>
     <div class="ht-scroll">
       <div class="ht-bar">
-        <span id="hookToolCount"></span>
-        <button type="button" class="btn" id="hookToolShuffle"><i data-icon="shuffle"></i> Gợi ý ngẫu nhiên</button>
+        <label class="ht-search"><i data-icon="search"></i>
+          <input id="hookToolSearch" type="search" placeholder="Tìm công thức — ví dụ: bí mật, đoán, sai lầm" autocomplete="off" /></label>
+        <button type="button" class="btn" id="hookToolShuffle"><i data-icon="shuffle"></i> Ngẫu nhiên</button>
         <button type="button" class="btn" id="hookToolClear"><i data-icon="eraser"></i> Bỏ chọn</button>
-        <span style="margin-left:auto">Mỗi công thức</span>
-        <div class="seg" role="radiogroup" aria-label="Số câu mỗi công thức" id="hookToolPer">
-          <button type="button" role="radio" data-ht-per="1">1 câu</button>
-          <button type="button" role="radio" data-ht-per="2">2 câu</button>
-          <button type="button" role="radio" data-ht-per="3">3 câu</button>
-        </div>
       </div>
+      <div class="ht-tabs" role="tablist" id="hookToolTabs"></div>
       <div id="hookToolPick"></div>
       <div id="hookToolResults"></div>
     </div>
-    <p class="hint" id="hookToolHint"></p>
-    <div class="dlg-foot">
-      <button type="button" class="btn" data-close>Đóng</button>
-      <button type="button" class="btn primary" id="hookToolGen"><i data-icon="sparkles"></i> Viết hook</button>
+    <div class="ht-dock">
+      <div class="ht-dock-top"><span id="hookToolCount"></span><div class="ht-tray" id="hookToolTray"></div></div>
+      <p class="hint" id="hookToolHint"></p>
+      <div class="dlg-foot">
+        <div class="ht-per"><span>Mỗi công thức</span>
+          <div class="seg" role="radiogroup" aria-label="Số câu mỗi công thức" id="hookToolPer">
+            <button type="button" role="radio" data-ht-per="1">1 câu</button>
+            <button type="button" role="radio" data-ht-per="2">2 câu</button>
+            <button type="button" role="radio" data-ht-per="3">3 câu</button>
+          </div></div>
+        <button type="button" class="btn" data-close>Đóng</button>
+        <button type="button" class="btn primary" id="hookToolGen"><i data-icon="sparkles"></i> Viết hook</button>
+      </div>
     </div>
   </form>
 </dialog>

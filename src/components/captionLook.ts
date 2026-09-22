@@ -77,7 +77,7 @@ export const CAPTION_TEMPLATES: { label: string; look: Partial<CaptionLook> }[] 
  * Phong cách dùng phụ đề làm NỘI DUNG (bong bóng chat, thẻ bài đăng, câu hỏi, bảng xếp hạng, trang sách,
  * lá thư viết tay) — thay bằng phụ đề tuỳ chỉnh sẽ hỏng bố cục, nên ở các phong cách này kiểu tuỳ chỉnh không áp dụng.
  */
-export const CONTENT_CAPTION_STYLES = new Set(["chat", "social", "quiz", "ranking", "book", "storybook", "pen"]);
+export const CONTENT_CAPTION_STYLES = new Set(["chat", "social", "quiz", "ranking", "book", "storybook", "pen", "recipe", "terminal", "luxury", "podcast", "blueprint", "watercolor", "liveshop"]);
 
 export const canCustomizeCaptions = (style: string) => !CONTENT_CAPTION_STYLES.has(style);
 

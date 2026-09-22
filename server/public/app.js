@@ -62,6 +62,8 @@ const TEXT_PLACEHOLDER = {
 
 const DEFAULT_OPTS = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: "", video: "", provider: "auto", images: "library", art: "auto", length: "auto", hook: "auto", hookMedia: "" };
 const AUTO_STYLE = { id: "auto", emoji: "✨", label: "Tự động", summary: "AI đọc nội dung và chọn phong cách hợp nhất." };
+/** Mỗi video mới bốc thăm một phong cách (server/chat.ts prepareScript) — sửa lời, làm tiếp thì giữ phong cách cũ. */
+const RANDOM_STYLE = { id: "random", emoji: "🎲", label: "Ngẫu nhiên", summary: "Mỗi video mới bốc thăm một phong cách — hợp khi làm hàng loạt cho đỡ nhàm." };
 
 // ---------- trạng thái ----------
 let state = null;          // /api/state
@@ -78,7 +80,13 @@ const opts = { ...DEFAULT_OPTS };
 let historyItems = [];
 let historyPoll = null;
 
-const styleMeta = (id) => (id === "auto" ? AUTO_STYLE : state?.styles?.find((s) => s.id === id)) ?? AUTO_STYLE;
+const styleMeta = (id) =>
+  (id === "auto" ? AUTO_STYLE : id === "random" ? RANDOM_STYLE : state?.styles?.find((s) => s.id === id)) ?? AUTO_STYLE;
+/** Bốc một phong cách có thật (bỏ "Video gốc" và phong cách đang dùng) — cho nút đổi phong cách của video đã có. */
+const pickRandomStyle = (except) => {
+  const pool = (state?.styles ?? []).filter((s) => s.id !== "plain" && s.id !== except);
+  return pool[Math.floor(Math.random() * pool.length)]?.id ?? "auto";
+};
 /** Server báo đã có key của MỘT nhà cung cấp viết kịch bản (Claude, ChatGPT, Gemini, Groq, OpenRouter). */
 const hasScriptKey = () => Boolean(state?.keys.script);
 
@@ -1247,8 +1255,10 @@ function bindMessageActions() {
     b.addEventListener("click", () => prefill(QUICK_EDITS[Number(b.dataset.quick)].prompt)));
   thread.querySelector("[data-quick-style]")?.addEventListener("click", (e) =>
     openMenu(e.currentTarget, styleMenu((value) => {
-      setOpt("style", value);
-      prefill(`Đổi sang phong cách ${styleMeta(value).label}.`);
+      // Video đã có: "Ngẫu nhiên" bốc ngay một phong cách cụ thể để yêu cầu sửa ghi rõ đổi sang gì.
+      const picked = value === "random" ? pickRandomStyle(project?.style) : value;
+      setOpt("style", picked);
+      prefill(`Đổi sang phong cách ${styleMeta(picked).label}.`);
     })));
   // Đổi hook cho video đã có: chọn công thức rồi điền sẵn yêu cầu sửa — AI chỉ viết lại câu đầu.
   thread.querySelector("[data-quick-hook]")?.addEventListener("click", (e) =>
@@ -1795,7 +1805,7 @@ function artMenu(onPick) {
     options: [
       {
         value: "auto", icon: icon("sparkles"), title: "Theo phong cách",
-        sub: opts.style === "auto" ? "Mỗi phong cách một kiểu — đa số là ảnh chụp thật" : `Kiểu ảnh của ${style.label}`,
+        sub: opts.style === "auto" || opts.style === "random" ? "Mỗi phong cách một kiểu — đa số là ảnh chụp thật" : `Kiểu ảnh của ${style.label}`,
       },
       ...(state?.artStyles ?? []).map((a) => ({ value: a.id, icon: artIcon(a.id), title: a.label, sub: a.summary })),
     ],
@@ -1892,10 +1902,11 @@ function imageMenu() {
 
 function styleMenu(onPick) {
   return {
-    id: "style", title: "Phong cách hình ảnh", layout: "grid", value: opts.style, onPick,
-    options: [AUTO_STYLE, ...state.styles].map((s) => ({
+    id: "style", title: "Phong cách hình ảnh", layout: "gallery", value: opts.style, onPick,
+    options: [AUTO_STYLE, RANDOM_STYLE, ...state.styles].map((s) => ({
       value: s.id, title: `${s.emoji} ${s.label}`, sub: s.summary,
-      hint: s.examplePrompt ? `VD: ${s.examplePrompt}` : "",
+      // Ảnh + clip xem trước dựng từ lời mẫu của phong cách (scripts/style-previews.ts). "Tự động", "Ngẫu nhiên" có thẻ riêng.
+      thumb: s.id === "auto" || s.id === "random" ? s.id : `/style-previews/${s.id}`,
     })),
   };
 }
@@ -2336,7 +2347,7 @@ function openMenu(anchor, menu) {
     group = o.group ?? group;
     const on = o.value === menu.value;
     const opt = `<button type="button" class="opt ${on ? "on" : ""}" role="option" aria-selected="${on}"
-      data-value="${escapeHtml(o.value)}" ${o.disabled ? "disabled" : ""}>
+      data-value="${escapeHtml(o.value)}" ${o.disabled ? "disabled" : ""}>${o.thumb ? optThumb(o.thumb) : ""}
       <b>${o.icon ? `${o.icon} ` : ""}${escapeHtml(o.title)}</b>${o.sub ? `<span>${escapeHtml(o.sub)}</span>` : ""}${
       o.hint ? `<i class="opt-hint">${escapeHtml(o.hint)}</i>` : ""}</button>`;
     // o.preview: mã giọng — thêm nút nghe thử cạnh dòng (bấm là nghe và chọn luôn giọng đó, không đóng menu).
@@ -2345,9 +2356,44 @@ function openMenu(anchor, menu) {
   el.hidden = false;
   el.querySelectorAll(".opt").forEach((b) =>
     b.addEventListener("click", () => { stopVoicePreview(); closeMenu(); menu.onPick(b.dataset.value); }));
+  bindOptThumbs(el);
 
-  positionMenu(el, anchor, menu.layout === "grid" ? 720 : 340, menu.layout === "grid");
+  const wide = menu.layout === "grid" || menu.layout === "gallery";
+  positionMenu(el, anchor, menu.layout === "gallery" ? 940 : wide ? 720 : 340, wide);
   (el.querySelector(".opt.on:not(:disabled)") ?? el.querySelector(".opt:not(:disabled)"))?.focus({ preventScroll: true });
+}
+
+/**
+ * Ảnh xem trước dọc 9:16 trên thẻ menu. Clip chỉ tải khi rê chuột / focus vào thẻ (preload none) để mở menu
+ * không kéo 30 clip một lúc. Thiếu file (chưa chạy scripts/style-previews.ts) thì ẩn khung, thẻ vẫn dùng được.
+ */
+function optThumb(base) {
+  if (base === "auto") return `<span class="opt-thumb opt-thumb-auto">${icon("sparkles")}<em>AI chọn giúp bạn</em></span>`;
+  if (base === "random") {
+    // Ghép 4 ảnh xem trước bốc ngẫu nhiên mỗi lần mở menu — nhìn là hiểu "mỗi video một kiểu".
+    const ids = (state?.styles ?? []).filter((s) => s.id !== "plain").map((s) => s.id).sort(() => Math.random() - 0.5).slice(0, 4);
+    return `<span class="opt-thumb opt-thumb-random">${ids.map((id) =>
+      `<img src="/style-previews/${escapeHtml(id)}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />`).join("")}
+      <b>${icon("dices")}</b></span>`;
+  }
+  return `<span class="opt-thumb"><img src="${escapeHtml(base)}.jpg" alt="" loading="lazy" onerror="this.parentElement.remove()" />
+    <video muted loop playsinline preload="none" data-src="${escapeHtml(base)}.mp4"></video>${icon("play")}</span>`;
+}
+
+function bindOptThumbs(root) {
+  root.querySelectorAll(".opt").forEach((b) => {
+    const video = b.querySelector(".opt-thumb video");
+    if (!video) return;
+    const play = () => {
+      if (!video.src) video.src = video.dataset.src;
+      video.play().then(() => b.classList.add("playing")).catch(() => {});
+    };
+    const stop = () => { video.pause(); b.classList.remove("playing"); };
+    b.addEventListener("mouseenter", play);
+    b.addEventListener("focus", play);
+    b.addEventListener("mouseleave", stop);
+    b.addEventListener("blur", stop);
+  });
 }
 
 /** Ưu tiên mở phía trên nút, thiếu chỗ thì mở xuống, cả hai thiếu thì bám mép trên và cuộn. */

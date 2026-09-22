@@ -19,6 +19,26 @@ import { RankingStyle } from "./ranking";
 import { PenStyle } from "./pen";
 import { BookStyle } from "./book";
 import { StorybookStyle } from "./storybook";
+import { NeonStyle } from "./neon";
+import { ScrapbookStyle } from "./scrapbook";
+import { MagazineStyle } from "./magazine";
+import { TimelineStyle } from "./timeline";
+import { RecipeStyle } from "./recipe";
+import { TerminalStyle } from "./terminal";
+import { PixelStyle } from "./pixel";
+import { VersusStyle } from "./versus";
+import { LuxuryStyle } from "./luxury";
+import { HorrorStyle } from "./horror";
+import { AnimeStyle } from "./anime";
+import { PodcastStyle } from "./podcast";
+import { MapStyle } from "./map";
+import { SportStyle } from "./sport";
+import { FinanceStyle } from "./finance";
+import { WatercolorStyle } from "./watercolor";
+import { StoryStyle } from "./story";
+import { BlueprintStyle } from "./blueprint";
+import { FestiveStyle } from "./festive";
+import { LiveshopStyle } from "./liveshop";
 
 /** Phong cách → component vẽ. Thêm phong cách mới: thêm id vào meta.ts và một dòng ở đây. */
 export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
@@ -41,6 +61,26 @@ export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
   book: BookStyle,
   storybook: StorybookStyle,
   pen: PenStyle,
+  neon: NeonStyle,
+  scrapbook: ScrapbookStyle,
+  magazine: MagazineStyle,
+  timeline: TimelineStyle,
+  recipe: RecipeStyle,
+  terminal: TerminalStyle,
+  pixel: PixelStyle,
+  versus: VersusStyle,
+  luxury: LuxuryStyle,
+  horror: HorrorStyle,
+  anime: AnimeStyle,
+  podcast: PodcastStyle,
+  map: MapStyle,
+  sport: SportStyle,
+  finance: FinanceStyle,
+  watercolor: WatercolorStyle,
+  story: StoryStyle,
+  blueprint: BlueprintStyle,
+  festive: FestiveStyle,
+  liveshop: LiveshopStyle,
 };
 
 /**

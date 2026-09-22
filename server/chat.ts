@@ -19,7 +19,7 @@ import { isLengthChoice, type LengthChoice } from "../scripts/video-length";
 import { isHookChoice } from "../scripts/hook-library";
 import { moveToAppTrash } from "./app-trash";
 import { FREE_MEDIA_GROUP } from "./keys";
-import { isStyleId, STYLES } from "../src/styles/meta";
+import { isStyleId, randomStyle, RANDOM_STYLE, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
 import { reviewScript } from "../scripts/review-script";
 import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
@@ -52,8 +52,8 @@ import {
 export type ChatSettings = {
   /** Tạo video (có giọng + nhạc) hay bộ ảnh tĩnh, mỗi cảnh một ảnh. */
   kind: "video" | "image";
-  /** Phong cách hình ảnh, "auto" = AI chọn theo nội dung. */
-  style: StyleChoice;
+  /** Phong cách hình ảnh, "auto" = AI chọn theo nội dung, "random" = mỗi video mới bốc thăm một phong cách. */
+  style: StyleChoice | typeof RANDOM_STYLE;
   /** "ai" = AI viết kịch bản từ ý tưởng; "text" = dùng nguyên văn kịch bản dán vào, không cần key. */
   mode: "ai" | "text";
   aspect: string;
@@ -894,7 +894,7 @@ export const normalizeSettings = (
   const s = patch ?? {};
   return {
     kind: s.kind === "image" || s.kind === "video" ? s.kind : base.kind,
-    style: s.style === "auto" || isStyleId(s.style) ? s.style : base.style,
+    style: s.style === "auto" || s.style === RANDOM_STYLE || isStyleId(s.style) ? s.style : base.style,
     mode: s.mode === "ai" || s.mode === "text" ? s.mode : base.mode,
     aspect: typeof s.aspect === "string" && ASPECT_IDS.includes(s.aspect as never)
       ? s.aspect : base.aspect,
@@ -1094,7 +1094,7 @@ export const startTurn = (input: TurnInput) => {
   assertSettingsUsable(settings);
   if (settings.mode === "text") {
     // Báo lỗi cú pháp ngay, trước khi ghi tin nhắn và chạy nền.
-    textToScript(prompt, { style: settings.style, uploads: attachments as string[] });
+    textToScript(prompt, { style: settings.style === RANDOM_STYLE ? "auto" : settings.style, uploads: attachments as string[] });
   }
 
   const job = launchTurn(slug, prompt, attachments as string[], settings, chat.messages);
@@ -1225,11 +1225,16 @@ export const prepareScript = async (
   // ---- kịch bản ----
   log("__STEP__ script");
   let script: VideoScript;
+  // "Ngẫu nhiên" chỉ bốc thăm cho video mới — sửa lời hay làm tiếp phần sau thì giữ phong cách đang có (như "auto").
+  const continuing = Boolean(readJson(chatPath(slug))?.series);
+  const style: StyleChoice = settings.style !== RANDOM_STYLE ? settings.style
+    : existing || continuing ? "auto" : randomStyle(settings.mode === "text");
+  if (settings.style === RANDOM_STYLE && style !== "auto") log(`Phong cách ngẫu nhiên: ${STYLES[style].emoji} ${STYLES[style].label}`);
   if (settings.mode === "text") {
     log("Dựng từ kịch bản bạn dán vào — không dùng AI…");
     const previous = existing ? parseScript(existing) : null;
     const parsed = textToScript(prompt, {
-      style: settings.style,
+      style,
       uploads,
       previousImages: previous?.scenes.map((s) => s.image),
       previousStyle: previous?.style,
@@ -1238,7 +1243,7 @@ export const prepareScript = async (
     for (const note of parsed.notes) log(note);
   } else if (existing) {
     log(`Đang sửa kịch bản theo yêu cầu (${providerLabel(scriptProvider(settings.provider) ?? "gemini")} viết)…`);
-    script = await editScript(parseScript(existing), prompt, slug, uploads, undefined, settings.style, settings.provider,
+    script = await editScript(parseScript(existing), prompt, slug, uploads, undefined, style, settings.provider,
       { length: settings.length, log });
   } else {
     const series = readJson(chatPath(slug))?.series as ChatSeries | undefined;
@@ -1248,12 +1253,12 @@ export const prepareScript = async (
     if (series && previous) {
       const before = parseScript(previous);
       log(`Đang viết phần ${series.part}, nối tiếp “${before.title}” (${providerLabel(scriptProvider(settings.provider) ?? "gemini")} viết)…`);
-      script = await continueScript(before, series.part, prompt, slug, uploads, undefined, settings.style, settings.provider,
+      script = await continueScript(before, series.part, prompt, slug, uploads, undefined, style, settings.provider,
         { length: settings.length, log });
       partTitle = script.title;
     } else {
       log(`Đang viết kịch bản bằng ${providerLabel(scriptProvider(settings.provider) ?? "gemini")}…`);
-      script = await generateScript(prompt, slug, undefined, uploads, settings.style, settings.provider,
+      script = await generateScript(prompt, slug, undefined, uploads, style, settings.provider,
         { length: settings.length, hook: settings.hook, log });
     }
     // Lượt soát: bắt dữ kiện sai, câu đố vô lý, số liệu bịa rồi sửa đúng chỗ đó (scripts/review-script.ts).
@@ -1289,7 +1294,7 @@ export const buildFromScript = async (
   const sceneSummary = script.scenes.map((sc) => ({ lines: sc.lines, image: sc.image }));
   const styleMeta = STYLES[script.style] ?? STYLES.caption;
   const styleLabel = `${styleMeta.emoji} ${styleMeta.label}`;
-  log(`Phong cách: ${styleLabel}${settings.style === "auto" ? " (AI chọn)" : ""}`);
+  log(`Phong cách: ${styleLabel}${settings.style === "auto" ? " (AI chọn)" : settings.style === RANDOM_STYLE ? " (ngẫu nhiên)" : ""}`);
 
   // ---- chế độ ảnh: mỗi cảnh một ảnh tĩnh, không giọng, không nhạc ----
   // Không ghi props.json — giữ nguyên props của bản video (nếu có).

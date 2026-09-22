@@ -78,6 +78,26 @@ Danh sách ở `src/styles/meta.ts`, bản vẽ ở `src/styles/<id>/`, luật t
 | `book` | `style-book` | tóm tắt sách, lịch sử, truyền thuyết, chuyện có chương hồi |
 | `storybook` | `style-storybook` | truyện cổ tích, truyện thiếu nhi, kể chuyện trước giờ ngủ |
 | `pen` | `style-pen` | lá thư, tâm sự, nhật ký, lời cảm ơn, kỷ niệm |
+| `neon` | `style-neon` | đời sống về đêm, âm nhạc, gaming, thành phố, K-pop/tiệc tùng |
+| `scrapbook` | `style-scrapbook` | du lịch, kỷ niệm, gia đình, tổng kết năm, "một năm nhìn lại" |
+| `magazine` | `style-magazine` | thời trang, làm đẹp, người nổi tiếng, xu hướng, sản phẩm |
+| `timeline` | `style-timeline` | lịch sử, tiểu sử, lịch sử thương hiệu — mỗi cảnh một mốc có `tag` là năm |
+| `recipe` | `style-recipe` | nấu ăn, pha chế, làm bánh, DIY, hướng dẫn từng bước, skincare |
+| `terminal` | `style-terminal` | lập trình, mẹo công nghệ, AI, an ninh mạng, hướng dẫn phần mềm |
+| `pixel` | `style-pixel` | gaming, thử thách, học mà chơi, "level up" bản thân, trẻ em |
+| `versus` | `style-versus` | so sánh A vs B, lầm tưởng vs sự thật, trước/sau — viết theo cặp cảnh, cảnh cuối chốt |
+| `luxury` | `style-luxury` | trích dẫn, bất động sản, spa, trang sức, thương hiệu cao cấp, cưới hỏi |
+| `horror` | `style-horror` | truyện ma, chuyện rùng rợn, bí ẩn, truyền thuyết đô thị — rợn bằng không khí |
+| `anime` | `style-anime` | kể chuyện kịch tính kiểu opening anime, giới thiệu nhân vật, "hành trình trưởng thành" |
+| `podcast` | `style-podcast` | clip podcast, phỏng vấn, talkshow, câu nói đáng nhớ |
+| `map` | `style-map` | lịch trình du lịch, phượt, food tour theo vùng, hành trình "đi từ A đến B" |
+| `sport` | `style-sport` | tin bóng đá, highlight, thể hình, vận động viên, kỷ lục |
+| `finance` | `style-finance` | chứng khoán, crypto, tài chính cá nhân, số liệu tăng giảm |
+| `watercolor` | `style-watercolor` | thơ, trích dẫn, lời hay ý đẹp, tản văn, suy ngẫm nhẹ nhàng |
+| `story` | `style-story` | hậu trường, một ngày của tôi, khoe sản phẩm đời thường, bình chọn Có/Không |
+| `blueprint` | `style-blueprint` | cách mọi thứ hoạt động, kỹ thuật, kiến trúc, phát minh, giải phẫu sản phẩm |
+| `festive` | `style-festive` | chúc Tết, lời chúc ngày lễ, sự kiện, khuyến mãi dịp lễ |
+| `liveshop` | `style-liveshop` | bán hàng online, flash sale, giới thiệu sản phẩm kèm giá, chốt đơn |
 
 Mỗi phong cách có `examplePrompt` trong `meta.ts` — hiện trong menu chọn phong cách của web
 và được điền sẵn vào ô chat khi chọn phong cách cho video mới.

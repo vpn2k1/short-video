@@ -43,6 +43,7 @@
     "icon": "desktop/icon.png",
     "asar": false,
     "npmRebuild": false,
+    "compression": "maximum",
     "directories": {
       "output": "release"
     },
@@ -62,7 +63,11 @@
       "vendor/llama/${os}-${arch}/**",
       "vendor/yt-dlp/${os}-${arch}/**",
       "vendor/vieneu/${os}-${arch}/**",
-      "vendor/models/**"
+      "vendor/models/**",
+      "!**/node_modules/**/*.{map,md,markdown}",
+      "!**/node_modules/**/*.d.{ts,mts,cts}",
+      "!node_modules/lucide/dist/{esm,umd}/**",
+      "!node_modules/lucide-react/dist/cjs/**"
     ],
     "afterPack": "desktop/after-pack.cjs",
     "mac": {

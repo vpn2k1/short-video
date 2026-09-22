@@ -79,6 +79,7 @@ function sheetValue(col, raw) {
   }
   if (col === "style") {
     if (["auto", "tu dong", "tu chon"].includes(v)) return { style: "auto" };
+    if (["random", "ngau nhien", "bat ky"].includes(v)) return { style: "random" };
     const found = (state?.styles ?? []).find((s) => sheetKey(s.id) === v || sheetKey(s.label) === v);
     return found ? { style: found.id } : null;
   }

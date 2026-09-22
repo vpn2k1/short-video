@@ -42,6 +42,7 @@ function fillBulkEditOptions() {
   const option = (value, label) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
   const keep = option(BE_KEEP, "Giữ như từng video");
   $("beStyle").innerHTML = keep + option("auto", "✨ Tự động — AI chọn theo nội dung") +
+    option("random", "🎲 Ngẫu nhiên — mỗi video một phong cách") +
     (state?.styles ?? []).map((s) => option(s.id, `${s.emoji} ${s.label}`)).join("");
   $("beVoice").innerHTML = keep + option("", "Không giọng") +
     (state?.voices.catalog ?? []).filter((v) => !v.paidPlan).map((v) => option(v.key, v.label)).join("");

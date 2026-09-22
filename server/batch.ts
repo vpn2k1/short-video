@@ -66,6 +66,7 @@ import { compileVideos } from "../scripts/compile";
 import { renderCover, renderShort } from "../scripts/render";
 import { brandVideo, isBrandFile } from "../scripts/brand";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
+import { randomStyle, RANDOM_STYLE } from "../src/styles/meta";
 import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
 import {
   guessLanguage, isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
@@ -128,7 +129,8 @@ export type EditPlan = {
   music?: string | null;
   handle?: string;
   accent?: string;
-  style?: StyleChoice;
+  /** "random" = mỗi video bốc thăm một phong cách (chỉ trong nhóm dựng được từ lời có sẵn). */
+  style?: StyleChoice | typeof RANDOM_STYLE;
   /** "" = bỏ giọng đọc. */
   voice?: string;
   aspect?: string;
@@ -1049,7 +1051,7 @@ export const saveItemScript = (id: unknown, body: unknown) => {
   if (!old || !item.slug) throw new Error("Ô này chưa có lời để sửa — dùng Viết lại từ ý tưởng.");
 
   const own = settings ? normalizeSettings(settings, batch.settings) : itemSettings(batch, item);
-  const style = own.style === "auto" ? old.style : own.style;
+  const style = own.style === "auto" || own.style === RANDOM_STYLE ? old.style : own.style;
   // Ảnh đã dùng: props.json (ảnh tìm lúc dựng nằm ở đây) rồi mới tới script.json.
   const props = readJson(path.join(videoDir(item.slug), "props.json")) as { scenes?: { image?: string | null }[] } | null;
   const previousImages = old.scenes.map((scene, i) => props?.scenes?.[i]?.image ?? scene.image ?? null);
@@ -1294,7 +1296,7 @@ const prepare = async (batch: Batch, item: BatchItem, log: (line: string) => voi
   let name = item.input;
   if (settings.mode === "text") {
     try {
-      name = textToScript(item.input, { style: settings.style }).script.title;
+      name = textToScript(item.input, { style: settings.style === RANDOM_STYLE ? "auto" : settings.style }).script.title;
     } catch {
       // lỗi cú pháp sẽ lộ ra ở prepareScript ngay bên dưới, kèm thông báo rõ hơn
     }
@@ -1742,10 +1744,13 @@ const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) =>
   if (!fs.existsSync(videoDir(slug))) throw new Error("Video này không còn trong Thư viện.");
   log("__STEP__ script");
   const chat = readChat(slug);
+  // "Ngẫu nhiên": bốc thăm riêng cho từng video, lưu đúng phong cách đã bốc để lần sửa sau không bốc lại.
+  const style = plan.style === RANDOM_STYLE ? randomStyle(true) : plan.style;
+  if (plan.style === RANDOM_STYLE && style && style !== "auto") log(`Phong cách ngẫu nhiên: ${style}`);
   const settings = normalizeSettings({
     ...chat.settings,
     ...(plan.music !== undefined ? { music: plan.music } : {}),
-    ...(plan.style ? { style: plan.style } : {}),
+    ...(style ? { style } : {}),
     ...(plan.voice !== undefined ? { voice: plan.voice } : {}),
     ...(plan.aspect ? { aspect: plan.aspect } : {}),
   }, chat.settings);
@@ -1781,7 +1786,7 @@ const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) =>
       }
       log(`Thay ${count} chỗ trong lời.`);
     }
-    if (plan.style && plan.style !== "auto") script.style = plan.style;
+    if (style && style !== "auto") script.style = style;
     if (plan.handle) script.handle = plan.handle;
     if (plan.accent) script.accent = plan.accent;
     fs.writeFileSync(scriptPath, JSON.stringify(parseScript(script), null, 2));
