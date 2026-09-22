@@ -1,5 +1,6 @@
 import { Clapperboard, Gift, Repeat, Sparkles, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import type { MediaItem } from "../api";
 import type { LibrarySection } from "../MediaPanel";
 
@@ -21,8 +22,8 @@ export const ReplaceMedia: React.FC<{
   "data-tab"?: string;
 }> = ({ current, media, uploading, onPick, onFile, onOpenLibrary, title, note, "data-tab": tab }) => {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [filter, setFilter] = useState<"all" | "image" | "video">("all");
-  const [query, setQuery] = useState("");
+  const search = useForm<{ query: string; filter: "all" | "image" | "video" }>({ defaultValues: { query: "", filter: "all" } });
+  const { query, filter } = search.watch();
   const [dragging, setDragging] = useState(false);
   const q = query.trim().toLowerCase();
   const items = media
@@ -65,10 +66,10 @@ export const ReplaceMedia: React.FC<{
       <small className="in-hint">Hoặc kéo file từ máy thả vào đây.</small>
 
       <div className="in-replace-bar">
-        <input type="search" placeholder="Tìm trong thư viện…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder="Tìm trong thư viện…" {...search.register("query")} />
         <div className="md-filter">
           {(["all", "image", "video"] as const).map((f) => (
-            <button key={f} className={filter === f ? "on" : ""} onClick={() => setFilter(f)}>
+            <button key={f} className={filter === f ? "on" : ""} onClick={() => search.setValue("filter", f)}>
               {f === "all" ? "Tất cả" : f === "image" ? "Ảnh" : "Video"}
             </button>
           ))}

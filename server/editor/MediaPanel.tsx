@@ -1,5 +1,6 @@
 import { Captions, Gift, Image as ImageIcon, Music, Sparkles, Type } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import type { Caption, TextOverlay } from "../../src/compositions/Short/schema";
 import type { MediaItem } from "./api";
 import type { StockKind } from "./query";
@@ -64,8 +65,9 @@ export const MediaPanel: React.FC<Props> = ({
   captions, timeMs, selectedCaption, onSelectCaption, onCaptionText, onInsertCaption, onDeleteCaption, onAddCaptionLines, onImportCaptions,
 }) => {
   const [section, setSection] = useState<Section>("visual");
-  const [filter, setFilter] = useState<VisualFilter>("all");
-  const [query, setQuery] = useState("");
+  /** Ô tìm file + lọc loại — dùng chung cho mục Ảnh/Video và Âm thanh. */
+  const search = useForm<{ query: string; filter: VisualFilter }>({ defaultValues: { query: "", filter: "all" } });
+  const { query, filter } = search.watch();
   const [playing, setPlaying] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   /** File phụ đề vừa thả vào khi đang ở tab Phụ đề — chuyển xuống danh sách phụ đề để đọc. */
@@ -167,7 +169,7 @@ export const MediaPanel: React.FC<Props> = ({
 
         {section === "visual" || section === "audio" ? (
           <div className="md-tools">
-            <input type="search" placeholder="Tìm file…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input type="search" placeholder="Tìm file…" {...search.register("query")} />
           </div>
         ) : null}
 
@@ -175,7 +177,7 @@ export const MediaPanel: React.FC<Props> = ({
           <VisualLibrary
             visual={visual}
             filter={filter}
-            onFilter={setFilter}
+            onFilter={(f) => search.setValue("filter", f)}
             q={q}
             query={query}
             target={target}

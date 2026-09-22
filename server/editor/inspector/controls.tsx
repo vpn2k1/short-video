@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Controller, type Control } from "react-hook-form";
 import type { VoiceOption } from "../api";
 import * as ops from "../ops";
 import { VoicePreviewButton } from "../VoicePreview";
@@ -62,6 +63,18 @@ export const VoiceSelect: React.FC<{ voices: VoiceOption[]; value: string; onCha
     </>
   );
 };
+
+/** Form giọng đọc — Inspector giữ để bảng phụ đề và tab Giọng đọc của dự án dùng chung một lựa chọn. */
+export type VoiceFields = { voice: string };
+
+/** VoiceSelect gắn vào ô `voice` của form giọng đọc. */
+export const VoiceField: React.FC<{ control: Control<VoiceFields>; voices: VoiceOption[] }> = ({ control, voices }) => (
+  <Controller
+    control={control}
+    name="voice"
+    render={({ field }) => <VoiceSelect voices={voices} value={field.value} onChange={field.onChange} />}
+  />
+);
 
 const SPEED_PRESETS = [0.5, 1, 1.5, 2, 3];
 const formatSpeed = (v: number) => `${Number(v.toFixed(2))}x`;

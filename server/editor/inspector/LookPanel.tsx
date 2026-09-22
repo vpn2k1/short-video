@@ -1,5 +1,5 @@
 import { ArrowLeftToLine, ArrowRightToLine, MoveHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { CAPTION_PRESETS, type CaptionLook } from "../../../src/compositions/Short/schema";
 import { CAPTION_PRESET_LABELS, CAPTION_TEMPLATES } from "../../../src/components/captionLook";
 import { captionTextStyle } from "../../../src/components/CustomCaptions";
@@ -35,11 +35,12 @@ export const LookPanel: React.FC<{
   /** Tên tab trong bảng thuộc tính (Panel đọc). */
   "data-tab"?: string;
 }> = ({ title, noun, items, selected, defaultScope, lookAt, apply, positionForAll, hasOwnStyle, markPreset = true, intro, footer }) => {
-  const [scope, setScope] = useState<LookScope>(defaultScope);
-  const [checked, setChecked] = useState<Set<number>>(() => new Set([selected]));
+  /** Áp dụng cho đâu: phạm vi + các mục đã tích (chỉ số trong `items`). */
+  const form = useForm<{ scope: LookScope; checked: number[] }>({ defaultValues: { scope: defaultScope, checked: [selected] } });
+  const { scope, checked } = form.watch();
 
   // Xoá/tách làm số mục đổi — bỏ các dấu tích không còn hợp lệ.
-  const picked = [...checked].filter((k) => k < items.length).sort((a, b) => a - b);
+  const picked = checked.filter((k) => k < items.length).sort((a, b) => a - b);
   const indices = scope === "all" ? null : scope === "selected" ? [selected] : picked;
   const look = lookAt(scope === "all" ? null : indices?.[0] ?? selected);
   const disabled = scope === "checked" && picked.length === 0;
@@ -49,13 +50,7 @@ export const LookPanel: React.FC<{
     if (disabled) return;
     apply(indices, patch, key ? `look-${noun}-${key}-${scope}-${picked.join(".")}` : undefined);
   };
-  const toggle = (k: number) =>
-    setChecked((previous) => {
-      const next = new Set(previous);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
+  const toggle = (k: number) => form.setValue("checked", checked.includes(k) ? checked.filter((x) => x !== k) : [...checked, k]);
   const sample = (patch: Partial<CaptionLook>) => captionTextStyle({ ...look, ...patch, uppercase: false }, 15);
   const accentLabel =
     look.preset === "box" || look.preset === "highlight" ? "Màu nền"
@@ -76,7 +71,7 @@ export const LookPanel: React.FC<{
           ["all", `Tất cả ${noun} (${items.length})`],
           ["checked", `Đã tích (${picked.length})`],
         ] as const).map(([value, label]) => (
-          <button key={value} role="radio" aria-checked={scope === value} className={scope === value ? "on" : ""} onClick={() => setScope(value)}>
+          <button key={value} role="radio" aria-checked={scope === value} className={scope === value ? "on" : ""} onClick={() => form.setValue("scope", value)}>
             {label}
           </button>
         ))}
@@ -85,13 +80,13 @@ export const LookPanel: React.FC<{
       {scope === "checked" ? (
         <div className="cap-pick">
           <div className="cap-pick-bar">
-            <button onClick={() => setChecked(new Set(items.map((_, k) => k)))}>Tích tất cả</button>
-            <button onClick={() => setChecked(new Set())}>Bỏ tích</button>
+            <button onClick={() => form.setValue("checked", items.map((_, k) => k))}>Tích tất cả</button>
+            <button onClick={() => form.setValue("checked", [])}>Bỏ tích</button>
           </div>
           <div className="cap-list">
             {items.map((text, k) => (
               <label key={k} className={`cap-item ${k === selected ? "current" : ""}`}>
-                <input type="checkbox" checked={checked.has(k)} onChange={() => toggle(k)} />
+                <input type="checkbox" checked={checked.includes(k)} onChange={() => toggle(k)} />
                 <b>{k + 1}</b>
                 <span title={text}>{text.replace(/\n/g, " ⏎ ") || "(trống)"}</span>
                 {hasOwnStyle?.(k) ? <i title="Có kiểu riêng">●</i> : null}

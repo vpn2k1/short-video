@@ -1,8 +1,9 @@
 import { Clapperboard, Mic, Pointer, VolumeX } from "lucide-react";
+import type { UseFormReturn } from "react-hook-form";
 import type { ShortProps } from "../../../src/compositions/Short/schema";
 import { ASPECT_IDS, ASPECTS } from "../../../src/aspects";
 import { STYLE_IDS, STYLES } from "../../../src/styles/meta";
-import { Field, Slider, VoiceSelect } from "./controls";
+import { Field, Slider, VoiceField, type VoiceFields } from "./controls";
 import { MusicSection } from "./MusicPanel";
 import { Panel } from "./Panel";
 import { SubtitleAiSection, type SubtitleAi } from "./SubtitleAiSection";
@@ -13,10 +14,9 @@ export const ProjectPanel: React.FC<Pick<InspectorProps,
   "props" | "onChange" | "media" | "voices" | "onVoice" | "onRemoveAllVoice" | "onAutoSubtitles"
 > & {
   sub: SubtitleAi;
-  /** Giọng đang chọn ở ô chọn giọng — state nằm ở Inspector, dùng chung với bảng phụ đề. */
-  voice: string;
-  setVoice: (voice: string) => void;
-}> = ({ props, onChange, media, voices, onVoice, onRemoveAllVoice, onAutoSubtitles, sub, voice, setVoice }) => {
+  /** Form ô chọn giọng — nằm ở Inspector, dùng chung với bảng phụ đề. */
+  voiceForm: UseFormReturn<VoiceFields>;
+}> = ({ props, onChange, media, voices, onVoice, onRemoveAllVoice, onAutoSubtitles, sub, voiceForm }) => {
   const voiceCount = props.captions.filter((c) => c.audio).length;
   return (
     <Panel key="project" icon={<Clapperboard size={14} aria-hidden />} title="Dự án">
@@ -67,10 +67,10 @@ export const ProjectPanel: React.FC<Pick<InspectorProps,
           <Slider value={props.voiceVolume} max={2} onChange={(v) => onChange({ ...props, voiceVolume: v }, "voiceVolume")} />
         </Field>
         <Field label="Đổi sang giọng" hint="Đọc lại mọi câu; câu dài hơn thì phần phía sau tự lùi lại">
-          <VoiceSelect voices={voices} value={voice} onChange={setVoice} />
+          <VoiceField control={voiceForm.control} voices={voices} />
         </Field>
         <div className="in-actions">
-          <button onClick={() => onVoice(voice)} disabled={props.captions.length === 0}><Mic size={16} aria-hidden /> {voiceCount > 0 ? "Đổi giọng toàn bộ" : "Tạo giọng cho mọi câu"}</button>
+          <button onClick={voiceForm.handleSubmit(({ voice }) => onVoice(voice))} disabled={props.captions.length === 0}><Mic size={16} aria-hidden /> {voiceCount > 0 ? "Đổi giọng toàn bộ" : "Tạo giọng cho mọi câu"}</button>
           <button className="danger" onClick={onRemoveAllVoice} disabled={voiceCount === 0 && !props.voiceoverTrack}><VolumeX size={16} aria-hidden /> Bỏ toàn bộ giọng</button>
         </div>
         <label className="in-check">

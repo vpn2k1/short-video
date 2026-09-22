@@ -2,6 +2,7 @@ import {
   FlipHorizontal2, FlipVertical2, RotateCcw, RotateCw,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import type { SceneCrop } from "../../src/compositions/Short/schema";
 import { CropBox, isMediaCrop, type MediaCrop } from "../../src/scenes/CropBox";
 
@@ -20,6 +21,8 @@ type Props = {
 };
 
 type Rect = { x: number; y: number; w: number; h: number };
+/** Các tuỳ chọn trên thanh công cụ; vùng crop (rect) kéo bằng chuột nên giữ riêng. */
+type CropFields = Pick<MediaCrop, "ratio" | "rotate" | "flipH" | "flipV" | "fit">;
 type Handle = "tl" | "t" | "tr" | "r" | "br" | "b" | "bl" | "l";
 type Drag = { handle: Handle | "move"; x0: number; y0: number; base: Rect };
 
@@ -122,11 +125,16 @@ export const CropOverlay: React.FC<Props> = ({ src, trimStartMs, frameAspect, de
   const [mediaAspect, setMediaAspect] = useState<number | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
-  const [ratio, setRatio] = useState(saved?.ratio ?? "frame");
-  const [rotate, setRotate] = useState(saved?.rotate ?? 0);
-  const [flipH, setFlipH] = useState(saved?.flipH ?? false);
-  const [flipV, setFlipV] = useState(saved?.flipV ?? false);
-  const [fit, setFit] = useState<MediaCrop["fit"]>(saved?.fit ?? defaultFit);
+  const form = useForm<CropFields>({
+    defaultValues: {
+      ratio: saved?.ratio ?? "frame",
+      rotate: saved?.rotate ?? 0,
+      flipH: saved?.flipH ?? false,
+      flipV: saved?.flipV ?? false,
+      fit: saved?.fit ?? defaultFit,
+    },
+  });
+  const { ratio, rotate, flipH, flipV, fit } = form.watch();
   const [error, setError] = useState<string | null>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -149,7 +157,7 @@ export const CropOverlay: React.FC<Props> = ({ src, trimStartMs, frameAspect, de
       if (saved && Math.abs(saved.mediaAspect - aspect) < 0.01) {
         return { x: saved.x, y: saved.y, w: saved.w, h: saved.h };
       }
-      return largestRect(ratioValue(ratio, frameAspect, aspect) ?? frameAspect, aspect);
+      return largestRect(ratioValue(form.getValues("ratio"), frameAspect, aspect) ?? frameAspect, aspect);
     });
   };
 
@@ -174,7 +182,7 @@ export const CropOverlay: React.FC<Props> = ({ src, trimStartMs, frameAspect, de
   }, [onApply]);
 
   const pickRatio = (id: string) => {
-    setRatio(id);
+    form.setValue("ratio", id);
     const value = mediaAspect ? ratioValue(id, frameAspect, mediaAspect) : null;
     if (value && rect && mediaAspect) {
       setRect(largestRect(value, mediaAspect, { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 }));
@@ -183,11 +191,7 @@ export const CropOverlay: React.FC<Props> = ({ src, trimStartMs, frameAspect, de
 
   const reset = () => {
     if (!mediaAspect) return;
-    setRatio("frame");
-    setRotate(0);
-    setFlipH(false);
-    setFlipV(false);
-    setFit(defaultFit);
+    form.reset({ ratio: "frame", rotate: 0, flipH: false, flipV: false, fit: defaultFit });
     setRect(largestRect(frameAspect, mediaAspect));
   };
 
@@ -307,19 +311,19 @@ export const CropOverlay: React.FC<Props> = ({ src, trimStartMs, frameAspect, de
               max={45}
               step={1}
               value={fine}
-              onChange={(e) => setRotate(normalizeDeg(quarter + Number(e.target.value)))}
+              onChange={(e) => form.setValue("rotate", normalizeDeg(quarter + Number(e.target.value)))}
             />
             <output>{rotate}°</output>
           </label>
-          <button title="Xoay trái 90°" onClick={() => setRotate(normalizeDeg(rotate - 90))}><RotateCcw size={16} aria-hidden /> 90°</button>
-          <button title="Xoay phải 90°" onClick={() => setRotate(normalizeDeg(rotate + 90))}><RotateCw size={16} aria-hidden /> 90°</button>
-          <button className={flipH ? "on" : ""} aria-pressed={flipH} onClick={() => setFlipH((v) => !v)}><FlipHorizontal2 size={16} aria-hidden /> Lật ngang</button>
-          <button className={flipV ? "on" : ""} aria-pressed={flipV} onClick={() => setFlipV((v) => !v)}><FlipVertical2 size={16} aria-hidden /> Lật dọc</button>
+          <button title="Xoay trái 90°" onClick={() => form.setValue("rotate", normalizeDeg(rotate - 90))}><RotateCcw size={16} aria-hidden /> 90°</button>
+          <button title="Xoay phải 90°" onClick={() => form.setValue("rotate", normalizeDeg(rotate + 90))}><RotateCw size={16} aria-hidden /> 90°</button>
+          <button className={flipH ? "on" : ""} aria-pressed={flipH} onClick={() => form.setValue("flipH", !flipH)}><FlipHorizontal2 size={16} aria-hidden /> Lật ngang</button>
+          <button className={flipV ? "on" : ""} aria-pressed={flipV} onClick={() => form.setValue("flipV", !flipV)}><FlipVertical2 size={16} aria-hidden /> Lật dọc</button>
           <div className="cr-fit" role="group" aria-label="Cách đặt vào khung">
-            <button className={fit === "cover" ? "on" : ""} aria-pressed={fit === "cover"} onClick={() => setFit("cover")} title="Phóng cho kín khung, phần thừa bị cắt">
+            <button className={fit === "cover" ? "on" : ""} aria-pressed={fit === "cover"} onClick={() => form.setValue("fit", "cover")} title="Phóng cho kín khung, phần thừa bị cắt">
               Lấp đầy
             </button>
-            <button className={fit === "contain" ? "on" : ""} aria-pressed={fit === "contain"} onClick={() => setFit("contain")} title="Hiện trọn vùng crop, có thể có viền">
+            <button className={fit === "contain" ? "on" : ""} aria-pressed={fit === "contain"} onClick={() => form.setValue("fit", "contain")} title="Hiện trọn vùng crop, có thể có viền">
               Vừa khung
             </button>
           </div>

@@ -1,5 +1,6 @@
 import { Clapperboard, Download, Music, Pause, Play } from "lucide-react";
 import { useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { api, postJson } from "../api";
 import { useStockProviders, type StockKind } from "../query";
 import { STOCK_KINDS, stockOrientation } from "./helpers";
@@ -15,8 +16,11 @@ export const StockPanel: React.FC<{
   target: string;
   onStock: (path: string, kind: StockKind, action: "use" | "music" | "save", credit: string) => void;
 }> = ({ aspect, target, onStock }) => {
-  const [kind, setKind] = useState<StockKind>("video");
-  const [query, setQuery] = useState("");
+  const form = useForm<{ kind: StockKind; query: string }>({ defaultValues: { kind: "video", query: "" } });
+  const kind = form.watch("kind");
+  const hasQuery = form.watch("query").trim() !== "";
+  /** Từ khoá của lần bấm Tìm gần nhất — "Xem thêm" tải tiếp đúng kết quả đang hiện, dù ô tìm đã gõ khác. */
+  const searched = useRef("");
   const [items, setItems] = useState<StockItem[]>([]);
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -30,8 +34,9 @@ export const StockPanel: React.FC<{
   const usable = providers?.filter((p) => p.kinds.includes(kind)) ?? [];
   const ready = usable.filter((p) => p.available);
 
-  const search = async (nextPage: number) => {
+  const search = async (query: string, nextPage: number) => {
     if (!query.trim()) return;
+    searched.current = query;
     setBusy(true);
     setNote(null);
     try {
@@ -85,7 +90,7 @@ export const StockPanel: React.FC<{
     <div className="ai stock">
       <div className="md-filter">
         {STOCK_KINDS.map((k) => (
-          <button key={k.id} className={kind === k.id ? "on" : ""} onClick={() => { setKind(k.id); setItems([]); setNote(null); }}>{k.label}</button>
+          <button key={k.id} className={kind === k.id ? "on" : ""} onClick={() => { form.setValue("kind", k.id); setItems([]); setNote(null); }}>{k.label}</button>
         ))}
       </div>
       {providers && ready.length === 0 ? (
@@ -95,10 +100,10 @@ export const StockPanel: React.FC<{
         </p>
       ) : (
         <>
-          <form className="stock-search" onSubmit={(e) => { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur(); void search(1); }}>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} disabled={busy}
+          <form className="stock-search" onSubmit={form.handleSubmit(({ query }) => { (document.activeElement as HTMLElement | null)?.blur(); void search(query, 1); })}>
+            <input type="search" {...form.register("query")} disabled={busy}
               placeholder={visual ? "vd: city night, coffee pour" : kind === "music" ? "vd: lofi, upbeat, cinematic" : "vd: whoosh, click, pop"} />
-            <button type="submit" className="ai-go" disabled={busy || !query.trim()}>{busy ? "…" : "Tìm"}</button>
+            <button type="submit" className="ai-go" disabled={busy || !hasQuery}>{busy ? "…" : "Tìm"}</button>
           </form>
           <p className="ai-note">
             {ready.map((p) => p.label).join(" + ")} · miễn phí, dùng thương mại được{kind === "music" || kind === "sfx" ? " (CC0/CC-BY)" : ""} ·
@@ -144,7 +149,7 @@ export const StockPanel: React.FC<{
         </div>
       )}
       {items.length > 0 && !busy ? (
-        <button className="btn-more" onClick={() => void search(page + 1)}>Xem thêm</button>
+        <button className="btn-more" onClick={() => void search(searched.current, page + 1)}>Xem thêm</button>
       ) : null}
       <p className="ai-note">
         {visual

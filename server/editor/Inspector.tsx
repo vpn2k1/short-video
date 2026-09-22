@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { CaptionPanel } from "./inspector/CaptionPanel";
 import { ClipPanel } from "./inspector/ClipPanel";
+import type { VoiceFields } from "./inspector/controls";
 import { MusicPanel } from "./inspector/MusicPanel";
 import { OverlayPanel } from "./inspector/OverlayPanel";
 import { ProjectPanel } from "./inspector/ProjectPanel";
@@ -17,8 +19,8 @@ export const Inspector: React.FC<Props> = ({
   uploading, onReplaceMedia, onReplaceFile, onSceneMedia, onSceneFile, onOpenLibrary,
 }) => {
   // Mở ra đúng giọng video đang dùng — trước đây luôn là "linh", bấm "Đổi giọng toàn bộ" là đọc lại bằng giọng khác.
-  const [voice, setVoice] = useState(videoVoice ?? "linh");
-  useEffect(() => { if (videoVoice) setVoice(videoVoice); }, [videoVoice]);
+  // `values`: biết giọng của video (tải xong, hoặc vừa đổi giọng toàn bộ) thì ô chọn giọng về đúng giọng đó.
+  const voiceForm = useForm<VoiceFields>({ values: { voice: videoVoice ?? "linh" } });
   /** Lỗi khi đổi Lấp đầy/Vừa khung của cảnh (không đọc được kích thước file). */
   const [fitError, setFitError] = useState<string | null>(null);
   useEffect(() => setFitError(null), [selection]);
@@ -34,7 +36,7 @@ export const Inspector: React.FC<Props> = ({
   if (selection?.type === "caption") {
     return (
       <CaptionPanel {...base} index={selection.index} voices={voices} onDelete={onDelete} onSplit={onSplit} onVoice={onVoice}
-        voice={voice} setVoice={setVoice} />
+        voiceForm={voiceForm} />
     );
   }
 
@@ -104,8 +106,7 @@ export const Inspector: React.FC<Props> = ({
       onRemoveAllVoice={onRemoveAllVoice}
       onAutoSubtitles={onAutoSubtitles}
       sub={sub}
-      voice={voice}
-      setVoice={setVoice}
+      voiceForm={voiceForm}
     />
   );
 };

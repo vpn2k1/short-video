@@ -3,31 +3,33 @@ import {
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { ASPECT_IDS, ASPECTS } from "../../src/aspects";
 import { mediaDurationMs, postJson, uploadFile, type MediaItem } from "./api";
 import { useZodForm } from "./form";
 import { refreshMedia, useMedia } from "./query";
 
-type Picked = { path: string; name: string; kind: "image" | "video" };
-
 const IMAGE_SECONDS = 3;
 
-/** Tên + khung của dự án mới; danh sách cảnh (picked) giữ ngoài form vì là thao tác kéo/chọn, không phải ô nhập. */
+/** Tên, khung và danh sách cảnh (theo thứ tự) của dự án mới. */
 const projectSchema = z.object({
   title: z.string().trim().max(60, "Tên dự án tối đa 60 ký tự"),
   aspect: z.enum(ASPECT_IDS),
+  media: z.array(z.object({ path: z.string(), name: z.string(), kind: z.enum(["image", "video"]) })),
 });
+
+type Picked = z.output<typeof projectSchema>["media"][number];
 
 /**
  * Màn hình Edit video mới: chọn tỉ lệ, tải lên / chọn video & ảnh, sắp thứ tự rồi mở
  * trình chỉnh sửa. Không cần kịch bản hay API key.
  */
 export const NewProject: React.FC = () => {
-  const form = useZodForm(projectSchema, { defaultValues: { title: "", aspect: "9:16" } });
+  const form = useZodForm(projectSchema, { defaultValues: { title: "", aspect: "9:16", media: [] } });
   const aspect = form.watch("aspect");
+  const { fields: picked, append, remove, swap } = useFieldArray({ control: form.control, name: "media" });
   const { data: media = [] } = useMedia();
-  const [picked, setPicked] = useState<Picked[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -38,21 +40,18 @@ export const NewProject: React.FC = () => {
   }, []);
 
   const visual = media.filter((m) => m.kind !== "audio");
-  const isPicked = (path: string) => picked.some((p) => p.path === path);
+  const pickedIndex = (path: string) => picked.findIndex((p) => p.path === path);
 
   const toggle = (m: MediaItem) => {
     if (m.kind === "audio") return;
-    setPicked((list) => (isPicked(m.path) ? list.filter((p) => p.path !== m.path) : [...list, { path: m.path, name: m.name, kind: m.kind as Picked["kind"] }]));
+    const index = pickedIndex(m.path);
+    if (index >= 0) remove(index);
+    else append({ path: m.path, name: m.name, kind: m.kind });
   };
 
   const move = (index: number, delta: number) => {
-    setPicked((list) => {
-      const next = [...list];
-      const target = index + delta;
-      if (target < 0 || target >= next.length) return list;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+    const target = index + delta;
+    if (target >= 0 && target < picked.length) swap(index, target);
   };
 
   const upload = async (files: File[]) => {
@@ -69,7 +68,7 @@ export const NewProject: React.FC = () => {
         const res = await uploadFile(file);
         added.push({ path: res.path, name: file.name, kind: file.type.startsWith("video/") ? "video" : "image" });
       }
-      setPicked((list) => [...list, ...added]);
+      append(added);
       if (!form.getValues("title") && accepted[0]) form.setValue("title", accepted[0].name.replace(/\.\w+$/, "").slice(0, 60));
       refreshMedia();
     } catch (e) {
@@ -80,9 +79,9 @@ export const NewProject: React.FC = () => {
   };
 
   const create = useMutation({
-    mutationFn: async ({ title, aspect }: z.output<typeof projectSchema>) => {
+    mutationFn: async ({ title, aspect, media: scenes }: z.output<typeof projectSchema>) => {
       const withDurations = await Promise.all(
-        picked.map(async (p) => ({
+        scenes.map(async (p) => ({
           path: p.path,
           durationMs: p.kind === "video" ? await mediaDurationMs(`/public/${p.path}`, "video") : IMAGE_SECONDS * 1000,
         })),
@@ -133,7 +132,7 @@ export const NewProject: React.FC = () => {
             <span>Thứ tự cảnh ({picked.length})</span>
             <ol className="np-picked">
               {picked.map((p, i) => (
-                <li key={p.path}>
+                <li key={p.id}>
                   <em>{i + 1}</em>
                   <span className="np-thumb">
                     {p.kind === "video" ? <video src={`/public/${p.path}#t=0.5`} muted preload="metadata" /> : <img src={`/public/${p.path}`} alt="" />}
@@ -141,7 +140,7 @@ export const NewProject: React.FC = () => {
                   <span className="np-name">{p.kind === "video" ? <Clapperboard size={14} aria-hidden /> : <ImageIcon size={14} aria-hidden />} {p.name}</span>
                   <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Lên"><ArrowUp size={16} aria-hidden /></button>
                   <button onClick={() => move(i, 1)} disabled={i === picked.length - 1} aria-label="Xuống"><ArrowDown size={16} aria-hidden /></button>
-                  <button onClick={() => setPicked((list) => list.filter((x) => x.path !== p.path))} aria-label="Bỏ"><X size={16} aria-hidden /></button>
+                  <button onClick={() => remove(i)} aria-label="Bỏ"><X size={16} aria-hidden /></button>
                 </li>
               ))}
             </ol>
@@ -154,10 +153,10 @@ export const NewProject: React.FC = () => {
             <span>Hoặc chọn từ thư viện</span>
             <div className="np-library">
               {visual.map((m) => (
-                <button key={m.path} className={isPicked(m.path) ? "on" : ""} onClick={() => toggle(m)} title={m.path}>
+                <button key={m.path} className={pickedIndex(m.path) >= 0 ? "on" : ""} onClick={() => toggle(m)} title={m.path}>
                   {m.kind === "video" ? <video src={`/public/${m.path}#t=0.5`} muted preload="metadata" /> : <img src={`/public/${m.path}`} alt="" loading="lazy" />}
                   {m.kind === "video" ? <i><Clapperboard size={14} aria-hidden /></i> : null}
-                  {isPicked(m.path) ? <em>{picked.findIndex((p) => p.path === m.path) + 1}</em> : null}
+                  {pickedIndex(m.path) >= 0 ? <em>{pickedIndex(m.path) + 1}</em> : null}
                 </button>
               ))}
             </div>

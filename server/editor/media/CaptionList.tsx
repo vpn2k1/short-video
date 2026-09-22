@@ -1,5 +1,6 @@
 import { BookOpen, Clipboard, Download, File as FileIcon, FolderOpen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import type { Caption } from "../../../src/compositions/Short/schema";
 import { fmt } from "../api";
 import {
@@ -30,13 +31,13 @@ export const CaptionList: React.FC<{
   /** Vừa thêm câu bằng Enter / nút ＋ — chờ danh sách vẽ lại rồi đưa con trỏ vào câu mới. */
   const focusNew = useRef(false);
   const [pasting, setPasting] = useState(false);
-  const [pasteText, setPasteText] = useState("");
-  const pasteLines = pasteText.split("\n").map((line) => line.trim()).filter(Boolean);
+  const pasteForm = useForm({ defaultValues: { text: "" } });
+  const pasteLines = pasteForm.watch("text").split("\n").map((line) => line.trim()).filter(Boolean);
   const fileRef = useRef<HTMLInputElement>(null);
   /** File đã đọc xong, đang chờ người dùng xác nhận. */
   const [pending, setPending] = useState<{ name: string; parsed: ParsedSubtitles } | null>(null);
-  const [replace, setReplace] = useState(false);
-  const [shift, setShift] = useState(false);
+  /** Tuỳ chọn nhập file — đúng dạng `opts` của onImport. */
+  const importForm = useForm({ defaultValues: { replace: false, shiftToPlayhead: false } });
   const [error, setError] = useState<string | null>(null);
 
   const readSubtitleFile = async (file: File) => {
@@ -49,8 +50,7 @@ export const CaptionList: React.FC<{
         return;
       }
       setPasting(false);
-      setReplace(false);
-      setShift(false);
+      importForm.reset();
       setPending({ name: file.name, parsed });
     } catch {
       setPending(null);
@@ -122,22 +122,22 @@ export const CaptionList: React.FC<{
           </p>
           {pending.parsed.notes.map((note) => <small key={note} className="cl-note">{note}</small>)}
           <label>
-            <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+            <input type="checkbox" {...importForm.register("replace")} />
             Thay toàn bộ {captions.length} câu đang có
           </label>
           {range ? (
             <label>
-              <input type="checkbox" checked={shift} onChange={(e) => setShift(e.target.checked)} />
+              <input type="checkbox" {...importForm.register("shiftToPlayhead")} />
               Dời cả cụm về đầu phát ({fmt(timeMs)})
             </label>
           ) : null}
           <div className="cl-import-foot">
             <button className="ghost" onClick={() => setPending(null)}>Huỷ</button>
             <button
-              onClick={() => {
-                onImport(pending.parsed.cues, { replace, shiftToPlayhead: shift });
+              onClick={importForm.handleSubmit((opts) => {
+                onImport(pending.parsed.cues, opts);
                 setPending(null);
-              }}
+              })}
             >
               Thêm {pending.parsed.cues.length} câu
             </button>
@@ -149,15 +149,14 @@ export const CaptionList: React.FC<{
         <div className="cl-paste">
           <textarea
             rows={5}
-            value={pasteText}
+            {...pasteForm.register("text")}
             placeholder={"Mỗi dòng là một câu phụ đề\nDòng thứ hai\nDòng thứ ba"}
-            onChange={(e) => setPasteText(e.target.value)}
           />
           <button
             disabled={pasteLines.length === 0}
             onClick={() => {
               onAddLines(pasteLines);
-              setPasteText("");
+              pasteForm.reset();
               setPasting(false);
             }}
           >

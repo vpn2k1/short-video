@@ -1,9 +1,10 @@
 import { Captions, Mic, Palette, RotateCcw, Scissors, Trash2, VolumeX } from "lucide-react";
+import type { UseFormReturn } from "react-hook-form";
 import type { ShortProps } from "../../../src/compositions/Short/schema";
 import { STYLES } from "../../../src/styles/meta";
 import { canCustomizeCaptions, resolveCaptionLook, usesCustomCaptions } from "../../../src/components/captionLook";
 import * as ops from "../ops";
-import { Field, Seconds, VoiceSelect } from "./controls";
+import { Field, Seconds, VoiceField, type VoiceFields } from "./controls";
 import { LookPanel } from "./LookPanel";
 import { Panel } from "./Panel";
 import type { InspectorProps, PanelBase } from "./types";
@@ -60,10 +61,9 @@ const CaptionLookSection: React.FC<{
 
 // ---------- phụ đề ----------
 export const CaptionPanel: React.FC<PanelBase & Pick<InspectorProps, "voices" | "onDelete" | "onSplit" | "onVoice"> & {
-  /** Giọng đang chọn ở ô chọn giọng — state nằm ở Inspector, dùng chung với tab Giọng đọc của dự án. */
-  voice: string;
-  setVoice: (voice: string) => void;
-}> = ({ props, index: i, onChange, onSelect, voices, onDelete, onSplit, onVoice, voice, setVoice }) => {
+  /** Form ô chọn giọng — nằm ở Inspector, dùng chung với tab Giọng đọc của dự án. */
+  voiceForm: UseFormReturn<VoiceFields>;
+}> = ({ props, index: i, onChange, onSelect, voices, onDelete, onSplit, onVoice, voiceForm }) => {
   const c = props.captions[i];
   if (!c) return null;
   return (
@@ -100,10 +100,10 @@ export const CaptionPanel: React.FC<PanelBase & Pick<InspectorProps, "voices" | 
         </p>
         {c.audio ? <audio controls preload="none" src={`/public/${c.audio}`} /> : null}
         <Field label="Giọng">
-          <VoiceSelect voices={voices} value={voice} onChange={setVoice} />
+          <VoiceField control={voiceForm.control} voices={voices} />
         </Field>
         <div className="in-actions">
-          <button onClick={() => onVoice(voice, i)} disabled={!c.text.trim()}><Mic size={16} aria-hidden /> {c.audio ? "Đọc lại câu này" : "Tạo giọng cho câu này"}</button>
+          <button onClick={voiceForm.handleSubmit(({ voice }) => onVoice(voice, i))} disabled={!c.text.trim()}><Mic size={16} aria-hidden /> {c.audio ? "Đọc lại câu này" : "Tạo giọng cho câu này"}</button>
           {c.audio ? <button onClick={() => onChange(ops.updateCaption(props, i, { audio: null }))}><VolumeX size={16} aria-hidden /> Bỏ giọng câu này</button> : null}
         </div>
       </section>

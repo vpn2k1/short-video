@@ -1,6 +1,9 @@
 import { Leaf, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Controller } from "react-hook-form";
+import { z } from "zod";
 import { followJob, postJson } from "../api";
+import { useZodForm } from "../form";
 import { useAiVideoModels } from "../query";
 
 type AiState =
@@ -8,6 +11,14 @@ type AiState =
   | { status: "running"; line: string }
   | { status: "done"; path: string }
   | { status: "error"; message: string };
+
+const aiVideoSchema = z.object({
+  prompt: z.string().trim().min(1),
+  /** Rỗng = model mặc định của server. */
+  model: z.string(),
+  seconds: z.number(),
+  assign: z.boolean(),
+});
 
 /**
  * Tạo clip từ mô tả. Chạy nền trên server (vài phút) — form vẫn dùng được phần
@@ -22,11 +33,10 @@ export const AiVideoForm: React.FC<{
   const models = catalog.data?.models ?? null;
   const freeMode = Boolean(catalog.data?.freeMode);
   const loadError = catalog.error?.message ?? null;
-  const [picked, setModel] = useState("");
-  const model = picked || catalog.data?.defaultModel || "";
-  const [seconds, setSeconds] = useState(5);
-  const [prompt, setPrompt] = useState("");
-  const [assign, setAssign] = useState(true);
+  const form = useZodForm(aiVideoSchema, { defaultValues: { prompt: "", model: "", seconds: 5, assign: true } });
+  const model = form.watch("model") || catalog.data?.defaultModel || "";
+  const seconds = form.watch("seconds");
+  const hasPrompt = form.watch("prompt").trim() !== "";
   const [state, setState] = useState<AiState>({ status: "idle" });
   const stopRef = useRef<(() => void) | null>(null);
 
@@ -67,7 +77,7 @@ export const AiVideoForm: React.FC<{
     : [...current.durations].sort((a, b) => Math.abs(a - seconds) - Math.abs(b - seconds))[0];
   const running = state.status === "running";
 
-  const generate = async () => {
+  const generate = async ({ prompt }: z.output<typeof aiVideoSchema>) => {
     setState({ status: "running", line: "Đang gửi yêu cầu…" });
     try {
       const { jobId } = await postJson<{ jobId: string }>("/api/ai-video", {
@@ -81,7 +91,8 @@ export const AiVideoForm: React.FC<{
           if (status === "done") {
             const path = (result as { path: string }).path;
             setState({ status: "done", path });
-            onDone(path, assign);
+            // Đọc lúc xong: đổi ô "gán cho…" trong lúc chờ vẫn có tác dụng.
+            onDone(path, form.getValues("assign"));
           } else {
             setState({ status: "error", message: error ?? "Lỗi không rõ." });
           }
@@ -93,12 +104,11 @@ export const AiVideoForm: React.FC<{
   };
 
   return (
-    <div className="ai">
+    <form className="ai" onSubmit={form.handleSubmit(generate)}>
       <label>
         Mô tả cảnh (tiếng Anh cho kết quả tốt nhất)
         <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          {...form.register("prompt")}
           placeholder="Slow dolly shot of a steaming bowl of pho on a wooden table, morning light, shallow depth of field"
           disabled={running}
         />
@@ -106,23 +116,28 @@ export const AiVideoForm: React.FC<{
       <div className="ai-row">
         <label>
           Model
-          <select value={current.key} onChange={(e) => setModel(e.target.value)} disabled={running}>
-            {models.map((m) => (
-              <option key={m.key} value={m.key} disabled={!m.available}>
-                {m.label} — {m.providerLabel}{m.available ? "" : " (thiếu key)"}
-              </option>
-            ))}
-          </select>
+          {/* Hiện model / độ dài thực sự dùng (model thiếu key thì lấy model đầu tiên, độ dài lấy mức gần nhất). */}
+          <Controller control={form.control} name="model" render={({ field }) => (
+            <select {...field} value={current.key} disabled={running}>
+              {models.map((m) => (
+                <option key={m.key} value={m.key} disabled={!m.available}>
+                  {m.label} — {m.providerLabel}{m.available ? "" : " (thiếu key)"}
+                </option>
+              ))}
+            </select>
+          )} />
         </label>
         <label>
           Độ dài
-          <select value={duration} onChange={(e) => setSeconds(Number(e.target.value))} disabled={running}>
-            {current.durations.map((d) => <option key={d} value={d}>{d}s</option>)}
-          </select>
+          <Controller control={form.control} name="seconds" render={({ field }) => (
+            <select {...field} value={duration} onChange={(e) => field.onChange(Number(e.target.value))} disabled={running}>
+              {current.durations.map((d) => <option key={d} value={d}>{d}s</option>)}
+            </select>
+          )} />
         </label>
       </div>
       <label className="ai-check">
-        <input type="checkbox" checked={assign} onChange={(e) => setAssign(e.target.checked)} />
+        <input type="checkbox" {...form.register("assign")} />
         Xong thì gán cho {target}
       </label>
       <p className="ai-note">
@@ -130,7 +145,7 @@ export const AiVideoForm: React.FC<{
         {current.usdPerSecond ? ` · ước tính $${(current.usdPerSecond * duration).toFixed(2)}` : " · giá theo bảng giá nhà cung cấp"}.
         Mỗi lần bấm là một lượt tính tiền.
       </p>
-      <button className="ai-go" onClick={generate} disabled={running || !prompt.trim()}>
+      <button type="submit" className="ai-go" disabled={running || !hasPrompt}>
         {running ? "Đang tạo…" : <><Sparkles size={18} aria-hidden /> Tạo video</>}
       </button>
       {state.status === "running" ? <p className="ai-note">{state.line} — thường mất 1–5 phút.</p> : null}
@@ -143,6 +158,6 @@ export const AiVideoForm: React.FC<{
           </div>
         </>
       ) : null}
-    </div>
+    </form>
   );
 };
