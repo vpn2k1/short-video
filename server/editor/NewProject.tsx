@@ -1,33 +1,40 @@
 import {
   ArrowDown, ArrowRight, ArrowUp, ChevronLeft, Clapperboard, Image as ImageIcon, Scissors, X,
 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { ASPECT_IDS, ASPECTS } from "../../src/aspects";
-import { api, mediaDurationMs, postJson, uploadFile, type MediaItem } from "./api";
+import { mediaDurationMs, postJson, uploadFile, type MediaItem } from "./api";
+import { useZodForm } from "./form";
+import { refreshMedia, useMedia } from "./query";
 
 type Picked = { path: string; name: string; kind: "image" | "video" };
 
 const IMAGE_SECONDS = 3;
+
+/** Tên + khung của dự án mới; danh sách cảnh (picked) giữ ngoài form vì là thao tác kéo/chọn, không phải ô nhập. */
+const projectSchema = z.object({
+  title: z.string().trim().max(60, "Tên dự án tối đa 60 ký tự"),
+  aspect: z.enum(ASPECT_IDS),
+});
 
 /**
  * Màn hình Edit video mới: chọn tỉ lệ, tải lên / chọn video & ảnh, sắp thứ tự rồi mở
  * trình chỉnh sửa. Không cần kịch bản hay API key.
  */
 export const NewProject: React.FC = () => {
-  const [title, setTitle] = useState("");
-  const [aspect, setAspect] = useState<string>("9:16");
-  const [media, setMedia] = useState<MediaItem[]>([]);
+  const form = useZodForm(projectSchema, { defaultValues: { title: "", aspect: "9:16" } });
+  const aspect = form.watch("aspect");
+  const { data: media = [] } = useMedia();
   const [picked, setPicked] = useState<Picked[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const refresh = () => api<{ items: MediaItem[] }>("/api/media").then((d) => setMedia(d.items)).catch(() => undefined);
   useEffect(() => {
     document.title = "Edit video mới · AI Video Studio";
-    refresh();
   }, []);
 
   const visual = media.filter((m) => m.kind !== "audio");
@@ -63,8 +70,8 @@ export const NewProject: React.FC = () => {
         added.push({ path: res.path, name: file.name, kind: file.type.startsWith("video/") ? "video" : "image" });
       }
       setPicked((list) => [...list, ...added]);
-      if (!title && accepted[0]) setTitle(accepted[0].name.replace(/\.\w+$/, "").slice(0, 60));
-      refresh();
+      if (!form.getValues("title") && accepted[0]) form.setValue("title", accepted[0].name.replace(/\.\w+$/, "").slice(0, 60));
+      refreshMedia();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -72,23 +79,22 @@ export const NewProject: React.FC = () => {
     }
   };
 
-  const create = async () => {
-    setCreating(true);
-    setError(null);
-    try {
+  const create = useMutation({
+    mutationFn: async ({ title, aspect }: z.output<typeof projectSchema>) => {
       const withDurations = await Promise.all(
         picked.map(async (p) => ({
           path: p.path,
           durationMs: p.kind === "video" ? await mediaDurationMs(`/public/${p.path}`, "video") : IMAGE_SECONDS * 1000,
         })),
       );
-      const { slug } = await postJson<{ slug: string }>("/api/editor/new", { title, aspect, media: withDurations });
-      location.hash = slug;
-    } catch (e) {
-      setError((e as Error).message);
-      setCreating(false);
-    }
-  };
+      return postJson<{ slug: string }>("/api/editor/new", { title, aspect, media: withDurations });
+    },
+    // Đổi hash → main.tsx nạp lại trang vào trình chỉnh sửa; nút giữ trạng thái "Đang tạo…" tới lúc đó.
+    onSuccess: ({ slug }) => { location.hash = slug; },
+    onMutate: () => setError(null),
+  });
+  const creating = create.isPending || create.isSuccess;
+  const submitError = create.error?.message ?? form.formState.errors.title?.message ?? null;
 
   return (
     <div className="np">
@@ -165,7 +171,7 @@ export const NewProject: React.FC = () => {
               const a = ASPECTS[id];
               const scale = 34 / Math.max(a.width, a.height);
               return (
-                <button key={id} className={aspect === id ? "on" : ""} onClick={() => setAspect(id)}>
+                <button key={id} type="button" className={aspect === id ? "on" : ""} onClick={() => form.setValue("aspect", id)}>
                   <i style={{ width: a.width * scale, height: a.height * scale }} />
                   <b>{id}</b>
                   <small>{a.label.split("—")[1]?.trim()}</small>
@@ -177,13 +183,13 @@ export const NewProject: React.FC = () => {
 
         <label className="np-field">
           <span>Tên dự án</span>
-          <input value={title} maxLength={60} placeholder="Video mới" onChange={(e) => setTitle(e.target.value)} />
+          <input {...form.register("title")} maxLength={60} placeholder="Video mới" />
         </label>
 
-        {error ? <p className="err">{error}</p> : null}
+        {error ?? submitError ? <p className="err">{error ?? submitError}</p> : null}
 
         <div className="np-actions">
-          <button className="ed-btn primary" onClick={create} disabled={creating || uploading}>
+          <button className="ed-btn primary" onClick={form.handleSubmit((values) => create.mutate(values))} disabled={creating || uploading}>
             {creating ? "Đang tạo…" : <>{picked.length ? `Bắt đầu chỉnh sửa (${picked.length} cảnh)` : "Bắt đầu với dự án trống"} <ArrowRight size={18} aria-hidden /></>}
           </button>
         </div>
