@@ -89,7 +89,7 @@ export const Inspector: React.FC<Props> = ({
   }
 
   if (selection?.type === "clip") {
-    return <ClipPanel {...base} index={selection.index} onDelete={onDelete} onSplit={onSplit} onAutoSubtitles={onAutoSubtitles} sub={sub} />;
+    return <ClipPanel {...base} index={selection.index} onDelete={onDelete} onSplit={onSplit} onAutoSubtitles={onAutoSubtitles} onRun={onRun} sub={sub} />;
   }
 
   if (selection?.type === "music") {

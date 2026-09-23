@@ -250,6 +250,74 @@ export const captureFrame = async (src: unknown, atMs: unknown) => {
   return { path: rel };
 };
 
+/** File có tiếng dò khoảng lặng được: video và âm thanh trong thư viện. */
+const SOUND_PATH = /^(uploads|videos|images|music|sfx)\/[\w./-]+\.(mp4|mov|webm|mp3|wav|m4a|aac|ogg)$/i;
+/** Hai khoảng lặng cách nhau dưới mức này (ffmpeg hay tách một khoảng lặng dài thành hai) thì gộp làm một. */
+const SILENCE_MERGE_MS = 120;
+const MAX_SCAN_MS = 3 * 3600_000;
+
+/**
+ * Dò khoảng lặng trong đoạn [fromMs, toMs] của file (mốc theo file gốc) — cho nút Cắt khoảng lặng của trình chỉnh sửa.
+ * `minMs`: lặng ít nhất bao lâu mới tính; `noiseDb`: dưới mức này coi là im lặng. Trả mốc theo file gốc.
+ */
+export const findSilences = async (body: unknown) => {
+  const { src, fromMs, toMs, minMs, noiseDb } = (body ?? {}) as Record<string, unknown>;
+  if (typeof src !== "string" || !SOUND_PATH.test(src) || src.includes("..")) {
+    throw new Error("File không hợp lệ.");
+  }
+  const input = path.join(process.cwd(), "public", src);
+  if (!fs.existsSync(input)) {
+    throw new Error("Không thấy file.");
+  }
+  const from = Math.max(0, Math.round(Number(fromMs)));
+  const to = Math.round(Number(toMs));
+  const min = Math.round(Number(minMs));
+  const noise = Math.round(Number(noiseDb));
+  if (![from, to, min, noise].every(Number.isFinite) || to <= from || to - from > MAX_SCAN_MS) {
+    throw new Error("Đoạn cần dò không hợp lệ.");
+  }
+  if (min < 100 || min > 10_000 || noise < -80 || noise > -10) {
+    throw new Error("Mức dò khoảng lặng không hợp lệ.");
+  }
+
+  const streams = await run("ffprobe", [
+    "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", input,
+  ]);
+  if (!streams.stdout.trim()) {
+    throw new Error("Clip này không có tiếng — không có khoảng lặng nào để cắt.");
+  }
+
+  // -ss trước -i: tua nhanh; mốc silencedetect in ra tính từ chỗ tua nên cộng lại `from`.
+  const { stderr } = await run(
+    "ffmpeg",
+    [
+      "-hide_banner", "-nostats", "-ss", (from / 1000).toFixed(3), "-t", ((to - from) / 1000).toFixed(3), "-i", input,
+      "-vn", "-af", `silencedetect=noise=${noise}dB:d=${(min / 1000).toFixed(3)}`, "-f", "null", "-",
+    ],
+    { maxBuffer: 32 * 1024 * 1024 },
+  );
+  const spans: { startMs: number; endMs: number }[] = [];
+  let start: number | null = null;
+  for (const match of stderr.matchAll(/silence_(start|end): (-?[\d.]+)/g)) {
+    const ms = from + Math.max(0, Math.round(parseFloat(match[2]) * 1000));
+    if (match[1] === "start") start = ms;
+    else if (start !== null) {
+      spans.push({ startMs: start, endMs: Math.min(ms, to) });
+      start = null;
+    }
+  }
+  // Lặng tới hết đoạn thì ffmpeg không in silence_end.
+  if (start !== null && start < to) spans.push({ startMs: start, endMs: to });
+
+  const merged: typeof spans = [];
+  for (const span of spans) {
+    const last = merged[merged.length - 1];
+    if (last && span.startMs - last.endMs < SILENCE_MERGE_MS) last.endMs = Math.max(last.endMs, span.endMs);
+    else merged.push({ ...span });
+  }
+  return { silences: merged };
+};
+
 export const extractAudio = async (src: unknown) => {
   if (typeof src !== "string" || !VIDEO_PATH.test(src) || src.includes("..")) {
     throw new Error("File video không hợp lệ.");

@@ -80,6 +80,27 @@ const readEntry = (id: string): TrashEntry | null => {
   }
 };
 
+/**
+ * Số mục và dung lượng trong thùng rác — chỉ đọc (không dọn mục hết hạn như listTrash), cho hộp Dọn dung lượng.
+ * `base`: thư mục làm việc (kiểm thử truyền thư mục tạm).
+ */
+export const trashUsage = (base = process.cwd()) => {
+  const root = path.join(base, ".trash");
+  let items = 0;
+  let bytes = 0;
+  for (const id of fs.existsSync(root) ? fs.readdirSync(root) : []) {
+    if (!ID_RE.test(id)) continue;
+    try {
+      const entry = JSON.parse(fs.readFileSync(path.join(root, id, "meta.json"), "utf8")) as TrashEntry;
+      items++;
+      bytes += Number(entry.bytes) || 0;
+    } catch {
+      // mục hỏng — listTrash cũng bỏ qua
+    }
+  }
+  return { items, bytes };
+};
+
 /** Thư mục files/ của một mục — cho route xem trước ảnh/video. null nếu id sai. */
 export const trashFilesDir = (id: string) => (readEntry(id) ? path.join(trashDir(), id, "files") : null);
 

@@ -256,13 +256,23 @@ export const generateVoiceover = async (
   return synthesizeVoiceover(lines, slug, engine, voiceOverride);
 };
 
+/**
+ * Thư mục của một lượt đọc: voices/<slug>/<lượt>/. Tên file luôn là line-01.mp3, line-02.mp3… nên ghi chung một thư
+ * mục cho mọi lượt thì lượt sau đè lên file mà các bản trước vẫn trỏ tới — làm bản 2 của video (sửa lời qua chat,
+ * dựng lại, hay slug được dùng lại sau khi xoá) xong, mở "Chỉnh sửa bản 1" lại nghe giọng của bản 2.
+ * Nơi gọi đã tự đặt thư mục riêng (có "/", ví dụ trình chỉnh sửa dùng `<slug>/edit-<giờ>`) thì giữ nguyên.
+ */
+const runDir = (slug: string) =>
+  slug.includes("/") ? slug : `${slug}/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+
 export const synthesizeVoiceover = async (
   lines: string[],
   slug: string,
   engine: TtsEngine,
   voiceOverride?: string,
 ): Promise<VoiceoverClip[]> => {
-  const relDir = path.join("voices", slug);
+  // posix: đường dẫn này đi vào props.json làm staticFile() — trên Windows path.join ghép bằng "\\".
+  const relDir = path.posix.join("voices", runDir(slug));
   const absDir = path.join(publicDir(), relDir);
   fs.mkdirSync(absDir, { recursive: true });
 
@@ -332,7 +342,7 @@ export const synthesizeVoiceover = async (
 
     const ms = durationMs(abs);
     process.stdout.write(`     ${name}  ${(ms / 1000).toFixed(2)}s\n`);
-    clips.push({ src: path.join(relDir, name), durationMs: ms });
+    clips.push({ src: path.posix.join(relDir, name), durationMs: ms });
   }
 
   return clips;

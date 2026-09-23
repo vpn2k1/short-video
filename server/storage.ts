@@ -8,6 +8,8 @@
  */
 import fs from "fs";
 import path from "path";
+import { trashUsage } from "./app-trash";
+import { diskSpace } from "./disk";
 
 type Category = {
   id: string;
@@ -87,6 +89,10 @@ const sizeOf = (file: string): number => {
 };
 
 export const storageReport = () => ({
+  /** Chỗ trống của ổ đang chứa dự án — null nếu hệ điều hành không cho đọc. */
+  disk: diskSpace(root()),
+  /** Thùng rác của app — không dọn ở đây (xoá vĩnh viễn trong Thư viện › Thùng rác), chỉ báo để biết. */
+  trash: trashUsage(root()),
   categories: CATEGORIES.map((c) => {
     const paths = c.paths();
     return { id: c.id, label: c.label, desc: c.desc, warn: c.warn ?? null, files: paths.length, bytes: paths.reduce((sum, f) => sum + sizeOf(f), 0) };

@@ -46,10 +46,19 @@ export type VoiceOption = {
   sampled?: boolean;
 };
 
+/** Lỗi server trả về; `code` = "ENOSPC" khi ổ đĩa đầy (server/disk.ts › errorBody). */
+export class ApiError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+  }
+}
+
+export const isDiskFullError = (error: unknown) => error instanceof ApiError && error.code === "ENOSPC";
+
 export const api = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const res = await fetch(path, init);
   const body = await res.json();
-  if (!res.ok) throw new Error(body.error || res.statusText);
+  if (!res.ok) throw new ApiError(body.error || res.statusText, typeof body.code === "string" ? body.code : undefined);
   return body as T;
 };
 

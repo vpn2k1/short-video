@@ -16,6 +16,7 @@ import {
   DEFAULT_OPENAI_MODEL,
 } from "../scripts/generate-script";
 import { PROVIDERS, VIDEO_MODELS } from "../scripts/ai-video";
+import { BUDGET_DAY_ENV, BUDGET_MONTH_ENV } from "../scripts/video-budget";
 import { DEFAULT_TRANSLATE_OLLAMA_MODEL } from "../scripts/translate";
 import { WATERMARK_MAX_LENGTH } from "../scripts/watermark";
 import { DEFAULT_GEMINI_TTS_MODEL, GEMINI_TTS_MODELS } from "../scripts/gemini-tts";
@@ -34,6 +35,8 @@ type Field = {
   maxLength?: number;
   /** Chỉ hiện ô này khi ô `name` đang chọn `value`. */
   showIf?: { name: string; value: string };
+  /** Số tiền USD (vd 5 hoặc 2.5) — trống = không giới hạn. */
+  usd?: boolean;
 };
 
 const WATERMARK_ON = { name: "WATERMARK_ENABLED", value: "on" };
@@ -55,6 +58,24 @@ export const KEY_FIELDS: Field[] = [
       { value: "off", label: "Tắt — dùng mọi dịch vụ đã có key" },
       { value: "on", label: "Bật — chỉ miễn phí" },
     ],
+  },
+  {
+    name: BUDGET_DAY_ENV,
+    label: "Hạn mức video AI mỗi ngày (USD)",
+    help: "Tạo clip mà tổng ước tính trong ngày vượt số này thì bị từ chối — cả trong trình chỉnh sửa, chat và hàng loạt. Tính theo bảng giá của model (Veo trên Google Gemini); đã đặt hạn mức thì model chưa có giá bị chặn. Để trống = không giới hạn, 0 = tắt hẳn video AI tính tiền.",
+    group: "Chi phí",
+    type: "text",
+    placeholder: "Không giới hạn",
+    usd: true,
+  },
+  {
+    name: BUDGET_MONTH_ENV,
+    label: "Hạn mức video AI mỗi tháng (USD)",
+    help: "Như trên, cộng dồn từ ngày 1 của tháng (theo giờ máy). Để trống = không giới hạn.",
+    group: "Chi phí",
+    type: "text",
+    placeholder: "Không giới hạn",
+    usd: true,
   },
   {
     name: "GEMINI_API_KEY",
@@ -391,7 +412,11 @@ export const saveKeys = (patch: unknown) => {
     if (field.type === "select" && !field.options?.some((o) => o.value === value)) {
       throw new Error(`${field.label}: lựa chọn không hợp lệ`);
     }
-    if (field.freeText) {
+    if (field.usd) {
+      if (!/^\d{1,6}(\.\d{1,2})?$/.test(value)) {
+        throw new Error(`${field.label}: nhập số USD, ví dụ 5 hoặc 2.5 — để trống nếu không giới hạn.`);
+      }
+    } else if (field.freeText) {
       if (/[\u0000-\u001f\u007f]/.test(value)) {
         throw new Error(`${field.label} không được xuống dòng hay chứa ký tự điều khiển.`);
       }

@@ -45,6 +45,7 @@ import {
   type ChatSettings,
 } from "./chat";
 import { runRenderStage } from "./pipeline";
+import { errorText } from "./disk";
 import { versionsDir } from "./versions";
 import { allLines, parseScript, type VideoScript } from "../src/compositions/Short/script";
 import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type CaptionLook, type ShortProps } from "../src/compositions/Short/schema";
@@ -1219,7 +1220,6 @@ const pump = () => {
   }
 };
 
-const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 const run = async (batch: Batch, item: BatchItem, phase: "prepare" | "build") => {
   const usesHeavy = phase === "build" || isHeavyPrepare(item);

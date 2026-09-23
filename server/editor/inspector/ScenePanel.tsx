@@ -4,6 +4,7 @@ import { Field, Seconds, Slider, SpeedControl } from "./controls";
 import { CropSection, MotionFrameSection, MotionKeySection } from "./motion";
 import { Panel } from "./Panel";
 import { ReplaceMedia } from "./ReplaceMedia";
+import { SilenceSection } from "./SilenceSection";
 import { SubtitleAiSection, type SubtitleAi } from "./SubtitleAiSection";
 import type { InspectorProps, PanelBase } from "./types";
 
@@ -93,6 +94,16 @@ export const ScenePanel: React.FC<PanelBase & Pick<InspectorProps,
             </button>
           </div>
         </section>
+      ) : null}
+
+      {video ? (
+        <SilenceSection
+          key={`silence-${s.image}-${s.startMs}-${s.endMs}-${s.trimStartMs}-${ops.clipSpeed(s)}`}
+          data-tab="Khoảng lặng"
+          props={props}
+          target={{ type: "scene", index: i }}
+          onRun={onRun}
+        />
       ) : null}
 
       {s.image ? (

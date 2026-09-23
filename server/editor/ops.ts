@@ -1293,6 +1293,116 @@ export const rippleDelete = (p: ShortProps, from: number, to: number): Result =>
   };
 };
 
+// ---------- cắt khoảng lặng ----------
+
+/** Khối có tiếng cắt khoảng lặng được: cảnh video, video trên timeline, đoạn âm thanh. */
+export type SoundTarget = { type: "scene" | "overlay" | "clip"; index: number };
+export type Span = { startMs: number; endMs: number };
+
+/** File, chỗ đặt trên timeline và phần file đang dùng của một khối có tiếng; null nếu khối không có tiếng. */
+export const soundSpanOf = (p: ShortProps, t: SoundTarget) => {
+  if (t.type === "overlay") {
+    const o = overlaysOf(p)[t.index];
+    return o && isVideo(o.src) ? { src: o.src, startMs: o.startMs, endMs: o.endMs, trimStartMs: o.trimStartMs, speed: clipSpeed(o) } : null;
+  }
+  if (t.type === "scene") {
+    const s = p.scenes[t.index];
+    return s?.image && isVideo(s.image)
+      ? { src: s.image, startMs: s.startMs, endMs: s.endMs, trimStartMs: s.trimStartMs, speed: clipSpeed(s) }
+      : null;
+  }
+  const c = p.audioClips[t.index];
+  return c ? { src: c.src, startMs: c.startMs, endMs: c.startMs + c.durationMs, trimStartMs: c.trimStartMs, speed: clipSpeed(c) } : null;
+};
+
+export type SoundSpan = NonNullable<ReturnType<typeof soundSpanOf>>;
+
+/** Phần file (mốc file gốc) mà khối đang phát — gửi lên server để dò khoảng lặng. */
+export const soundSourceRange = (span: SoundSpan): Span => ({
+  startMs: r(span.trimStartMs),
+  endMs: r(span.trimStartMs + (span.endMs - span.startMs) * span.speed),
+});
+
+/** Cách mép khối dưới mức này thì cắt sát mép luôn — splitAt không tách được sát mép như vậy. */
+const EDGE_MS = MIN_MS / 2 + 1;
+
+/**
+ * Khoảng lặng (mốc file gốc, từ server) → đoạn cần cắt trên timeline. Chừa `padMs` trước và sau mỗi đoạn có tiếng
+ * để không cụt mất hơi đầu/cuối câu; lặng ngay đầu hoặc cuối khối thì cắt sát mép. Bỏ đoạn ngắn hơn `minCutMs`.
+ */
+export const silenceCuts = (span: SoundSpan, silences: Span[], padMs: number, minCutMs = 200): Span[] => {
+  const toTimeline = (ms: number) => span.startMs + (ms - span.trimStartMs) / span.speed;
+  const cuts: Span[] = [];
+  for (const silence of [...silences].sort((x, y) => x.startMs - y.startMs)) {
+    let a = Math.max(span.startMs, toTimeline(silence.startMs));
+    let b = Math.min(span.endMs, toTimeline(silence.endMs));
+    a = a - span.startMs < padMs ? span.startMs : a + padMs;
+    b = span.endMs - b < padMs ? span.endMs : b - padMs;
+    if (a - span.startMs < EDGE_MS) a = span.startMs;
+    if (span.endMs - b < EDGE_MS) b = span.endMs;
+    if (b - a >= Math.max(minCutMs, EDGE_MS)) cuts.push({ startMs: r(a), endMs: r(b) });
+  }
+  return cuts;
+};
+
+/** Chỉ số khối cùng loại, cùng file đang phủ trọn đoạn `cut` (tách/cắt trước đó làm đổi chỉ số). */
+const pieceIndex = (p: ShortProps, type: SoundTarget["type"], src: string, cut: Span) => {
+  const count = type === "overlay" ? overlaysOf(p).length : type === "scene" ? p.scenes.length : p.audioClips.length;
+  for (let index = 0; index < count; index++) {
+    const span = soundSpanOf(p, { type, index });
+    if (span && span.src === src && span.startMs <= cut.startMs && span.endMs >= cut.endMs) return index;
+  }
+  return -1;
+};
+
+/**
+ * Cắt các đoạn `cuts` (mốc timeline, trong khối `target`) rồi dồn mọi thứ phía sau lên — phụ đề, chữ, âm thanh,
+ * video khác đi theo như rippleDelete. Làm từ đoạn cuối lên đầu để mốc của các đoạn còn lại không đổi.
+ */
+export const cutSilences = (p: ShortProps, target: SoundTarget, cuts: Span[]): Result => {
+  const original = soundSpanOf(p, target);
+  if (!original) return { props: p, message: "Chọn một video hoặc đoạn âm thanh có tiếng." };
+  const total = cuts.reduce((sum, c) => sum + c.endMs - c.startMs, 0);
+  if (total >= original.endMs - original.startMs - MIN_MS) {
+    return { props: p, message: "Khối này gần như im lặng hoàn toàn — cắt hết thì mất cả khối. Thử mức nhẹ hơn." };
+  }
+
+  let props = p;
+  let removed = 0;
+  let done = 0;
+  for (const cut of [...cuts].sort((x, y) => y.startMs - x.startMs)) {
+    const index = pieceIndex(props, target.type, original.src, cut);
+    if (index < 0) continue;
+    let sel: SoundTarget = { type: target.type, index };
+    const piece = soundSpanOf(props, sel)!;
+    if (cut.startMs > piece.startMs) {
+      const split = splitAt(props, cut.startMs, sel);
+      if (split.props === props) continue;
+      props = split.props;
+      sel = split.selection as SoundTarget;
+    }
+    if (cut.endMs < soundSpanOf(props, sel)!.endMs) {
+      const split = splitAt(props, cut.endMs, sel);
+      if (split.props !== props) props = split.props;
+    }
+    const cutResult = rippleDelete(props, cut.startMs, cut.endMs);
+    if (cutResult.props === props) continue;
+    props = cutResult.props;
+    removed += cut.endMs - cut.startMs;
+    done++;
+  }
+  if (done === 0) return { props: p, message: "Không có khoảng lặng nào đủ dài để cắt." };
+
+  const first = pieceIndex(props, target.type, original.src, { startMs: original.startMs, endMs: original.startMs });
+  const notes = [`Đã cắt ${done} khoảng lặng — ngắn đi ${(removed / 1000).toFixed(1)}s.`];
+  if (p.showTitle && !props.showTitle) notes.push("Đã tắt title card vì phần đầu video bị cắt.");
+  return {
+    props,
+    selection: first >= 0 ? { type: target.type, index: first } : null,
+    message: notes.join(" "),
+  };
+};
+
 /** Các mốc để hít vào khi kéo: mép phụ đề, ranh giới cảnh (khi hàng Cảnh còn hiện), mép âm thanh, video, đầu phát. */
 export const snapEdges = (p: ShortProps, excludeKey: string, playheadMs: number) => {
   const edges = [0, playheadMs];

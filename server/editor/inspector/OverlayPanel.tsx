@@ -4,6 +4,7 @@ import { Field, Seconds, Slider, SpeedControl } from "./controls";
 import { CropSection, MotionFrameSection, MotionKeySection } from "./motion";
 import { Panel } from "./Panel";
 import { ReplaceMedia } from "./ReplaceMedia";
+import { SilenceSection } from "./SilenceSection";
 import type { InspectorProps, PanelBase } from "./types";
 
 // ---------- một video trên timeline ----------
@@ -81,6 +82,16 @@ export const OverlayPanel: React.FC<PanelBase & Pick<InspectorProps,
             onChange={(v, key) => onChange(ops.setOverlaySpeed(props, i, v), key ? `overlay-speed-${i}` : undefined)}
           />
         </section>
+      ) : null}
+
+      {video ? (
+        <SilenceSection
+          key={`silence-${o.src}-${o.startMs}-${o.endMs}-${o.trimStartMs}-${ops.clipSpeed(o)}`}
+          data-tab="Khoảng lặng"
+          props={props}
+          target={{ type: "overlay", index: i }}
+          onRun={onRun}
+        />
       ) : null}
 
       <section className="in-sec in-foot">

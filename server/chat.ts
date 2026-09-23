@@ -45,6 +45,7 @@ import {
   TRANSLATE_ENGINES, type TranslateEngine,
 } from "../scripts/translate";
 import { fetchSceneImages } from "./api";
+import { assertDiskSpace, errorText, RENDER_MIN_FREE } from "./disk";
 import {
   assignVersions, latestEditableVersion, versionDraftPath, versionPropsPath, versionVideosDir,
 } from "./versions";
@@ -188,8 +189,30 @@ const running = new Map<string, string>();
 type RunKind = "turn" | "multi" | "render" | "subtitles" | "voice";
 const runMarkerPath = (slug: string) => path.join(videoDir(slug), ".running.json");
 
+/** Loại việc + lúc bắt đầu của lượt đang chạy — cho ô Tiến trình (server/activity.ts). */
+const runningMeta = new Map<string, { jobId: string; kind: RunKind; startedAt: number }>();
+
+export type FinishedRun = { slug: string; jobId: string; kind: RunKind; startedAt: number; finishedAt: number };
+/**
+ * Lượt vừa xong (mới nhất trước, giữ 30 phút / 30 lượt): ô Tiến trình báo xong/lỗi cả khi người dùng đang ở
+ * video khác, hay mở trang sau khi lượt đã xong.
+ */
+const finishedRuns: FinishedRun[] = [];
+const FINISHED_KEEP_MS = 30 * 60_000;
+
+/** Mọi lượt đang chạy và vừa xong trong server này. */
+export const runActivity = () => {
+  const cutoff = Date.now() - FINISHED_KEEP_MS;
+  while (finishedRuns.length && finishedRuns[finishedRuns.length - 1].finishedAt < cutoff) finishedRuns.pop();
+  return {
+    running: [...runningMeta].map(([slug, meta]) => ({ slug, ...meta })),
+    finished: [...finishedRuns],
+  };
+};
+
 const markRunning = (slug: string, jobId: string, kind: RunKind) => {
   running.set(slug, jobId);
+  runningMeta.set(slug, { jobId, kind, startedAt: Date.now() });
   try {
     fs.mkdirSync(videoDir(slug), { recursive: true });
     fs.writeFileSync(runMarkerPath(slug), JSON.stringify({ kind, pid: process.pid, at: Date.now() }));
@@ -200,6 +223,12 @@ const markRunning = (slug: string, jobId: string, kind: RunKind) => {
 
 const clearRunning = (slug: string) => {
   running.delete(slug);
+  const meta = runningMeta.get(slug);
+  runningMeta.delete(slug);
+  if (meta) {
+    finishedRuns.unshift({ slug, ...meta, finishedAt: Date.now() });
+    finishedRuns.length = Math.min(finishedRuns.length, 30);
+  }
   fs.rmSync(runMarkerPath(slug), { force: true });
 };
 
@@ -621,6 +650,8 @@ export const startEditorRender = (slug: string, requested: number | null = null)
     throw new Error("Video này đang được xử lý — đợi xong đã.");
   }
   const { props, version } = readEditorProps(slug, requested);
+  // Kiểm tra ngay lúc bấm xuất — báo trong hộp xuất luôn, không đợi job chạy.
+  assertDiskSpace(RENDER_MIN_FREE, "xuất video");
   const job = startJob(async (log) => {
     try {
       // Bản mới nhất = bản vừa xuất: pipeline (đổi giọng, AI sửa tiếp…) đọc props.json.
@@ -1123,7 +1154,7 @@ const launchTurn = (
     } catch (error) {
       messages.push({
         role: "assistant", at: Date.now(), error: true,
-        text: error instanceof Error ? error.message : String(error),
+        text: errorText(error),
       });
       writeChat(slug, { messages, settings });
       throw error;
@@ -1627,7 +1658,6 @@ const cachedAiClip = async (
   return result.path;
 };
 
-const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
  * Tạo clip AI làm nền cho từng cảnh, trừ cảnh đang dùng file người dùng tải lên.

@@ -14,6 +14,7 @@ import { generateVoiceover, type TtsEngine } from "../scripts/tts";
 import { findVoice } from "../scripts/voices";
 import { renderShort } from "../scripts/render";
 import { assertImagesExist } from "../scripts/images";
+import { assertDiskSpace, RENDER_MIN_FREE } from "./disk";
 
 export type StageState = "done" | "missing" | "stale" | "skipped";
 
@@ -185,6 +186,7 @@ export const runRenderStage = async (
   }
   const props = shortSchema.parse(JSON.parse(fs.readFileSync(propsPath, "utf8")));
   assertImagesExist(props);
+  assertDiskSpace(RENDER_MIN_FREE, "xuất video");
 
   const output = path.join(root(), "out", `${slug}.mp4`);
   fs.mkdirSync(path.dirname(output), { recursive: true });

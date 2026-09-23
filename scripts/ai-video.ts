@@ -13,6 +13,7 @@ import path from "path";
 import { slugify } from "./slug";
 import { describeProviderError } from "./provider-error";
 import { freeMode } from "./usage";
+import { reserveVideoBudget, videoBudget } from "./video-budget";
 
 export type Provider = "gemini" | "fal" | "replicate";
 
@@ -192,7 +193,7 @@ export const videoModelCatalog = () => {
     usdPerSecond: m.usdPerSecond ?? null,
     available: hasKey(m.provider) && !freeMode(),
   }));
-  return { models, defaultModel: pickModel()?.key ?? null, freeMode: freeMode() };
+  return { models, defaultModel: pickModel()?.key ?? null, freeMode: freeMode(), budget: videoBudget() };
 };
 
 /** Model trong Cài đặt nếu có key; "Tự động"/trống → model đầu tiên có key. */
@@ -389,19 +390,28 @@ export const generateAiVideo = async (
     ratio: closestRatio(model.ratios, options.width, options.height),
     seconds: fitDuration(model.durations, options.seconds ?? 5),
   };
-  const cost = model.usdPerSecond ? ` · ước tính $${(model.usdPerSecond * request.seconds).toFixed(2)}` : "";
+  const estimate = model.usdPerSecond ? model.usdPerSecond * request.seconds : null;
+  // Vượt hạn mức chi tiêu thì dừng ở đây, trước khi gửi yêu cầu tính tiền.
+  const settle = reserveVideoBudget(estimate, model.label);
+  const cost = estimate !== null ? ` · ước tính $${estimate.toFixed(2)}` : "";
   log(`${model.label} (${PROVIDERS[model.provider].label}) · ${request.ratio} · ${request.seconds}s${cost}`);
 
-  const { url, headers } = await RUNNERS[model.provider](model, request, log);
+  try {
+    const { url, headers } = await RUNNERS[model.provider](model, request, log);
+    // Nhà cung cấp đã tạo xong clip — đã tính tiền, kể cả khi bước tải về sau đó hỏng.
+    settle(true);
 
-  log("Tải video về…");
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw await failText("Tải video", res);
+    log("Tải video về…");
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw await failText("Tải video", res);
 
-  const rel = `videos/ai/${Date.now()}-${slugify(prompt, 40)}.mp4`;
-  const file = path.join(process.cwd(), "public", rel);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
-  log(`Đã lưu ${rel}`);
-  return { path: rel, model: model.key, seconds: request.seconds, ratio: request.ratio };
+    const rel = `videos/ai/${Date.now()}-${slugify(prompt, 40)}.mp4`;
+    const file = path.join(process.cwd(), "public", rel);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+    log(`Đã lưu ${rel}`);
+    return { path: rel, model: model.key, seconds: request.seconds, ratio: request.ratio };
+  } finally {
+    settle(false);
+  }
 };

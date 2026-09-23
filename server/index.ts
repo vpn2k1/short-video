@@ -53,8 +53,9 @@ import { normalizeScript } from "../scripts/normalize-script";
 import { getEditorAssets } from "./editor-build";
 import { getIconsJs } from "./icons";
 import { FONT_CATALOG, fontGroups } from "../src/fonts/catalog";
-import { captureFrame, deleteLibraryMedia, extractAudio, listLibraryMedia, listMedia } from "./media";
+import { captureFrame, deleteLibraryMedia, extractAudio, findSilences, listLibraryMedia, listMedia } from "./media";
 import { deleteTrash, listTrash, restoreTrash, trashFilesDir } from "./app-trash";
+import { errorBody } from "./disk";
 import { keyStatus, keyTipsSeen, loadKeys, markKeyTipsSeen, saveKeys } from "./keys";
 import { isStyleId, STYLE_IDS, STYLES } from "../src/styles/meta";
 import { textToScript } from "../scripts/text-script";
@@ -70,8 +71,10 @@ import {
 import { watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { getJob, startJob } from "./jobs";
+import { activity } from "./activity";
 import { parseVersion } from "./versions";
 import { freeMode, usageSummary } from "../scripts/usage";
+import { videoBudget } from "../scripts/video-budget";
 import { downloadStock, isStockKind, isStockProvider, searchStock, stockProviders, type Orientation } from "../scripts/stock";
 import { pipelineStatus, runRenderStage, runVoiceStage } from "./pipeline";
 import { slugify } from "../scripts/slug";
@@ -314,7 +317,7 @@ const server = http.createServer(async (req, res) => {
 
     /** Lượt gọi AI hôm nay + lần gần nhất bị chặn vì hạn mức — hiện trong ⚙ Cài đặt. */
     if (route === "/api/usage") {
-      return send(res, 200, { ...usageSummary(), freeMode: freeMode() });
+      return send(res, 200, { ...usageSummary(), freeMode: freeMode(), videoBudget: videoBudget() });
     }
 
     /** Model dịch phụ đề dùng được — hỏi thật Ollama, nên gọi lại khi người dùng bấm "Kiểm tra lại". */
@@ -332,9 +335,7 @@ const server = http.createServer(async (req, res) => {
         try {
           return send(res, 200, saveKeys(await readJson(req)));
         } catch (error) {
-          return send(res, 400, {
-            error: error instanceof Error ? error.message : String(error),
-          });
+          return send(res, 400, errorBody(error));
         }
       }
       return send(res, 200, keyStatus());
@@ -355,7 +356,7 @@ const server = http.createServer(async (req, res) => {
           notes,
         });
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -369,7 +370,7 @@ const server = http.createServer(async (req, res) => {
           provider: isScriptProvider(body.provider) ? body.provider : "auto",
         }));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -377,12 +378,16 @@ const server = http.createServer(async (req, res) => {
     if (route === "/api/projects") {
       return send(res, 200, { projects: listProjects() });
     }
+    /** Ô Tiến trình: việc đang chạy nền và vừa xong của mọi video (server/activity.ts). */
+    if (route === "/api/activity") {
+      return send(res, 200, activity());
+    }
     if (route === "/api/projects/delete" && req.method === "POST") {
       try {
         const body = (await readJson(req)) as { slugs?: unknown } | null;
         return send(res, 200, deleteProjects(body?.slugs));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -398,7 +403,7 @@ const server = http.createServer(async (req, res) => {
       try {
         return send(res, 200, startContinuation(await readJson(req)));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -406,9 +411,7 @@ const server = http.createServer(async (req, res) => {
       try {
         return send(res, 200, startTurn(await readJson(req)));
       } catch (error) {
-        return send(res, 400, {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -426,7 +429,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readJson<{ paths?: unknown; force?: unknown }>(req);
         return send(res, 200, deleteLibraryMedia(body?.paths, body?.force === true));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -439,7 +442,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readJson<{ ids?: unknown }>(req);
         return send(res, 200, restoreTrash(body?.ids));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
     if (route === "/api/trash/delete" && req.method === "POST") {
@@ -447,7 +450,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readJson<{ ids?: unknown; all?: unknown }>(req);
         return send(res, 200, deleteTrash(body?.all === true ? "all" : body?.ids));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
     // Ảnh/video xem trước của mục trong thùng rác: /api/trash/file/<id>/<tên file>
@@ -464,7 +467,16 @@ const server = http.createServer(async (req, res) => {
         const body = await readJson<{ src?: unknown; atMs?: unknown }>(req);
         return send(res, 200, await captureFrame(body?.src, body?.atMs));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
+      }
+    }
+
+    // Dò khoảng lặng của một clip (nút Cắt khoảng lặng trong trình chỉnh sửa) — chỉ đọc, không ghi gì.
+    if (route === "/api/media/silences" && req.method === "POST") {
+      try {
+        return send(res, 200, await findSilences(await readJson(req)));
+      } catch (error) {
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -473,7 +485,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readJson<{ src?: unknown }>(req);
         return send(res, 200, await extractAudio(body.src));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -484,7 +496,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readJson(req);
         return send(res, 200, route === "/api/chat/draft" ? saveChatDraft(body) : saveMultiDraft(body));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -492,7 +504,7 @@ const server = http.createServer(async (req, res) => {
       try {
         return send(res, 200, startMultiScene(await readJson(req)));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -537,7 +549,7 @@ const server = http.createServer(async (req, res) => {
       try {
         return send(res, 200, createEditorProject(await readJson(req)));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -568,7 +580,7 @@ const server = http.createServer(async (req, res) => {
           return send(res, 200, readEditorProps(slug, version));
         }
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
       return send(res, 404, { error: "unknown action" });
     }
@@ -625,14 +637,14 @@ const server = http.createServer(async (req, res) => {
       try {
         return send(res, 200, startClipAnalysis(await readJson(req)));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
     if (route.startsWith("/api/clips/analyze/")) {
       try {
         return send(res, 200, clipAnalysisStatus(route.split("/")[4]));
       } catch (error) {
-        return send(res, 404, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 404, errorBody(error));
       }
     }
 
@@ -643,7 +655,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readJson<{ delete?: unknown }>(req);
         return send(res, 200, body.delete ? deletePreset(body.delete) : savePreset(body));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
     if (route === "/api/batches") {
@@ -670,7 +682,7 @@ const server = http.createServer(async (req, res) => {
           Array.isArray(body.avoid) ? body.avoid.filter((line): line is string => typeof line === "string").map((line) => line.slice(0, 300)) : [],
         ));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -683,7 +695,7 @@ const server = http.createServer(async (req, res) => {
           const body = await readJson<{ provider?: unknown }>(req);
           return send(res, 200, await generatePostCopy(slug, isScriptProvider(body.provider) ? body.provider : "auto"));
         } catch (error) {
-          return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+          return send(res, 400, errorBody(error));
         }
       }
       return send(res, 200, getPostCopy(slug));
@@ -703,7 +715,7 @@ const server = http.createServer(async (req, res) => {
           isScriptProvider(body.provider) ? body.provider : "auto");
         return send(res, 200, { hooks });
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -711,7 +723,7 @@ const server = http.createServer(async (req, res) => {
       try {
         return send(res, 200, createBatch(await readJson(req)));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -799,7 +811,7 @@ const server = http.createServer(async (req, res) => {
           if (action === "delete") return send(res, 200, deleteBatch(id));
         }
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
       return send(res, 404, { error: "unknown action" });
     }
@@ -870,7 +882,7 @@ const server = http.createServer(async (req, res) => {
         const { voice } = await readJson<{ voice?: unknown }>(req);
         return send(res, 200, await voiceSample(String(voice ?? "")));
       } catch (error) {
-        return send(res, 400, { error: error instanceof Error ? error.message : String(error) });
+        return send(res, 400, errorBody(error));
       }
     }
 
@@ -1056,7 +1068,13 @@ const server = http.createServer(async (req, res) => {
       const file = `${Date.now()}-${slugify(path.basename(name, ext), 40)}${ext}`;
       const target = path.join(process.cwd(), "public", "uploads", file);
       fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, await readBody(req));
+      try {
+        fs.writeFileSync(target, await readBody(req));
+      } catch (error) {
+        // Ổ đầy giữa chừng: đừng để lại file dở trong thư viện.
+        fs.rmSync(target, { force: true });
+        return send(res, 507, errorBody(error));
+      }
       return send(res, 200, {
         path: `uploads/${file}`,
         bytes: fs.statSync(target).size,
@@ -1102,9 +1120,7 @@ const server = http.createServer(async (req, res) => {
 
     return send(res, 404, { error: "not found" });
   } catch (error) {
-    return send(res, 500, {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return send(res, 500, errorBody(error));
   }
 });
 

@@ -2,12 +2,13 @@ import { Scissors, Trash2, Volume2 } from "lucide-react";
 import * as ops from "../ops";
 import { Field, Seconds, Slider, SpeedControl } from "./controls";
 import { Panel } from "./Panel";
+import { SilenceSection } from "./SilenceSection";
 import { SubtitleAiSection, type SubtitleAi } from "./SubtitleAiSection";
 import type { InspectorProps, PanelBase } from "./types";
 
 // ---------- âm thanh thêm tay ----------
-export const ClipPanel: React.FC<PanelBase & Pick<InspectorProps, "onDelete" | "onSplit" | "onAutoSubtitles"> & { sub: SubtitleAi }> = ({
-  props, index: i, onChange, onSelect, onDelete, onSplit, onAutoSubtitles, sub,
+export const ClipPanel: React.FC<PanelBase & Pick<InspectorProps, "onDelete" | "onSplit" | "onAutoSubtitles" | "onRun"> & { sub: SubtitleAi }> = ({
+  props, index: i, onChange, onSelect, onDelete, onSplit, onAutoSubtitles, onRun, sub,
 }) => {
   const c = props.audioClips[i];
   if (!c) return null;
@@ -44,6 +45,13 @@ export const ClipPanel: React.FC<PanelBase & Pick<InspectorProps, "onDelete" | "
           <button className="danger" onClick={onDelete}><Trash2 size={16} aria-hidden /> Xoá âm thanh</button>
         </div>
       </section>
+      <SilenceSection
+        key={`silence-${c.src}-${c.startMs}-${c.durationMs}-${c.trimStartMs}-${ops.clipSpeed(c)}`}
+        data-tab="Khoảng lặng"
+        props={props}
+        target={{ type: "clip", index: i }}
+        onRun={onRun}
+      />
       <SubtitleAiSection
         data-tab="Phụ đề AI"
         sub={sub}

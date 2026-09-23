@@ -39,7 +39,11 @@ export type VideoModelCatalog = {
   models: VideoModelOption[];
   defaultModel: string | null;
   freeMode?: boolean;
+  /** Hạn mức chi tiêu video AI trong Cài đặt (scripts/video-budget.ts); limit null = không giới hạn. */
+  budget?: { day: BudgetScope; month: BudgetScope };
 };
+
+export type BudgetScope = { limit: number | null; spent: number };
 
 /** /api/ai-video/models */
 export type VideoModelOption = {

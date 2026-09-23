@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { errorText } from "./disk";
 
 export type JobStatus = "running" | "done" | "error";
 
@@ -39,7 +40,7 @@ export const startJob = (
       log("__DONE__");
     })
     .catch((error) => {
-      job.error = error instanceof Error ? error.message : String(error);
+      job.error = errorText(error);
       job.status = "error";
       log(`__ERROR__ ${job.error}`);
     });

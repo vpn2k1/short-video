@@ -105,6 +105,8 @@ async function boot() {
   document.querySelectorAll("[data-start]").forEach((b) =>
     b.addEventListener("click", () => { setOpt("mode", b.dataset.start); $("input").focus(); }));
 
+  renderHomeStyles();
+  $("stylesAll").addEventListener("click", (e) => openMenu(e.currentTarget, styleMenu(useHomeStyle)));
   bindComposer();
   bindShortcuts();
   bindMenu();
@@ -443,6 +445,42 @@ async function loadRecent() {
   } catch {
     $("recentWrap").hidden = true;
   }
+}
+
+// ---------- trang chủ: bộ sưu tập phong cách ----------
+/** Số thẻ hiện sẵn — đủ hai hàng ở màn rộng; còn lại mở bằng "Xem tất cả" (menu phong cách đầy đủ). */
+const HOME_STYLES = 12;
+
+function renderHomeStyles() {
+  const styles = (state?.styles ?? []).filter((s) => s.id !== "plain");
+  $("stylesWrap").hidden = styles.length === 0;
+  $("stylesCount").textContent = `(${styles.length})`;
+  $("styleGrid").innerHTML = styles.slice(0, HOME_STYLES).map((s) => `
+    <button type="button" class="style-card" data-home-style="${escapeHtml(s.id)}" title="${escapeHtml(s.bestFor ?? s.summary ?? "")}">
+      ${optThumb(`/style-previews/${s.id}`)}
+      <b>${s.emoji} ${escapeHtml(s.label)}</b>
+      <small>${escapeHtml(s.summary ?? "")}</small>
+    </button>`).join("");
+  bindOptThumbs($("styleGrid"), ".style-card");
+  $("styleGrid").querySelectorAll("[data-home-style]").forEach((b) =>
+    b.addEventListener("click", () => useHomeStyle(b.dataset.homeStyle)));
+  markHomeStyle();
+}
+
+/** Chọn phong cách cho video tiếp theo rồi đưa con trỏ vào ô nhập (ô tự mở hết tuỳ chọn). */
+function useHomeStyle(id) {
+  setOpt("style", id);
+  $("input").focus();
+  $("hero").scrollTo({ top: 0, behavior: "smooth" });
+  flashNote(`Đã chọn phong cách ${styleMeta(id).label} — gõ ý tưởng rồi Tạo video.`);
+}
+
+function markHomeStyle() {
+  $("styleGrid").querySelectorAll("[data-home-style]").forEach((b) => {
+    const on = b.dataset.homeStyle === opts.style;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
 }
 
 function projectCard(p, selectable = false) {
@@ -941,7 +979,28 @@ function selectOlderThan(days) {
 // ---- dọn dung lượng (server/storage.ts) ----
 let storageReportData = null;
 
+/** Dưới mức này thì báo đỏ: xuất video cần ~1 GB (server/disk.ts › RENDER_MIN_FREE). */
+const LOW_DISK_BYTES = 2 * 1024 ** 3;
+
+/** Chỗ trống của ổ + thùng rác của app — hiện trên đầu hộp Dọn dung lượng. */
+function renderStorageInfo() {
+  const disk = storageReportData?.disk;
+  const trash = storageReportData?.trash;
+  const low = disk && disk.free < LOW_DISK_BYTES;
+  $("storageDisk").innerHTML = disk
+    ? `${icon("hard-drive")} Ổ đĩa còn trống <b>${fmtBytes(disk.free)}</b> / ${fmtBytes(disk.total)}${
+      low ? ` — ${icon("triangle-alert")} sắp đầy, lưu dự án và xuất video có thể lỗi.` : ""}`
+    : "";
+  $("storageDisk").classList.toggle("err", Boolean(low));
+  $("storageTrash").hidden = !trash?.items;
+  if (trash?.items) {
+    $("storageTrashText").innerHTML = `Thùng rác của app: <b>${fmtBytes(trash.bytes)}</b> · ${trash.items} mục. ` +
+      "Xoá vĩnh viễn ở tab Thùng rác, rồi dọn cả Thùng rác của máy mới thật sự lấy lại chỗ.";
+  }
+}
+
 function renderStorage() {
+  renderStorageInfo();
   const cats = storageReportData?.categories ?? [];
   $("storageList").innerHTML = cats.map((c) => `
     <label class="st-row ${c.files ? "" : "empty"}">
@@ -964,6 +1023,8 @@ async function openStorageDialog() {
   $("storageHint").textContent = "Đang tính dung lượng…";
   $("storageHint").classList.remove("err");
   $("storageList").innerHTML = "";
+  $("storageDisk").innerHTML = "";
+  $("storageTrash").hidden = true;
   $("storageDlg").showModal();
   try {
     storageReportData = await api("/api/storage");
@@ -1004,6 +1065,10 @@ function bindLibrarySelect() {
   $("storageForm").addEventListener("submit", submitStorage);
   $("storageList").addEventListener("change", paintStorageTotal);
   $("storageDlg").querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("storageDlg").close()));
+  $("storageTrashOpen").addEventListener("click", () => {
+    $("storageDlg").close();
+    location.hash = "#/library/trash";
+  });
   bindTrash();
   $("libSelect").addEventListener("click", () => setSelecting(true));
   $("libSelectDone").addEventListener("click", () => setSelecting(false));
@@ -1495,6 +1560,7 @@ function renderComposer() {
     b.setAttribute("aria-checked", String(b.dataset.start === opts.mode));
   });
   $("ideas").hidden = textMode;
+  markHomeStyle();
   $("kbdHint").textContent = textMode ? `${IS_MAC ? "⌘" : "Ctrl"}+Enter để gửi` : "Enter để gửi · Shift+Enter xuống dòng";
 
   // Ví dụ dành cho video mới; đang mở một video thì gửi là sửa video đó nên ẩn đi.
@@ -2380,8 +2446,8 @@ function optThumb(base) {
     <video muted loop playsinline preload="none" data-src="${escapeHtml(base)}.mp4"></video>${icon("play")}</span>`;
 }
 
-function bindOptThumbs(root) {
-  root.querySelectorAll(".opt").forEach((b) => {
+function bindOptThumbs(root, selector = ".opt") {
+  root.querySelectorAll(selector).forEach((b) => {
     const video = b.querySelector(".opt-thumb video");
     if (!video) return;
     const play = () => {
@@ -2747,6 +2813,17 @@ const LIMIT_LABELS = {
   overloaded: `${icon("flame")} quá tải`, too_large: `${icon("ruler")} yêu cầu quá lớn`,
 };
 
+/** Chi tiêu video AI (ước tính theo bảng giá) so với hạn mức trong mục Chi phí — scripts/video-budget.ts. */
+function videoSpendLine(b) {
+  if (!b) return "";
+  const part = (label, s) => {
+    const over = s.limit !== null && s.spent >= s.limit;
+    return `<span${over ? ` class="over"` : ""}>${label} ~$${s.spent.toFixed(2)}${s.limit !== null ? ` / $${s.limit.toFixed(2)}` : ""}</span>`;
+  };
+  if (!b.day.spent && !b.month.spent && b.day.limit === null && b.month.limit === null) return "";
+  return `<p class="usage-spend">${icon("clapperboard")} Video AI: ${part("hôm nay", b.day)} · ${part("tháng này", b.month)}</p>`;
+}
+
 /** Lượt gọi AI hôm nay + lần gần nhất bị chặn vì hạn mức (scripts/usage.ts). */
 async function renderUsage() {
   const box = $("usageBox");
@@ -2756,7 +2833,8 @@ async function renderUsage() {
     const limits = u.limits.map((l) => `<li class="limit"><b>${escapeHtml(l.provider)}</b> ${LIMIT_LABELS[l.kind] ?? escapeHtml(l.kind)} lúc ${
       new Date(l.at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</li>`).join("");
     box.innerHTML = `<div class="usage-head">${icon("chart-column")} Hôm nay${u.freeMode ? ` · <span class="free-on">${icon("leaf")} Chế độ Miễn phí đang bật</span>` : ""}</div>
-      ${rows || limits ? `<ul>${limits}${rows}</ul>` : `<p class="muted">Chưa gọi dịch vụ AI nào hôm nay.</p>`}`;
+      ${rows || limits ? `<ul>${limits}${rows}</ul>` : `<p class="muted">Chưa gọi dịch vụ AI nào hôm nay.</p>`}
+      ${videoSpendLine(u.videoBudget)}`;
   } catch {
     box.innerHTML = "";
   }
