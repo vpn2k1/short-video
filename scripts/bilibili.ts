@@ -463,9 +463,9 @@ const ytDlpCandidates = () => [
   path.join(process.env.LOCAL_AI_DIR || path.join(process.cwd(), "vendor"), "yt-dlp", PLATFORM_DIR, EXE),
 ];
 
-const ytDlpPath = () => ytDlpCandidates().find((p) => fs.existsSync(p)) ?? "yt-dlp";
+export const ytDlpPath = () => ytDlpCandidates().find((p) => fs.existsSync(p)) ?? "yt-dlp";
 
-const runTool = (bin: string, args: string[], onLine: (line: string) => void) =>
+export const runTool = (bin: string, args: string[], onLine: (line: string) => void) =>
   new Promise<void>((resolve, reject) => {
     const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
     const tail: string[] = [];
@@ -514,6 +514,99 @@ export const ytDlpVersion = async () => {
   return version || null;
 };
 
+/**
+ * Tải một video (hoặc một đoạn) bằng yt-dlp về `dir/base.mp4`; có sẵn thì dùng lại. Ưu tiên H.264 ≤ `height`,
+ * tự thử lại khi mạng chập chờn, báo tiến độ qua `log`. Dùng chung cho Bilibili và "Lấy video từ link".
+ */
+export const ytDlpDownload = async (input: {
+  url: string;
+  dir: string;
+  base: string;
+  height: number;
+  /** Giây, null = từ đầu / tới hết. */
+  start: number | null;
+  end: number | null;
+  /** Độ dài cả video (giây) — mốc cuối khi chỉ cắt từ `start`. */
+  duration: number;
+  /** "cả video", "đoạn 0:10–0:40"… cho dòng tiến độ. */
+  what: string;
+  /** Tên trang cho lời báo lỗi mạng. */
+  site: string;
+  log: (line: string) => void;
+}) => {
+  const { url, dir, base, height, start, end, duration, what, site, log } = input;
+  fs.mkdirSync(dir, { recursive: true });
+  const target = path.join(dir, `${base}.mp4`);
+  if (fs.existsSync(target)) {
+    log("Đoạn này đã tải trước đó — dùng lại.");
+    return target;
+  }
+  log(`Đang tải ${what} (tối đa ${height}p)…`);
+  const args = [
+    "--no-playlist", "--newline", "--no-warnings", "--no-part",
+    // Mạng từ Việt Nam tới Bilibili hay chập chờn ("Read timed out" khi đọc trang video — gặp 2026-09-17):
+    // chờ lâu hơn mặc định 20 giây và tự thử lại, có nghỉ tăng dần giữa các lần.
+    "--socket-timeout", "45", "--retries", "10", "--fragment-retries", "10", "--extractor-retries", "5",
+    "--retry-sleep", "exp=1:15",
+    // Ưu tiên H.264: trình duyệt và Remotion đọc chắc chắn; HEVC/AV1 dễ lỗi khi xem trước/render.
+    "-f", `bv*[vcodec^=avc][height<=${height}]+ba/bv*[height<=${height}]+ba/b`,
+    "--merge-output-format", "mp4",
+    "--progress-template", "download:TIẾN ĐỘ %(progress._percent_str)s",
+    "-o", path.join(dir, `${base}.download.%(ext)s`),
+  ];
+  if (start !== null || end !== null) {
+    args.push("--download-sections", `*${start ?? 0}-${end ?? duration}`, "--force-keyframes-at-cuts");
+  }
+  args.push(url);
+
+  let lastPercent = "";
+  // Tải một đoạn thì ffmpeg làm việc, yt-dlp không báo phần trăm — báo thời gian để người dùng biết vẫn đang chạy.
+  const began = Date.now();
+  const heartbeat = setInterval(() => {
+    if (!lastPercent) log(`Đang tải và cắt đoạn… ${Math.round((Date.now() - began) / 1000)} giây (thường dưới 1 phút)`);
+  }, 5000);
+  const onLine = (line: string) => {
+    const percent = /TIẾN ĐỘ\s+([\d.]+%)/.exec(line)?.[1];
+    if (percent && percent !== lastPercent) {
+      lastPercent = percent;
+      log(`Đang tải… ${percent}`);
+    } else if (/^\[(Merger|FixupM3u8|VideoConvertor|ModifyChapters)\]/.test(line)) {
+      log("Đang ghép hình và tiếng…");
+    }
+  };
+  const clearPartial = () => {
+    for (const f of fs.readdirSync(dir)) if (f.startsWith(`${base}.download.`)) fs.rmSync(path.join(dir, f), { force: true });
+  };
+  try {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await runTool(ytDlpPath(), args, onLine);
+        break;
+      } catch (error) {
+        // Lỗi mạng sau khi yt-dlp đã tự thử lại: chạy lại cả lượt một lần nữa trước khi báo lỗi.
+        const message = error instanceof Error ? error.message : String(error);
+        if (attempt >= 2 || !/timed out|timeout|Connection|reset|Temporary failure|HTTP Error 5\d\d/i.test(message)) throw error;
+        clearPartial();
+        lastPercent = "";
+        log(`Mạng tới ${site} chập chờn — thử tải lại…`);
+      }
+    }
+  } catch (error) {
+    clearPartial();
+    const message = error instanceof Error ? error.message : String(error);
+    if (/timed out|timeout|Connection|reset|Temporary failure/i.test(message)) {
+      throw new Error(`Không kết nối ổn định được tới ${site} (hết thời gian chờ) — kiểm tra mạng rồi bấm tải lại.`);
+    }
+    throw error;
+  } finally {
+    clearInterval(heartbeat);
+  }
+  const produced = fs.readdirSync(dir).find((f) => f.startsWith(`${base}.download.`));
+  if (!produced) throw new Error("yt-dlp chạy xong nhưng không thấy file video.");
+  fs.renameSync(path.join(dir, produced), target);
+  return target;
+};
+
 export type BiliDownload = {
   bvid: string;
   part: number;
@@ -547,76 +640,10 @@ export const downloadBilibili = async (input: BiliDownload, log: (line: string) 
   const range = start !== null || end !== null ? `-${Math.round(start ?? 0)}-${Math.round(end ?? part.duration)}` : "";
   const base = `${detail.bvid}-p${part.page}${range}`;
   const dir = path.join(process.cwd(), "public", "uploads", "bilibili");
-  fs.mkdirSync(dir, { recursive: true });
-  const target = path.join(dir, `${base}.mp4`);
-
-  if (fs.existsSync(target)) {
-    log("Đoạn này đã tải trước đó — dùng lại.");
-  } else {
-    log(`Đang tải ${detail.parts.length > 1 ? `P${part.page} ` : ""}${start !== null || end !== null ? `đoạn ${clock(start ?? 0)}–${clock(end ?? part.duration)}` : "cả video"} (tối đa ${height}p)…`);
-    const args = [
-      "--no-playlist", "--newline", "--no-warnings", "--no-part",
-      // Mạng từ Việt Nam tới Bilibili hay chập chờn ("Read timed out" khi đọc trang video — gặp 2026-09-17):
-      // chờ lâu hơn mặc định 20 giây và tự thử lại, có nghỉ tăng dần giữa các lần.
-      "--socket-timeout", "45", "--retries", "10", "--fragment-retries", "10", "--extractor-retries", "5",
-      "--retry-sleep", "exp=1:15",
-      // Ưu tiên H.264: trình duyệt và Remotion đọc chắc chắn; HEVC/AV1 dễ lỗi khi xem trước/render.
-      "-f", `bv*[vcodec^=avc][height<=${height}]+ba/bv*[height<=${height}]+ba/b`,
-      "--merge-output-format", "mp4",
-      "--progress-template", "download:TIẾN ĐỘ %(progress._percent_str)s",
-      "-o", path.join(dir, `${base}.download.%(ext)s`),
-    ];
-    if (start !== null || end !== null) {
-      args.push("--download-sections", `*${start ?? 0}-${end ?? part.duration}`, "--force-keyframes-at-cuts");
-    }
-    args.push(`${detail.url}?p=${part.page}`);
-
-    let lastPercent = "";
-    // Tải một đoạn thì ffmpeg làm việc, yt-dlp không báo phần trăm — báo thời gian để người dùng biết vẫn đang chạy.
-    const began = Date.now();
-    const heartbeat = setInterval(() => {
-      if (!lastPercent) log(`Đang tải và cắt đoạn… ${Math.round((Date.now() - began) / 1000)} giây (thường dưới 1 phút)`);
-    }, 5000);
-    const onLine = (line: string) => {
-      const percent = /TIẾN ĐỘ\s+([\d.]+%)/.exec(line)?.[1];
-      if (percent && percent !== lastPercent) {
-        lastPercent = percent;
-        log(`Đang tải… ${percent}`);
-      } else if (/^\[(Merger|FixupM3u8|VideoConvertor|ModifyChapters)\]/.test(line)) {
-        log("Đang ghép hình và tiếng…");
-      }
-    };
-    const clearPartial = () => {
-      for (const f of fs.readdirSync(dir)) if (f.startsWith(`${base}.download.`)) fs.rmSync(path.join(dir, f), { force: true });
-    };
-    try {
-      for (let attempt = 1; ; attempt++) {
-        try {
-          await runTool(ytDlpPath(), args, onLine);
-          break;
-        } catch (error) {
-          // Lỗi mạng sau khi yt-dlp đã tự thử lại: chạy lại cả lượt một lần nữa trước khi báo lỗi.
-          const message = error instanceof Error ? error.message : String(error);
-          if (attempt >= 2 || !/timed out|timeout|Connection|reset|Temporary failure|HTTP Error 5\d\d/i.test(message)) throw error;
-          clearPartial();
-          lastPercent = "";
-          log("Mạng tới Bilibili chập chờn — thử tải lại…");
-        }
-      }
-    } catch (error) {
-      clearPartial();
-      const message = error instanceof Error ? error.message : String(error);
-      if (/timed out|timeout|Connection|reset|Temporary failure/i.test(message)) {
-        throw new Error("Không kết nối ổn định được tới Bilibili (hết thời gian chờ) — kiểm tra mạng rồi bấm tải lại.");
-      }
-      throw error;
-    } finally {
-      clearInterval(heartbeat);
-    }
-    const produced = fs.readdirSync(dir).find((f) => f.startsWith(`${base}.download.`));
-    if (!produced) throw new Error("yt-dlp chạy xong nhưng không thấy file video.");
-    fs.renameSync(path.join(dir, produced), target);
-  }
+  const what = `${detail.parts.length > 1 ? `P${part.page} ` : ""}${start !== null || end !== null ? `đoạn ${clock(start ?? 0)}–${clock(end ?? part.duration)}` : "cả video"}`;
+  await ytDlpDownload({
+    url: `${detail.url}?p=${part.page}`, dir, base, height, start, end, duration: part.duration, what, site: "Bilibili", log,
+  });
 
   const credit = `Tư liệu: ${detail.author} — Bilibili (${detail.url})`;
   const evidence = {

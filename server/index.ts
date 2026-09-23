@@ -68,6 +68,7 @@ import {
   BILI_ORDERS, bilibiliDetail, downloadBilibili, isBvid, searchBilibiliTopic, toChineseKeywords, updateYtDlp, ytDlpVersion,
   type BiliOrder,
 } from "../scripts/bilibili";
+import { downloadLink, isVideoLink, linkInfo } from "../scripts/video-link";
 import { watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { getJob, startJob } from "./jobs";
@@ -999,6 +1000,36 @@ const server = http.createServer(async (req, res) => {
           {
             bvid: body.bvid as string,
             part: Math.max(1, Math.round(Number(body.part) || 1)),
+            start: seconds(body.start),
+            end: seconds(body.end),
+            maxHeight: body.maxHeight === 720 ? 720 : 1080,
+            confirmed: body.confirmed === true,
+          },
+          log,
+        ),
+      );
+      return send(res, 200, { jobId: job.id });
+    }
+
+    // ---- lấy video từ link (scripts/video-link.ts): xem thông tin, tải về để chỉnh sửa / thêm phụ đề ----
+    if (route === "/api/link/info" && req.method === "POST") {
+      const body = await readJson<{ url?: string }>(req);
+      if (!isVideoLink(body.url)) return send(res, 400, { error: "Link không hợp lệ — dán đầy đủ link video, bắt đầu bằng http:// hoặc https://." });
+      try {
+        return send(res, 200, await linkInfo(body.url));
+      } catch (error) {
+        return send(res, 400, errorBody(error));
+      }
+    }
+
+    if (route === "/api/link/download" && req.method === "POST") {
+      const body = await readJson<{ url?: string; start?: number | null; end?: number | null; maxHeight?: number; confirmed?: boolean }>(req);
+      if (!isVideoLink(body.url)) return send(res, 400, { error: "Link không hợp lệ" });
+      const seconds = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
+      const job = startJob((log) =>
+        downloadLink(
+          {
+            url: body.url as string,
             start: seconds(body.start),
             end: seconds(body.end),
             maxHeight: body.maxHeight === 720 ? 720 : 1080,

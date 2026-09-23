@@ -638,6 +638,20 @@ async function addSubsFiles(files) {
   }
 }
 
+/**
+ * Thêm file đã có trên server (vd. vừa tải từ link — server/public/link.js) vào danh sách, không tải lên lại.
+ * Gọi lúc trang Phụ đề đã mở; renderSubsEditor tự bỏ qua nếu tuỳ chọn chưa nạp xong (showSubs vẽ lại sau).
+ */
+async function addSubsPath(path, name) {
+  const url = `/public/${path}`;
+  const video = /\.(mp4|mov|webm)$/i.test(path);
+  const info = await readMediaInfo(url, video);
+  subsFiles.push({ path, name, url, video, ...info });
+  if (subsFiles.length === 1) renderSubsEditor();
+  renderSubsCrop();
+  renderSubsFiles();
+}
+
 const fmtDuration = (s) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : "");
 
 function renderSubsFiles() {

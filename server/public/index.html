@@ -209,7 +209,7 @@
   @keyframes optsIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 
   /* Trang chủ: thẻ các cách làm khác */
-  .tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 940px; margin-top: 26px; text-align: left; }
+  .tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 780px; margin-top: 26px; text-align: left; }
   .tools a { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; padding: 12px 14px;
              border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); text-decoration: none;
              transition: border-color .15s, background .15s, transform .15s; }
@@ -231,7 +231,6 @@
   .style-card.on .opt-thumb { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,122,26,.25); }
   .style-card b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .style-card small { font-size: 11.5px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  @media (max-width: 1180px) { .tools { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 860px) {
     .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .style-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -634,6 +633,18 @@
   .post-copy-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
   .dlg .hint { text-align: left; margin: 12px 0 0; }
   .be-dlg { width: min(560px, calc(100vw - 32px)); }
+  /* Lấy video từ link (link.js) */
+  .lk-url { display: flex; gap: 8px; margin-top: 12px; }
+  .lk-url input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; outline: 0; font-size: 14px; color: var(--text); }
+  .lk-info { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 14px; }
+  .lk-info img { width: 128px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: #000; }
+  .lk-info b { display: block; font-size: 14px; line-height: 1.35; }
+  .lk-info small { display: block; margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+  .lk-range { align-items: center; }
+  .lk-range input { width: 96px; flex: none !important; }
+  .lk-dlg video { width: 100%; max-height: 42vh; border-radius: 10px; background: #000; margin-top: 12px; }
+  .lk-dlg .dlg-foot { flex-wrap: wrap; }
+  #subsFromLink { margin-top: 8px; }
   .be-dlg form { display: flex; flex-direction: column; max-height: calc(100vh - 80px); }
   .be-kind { margin-top: 14px; align-self: flex-start; }
   .be-desc { margin: 10px 0 0; }
@@ -1250,6 +1261,7 @@
       <a href="#/batch"><i data-icon="layers"></i><b>Làm hàng loạt</b><span>Nhiều video một lượt từ danh sách ý tưởng</span></a>
       <a href="#/subs"><i data-icon="captions"></i><b>Thêm phụ đề</b><span>Phụ đề cho video có sẵn, nhiều ngôn ngữ</span></a>
       <a href="#" id="fromAudio"><i data-icon="audio-lines"></i><b>Từ âm thanh có sẵn</b><span>Giọng thu, podcast, bài hát → video có phụ đề và hình</span></a>
+      <a href="#" id="fromLink"><i data-icon="link"></i><b>Từ link video</b><span>Dán link YouTube, TikTok, Facebook… để sửa hoặc thêm phụ đề</span></a>
     </nav>
     <div class="recent" id="recentWrap" hidden>
       <div class="recent-head"><h2>Gần đây</h2><a href="#/library">Xem tất cả <i data-icon="arrow-right"></i></a></div>
@@ -1458,6 +1470,7 @@ Lưu lại để làm theo nhé!</pre>
             <b><i data-icon="upload"></i> Kéo thả video vào đây</b>
             <span>hoặc bấm để chọn nhiều file · mp4, mov, webm (mp3, wav, m4a cũng được)</span>
           </button>
+          <button type="button" class="tool-btn" id="subsFromLink"><i data-icon="link"></i> Dán link video</button>
           <ul class="bt-files" id="subsFiles"></ul>
         </div>
 
@@ -2072,6 +2085,45 @@ Lưu lại để làm theo nhé!</pre>
   </form>
 </dialog>
 
+<dialog class="dlg be-dlg lk-dlg" id="linkDlg">
+  <form id="linkForm" autocomplete="off">
+    <div class="dlg-head">
+      <h2><i data-icon="link"></i> Lấy video từ link</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Đóng"><i data-icon="x"></i></button>
+    </div>
+    <p class="muted">Dán link một video (YouTube, TikTok, Facebook, Instagram, Bilibili…) để tải về, rồi chỉnh sửa hoặc thêm phụ đề.</p>
+    <div class="lk-url">
+      <input type="url" id="linkUrl" placeholder="https://…" aria-label="Link video" spellcheck="false" />
+      <button type="submit" class="btn" id="linkFetch"><i data-icon="search"></i> Xem video</button>
+    </div>
+    <div class="lk-info" id="linkInfo" hidden>
+      <img id="linkThumb" alt="" />
+      <div><b id="linkTitle"></b><small id="linkMeta"></small></div>
+    </div>
+    <div class="be-fields" id="linkOpts" hidden>
+      <div class="field">
+        <label for="linkStart">Đoạn cần lấy</label>
+        <div class="row lk-range">
+          <input id="linkStart" placeholder="Từ 0:00" inputmode="numeric" aria-label="Từ giây" />
+          <span class="muted">–</span>
+          <input id="linkEnd" placeholder="Đến hết" inputmode="numeric" aria-label="Đến giây" />
+          <select id="linkHeight" aria-label="Chất lượng"><option value="1080">Tối đa 1080p</option><option value="720">Tối đa 720p</option></select>
+        </div>
+        <div class="help">Để trống là lấy cả video. Ghi phút:giây, ví dụ 1:30.</div>
+      </div>
+      <label class="be-check"><input type="checkbox" id="linkConfirm" /> Video này của tôi, hoặc tôi được chủ video cho phép dùng</label>
+    </div>
+    <video id="linkVideo" controls playsinline hidden></video>
+    <p class="hint" id="linkHint"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>Đóng</button>
+      <button type="button" class="btn primary" id="linkGo" hidden><i data-icon="download"></i> Tải về</button>
+      <button type="button" class="btn" id="linkSubs" hidden><i data-icon="captions"></i> Thêm phụ đề</button>
+      <button type="button" class="btn primary" id="linkEdit" hidden><i data-icon="scissors"></i> Mở trình chỉnh sửa</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog class="dlg be-dlg" id="bulkEditDlg">
   <form id="bulkEditForm" autocomplete="off">
     <div class="dlg-head">
@@ -2131,5 +2183,6 @@ Lưu lại để làm theo nhé!</pre>
 <script src="/batch-sheet.js"></script>
 <script src="/activity.js"></script>
 <script src="/bulk-edit.js"></script>
+<script src="/link.js"></script>
 </body>
 </html>
