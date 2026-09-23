@@ -30,16 +30,16 @@ chip 🤖 của từng video.
 
 ### Đóng gói
 
-`npm run dist:mac` / `dist:win` / `dist:linux` tự gọi `desktop/fetch-local-ai.sh <nền tảng>`:
+`npm run dist:mac` / `dist:win` / `dist:linux` tự gọi `scripts/setup-local.ts --platform <nền tảng>`:
 
 1. Tải bản llama.cpp đã ghim vào `release/cache`, chỉ giữ `llama-server` và thư viện nó cần.
 2. Tải model một lần vào `vendor/models` (kiểm SHA-256), bản Windows/Linux chép sang thư mục stage.
 3. electron-builder đưa `vendor/llama/<os>-<arch>` và `vendor/models` vào app.
 
-Chạy từ mã nguồn (`npm start`) thì tải trước một lần:
+Chạy từ mã nguồn (`npm start`) thì `npm install` tự tải; tải lại riêng phần này:
 
 ```bash
-bash desktop/fetch-local-ai.sh mac-arm64
+npm run setup -- --only ai
 ```
 
 Thư mục `vendor/` nằm trong `.gitignore`. Code: `scripts/local-ai.ts`.

@@ -23,7 +23,7 @@ export const VOICES: Voice[] = [
     gender: "nữ",
     note: "giọng Việt bản xứ, miễn phí, offline — mặc định cho nội dung tiếng Việt",
   },
-  // VieNeu-TTS v3 Turbo: có sẵn trong app, offline, mọi hệ điều hành (desktop/fetch-vieneu.sh). id = tên giọng preset.
+  // VieNeu-TTS v3 Turbo: có sẵn trong app, offline, mọi hệ điều hành (scripts/setup-local.ts). id = tên giọng preset.
   { key: "ngoc-huyen", engine: "local", id: "Ngọc Huyền", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, tự nhiên" },
   { key: "truc-ly", engine: "local", id: "Trúc Ly", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, tự nhiên" },
   { key: "mai-anh", engine: "local", id: "Mai Anh", lang: "vi", gender: "nữ", note: "có sẵn trong app, miền Bắc, tin tức" },

@@ -1,7 +1,7 @@
 /**
  * AI có sẵn trong app — chạy trên máy, không cần key, không cần mạng, không phải cài gì thêm.
  *
- * Bộ cài kèm sẵn llama-server (llama.cpp) và một model GGUF nhỏ (desktop/fetch-local-ai.sh):
+ * Bộ cài kèm sẵn llama-server (llama.cpp) và một model GGUF nhỏ (scripts/setup-local.ts):
  *   vendor/llama/<mac-arm64|win-x64|linux-x64>/llama-server[.exe]
  *   vendor/models/qwen2.5-1.5b-instruct-q4_k_m.gguf
  * App đóng gói truyền LOCAL_AI_DIR trỏ vào thư mục vendor trong app (không chép sang workspace

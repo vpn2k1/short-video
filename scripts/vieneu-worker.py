@@ -1,7 +1,7 @@
 """
 Tiến trình con đọc giọng VieNeu-TTS v3 Turbo — scripts/vieneu-tts.ts gọi, không chạy tay.
 
-Chạy bằng Python độc lập kèm trong app (desktop/fetch-vieneu.sh), đọc model từ thư mục cục bộ:
+Chạy bằng Python độc lập kèm trong app (scripts/setup-local.ts), đọc model từ thư mục cục bộ:
 không mạng, không huggingface_hub, không torch.
 
     python -I -B vieneu-worker.py <site-packages> <thư mục model>

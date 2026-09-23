@@ -1,7 +1,7 @@
 /**
  * Giọng đọc có sẵn trong app — VieNeu-TTS v3 Turbo: tiếng Việt, 25 giọng, 48 kHz, offline, không cần key.
  *
- * desktop/fetch-vieneu.sh chuẩn bị Python độc lập + thư viện trong vendor/vieneu/<nền tảng> và model trong
+ * scripts/setup-local.ts (npm run setup) chuẩn bị Python độc lập + thư viện trong vendor/vieneu/<nền tảng> và model trong
  * vendor/models/vieneu-v3-turbo. App đóng gói truyền LOCAL_AI_DIR trỏ vào vendor trong app, giống AI có sẵn
  * (scripts/local-ai.ts); chạy từ mã nguồn thì dùng ./vendor.
  *
@@ -36,7 +36,7 @@ export const localTtsToWavs = (items: { text: string; out: string }[], voice: st
       reject(
         new Error(
           `Chưa có giọng đọc trong app (thiếu vendor/vieneu/${PLATFORM_DIR} hoặc vendor/models/${LOCAL_VOICE_MODEL}). ` +
-            `Chạy bash desktop/fetch-vieneu.sh ${PLATFORM_DIR}, hoặc chọn giọng khác.`,
+            `Chạy npm run setup -- --only voice, hoặc chọn giọng khác.`,
         ),
       );
       return;

@@ -14,7 +14,7 @@ build
 # Voiceover sinh ra cho từng video — sinh lại được từ script.json
 public/voices
 
-# AI có sẵn trong app: llama-server + model GGUF (desktop/fetch-local-ai.sh, ~1,1 GB)
+# AI có sẵn trong app: llama-server + model GGUF (npm run setup, ~1,1 GB)
 vendor
 
 # whisper.cpp + model tải về (1.3-1.5GB)

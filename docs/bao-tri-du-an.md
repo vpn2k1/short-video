@@ -311,7 +311,7 @@ Headless Shell đổi phiên bản theo Remotion — `build-win.sh`/`build-linux
 
 ### 6.8. Nâng llama.cpp hoặc đổi model AI có sẵn
 
-`desktop/fetch-local-ai.sh`: đổi `LLAMA_BUILD`, hoặc `MODEL_FILE` + `MODEL_URL` + `MODEL_SHA256` (lấy
+`scripts/setup-local.ts`: đổi `LLAMA_BUILD`, hoặc `QWEN_FILE` + `QWEN_URL` + `QWEN_SHA256` (lấy
 SHA-256 từ trang file trên Hugging Face). Đổi model thì đổi `LOCAL_MODEL_FILE`, `LOCAL_MODEL_NAME` trong
 `scripts/local-ai.ts`. Chạy lại các bài đo trong `docs/ai-tren-may.md` mục 0 và ghi số mới. Kiểm
 **giấy phép** model trước khi đóng gói (Qwen2.5 3B không dùng thương mại được). Model > ~900 MB thêm nữa

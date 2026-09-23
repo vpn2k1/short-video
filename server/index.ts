@@ -4,6 +4,7 @@
  * Không dùng framework và không có bước build — UI là một file HTML tĩnh, server
  * là `node:http`. Đây là công cụ chạy local, không phải dịch vụ public.
  */
+import "../scripts/tool-path";
 import fs from "fs";
 import http from "http";
 import path from "path";

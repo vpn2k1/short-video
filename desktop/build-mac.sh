@@ -4,7 +4,5 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 npx remotion browser ensure
-bash desktop/fetch-local-ai.sh mac-arm64
-bash desktop/fetch-vieneu.sh mac-arm64
-bash desktop/fetch-yt-dlp.sh mac-arm64
+npx tsx scripts/setup-local.ts --platform mac-arm64
 npx electron-builder --mac --arm64
