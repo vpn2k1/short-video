@@ -29,6 +29,7 @@ import {
   RANDOM_MUSIC, chooseStockForScene, downloadStockChoice, prefetchStockForScene, randomFreesoundMusic, type StockChoice,
 } from "../scripts/stock";
 import { mapLimit } from "../scripts/concurrency";
+import { alignLyrics, lyricLines, LYRICS_MIN_LINES } from "../scripts/lyrics-align";
 import { captionScenes, extractTrack, isAudioFile, isVideoFile, transcribeCached } from "./audio-video";
 import { listAudio } from "./api";
 import { cloudflareImageAvailable } from "../scripts/cloudflare-image";
@@ -1509,9 +1510,14 @@ const buildFromAudio = async (
   fs.mkdirSync(videoDir(slug), { recursive: true });
 
   log("__STEP__ script");
-  const captions = await transcribeCached(source, audio, "auto", "medium", log);
-  if (captions.length === 0) throw new Error("Không nghe ra câu nào trong file này — kiểm tra lại file có tiếng nói không.");
+  const heard = await transcribeCached(source, audio, "auto", "medium", log);
+  if (heard.length === 0) throw new Error("Không nghe ra câu nào trong file này — kiểm tra lại file có tiếng nói không.");
   const { trackRel, durationMs } = extractTrack(source, slug);
+  // Lời dán kèm (bài hát, lời thoại đúng chính tả): chữ phụ đề theo lời dán, mốc theo phiên âm — whisper hay nghe sai
+  // lời bài hát có nhạc nền. Lượt sau không dán lại thì dùng lời đã dán ở lượt trước.
+  const lyrics = pastedLyricsOf(slug, prompt);
+  const captions = lyrics ? alignLyrics(lyrics, heard, durationMs) : heard;
+  if (lyrics) log(`Phụ đề theo ${lyrics.length} dòng lời bạn dán — khớp mốc thời gian với tiếng trong file.`);
   const fileName = path.basename(audio, path.extname(audio)).replace(/^\d+-/, "").replace(/[-_]+/g, " ").trim();
   // Lượt sau của cùng video: lời vẫn là lời trong file, chữ gõ kèm là yêu cầu sửa chứ không phải tiêu đề — giữ tiêu đề cũ.
   const previous = readJson(path.join(videoDir(slug), "props.json")) as { title?: string } | null;
@@ -1523,7 +1529,10 @@ const buildFromAudio = async (
       ? guessStyle(lines.join("\n"), [{ lines, image: null, visual: null, tag: null, punch: null }])
       : settings.style;
   // Bài hát: tên bài là tên file. Còn lại: lời người dùng gõ kèm, không có thì câu đầu.
-  const title = (previous?.title || prompt || (MUSIC_STYLES.has(style) ? fileName : lines[0]) || fileName).slice(0, 60);
+  const title = (
+    lyrics ? (MUSIC_STYLES.has(style) ? fileName : lines[0])
+      : previous?.title || prompt || (MUSIC_STYLES.has(style) ? fileName : lines[0])
+  ).slice(0, 60) || fileName;
   const styleMeta = STYLES[style] ?? STYLES.caption;
   const styleLabel = `${styleMeta.emoji} ${styleMeta.label}`;
   log(`Phong cách: ${styleLabel}${settings.style === "auto" ? " (tự chọn theo lời)" : settings.style === RANDOM_STYLE ? " (ngẫu nhiên)" : ""}`);
@@ -1562,9 +1571,25 @@ const buildFromAudio = async (
   };
 };
 
-/** File âm thanh mà video này được dựng từ đó — null nếu video có kịch bản (dựng bằng lời) hay chưa dựng lần nào. */
+/**
+ * Lời người dùng dán kèm file âm thanh (từ LYRICS_MIN_LINES dòng): lượt này nếu có, không thì lượt gần nhất đã dán.
+ * null = không dán — phụ đề theo phiên âm.
+ */
+const pastedLyricsOf = (slug: string, prompt: string) => {
+  const turns = (readJson(chatPath(slug))?.messages as ChatMessage[] | undefined) ?? [];
+  for (const text of [prompt, ...[...turns].reverse().filter((m) => m.role === "user").map((m) => m.text)]) {
+    const lines = lyricLines(text ?? "");
+    if (lines.length >= LYRICS_MIN_LINES) return lines;
+  }
+  return null;
+};
+
+/**
+ * File âm thanh mà video này được dựng từ đó — null nếu video có kịch bản (dựng bằng lời). Lượt đầu bị ngắt giữa chừng
+ * (chưa có gì) vẫn tính: gửi lại mà quên đính kèm thì dựng từ đúng file cũ, không để AI coi câu chữ là ý tưởng.
+ */
 const audioSourceOf = (slug: string) => {
-  if (fs.existsSync(path.join(videoDir(slug), "script.json")) || !fs.existsSync(path.join(videoDir(slug), "props.json"))) return null;
+  if (fs.existsSync(path.join(videoDir(slug), "script.json"))) return null;
   const turns = readJson(chatPath(slug))?.messages as ChatMessage[] | undefined;
   return [...(turns ?? [])].reverse().flatMap((m) => (m.role === "user" ? m.attachments ?? [] : [])).find(isAudioFile) ?? null;
 };

@@ -34,6 +34,8 @@ const isVideoFile = (p) => /\.(mp4|mov|webm)(\?|$)/i.test(p);
 const isAudioFile = (p) => /\.(mp3|wav|m4a|aac|ogg)(\?|$)/i.test(p);
 /** Đang đính kèm file âm thanh: dựng video từ lời trong file (server/chat.ts › buildFromAudio), không cần gõ gì. */
 const pendingAudio = () => pending.find((f) => f.audio);
+/** Chữ của lượt chỉ đính kèm file âm thanh, không gõ gì — trùng với server/chat.ts › launchTurn. */
+const AUDIO_TURN_TEXT = "Dựng video từ file âm thanh này";
 const ratioCss = (aspect) => (aspect || "9:16").replace(":", " / ");
 const isWide = (aspect) => { const [w, h] = (aspect || "9:16").split(":").map(Number); return w / h > 1; };
 const CARET = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>`;
@@ -1344,7 +1346,16 @@ function bindMessageActions() {
   thread.querySelector("[data-hook-tool]")?.addEventListener("click", () => openHookTool(current));
   thread.querySelector("[data-retry]")?.addEventListener("click", () => {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    if (lastUser) prefill(lastUser.text);
+    if (!lastUser) return;
+    // Đính kèm lại cả file đã gửi — thiếu file âm thanh thì câu "Dựng video từ file âm thanh này" thành ý tưởng
+    // và AI tự viết ra một video khác hẳn.
+    const atts = lastUser.attachments ?? [];
+    pending = atts.map((p) => ({
+      id: Math.random().toString(36).slice(2), name: p.split("/").pop(), path: p, url: `/public/${p}`,
+      video: isVideoFile(p), audio: isAudioFile(p),
+    }));
+    renderPending();
+    prefill(atts.some(isAudioFile) && lastUser.text === AUDIO_TURN_TEXT ? "" : lastUser.text);
   });
   thread.querySelector("[data-open-settings]")?.addEventListener("click", openSettings);
   thread.querySelector("[data-post-copy]")?.addEventListener("click", () => openPostCopy(current));
@@ -1437,7 +1448,7 @@ async function send() {
 
     newDraftSlug = null;
     composerOwner = slug;
-    messages.push({ role: "user", text: prompt || "Dựng video từ file âm thanh này", attachments, at: Date.now() });
+    messages.push({ role: "user", text: prompt || AUDIO_TURN_TEXT, attachments, at: Date.now() });
     $("input").value = ""; autosize();
     beforeNormalize = null; syncNormalize();
     $("textPreview").hidden = true;
@@ -1824,13 +1835,17 @@ function renderPlan() {
     // Từ âm thanh: lời là lời trong file — AI không viết lời, không đọc giọng; hình theo nút Hình ảnh.
     const own = pending.filter((f) => !f.audio).length;
     const style = styleMeta(opts.style);
-    parts.push(`video ${opts.aspect} từ âm thanh “${audio.name}”`, "phiên âm thành phụ đề, chia cảnh theo lời");
+    // Gõ từ 3 dòng trở lên = lời để khớp (server/chat.ts › pastedLyricsOf); ít hơn là tiêu đề.
+    const pasted = $("input").value.split("\n").filter((line) => line.trim()).length >= 3;
+    parts.push(`video ${opts.aspect} từ âm thanh “${audio.name}”`,
+      pasted ? "phụ đề theo lời bạn dán, khớp mốc với tiếng trong file" : "phiên âm thành phụ đề", "chia cảnh theo lời");
     parts.push(opts.style === "auto" ? "phong cách tự chọn theo lời" : `${style.emoji} ${style.label}`);
     if (own) parts.push(`${own} ảnh/clip của bạn cho các cảnh đầu`);
     const source = opts.images === "pexels" ? "ảnh miễn phí" : opts.images === "stock-video" ? "clip miễn phí"
       : opts.images === "ai" ? "ảnh AI vẽ" : null;
     if (source) parts.push(`${source} cho ${own ? "các cảnh còn lại" : "từng cảnh"}`);
     else if (!own) warn.push("chưa có hình — chọn Hình ảnh › Ảnh miễn phí / Clip miễn phí / AI vẽ, hoặc đính kèm thêm ảnh");
+    if (!pasted) warn.push("bài hát hay bị nghe sai chữ — dán lời vào ô (mỗi dòng một câu) để phụ đề đúng từng chữ");
     warn.push("giọng đọc và AI viết lời không dùng — tiếng là tiếng trong file");
     $("plan").innerHTML = `Sẽ tạo: <b>${escapeHtml(parts.join(" · "))}</b>` +
       `<br><span class="warn">${icon("info")} ${warn.map(escapeHtml).join(" · ")}</span>`;
@@ -2574,7 +2589,10 @@ function bindComposerCollapse() {
 function bindComposer() {
   bindComposerCollapse();
   const input = $("input");
-  input.addEventListener("input", () => { autosize(); updateSend(); schedulePreview(); syncNormalize(); scheduleChatDraft(); });
+  input.addEventListener("input", () => {
+    autosize(); updateSend(); schedulePreview(); syncNormalize(); scheduleChatDraft();
+    if (pendingAudio()) renderPlan();
+  });
   input.addEventListener("keydown", (e) => {
     // Ô trống + ↑: điền lại tin vừa gửi để sửa rồi gửi lại, như các app chat.
     if (e.key === "ArrowUp" && !e.isComposing && !input.value) {
@@ -2650,7 +2668,7 @@ function addFiles(files) {
     pending.push(item);
     upload(file, item);
     if (audio) {
-      setHint(`Dựng video từ “${file.name}”: chọn phong cách và Hình ảnh rồi bấm Tạo video. Gõ tiêu đề nếu muốn — không bắt buộc.`);
+      setHint(`Dựng video từ “${file.name}”: chọn phong cách và Hình ảnh rồi bấm Tạo video. Bài hát: dán lời vào ô (mỗi dòng một câu) để phụ đề đúng từng chữ.`);
     }
   }
   renderPending();
