@@ -5187,11 +5187,14 @@ function batchItemTile(it, i) {
   // Có kịch bản (script.json) thì sửa được cả lời — kể cả biến thể; file thu sẵn thì không có kịch bản.
   // Sửa hàng loạt kiểu giữ chỉnh sửa: lời không đổi, sửa lời thì mở trình chỉnh sửa.
   const scriptEditable = !it.file && it.edit !== "props" && !busy && Boolean(it.slug);
+  // Video dựng từ file (Thêm phụ đề, cắt từ video dài): không có kịch bản nhưng sửa được chữ phụ đề, giữ mốc giờ.
+  const subsEditable = Boolean(it.file) && it.edit !== "props" && !busy && Boolean(it.slug);
+  const editLabel = it.file ? "Sửa phụ đề" : "Sửa lời";
 
   const actions = [];
   if (it.status === "review") {
     actions.push(btn("approve", `${icon("check")} Duyệt`, "primary"));
-    if (it.slug) actions.push(btn("edit", `${icon("pencil")} Sửa lời`));
+    if (it.slug) actions.push(btn("edit", `${icon("pencil")} ${editLabel}`));
     actions.push(btn("skip", `${icon("skip-forward")} Bỏ`));
   } else if (it.status === "error") {
     actions.push(btn("retry", `${icon("rotate-cw")} Thử lại`));
@@ -5207,8 +5210,8 @@ function batchItemTile(it, i) {
     if (it.mp4) actions.push(`<a class="btn" href="${escapeHtml(it.mp4)}" download>${icon("download")} Tải</a>`);
     if (it.covers?.length) actions.push(`<button type="button" class="btn" data-act="covers" data-id="${it.id}" title="Xem các bố cục ảnh bìa">${icon("image")} Ảnh bìa${it.covers.length > 1 ? ` (${it.covers.length})` : ""}</button>`);
     if (it.slug) actions.push(`<button type="button" class="btn" data-act="post-copy" data-slug="${escapeHtml(it.slug)}" title="Tiêu đề, caption, hashtag để đăng video này">${icon("megaphone")} Bài đăng</button>`);
-    if (scriptEditable) actions.push(btn("edit", `${icon("pen-line")} Sửa lời`));
-    else actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
+    if (scriptEditable || subsEditable) actions.push(btn("edit", `${icon("pen-line")} ${editLabel}`));
+    if (!scriptEditable) actions.push(btn("retry", `${icon("rotate-cw")} Làm lại`));
   } else if (it.status === "skipped") {
     actions.push(btn("retry", `${icon("undo-2")} Đưa lại`));
   } else if (!busy) {
@@ -5241,7 +5244,7 @@ function batchItemTile(it, i) {
 
   const stateCls = { done: "done", error: "err", review: "review", preparing: "run", building: "run" }[it.status] ?? "";
   return `<div class="bt-card tile ${busy ? "on" : ""} ${it.status === "error" ? "err" : ""}"
-      ${editable || scriptEditable ? `data-item-open="${it.id}" role="button" tabindex="0"` : ""}>
+      ${editable || scriptEditable || subsEditable ? `data-item-open="${it.id}" role="button" tabindex="0"` : ""}>
     <div class="bt-card-head">
       <span>Video ${i + 1}</span><span class="spacer"></span>
       <span class="bt-state ${stateCls}">${BT_BADGE[it.status] ?? "•"} ${BT_LABEL[it.status] ?? it.status}</span>
@@ -5266,6 +5269,7 @@ function batchEditTile(it, i) {
   const btnAct = (act, label, cls = "") =>
     `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${it.id}">${label}</button>`;
   const script = batchEdit.kind === "script";
+  const subs = Boolean(batchEdit.subs);
   const actions = script
     ? [
       it.status === "review"
@@ -5273,10 +5277,14 @@ function batchEditTile(it, i) {
         : btnAct("save-script", `${icon("save")} Lưu &amp; dựng lại`, "primary"),
       btnAct("cancel", "Huỷ"),
       `<span class="spacer"></span>`,
-      it.variant ? "" : btnAct("edit-idea", `${icon("wand-sparkles")} Viết lại từ ý tưởng (AI)`),
+      it.variant || subs ? "" : btnAct("edit-idea", `${icon("wand-sparkles")} Viết lại từ ý tưởng (AI)`),
     ]
     : [btnAct("save", `${icon("save")} Lưu &amp; làm lại`, "primary"), btnAct("cancel", "Huỷ")];
-  const help = script
+  const help = subs
+    ? `<p class="bt-edit-help">Mỗi dòng là một câu phụ đề, giữ nguyên mốc giờ — sửa chữ ngay trên dòng đó, giữ đúng
+        ${batchEdit.lines} dòng. Xoá trắng một dòng để bỏ câu đó. Muốn gộp hay tách câu thì mở video trong trình chỉnh sửa.
+        ${it.status === "review" ? "" : "Lưu là render lại với phụ đề mới."}</p>`
+    : script
     ? `<p class="bt-edit-help">Toàn bộ lời của video — sửa thẳng hoặc dán đè lời mới. Mỗi dòng một câu, dòng trống sang cảnh mới,
         <code>[nhãn]</code> ở đầu cảnh, <code>**câu nhấn**</code>, <code>! con số | chú thích</code>.
         ${it.status === "review" ? "" : "Lưu là dựng lại từ đúng lời này, không gọi AI viết lại; ảnh các cảnh cũ được giữ."}
@@ -5284,12 +5292,12 @@ function batchEditTile(it, i) {
     : `<p class="bt-edit-help">${it.slug ? "Đổi nội dung rồi lưu: AI viết lại lời từ đầu cho video này." : "Sửa nội dung rồi lưu để làm lại video này."}</p>`;
   return `<div class="bt-card editing${script ? " script" : ""}">
     <div class="bt-card-head">
-      <span>Video ${i + 1} · ${script ? "Sửa lời" : "Sửa nội dung"}</span><span class="spacer"></span>
+      <span>Video ${i + 1} · ${subs ? "Sửa phụ đề" : script ? "Sửa lời" : "Sửa nội dung"}</span><span class="spacer"></span>
       <button type="button" class="icon-btn" data-act="cancel" data-id="${it.id}" aria-label="Đóng">${icon("x")}</button>
     </div>
     ${help}
     <textarea data-edit-text spellcheck="false" aria-label="${script ? "Lời" : "Nội dung"} video ${i + 1}"></textarea>
-    ${cardChipsHtml(it.id, batchEdit.settings)}
+    ${subs ? "" : cardChipsHtml(it.id, batchEdit.settings)}
     ${batchEdit.error ? `<p class="bt-err">${escapeHtml(batchEdit.error)}</p>` : ""}
     <div class="bt-actions">${actions.join("")}</div>
   </div>`;
@@ -5366,22 +5374,24 @@ function ownSettings(it) {
 async function openBatchEdit(itemId, kind = "script") {
   const batchId = batchCur?.id;
   const it = batchCur?.items.find((item) => item.id === itemId);
-  if (!it || it.file) return;
+  if (!it) return;
   let text = null;
-  if (kind === "script" && it.slug) {
+  let lines = 0;
+  if ((kind === "script" || it.file) && it.slug) {
     try {
-      ({ text } = await api(`/api/batch/${batchId}/script?item=${encodeURIComponent(itemId)}`));
+      ({ text, lines = 0 } = await api(`/api/batch/${batchId}/script?item=${encodeURIComponent(itemId)}`));
     } catch {
       text = null;
     }
     if (batchCur?.id !== batchId) return;   // đã sang loạt khác trong lúc chờ
   }
-  if (text == null && it.variant) {
-    $("batchRunHint").textContent = "Video này chưa có lời để sửa — bấm Thử lại.";
+  // Video dựng từ file không có "nội dung đã gõ" để viết lại — chỉ sửa được phụ đề.
+  if (text == null && (it.variant || it.file)) {
+    $("batchRunHint").textContent = it.file ? "Video này chưa có phụ đề để sửa." : "Video này chưa có lời để sửa — bấm Thử lại.";
     return;
   }
   batchEdit = text != null
-    ? { itemId, kind: "script", text, settings: ownSettings(it) }
+    ? { itemId, kind: "script", text, settings: ownSettings(it), subs: Boolean(it.file), lines }
     : { itemId, kind: "idea", text: it.input, settings: ownSettings(it) };
   $("batchItems").innerHTML = batchCur.items.map(batchItemTile).join("");
   bindBatchTiles();
@@ -5391,7 +5401,8 @@ async function openBatchEdit(itemId, kind = "script") {
 async function saveBatchScript(itemId, approve) {
   if (!batchEdit || !batchCur || batchEdit.kind !== "script") return;
   const edit = batchEdit;
-  const text = edit.text.trim();
+  // Phụ đề: dòng trống ở đầu/cuối là câu bị xoá — gửi nguyên, không cắt.
+  const text = edit.subs ? (edit.text.trim() ? edit.text : "") : edit.text.trim();
   const redraw = () => {
     $("batchItems").innerHTML = batchCur.items.map(batchItemTile).join("");
     bindBatchTiles();

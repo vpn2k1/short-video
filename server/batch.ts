@@ -1022,11 +1022,27 @@ const itemScript = (item: BatchItem): VideoScript | null => {
   return fs.existsSync(file) ? parseScript(JSON.parse(fs.readFileSync(file, "utf8"))) : null;
 };
 
-/** Toàn bộ lời của một mục dạng văn bản (cú pháp dán sẵn) để sửa ngay trên bảng. */
+/**
+ * Phụ đề hàng chính của mục dựng từ file (Thêm phụ đề, cắt từ video dài) — không có kịch bản, mỗi câu đã có mốc giờ
+ * lấy từ lúc phiên âm. Hàng dịch xếp chồng (`track`) đi theo hàng chính, không sửa riêng ở đây.
+ */
+const itemCaptions = (item: BatchItem) => {
+  if (!item.slug || !item.file) return null;
+  const propsPath = path.join(videoDir(item.slug), "props.json");
+  const props = readJson(propsPath) as ShortProps | null;
+  const rows = (props?.captions ?? []).filter((caption) => !caption.track);
+  return props && rows.length ? { props, propsPath, rows } : null;
+};
+
+/** Toàn bộ lời của một mục dạng văn bản (cú pháp dán sẵn) để sửa ngay trên bảng. Mục dựng từ file: phụ đề, mỗi câu một dòng. */
 export const readItemScript = (id: unknown, itemId: unknown) => {
   const batch = require_(id);
   const item = batch.items.find((i) => i.id === String(itemId));
   if (!item) throw new Error("Không thấy ô này trong loạt.");
+  if (item.file) {
+    const caps = itemCaptions(item);
+    return { text: caps ? caps.rows.map((caption) => caption.text).join("\n") : null, subs: true, lines: caps?.rows.length ?? 0 };
+  }
   const script = itemScript(item);
   return script ? { text: scriptToText(script), title: script.title, scenes: script.scenes.length } : { text: null };
 };
@@ -1048,6 +1064,10 @@ export const saveItemScript = (id: unknown, body: unknown) => {
   }
   if (item.edit === "props") {
     throw new Error("Loạt này giữ nguyên lời và chỉnh sửa tay của video — muốn sửa lời thì mở video trong trình chỉnh sửa.");
+  }
+  if (item.file) {
+    saveItemCaptions(item, String(text ?? ""));
+    return requeueEdited(batch, item, approve === true);
   }
   const old = itemScript(item);
   if (!old || !item.slug) throw new Error("Ô này chưa có lời để sửa — dùng Viết lại từ ý tưởng.");
@@ -1072,9 +1092,40 @@ export const saveItemScript = (id: unknown, body: unknown) => {
 
   if (settings) item.override = own;
   Object.assign(item, previewOf(script));
+  return requeueEdited(batch, item, approve === true);
+};
+
+/**
+ * Sửa chữ phụ đề của mục dựng từ file, giữ nguyên mốc giờ: dòng thứ k thay chữ câu thứ k. Dòng xoá trắng = bỏ câu đó
+ * (kèm các hàng dịch cùng mốc giờ). Số dòng phải khớp — gộp hay tách câu thì cần chia lại mốc giờ, làm trong trình chỉnh sửa.
+ */
+const saveItemCaptions = (item: BatchItem, text: string) => {
+  const caps = itemCaptions(item);
+  if (!caps) throw new Error("Video này không có phụ đề để sửa.");
+  const rows = text.replace(/\r/g, "").split("\n");
+  // Ô soạn thảo hay thừa dòng trống ở cuối — bỏ đi trước khi đếm.
+  while (rows.length > caps.rows.length && !rows[rows.length - 1].trim()) rows.pop();
+  if (rows.length !== caps.rows.length) {
+    throw new Error(`Cần đúng ${caps.rows.length} dòng — mỗi dòng là một câu phụ đề đã có mốc giờ (đang có ${rows.length}). ` +
+      "Xoá trắng một dòng để bỏ câu đó; muốn gộp hay tách câu thì mở video trong trình chỉnh sửa.");
+  }
+  if (rows.every((row) => !row.trim())) throw new Error("Lời đang trống — muốn bỏ hết phụ đề thì bấm Bỏ.");
+  const dropped = new Set<string>();
+  caps.rows.forEach((caption, k) => {
+    caption.text = rows[k].trim();
+    if (!caption.text) dropped.add(`${caption.startMs}-${caption.endMs}`);
+  });
+  caps.props.captions = caps.props.captions.filter((caption) => !dropped.has(`${caption.startMs}-${caption.endMs}`));
+  shortSchema.parse(caps.props);
+  fs.writeFileSync(caps.propsPath, JSON.stringify(caps.props, null, 2));
+  item.lines = caps.props.captions.filter((caption) => !caption.track).map((caption) => caption.text).slice(0, 40);
+};
+
+/** Sau khi sửa lời: mục chờ duyệt thì vẫn chờ (hoặc duyệt luôn nếu `approve`); mục khác xếp hàng dựng lại. */
+const requeueEdited = (batch: Batch, item: BatchItem, approve: boolean) => {
   item.error = undefined;
   if (item.status === "review") {
-    if (approve === true) item.status = "ready";
+    if (approve) item.status = "ready";
   } else {
     Object.assign(item, {
       status: "ready" as ItemStatus, progress: 0, step: undefined,
