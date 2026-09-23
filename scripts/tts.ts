@@ -7,6 +7,7 @@ import { geminiTtsToWavs } from "./gemini-tts";
 import { LOCAL_DEFAULT_VOICE, LOCAL_VOICE_MODEL, localTtsToWavs, localVoiceAvailable } from "./vieneu-tts";
 import { VOICES } from "./voices";
 import { describeProviderError, ProviderError, shouldFallBack } from "./provider-error";
+import { mapLimit } from "./concurrency";
 
 export type TtsEngine = "elevenlabs" | "gemini" | "say" | "local";
 
@@ -256,6 +257,9 @@ export const generateVoiceover = async (
   return synthesizeVoiceover(lines, slug, engine, voiceOverride);
 };
 
+/** Số câu ElevenLabs đọc cùng lúc — gói miễn phí giới hạn 2 yêu cầu song song, gói trả phí cho nhiều hơn. */
+const ELEVENLABS_PARALLEL = 2;
+
 /**
  * Thư mục của một lượt đọc: voices/<slug>/<lượt>/. Tên file luôn là line-01.mp3, line-02.mp3… nên ghi chung một thư
  * mục cho mọi lượt thì lượt sau đè lên file mà các bản trước vẫn trỏ tới — làm bản 2 của video (sửa lời qua chat,
@@ -316,6 +320,11 @@ export const synthesizeVoiceover = async (
     await geminiTtsToWavs(todo.map((i) => ({ text: lines[i], out: path.join(absDir, `${clipName(i)}.wav`) })), voiceOverride as string);
   }
 
+  // ElevenLabs đọc từng câu một lượt gọi — gọi vài câu cùng lúc thay vì đợi lần lượt (gói miễn phí cho 2 lượt song song).
+  if (engine === "elevenlabs" && todo.length > 0) {
+    await mapLimit(todo, ELEVENLABS_PARALLEL, (i) => elevenLabsToFile(lines[i], path.join(absDir, clipName(i)), voiceId, modelId));
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const name = clipName(i);
     const abs = path.join(absDir, name);
@@ -334,8 +343,6 @@ export const synthesizeVoiceover = async (
         fs.unlinkSync(`${abs}.wav`);
       } else if (engine === "say") {
         sayToFile(lines[i], abs, sayVoice);
-      } else {
-        await elevenLabsToFile(lines[i], abs, voiceId, modelId);
       }
       rememberClip(abs, cached[i]);
     }

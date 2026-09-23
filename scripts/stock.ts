@@ -58,18 +58,32 @@ export const stockProviders = () =>
 // ---------- gọi API có nhớ tạm ----------
 
 const CACHE_MS = 24 * 3600_000;
+/** Video dài tìm trước cho mọi cảnh rồi mới chọn (server/chat.ts) — đủ chỗ cho ~200 cảnh × 3 truy vấn × 2 kho. */
+const CACHE_MAX = 1500;
 const cache = new Map<string, { at: number; body: unknown }>();
 const UA = "AI-Video-Studio/1.0 (+desktop app)";
 /** Pixabay đặt chống bot phía trước API: gọi dồn dập là bị trả trang "Just a moment…" (429). */
 const MIN_GAP_MS: Record<StockProvider, number> = { pexels: 0, pixabay: 1200, freesound: 300 };
-const lastCall: Record<StockProvider, number> = { pexels: 0, pixabay: 0, freesound: 0 };
+/** Mốc sớm nhất được gọi tiếp mỗi kho — giữ chỗ trước khi đợi, nên nhiều cảnh tìm cùng lúc vẫn xếp hàng đúng khoảng. */
+const nextCall: Record<StockProvider, number> = { pexels: 0, pixabay: 0, freesound: 0 };
 
-const getJson = async <T>(provider: StockProvider, url: string, headers: Record<string, string> = {}): Promise<T> => {
+/** Lượt gọi đang chạy theo URL — hai cảnh cùng truy vấn tìm cùng lúc thì chỉ gọi kho một lần. */
+const inflight = new Map<string, Promise<unknown>>();
+
+const getJson = <T>(provider: StockProvider, url: string, headers: Record<string, string> = {}): Promise<T> => {
   const hit = cache.get(url);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.body as T;
-  const wait = lastCall[provider] + MIN_GAP_MS[provider] - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastCall[provider] = Date.now();
+  if (hit && Date.now() - hit.at < CACHE_MS) return Promise.resolve(hit.body as T);
+  const running = inflight.get(url);
+  if (running) return running as Promise<T>;
+  const call = fetchJson<T>(provider, url, headers).finally(() => inflight.delete(url));
+  inflight.set(url, call);
+  return call;
+};
+
+const fetchJson = async <T>(provider: StockProvider, url: string, headers: Record<string, string>): Promise<T> => {
+  const slot = Math.max(Date.now(), nextCall[provider]);
+  nextCall[provider] = slot + MIN_GAP_MS[provider];
+  if (slot > Date.now()) await new Promise((r) => setTimeout(r, slot - Date.now()));
   const response = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json", ...headers }, signal: AbortSignal.timeout(20_000) });
   recordCall(LABELS[provider], response.ok);
   if (!response.ok) {
@@ -81,7 +95,8 @@ const getJson = async <T>(provider: StockProvider, url: string, headers: Record<
     throw providerError(LABELS[provider], response.status, text, "hoặc chọn nguồn khác");
   }
   const body = (await response.json()) as T;
-  if (cache.size > 500) cache.clear();
+  // Bỏ mục cũ nhất (Map giữ thứ tự thêm vào), không xoá sạch — đang tìm dở một video dài thì vẫn còn kết quả đã tìm.
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
   cache.set(url, { at: Date.now(), body });
   return body;
 };
@@ -381,14 +396,34 @@ export const stockRelevance = (item: StockItem, keywords: string[], phrases: str
  */
 export const stockForScene = async (
   kind: "image" | "video",
-  plan: string | { queries: string[]; keywords: string[] },
+  plan: StockPlanInput,
   minSeconds: number,
   used: Set<string>,
 ): Promise<SceneStock | null> => {
-  const take = async (pick: StockPick, similar: boolean): Promise<SceneStock> => {
+  const choice = await chooseStockForScene(kind, plan, minSeconds, used);
+  return choice?.found ? downloadStockChoice(choice) : choice;
+};
+
+type StockPlanInput = string | { queries: string[]; keywords: string[] };
+
+/** Hình đã chọn cho cảnh nhưng chưa tải — tách ra để video dài chọn hết các cảnh trước rồi tải song song. */
+export type StockChoice =
+  | { found: true; similar: boolean; pick: StockPick }
+  | { found: false; query: string; matched: number; total: number };
+
+/**
+ * Chọn hình cho cảnh: tìm, chấm điểm, đánh dấu vào `used` ngay (cảnh sau không chọn trùng) — chưa tải file.
+ * Gọi lần lượt theo thứ tự cảnh để việc chống trùng ổn định; tìm trước bằng prefetchStockForScene thì gần như tức thì.
+ */
+export const chooseStockForScene = async (
+  kind: "image" | "video",
+  plan: StockPlanInput,
+  minSeconds: number,
+  used: Set<string>,
+): Promise<StockChoice | null> => {
+  const take = (pick: StockPick, similar: boolean): StockChoice => {
     used.add(`${pick.item.provider}-${pick.item.id}`);
-    const file = await downloadStock(pick.item.provider, pick.item.kind, pick.item.id);
-    return { found: true, similar, ...file, query: pick.query, matched: pick.matched, total: pick.total };
+    return { found: true, similar, pick };
   };
 
   // Mô tả ảnh có nhắc đúng chủ thể không ("anglerfish", "banh mi"). Không có thì ảnh chỉ đúng bối cảnh: kho trả ảnh
@@ -408,8 +443,24 @@ export const stockForScene = async (
   return fallback ? { found: false, query: fallback.query, matched: fallback.matched, total: fallback.total } : null;
 };
 
+/** Tải hình đã chọn (kho đã có file thì dùng lại). */
+export const downloadStockChoice = async (choice: Extract<StockChoice, { found: true }>): Promise<SceneStock> => {
+  const { pick, similar } = choice;
+  const file = await downloadStock(pick.item.provider, pick.item.kind, pick.item.id);
+  return { found: true, similar, ...file, query: pick.query, matched: pick.matched, total: pick.total };
+};
+
+/**
+ * Tìm sẵn (chưa chọn, chưa tải) cho một cảnh: chạy đúng các truy vấn mà chooseStockForScene sẽ chạy để kết quả nằm
+ * trong bộ nhớ tạm. Nhiều cảnh tìm cùng lúc được; lỗi (mạng, hết lượt) bỏ qua — lúc chọn sẽ gọi lại và báo lỗi thật.
+ */
+export const prefetchStockForScene = async (kind: "image" | "video", plan: StockPlanInput, minSeconds: number) => {
+  const best = await pickStock(kind, plan, minSeconds, new Set()).catch(() => null);
+  if (!best || isWeakMatch(best)) await pickStock(kind, withoutSubject(plan), minSeconds, new Set()).catch(() => null);
+};
+
 /** Bỏ từ khoá chủ thể, giữ các từ khoá bối cảnh — dùng để tìm ảnh cùng chủ đề khi kho không có đúng chủ thể. */
-const withoutSubject = (plan: string | { queries: string[]; keywords: string[] }) =>
+const withoutSubject = (plan: StockPlanInput) =>
   typeof plan !== "string" && plan.keywords.length > 1
     ? { queries: plan.queries, keywords: plan.keywords.slice(1) }
     : plan;

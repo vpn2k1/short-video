@@ -15,7 +15,7 @@ import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { generateAiVideo, isVideoModelChoice, videoModelCatalog } from "../scripts/ai-video";
 import { TITLE_FRAMES } from "../src/constants";
 import { continueScript, editScript, generateScript, PAID_SCRIPT_PROVIDERS, seriesBaseTitle, isScriptProvider, providerLabel, scriptProvider, type ProviderChoice, type ScriptProvider, type StyleChoice } from "../scripts/generate-script";
-import { isLengthChoice, type LengthChoice } from "../scripts/video-length";
+import { SECONDS_PER_LINE, isLengthChoice, type LengthChoice } from "../scripts/video-length";
 import { isHookChoice } from "../scripts/hook-library";
 import { moveToAppTrash } from "./app-trash";
 import { FREE_MEDIA_GROUP } from "./keys";
@@ -25,7 +25,10 @@ import { reviewScript } from "../scripts/review-script";
 import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
 import { findVoice } from "../scripts/voices";
 import { freeMode } from "../scripts/usage";
-import { RANDOM_MUSIC, randomFreesoundMusic, stockForScene } from "../scripts/stock";
+import {
+  RANDOM_MUSIC, chooseStockForScene, downloadStockChoice, prefetchStockForScene, randomFreesoundMusic, type StockChoice,
+} from "../scripts/stock";
+import { mapLimit } from "../scripts/concurrency";
 import { listAudio } from "./api";
 import { cloudflareImageAvailable } from "../scripts/cloudflare-image";
 import { ART_STYLES, composeImagePrompt, imageLookFor, isArtStyle, writeImagePrompts, writeStockQueries, type StockPlan, type ArtStyle } from "../scripts/image-prompts";
@@ -1330,10 +1333,11 @@ export const buildFromScript = async (
   // ---- chế độ ảnh: mỗi cảnh một ảnh tĩnh, không giọng, không nhạc ----
   // Không ghi props.json — giữ nguyên props của bản video (nếu có).
   if (settings.kind === "image") {
+    await findSceneImages(slug, script, settings, log);
     const props = shortSchema.parse(
       scriptToProps(script, { startAtFrame: TITLE_FRAMES, aspect: settings.aspect }),
     );
-    await addSceneImages(slug, script, props, settings, log);
+    clearSceneImages(props, settings, log);
     assertImagesExist(props);
 
     log("__STEP__ render");
@@ -1359,8 +1363,14 @@ export const buildFromScript = async (
     };
   }
 
-  // ---- giọng đọc ----
+  // ---- giọng đọc + hình, chạy cùng lúc ----
+  // Hình chỉ cần kịch bản (độ dài cảnh ước theo số câu), không cần giọng — tìm và tải trong lúc đang đọc giọng thay vì
+  // đợi đọc xong mới bắt đầu. Clip AI thì cần độ dài thật của cảnh nên vẫn đợi giọng.
   log("__STEP__ voice");
+  const imagesTask = settings.video ? null : findSceneImages(slug, script, settings, log);
+  // Giọng lỗi trước thì lỗi đó được báo; việc tìm hình vẫn chạy nốt (hình tìm được lưu vào kịch bản, lần chạy lại dùng
+  // luôn) — đánh dấu đã xử lý để lỗi của nó (nếu có) không làm sập tiến trình khi không còn ai đợi.
+  imagesTask?.catch(() => {});
   const voice = settings.voice ? findVoice(settings.voice) : undefined;
   if (settings.voice && !voice) {
     // Giọng đã bị gỡ khỏi app (ví dụ EverAI) — báo rõ thay vì âm thầm làm video không tiếng.
@@ -1393,9 +1403,15 @@ export const buildFromScript = async (
   );
   if (typeof patch === "function") patch(props);
   else if (patch) Object.assign(props, patch);
-  const aiNote = settings.video
-    ? await addAiClips(slug, script, props, settings, log)
-    : await addSceneImages(slug, script, props, settings, log);
+  let aiNote: string;
+  if (imagesTask) {
+    aiNote = await imagesTask;
+    // Hình vừa tìm nằm trong script — props dựng trước khi tìm xong thì gán lại theo cảnh.
+    props.scenes.forEach((scene, i) => { scene.image ??= script.scenes[i]?.image ?? null; });
+    aiNote = clearSceneImages(props, settings, log) || aiNote;
+  } else {
+    aiNote = await addAiClips(slug, script, props, settings, log);
+  }
   fs.writeFileSync(path.join(videoDir(slug), "props.json"), JSON.stringify(props, null, 2));
   assertImagesExist(props);
 
@@ -1503,40 +1519,61 @@ const sceneStockPlans = async (
       return { lines: at > 0 ? scene.lines.slice(0, at) : scene.lines };
     }),
   };
-  try {
-    const { plans, provider } = await writeStockQueries(video, indexes, { provider: settings.provider });
-    log(`Từ khoá tìm hình (${providerLabel(provider)}): ${plans.map((p, k) => `cảnh ${indexes[k] + 1} "${p.queries[0]}"`).join(" · ")}`);
-    return plans;
-  } catch (error) {
-    log(`Không chọn được từ khoá tìm hình (${error instanceof Error ? error.message : error}) — tìm theo bản dịch lời đọc.`);
-    return (await sceneImageQueries(script, indexes, settings, log)).map((query) => ({ queries: [query], keywords: [] }));
-  }
+  // Video dài: chia lô và hỏi song song — một lượt 150 cảnh thì câu trả lời dài quá, model hay cắt giữa chừng.
+  const chunks: number[][] = [];
+  for (let k = 0; k < indexes.length; k += STOCK_PLAN_CHUNK) chunks.push(indexes.slice(k, k + STOCK_PLAN_CHUNK));
+  const planned = await mapLimit(chunks, 3, async (chunk) => {
+    try {
+      const { plans, provider } = await writeStockQueries(video, chunk, { provider: settings.provider });
+      log(`Từ khoá tìm hình (${providerLabel(provider)}): ${plans.map((p, k) => `cảnh ${chunk[k] + 1} "${p.queries[0]}"`).join(" · ")}`);
+      return plans;
+    } catch (error) {
+      const which = chunks.length > 1 ? ` cho cảnh ${chunk[0] + 1}–${chunk[chunk.length - 1] + 1}` : "";
+      log(`Không chọn được từ khoá tìm hình${which} (${error instanceof Error ? error.message : error}) — tìm theo bản dịch lời đọc.`);
+      return (await sceneImageQueries(script, chunk, settings, log)).map((query) => ({ queries: [query], keywords: [] }));
+    }
+  });
+  return planned.flat();
 };
 
+/** Số cảnh mỗi lượt hỏi AI từ khoá tìm hình. */
+const STOCK_PLAN_CHUNK = 30;
+
+/** "Không hình": bỏ hình AI tự gán cho các cảnh (giữ hình mở đầu người dùng tự chọn). Trả ghi chú, "" nếu không đổi gì. */
+const clearSceneImages = (props: ShortProps, settings: ChatSettings, log: (line: string) => void) => {
+  if (settings.images !== "none") return "";
+  const had = props.scenes.filter((scene) => scene.image).length;
+  props.scenes.forEach((scene, i) => {
+    if (i === 0 && settings.hookMedia && scene.image === settings.hookMedia) return;
+    scene.image = null;
+  });
+  log("Không dùng hình — video chỉ có chữ.");
+  return had > 0 ? "🚫 Không dùng hình — video chỉ có chữ." : "";
+};
+
+/** Kho ảnh tìm cùng lúc tối đa chừng này cảnh (Pixabay tự giãn nhịp gọi trong scripts/stock.ts), tải file cũng vậy. */
+const STOCK_PARALLEL = 4;
+/** AI vẽ cùng lúc tối đa chừng này ảnh — gói miễn phí giới hạn lượt/phút. */
+const DRAW_PARALLEL = 3;
+
 /**
- * Hình cho những cảnh chưa có ảnh, theo nút Hình ảnh. Không tự đổi nguồn: chọn AI vẽ mà lỗi thì
- * báo lỗi chứ không âm thầm lấy Pexels, và ngược lại.
+ * Hình cho những cảnh chưa có ảnh, theo nút Hình ảnh — ghi thẳng vào `script` (và script.json), chỉ cần kịch bản nên
+ * chạy song song với giọng đọc được. Không tự đổi nguồn: chọn AI vẽ mà lỗi thì báo lỗi chứ không âm thầm lấy Pexels,
+ * và ngược lại.
+ *
+ * Kho miễn phí làm theo lượt để video dài không phải đợi từng cảnh: (1) AI chọn từ khoá cho mọi cảnh trong một lần gọi,
+ * (2) tìm trước cho mọi cảnh cùng lúc, (3) chọn hình lần lượt theo thứ tự cảnh — kết quả đã có sẵn nên gần như tức
+ * thì, và thứ tự cố định giữ cho việc chống trùng ảnh giữa các cảnh ổn định, (4) tải các hình đã chọn song song.
  */
-const addSceneImages = async (
+const findSceneImages = async (
   slug: string,
   script: VideoScript,
-  props: ShortProps,
   settings: ChatSettings,
   log: (line: string) => void,
 ) => {
-  if (settings.images === "none") {
-    const had = props.scenes.filter((scene) => scene.image).length;
-    // Hình mở đầu là do người dùng tự chọn — "Không hình" chỉ bỏ hình AI tự gán cho các cảnh sau.
-    props.scenes.forEach((scene, i) => {
-      if (i === 0 && settings.hookMedia && scene.image === settings.hookMedia) return;
-      scene.image = null;
-    });
-    log("Không dùng hình — video chỉ có chữ.");
-    return had > 0 ? "🚫 Không dùng hình — video chỉ có chữ." : "";
-  }
-  if (settings.images === "library") return "";
+  if (settings.images === "none" || settings.images === "library") return "";
 
-  const need = props.scenes.map((scene, i) => ({ scene, i })).filter(({ scene }) => !scene.image);
+  const need = script.scenes.map((scene, i) => ({ scene, i })).filter(({ scene }) => !scene.image);
   if (need.length === 0) return "";
 
   const ai = settings.images === "ai";
@@ -1550,48 +1587,69 @@ const addSceneImages = async (
   let perQuery: (string | null)[];
   if (ai) {
     const queries = await sceneImageQueries(script, need.map(({ i }) => i), settings, log);
-    perQuery = (await fetchSceneImages(slug, queries, ["gemini"], log)).perQuery;
+    perQuery = (await fetchSceneImages(slug, queries, ["gemini"], log, DRAW_PARALLEL)).perQuery;
   } else {
     const plans = await sceneStockPlans(script, need.map(({ i }) => i), settings, log);
-    // Không lặp cùng một ảnh/clip giữa các cảnh; clip hết thì lùi về ảnh cho cảnh đó.
+    // Chưa có giọng đọc nên độ dài cảnh ước theo số câu — chỉ dùng để ưu tiên clip đủ dài.
+    const seconds = need.map(({ scene }) => Math.max(2, scene.lines.length * SECONDS_PER_LINE));
+    const kinds = clips ? (["video", "image"] as const) : (["image"] as const);
+
+    // (2) Tìm trước cho mọi cảnh cùng lúc.
+    if (need.length > 1) log(`Tìm hình cho ${need.length} cảnh cùng lúc…`);
+    await mapLimit(plans, STOCK_PARALLEL, (plan, k) => prefetchStockForScene(kinds[0], plan, seconds[k]));
+
+    // (3) Chọn theo thứ tự cảnh. Không lặp cùng một ảnh/clip giữa các cảnh; clip hết thì lùi về ảnh cho cảnh đó.
     const used = new Set<string>();
-    perQuery = [];
+    const chosen: { k: number; what: string; choice: Extract<StockChoice, { found: true }> }[] = [];
     for (const [k, plan] of plans.entries()) {
-      const { scene } = need[k];
-      const seconds = Math.ceil((scene.endMs - scene.startMs) / 1000);
-      let file: string | null = null;
+      const n = need[k].i + 1;
       // Kho có trả kết quả nhưng lệch hẳn chủ đề — khác hẳn với lỗi mạng hay hết lượt, nên báo khác nhau.
       let noGood = false;
-      for (const kind of clips ? (["video", "image"] as const) : (["image"] as const)) {
+      let picked = false;
+      for (const kind of kinds) {
         const what = kind === "video" ? "clip" : "ảnh";
         try {
-          const result = await stockForScene(kind, plan, seconds, used);
-          if (!result) continue;
-          const fit = result.total ? ` · khớp ${result.matched}/${result.total} từ khoá` : "";
-          if (!result.found) {
+          const choice = await chooseStockForScene(kind, plan, seconds[k], used);
+          if (!choice) continue;
+          if (!choice.found) {
+            const fit = choice.total ? ` · khớp ${choice.matched}/${choice.total} từ khoá` : "";
             noGood = true;
-            log(`[${what}] cảnh ${need[k].i + 1}: kho không có ${what} đúng "${result.query}"${fit} — bỏ qua.`);
+            log(`[${what}] cảnh ${n}: kho không có ${what} đúng "${choice.query}"${fit} — bỏ qua.`);
             continue;
           }
-          file = result.path;
-          if (result.similar) similarFit.add(need[k].i + 1);
-          log(`[${what}] cảnh ${need[k].i + 1} ("${result.query}"${fit})${result.similar ? " · ảnh cùng chủ đề, không đúng chủ thể" : ""}: ${result.credit}`);
+          chosen.push({ k, what, choice });
+          picked = true;
           break;
         } catch (error) {
           log(`Không lấy được ${what} cho "${plan.queries[0]}": ${error instanceof Error ? error.message : error}`);
         }
       }
-      if (!file && noGood) weakFit.add(need[k].i + 1);
-      perQuery.push(file);
+      if (!picked && noGood) weakFit.add(n);
     }
+
+    // (4) Tải các hình đã chọn song song.
+    perQuery = need.map(() => null);
+    await mapLimit(chosen, STOCK_PARALLEL, async ({ k, what, choice }) => {
+      const n = need[k].i + 1;
+      const { pick, similar } = choice;
+      try {
+        const file = await downloadStockChoice(choice);
+        if (!file.found) return;
+        perQuery[k] = file.path;
+        if (similar) similarFit.add(n);
+        const fit = pick.total ? ` · khớp ${pick.matched}/${pick.total} từ khoá` : "";
+        log(`[${what}] cảnh ${n} ("${pick.query}"${fit})${similar ? " · ảnh cùng chủ đề, không đúng chủ thể" : ""}: ${file.credit}`);
+      } catch (error) {
+        log(`Không tải được ${what} cho cảnh ${n}: ${error instanceof Error ? error.message : error}`);
+      }
+    });
   }
 
   let filled = 0;
-  need.forEach(({ scene, i }, k) => {
+  need.forEach(({ scene }, k) => {
     const file = perQuery[k];
     if (!file) return;
     scene.image = file;
-    script.scenes[i].image = file;
     filled += 1;
   });
   if (filled > 0) fs.writeFileSync(path.join(videoDir(slug), "script.json"), JSON.stringify(script, null, 2));
@@ -1654,15 +1712,19 @@ const cachedAiClip = async (
     log,
   );
   fs.mkdirSync(videoDir(slug), { recursive: true });
-  fs.writeFileSync(cachePath, JSON.stringify({ ...cache, [cacheKey]: result.path }, null, 2));
+  // Đọc lại ngay trước khi ghi: nhiều clip tạo song song, ghi đè bằng bản đọc lúc đầu là mất clip vừa xong của cảnh khác.
+  fs.writeFileSync(cachePath, JSON.stringify({ ...(readJson(cachePath) ?? {}), [cacheKey]: result.path }, null, 2));
   return result.path;
 };
 
 
+/** Số clip AI tạo cùng lúc — mỗi clip mất vài phút ở máy chủ, đợi lần lượt thì video dài rất lâu. */
+const AI_CLIP_PARALLEL = 3;
+
 /**
- * Tạo clip AI làm nền cho từng cảnh, trừ cảnh đang dùng file người dùng tải lên.
- * Lỗi thì dừng tạo tiếp (thường là key/billing, sẽ lặp lại ở mọi cảnh) và các cảnh
- * còn lại giữ ảnh. Trả ghi chú lỗi, "" nếu ổn.
+ * Tạo clip AI làm nền cho từng cảnh, trừ cảnh đang dùng file người dùng tải lên. Tạo vài clip cùng lúc.
+ * Lỗi thì thôi bắt đầu clip mới (thường là key/billing, sẽ lặp lại ở mọi cảnh) — clip đang tạo dở vẫn chạy nốt — và
+ * các cảnh còn lại giữ ảnh. Trả ghi chú lỗi, "" nếu ổn.
  */
 const addAiClips = async (
   slug: string,
@@ -1672,12 +1734,14 @@ const addAiClips = async (
   log: (line: string) => void,
 ) => {
   const total = props.scenes.length;
-  for (let i = 0; i < total; i++) {
-    const scene = props.scenes[i];
+  /** Cảnh lỗi (đánh số từ 0) — có rồi thì không bắt đầu clip mới. */
+  const failed: { scene: number; error: unknown }[] = [];
+  await mapLimit(props.scenes, AI_CLIP_PARALLEL, async (scene, i) => {
     if (scene.image?.startsWith("uploads/")) {
       log(`Cảnh ${i + 1}/${total}: giữ file bạn tải lên.`);
-      continue;
+      return;
     }
+    if (failed.length) return;
     log(`Cảnh ${i + 1}/${total}: video AI…`);
     try {
       scene.image = await cachedAiClip(slug, {
@@ -1687,11 +1751,12 @@ const addAiClips = async (
         aspect: settings.aspect,
       }, log);
     } catch (error) {
-      log(`Không tạo được video AI: ${errorText(error)}`);
-      return `⚠ Dừng tạo video AI ở cảnh ${i + 1} — các cảnh còn lại dùng ảnh. ${errorText(error)}`;
+      log(`Không tạo được video AI ở cảnh ${i + 1}: ${errorText(error)}`);
+      failed.push({ scene: i, error });
     }
-  }
-  return "";
+  });
+  const stop = failed.sort((a, b) => a.scene - b.scene)[0];
+  return stop ? `⚠ Dừng tạo video AI ở cảnh ${stop.scene + 1} — các cảnh chưa có clip dùng ảnh. ${errorText(stop.error)}` : "";
 };
 
 // ---------- video nhiều cảnh: mỗi cảnh một prompt ----------

@@ -1273,7 +1273,7 @@ function playerWidth(aspect) {
 }
 
 const STEPS = {
-  video: [["script", "Viết kịch bản"], ["voice", "Giọng đọc"], ["render", "Dựng video"]],
+  video: [["script", "Viết kịch bản"], ["voice", "Giọng đọc + hình"], ["render", "Dựng video"]],
   image: [["script", "Viết kịch bản"], ["render", "Dựng ảnh"]],
 };
 let progress = { kind: "video", step: "script", percent: 0, last: "Đang bắt đầu…", startedAt: 0 };
@@ -3434,7 +3434,7 @@ const BT_LABEL = {
   queued: "Chờ tới lượt", preparing: "Đang chuẩn bị", review: "Chờ bạn duyệt",
   ready: "Đã duyệt · chờ dựng", building: "Đang dựng", done: "Xong", error: "Lỗi", skipped: "Đã bỏ qua",
 };
-const BT_STEP = { script: "viết lời", voice: "giọng đọc", images: "tìm hình", render: "render", check: "tự soát" };
+const BT_STEP = { script: "viết lời", voice: "giọng đọc + hình", images: "tìm hình", render: "render", check: "tự soát" };
 /** Ô đang mở danh sách lỗi tự soát — giữ qua các lần vẽ lại lưới. */
 const batchQaOpen = new Set();
 /** Dưới điểm này thì tính là "cần xem lại". */

@@ -13,6 +13,7 @@ import { downloadPhoto, searchPhotos, writeCredits } from "../scripts/pexels";
 import { generateImage } from "../scripts/gemini-image";
 import { composeImagePrompt, imageLookFor } from "../scripts/image-prompts";
 import { slugify } from "../scripts/slug";
+import { mapLimit } from "../scripts/concurrency";
 import {
   generateMusic, generateSfx, MOODS, SFX_KINDS,
   type Mood, type SfxKind,
@@ -162,22 +163,20 @@ export const fetchSceneImages = async (
   queries: string[],
   sources: ("pexels" | "gemini")[],
   log: Log,
+  /** Số ảnh lấy cùng lúc. Mặc định 1 (lần lượt) — AI vẽ gói miễn phí giới hạn lượt/phút. */
+  parallel = 1,
 ) => {
   const dir = path.join(root(), "public/images", slug);
   fs.mkdirSync(dir, { recursive: true });
   const credits: string[] = [];
-  const files: string[] = [];
   /** Một ô cho mỗi truy vấn, đúng thứ tự — null = không lấy được. Người gọi gán ảnh theo cảnh. */
-  const perQuery: (string | null)[] = [];
+  const perQuery: (string | null)[] = queries.map(() => null);
 
-  for (let i = 0; i < queries.length; i++) {
-    const query = queries[i];
+  await mapLimit(queries, parallel, async (query, i) => {
     const base = `${String(i + 1).padStart(2, "0")}-${slugify(query, 32)}`;
-    let done = false;
     const errors: string[] = [];
 
     for (const source of sources) {
-      if (done) break;
       try {
         if (source === "pexels") {
           const photos = await searchPhotos(query, 5);
@@ -187,7 +186,6 @@ export const fetchSceneImages = async (
           }
           const result = await downloadPhoto(photos[0], path.join(dir, `${base}.jpg`));
           credits.push(result.credit);
-          files.push(`images/${slug}/${base}.jpg`);
           perQuery[i] = `images/${slug}/${base}.jpg`;
           log(`[pexels] ${base}.jpg — ${result.credit}`);
         } else {
@@ -197,22 +195,19 @@ export const fetchSceneImages = async (
             /portrait composition/i.test(query) ? query : composeImagePrompt(query, imageLookFor(undefined).look),
             path.join(dir, `${base}.png`),
           );
-          files.push(`images/${slug}/${base}.png`);
           perQuery[i] = `images/${slug}/${base}.png`;
           log(`[gemini] ${base}.png`);
         }
-        done = true;
+        return;
       } catch (error) {
         errors.push(`${source}: ${error instanceof Error ? error.message : error}`);
       }
     }
 
-    if (!done) {
-      perQuery[i] = null;
-      log(`KHÔNG lấy được ảnh cho "${query}": ${errors.join(" | ")}`);
-    }
-  }
+    log(`KHÔNG lấy được ảnh cho "${query}": ${errors.join(" | ")}`);
+  });
 
+  const files = perQuery.filter((file): file is string => file !== null);
   writeCredits(dir, credits);
   return { files, perQuery, images: listAllImages() };
 };

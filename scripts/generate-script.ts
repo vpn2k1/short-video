@@ -14,6 +14,7 @@ import {
   type LengthChoice, type LengthTarget,
 } from "./video-length";
 import { LOCAL_AI_LABEL, LOCAL_MODEL_NAME, LocalAiStartError, localAiAvailable, localChat } from "./local-ai";
+import { mapLimit } from "./concurrency";
 
 /** Người dùng chọn một phong cách cụ thể, hoặc để AI tự chọn theo nội dung. */
 export type StyleChoice = StyleId | "auto";
@@ -324,9 +325,11 @@ const CHAPTER_RULES = `
 
 BẠN ĐANG VIẾT MỘT CHƯƠNG của video dài — các chương sẽ được nối liền thành một video.
 - Chỉ viết đúng nội dung chương được giao, không lấn sang chương khác.
-- Chương đầu: câu đầu là hook. Chương giữa: không chào lại, không tóm tắt chương trước, nối mạch tự nhiên.
-- Chỉ chương cuối mới có call-to-action. Chương khác kết bằng câu dẫn sang ý tiếp theo.
-- "title", "subtitle", "handle", "accent", "background", "style": chép nguyên từ dàn ý.`;
+- Các chương được viết cùng lúc: bạn không thấy lời chương trước, chỉ thấy dàn ý — đừng nhắc lại câu chữ của chương khác.
+- Chương đầu: câu đầu là hook. Chương giữa: không chào lại, không tóm tắt chương trước, câu đầu nối tiếp ý chương trước
+  trong dàn ý một cách tự nhiên.
+- Chỉ chương cuối mới có call-to-action. Chương khác kết bằng câu dẫn sang ý của chương sau trong dàn ý.
+- "title", "subtitle", "accent", "background", "style": chép nguyên từ dàn ý.`;
 
 /** Gói miễn phí giới hạn lượt/phút — video dài gọi AI nhiều lượt liền nhau nên đợi rồi thử lại. */
 const withRateLimitRetry = async <T>(run: () => Promise<T>, log?: (line: string) => void): Promise<T> => {
@@ -345,9 +348,13 @@ const withRateLimitRetry = async <T>(run: () => Promise<T>, log?: (line: string)
   }
 };
 
+/** Số chương viết cùng lúc. Model chạy trên máy thì viết lần lượt — gọi dồn chỉ xếp hàng trong cùng một máy. */
+const CHAPTER_PARALLEL = 3;
+
 /**
- * Video dài: lập dàn ý chương trước, rồi viết từng chương (≤ CHAPTER_LINES câu một lượt) và nối lại.
- * Một lượt 100 câu thì model nhỏ/gói miễn phí hỏng JSON hoặc từ chối; từng chương 20 câu thì ổn.
+ * Video dài: lập dàn ý chương trước, rồi viết các chương (≤ CHAPTER_LINES câu một lượt) cùng lúc và nối lại theo thứ tự.
+ * Một lượt 100 câu thì model nhỏ/gói miễn phí hỏng JSON hoặc từ chối; từng chương 20 câu thì ổn. Mỗi chương chỉ cần dàn
+ * ý (chương trước/sau nói gì) để nối mạch, không cần đợi lời chương trước viết xong.
  */
 const generateLong = async (
   prompt: string,
@@ -384,19 +391,24 @@ const generateLong = async (
   const linesEach = plan ? Math.max(4, Math.round(plan.lines / chapters.length)) : CHAPTER_LINES;
   const perScene = plan?.linesPerScene ?? 4;
 
-  const scenes: VideoScript["scenes"] = [];
-  for (const [i, chapter] of chapters.entries()) {
+  const local = ["ollama", "local"].includes(scriptProvider(provider) ?? "");
+  const summary = (c: (typeof chapters)[number] | undefined) => (c ? `${c.tag ?? ""} — ${c.lines.join(" ")}` : "");
+  let written = 0;
+  const parts = await mapLimit(chapters, local ? 1 : CHAPTER_PARALLEL, async (chapter, i) => {
     log?.(`Đang viết chương ${i + 1}/${chapters.length}: ${chapter.tag ?? ""}…`);
-    const previous = allLines({ ...outline, scenes }).slice(-2);
     const sceneCount = Math.max(1, Math.ceil(linesEach / perScene));
     const chapterLength =
       `\n\nĐỘ DÀI CHƯƠNG NÀY: khoảng ${linesEach} câu, chia thành khoảng ${sceneCount} cảnh, mỗi cảnh ${perScene} câu. ` +
       `Đây là yêu cầu cứng.\n${OVERRIDE_NOTE}`;
+    const before = summary(chapters[i - 1]);
+    const after = summary(chapters[i + 1]);
     const content =
       `CHỦ ĐỀ VIDEO: ${prompt}\n\n` +
       `DÀN Ý (title "${outline.title}", subtitle "${outline.subtitle}", ` +
       `accent "${outline.accent}", background "${outline.background}", style "${outline.style}"):\n${outlineText}\n\n` +
-      (previous.length ? `Hai câu cuối của chương trước: ${previous.map((l) => `"${l}"`).join(" ")}\n\n` : "") +
+      (before ? `Chương trước nói về: ${before}\n` : "") +
+      (after ? `Chương sau sẽ nói về: ${after}\n` : "") +
+      (before || after ? "\n" : "") +
       `VIẾT CHƯƠNG ${i + 1}/${chapters.length}${i === 0 ? " (chương đầu)" : i === chapters.length - 1 ? " (chương cuối)" : ""}: ` +
       `${chapter.tag ?? ""} — ${chapter.lines.join(" ")}\n` +
       `Viết khoảng ${linesEach} câu, chia thành khoảng ${sceneCount} cảnh, mỗi cảnh ${perScene} câu.`;
@@ -404,8 +416,11 @@ const generateLong = async (
       () => SYSTEM + (i === 0 ? hookSection(hook, prompt) : "") + chapterLength + CHAPTER_RULES + styleSection(outline.style) + mediaSection(images, uploads),
       content, model, images, outline.style, provider,
     ), log);
-    scenes.push(...part.scenes);
-  }
+    written += 1;
+    log?.(`Xong chương ${i + 1} (${written}/${chapters.length}).`);
+    return part.scenes;
+  });
+  const scenes = parts.flat();
 
   const script = videoScriptSchema.parse({ ...outline, scenes: scenes.slice(0, MAX_SCRIPT_SCENES) });
   log?.(`Ghép ${chapters.length} chương: ${script.scenes.length} cảnh, ${allLines(script).length} câu.`);
