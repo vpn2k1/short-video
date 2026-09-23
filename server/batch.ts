@@ -38,6 +38,7 @@ import {
   normalizeSettings,
   prepareScript,
   deleteProjects,
+  mediaScenes,
   readChat,
   resolveMusicChoice,
   writeChat,
@@ -56,7 +57,6 @@ import { findVoice, VOICES } from "../scripts/voices";
 import { missingEngineKey } from "../scripts/tts";
 import { slugify } from "../scripts/slug";
 import { scriptToText, textToScript } from "../scripts/text-script";
-import { transcribeSentences } from "../scripts/transcribe";
 import { generatePostCopy, getPostCopy, type PostPlatform, type SavedPostCopy } from "../scripts/post-copy";
 import { generateHooks } from "../scripts/hooks";
 import { pickClips, type ClipPick } from "../scripts/clip-picker";
@@ -68,7 +68,7 @@ import { renderCover, renderShort } from "../scripts/render";
 import { brandVideo, isBrandFile } from "../scripts/brand";
 import type { ProviderChoice, StyleChoice } from "../scripts/generate-script";
 import { isStyleId, MUSIC_STYLES, randomStyle, RANDOM_STYLE, type StyleId } from "../src/styles/meta";
-import { alignCaptions, detectSilences } from "../scripts/subtitle-align";
+import { audioDurationMs, extractTrack, isVideoFile, transcribeCached } from "./audio-video";
 import {
   guessLanguage, isTranslateLanguage, missingTranslateKey, translateLanguageLabel, translateLines,
   TRANSLATE_ENGINES, type TranslateEngine, type TranslateLanguage,
@@ -1516,41 +1516,6 @@ const translateScript = async (
   return parseScript(draft);
 };
 
-/**
- * Phiên âm có nhớ: loạt phụ đề nhiều ngôn ngữ dùng chung một bản phiên âm cho mọi ngôn ngữ của
- * cùng một file — phiên âm là bước nặng nhất, không làm lại cho từng bản dịch.
- * Nhớ trên đĩa (data/batches/transcripts) để khởi động lại server hay bấm Chạy lại cũng không mất.
- */
-const transcriptMemory = new Map<string, Caption[]>();
-
-export const transcribeCached = async (
-  source: string,
-  file: string,
-  spoken: string,
-  model: WhisperModel,
-  log: (line: string) => void,
-): Promise<Caption[]> => {
-  const stat = fs.statSync(source);
-  // "dtw": bản phiên âm có mốc từng từ — bản cũ khớp phụ đề sai với video có nhạc nền, không dùng lại.
-  // Tên file để cuối: tên dài bị cắt ở 120 ký tự thì chỉ mất đuôi tên, không mất ngôn ngữ/model.
-  const key = slugify(`dtw ${stat.size} ${stat.mtimeMs} ${spoken} ${model} ${file}`, 120);
-  const cacheFile = path.join(batchesDir(), "transcripts", `${key}.json`);
-  const hit = transcriptMemory.get(key) ?? readJson(cacheFile);
-  if (hit) {
-    log(`Dùng lại bản phiên âm của ${path.basename(source)}.`);
-    return hit;
-  }
-  log(`Phiên âm ${path.basename(source)} bằng whisper ${model} (chạy trên máy)…`);
-  const sentences = await transcribeSentences({ audioPath: source, model, language: spoken as never });
-  const silences = await detectSilences(source);
-  const captions = alignCaptions(sentences, silences, audioDurationMs(source)) as Caption[];
-  log(`${sentences.length} câu → ${captions.length} dòng phụ đề`);
-  transcriptMemory.set(key, captions);
-  fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
-  fs.writeFileSync(cacheFile, JSON.stringify(captions));
-  return captions;
-};
-
 /** Khung gần nhất với kích thước thật của video (tính cả video quay dọc bị xoay). */
 const videoAspect = (file: string): string | null => {
   const size = videoSize(file);
@@ -1575,16 +1540,6 @@ const videoSize = (file: string): { width: number; height: number } | null => {
   }
 };
 
-const audioDurationMs = (file: string) =>
-  Math.round(
-    parseFloat(
-      execFileSync("ffprobe", [
-        "-v", "error", "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1", file,
-      ], { encoding: "utf8" }).trim(),
-    ) * 1000,
-  );
-
 /**
  * File thu sẵn → props.json: phiên âm bằng whisper.cpp rồi khớp mép phụ đề với khoảng lặng
  * thật. Giống scripts/audio-to-video.ts, nhưng chạy trong server và báo tiến độ ra bảng.
@@ -1602,7 +1557,8 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   fs.mkdirSync(videoDir(slug), { recursive: true });
 
   log("__STEP__ script");
-  const spoken = batch.subs?.spoken ?? "vi";
+  // Loạt "File thu sẵn" không hỏi ngôn ngữ: tự nhận — ép tiếng Việt thì file tiếng Anh ra lời dịch bậy.
+  const spoken = batch.subs?.spoken ?? "auto";
   let captions = await transcribeCached(source, item.file!, spoken, batch.mediaModel, log);
   if (captions.length === 0) {
     throw new Error("Không nghe ra câu nào trong file này — kiểm tra lại file có tiếng nói không.");
@@ -1633,14 +1589,9 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   }
 
   // Chuẩn hoá về mp3 48kHz stereo cho khớp phần còn lại của soundtrack.
-  const trackRel = path.posix.join("voices", slug, "track.mp3");
-  const trackAbs = path.join(process.cwd(), "public", trackRel);
-  fs.mkdirSync(path.dirname(trackAbs), { recursive: true });
-  execFileSync("ffmpeg", ["-y", "-v", "error", "-i", source, "-ar", "48000", "-ac", "2", trackAbs]);
-  const durationMs = audioDurationMs(trackAbs);
+  const { trackRel, durationMs } = extractTrack(source, slug);
 
-  // File hình thì giữ luôn hình gốc làm cảnh; file chỉ có tiếng thì nền trơn.
-  const visual = /\.(mp4|mov|webm)$/i.test(item.file!) ? item.file! : null;
+  const visual = isVideoFile(item.file!) ? item.file! : null;
   // Thêm phụ đề cho video có sẵn: giữ đúng khung của video gốc, không ép về khung trong cài đặt —
   // trừ khi loạt có cắt khung chung, lúc đó mọi video ra đúng tỉ lệ đã chọn.
   const size = batch.subs?.crop && visual ? videoSize(source) : null;
@@ -1652,15 +1603,22 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   const style: StyleId = !batch.subs && batch.mediaStyle ? batch.mediaStyle : "plain";
   // Bài hát: tên bài là tên file, không phải câu hát đầu.
   const song = MUSIC_STYLES.has(style);
+  const title = song ? baseName.slice(0, 60) : captions[0]?.text.slice(0, 60) ?? path.basename(item.file!);
+  // Loạt phụ đề giữ nguyên video gốc một cảnh. Loạt từ file: chia lời thành cảnh để phong cách hiện đủ — video thì mỗi
+  // cảnh chiếu tiếp đoạn của nó, âm thanh thì tìm hình cho từng cảnh (server/chat.ts › mediaScenes).
+  const { scenes, note } = batch.subs
+    ? { scenes: [{ image: visual, visual: null, startMs: 0, endMs: durationMs, ...(crop ? { crop } : {}) }], note: "" }
+    : await mediaScenes({ slug, file: item.file!, captions, durationMs, style, title, settings, log });
+  if (note) log(note);
   const props = shortSchema.parse({
-    title: song ? baseName.slice(0, 60) : captions[0]?.text.slice(0, 60) ?? path.basename(item.file!),
+    title,
     subtitle: "",
     accent: "#e8590c",
     background: "#0b0b12",
     captions,
     aspect,
     style,
-    scenes: [{ image: visual, visual: null, startMs: 0, endMs: durationMs, ...(crop ? { crop } : {}) }],
+    scenes,
     captionPosition: "bottom",
     ...(batch.subs ? { captionLook: batch.subs.look } : {}),
     // Audio nói ngay từ giây 0 — title card sẽ đè lên chính câu đầu.

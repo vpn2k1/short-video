@@ -75,7 +75,7 @@ const PUNCH_MARK = /\*\*(.+?)\*\*|\*(.+?)\*/;
  * Đoán phong cách theo từ khoá khi người dùng để "Tự động" mà không có AI.
  * Đơn giản có chủ đích — sai thì người dùng chọn lại ở chip phong cách.
  */
-const guessStyle = (all: string, scenes: ScriptScene[]): StyleId => {
+export const guessStyle = (all: string, scenes: ScriptScene[]): StyleId => {
   const lines = scenes.flatMap((s) => s.lines);
   // Hội thoại "Tên: lời nói" chiếm phần lớn kịch bản → giao diện tin nhắn.
   // "Bước 1:", "Mẹo:", "Lưu ý:" là nhãn mục chứ không phải tên người.

@@ -31,6 +31,9 @@ const blurTyping = () => {
 };
 
 const isVideoFile = (p) => /\.(mp4|mov|webm)(\?|$)/i.test(p);
+const isAudioFile = (p) => /\.(mp3|wav|m4a|aac|ogg)(\?|$)/i.test(p);
+/** Đang đính kèm file âm thanh: dựng video từ lời trong file (server/chat.ts › buildFromAudio), không cần gõ gì. */
+const pendingAudio = () => pending.find((f) => f.audio);
 const ratioCss = (aspect) => (aspect || "9:16").replace(":", " / ");
 const isWide = (aspect) => { const [w, h] = (aspect || "9:16").split(":").map(Number); return w / h > 1; };
 const CARET = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>`;
@@ -1182,7 +1185,9 @@ function renderMessage(m, isLatest) {
   if (m.role === "user") {
     const atts = (m.attachments ?? []).map((p) => isVideoFile(p)
       ? `<video src="/public/${escapeHtml(p)}" muted playsinline preload="metadata"></video>`
-      : `<img src="/public/${escapeHtml(p)}" alt="" />`).join("");
+      : isAudioFile(p)
+        ? `<audio src="/public/${escapeHtml(p)}" controls preload="none"></audio>`
+        : `<img src="/public/${escapeHtml(p)}" alt="" />`).join("");
     return `<div class="msg-user">${atts ? `<div class="atts">${atts}</div>` : ""}
       <div class="bubble">${escapeHtml(m.text)}</div></div>`;
   }
@@ -1393,10 +1398,11 @@ function prefill(text) {
 async function send() {
   blurTyping();
   const prompt = $("input").value.trim();
+  const fromAudio = Boolean(pendingAudio());
   // sending: chặn bấm/Enter liên tục trong lúc chờ server trả lời — nếu không sẽ tạo trùng nhiều video.
-  if (!prompt || busy || sending || pending.some((f) => !f.path)) return;
-  if (!(await keyTipsBeforeFirstVideo({ needsScript: opts.mode === "ai" }))) return;
-  if (opts.mode === "ai" && !hasScriptKey()) {
+  if ((!prompt && !fromAudio) || busy || sending || pending.some((f) => !f.path)) return;
+  if (!(await keyTipsBeforeFirstVideo({ needsScript: opts.mode === "ai" && !fromAudio }))) return;
+  if (opts.mode === "ai" && !fromAudio && !hasScriptKey()) {
     openSettings();
     return;
   }
@@ -1431,7 +1437,7 @@ async function send() {
 
     newDraftSlug = null;
     composerOwner = slug;
-    messages.push({ role: "user", text: prompt, attachments, at: Date.now() });
+    messages.push({ role: "user", text: prompt || "Dựng video từ file âm thanh này", attachments, at: Date.now() });
     $("input").value = ""; autosize();
     beforeNormalize = null; syncNormalize();
     $("textPreview").hidden = true;
@@ -1813,6 +1819,23 @@ function renderPresets() {
 function renderPlan() {
   const parts = [];
   const warn = [];
+  const audio = pendingAudio();
+  if (audio) {
+    // Từ âm thanh: lời là lời trong file — AI không viết lời, không đọc giọng; hình theo nút Hình ảnh.
+    const own = pending.filter((f) => !f.audio).length;
+    const style = styleMeta(opts.style);
+    parts.push(`video ${opts.aspect} từ âm thanh “${audio.name}”`, "phiên âm thành phụ đề, chia cảnh theo lời");
+    parts.push(opts.style === "auto" ? "phong cách tự chọn theo lời" : `${style.emoji} ${style.label}`);
+    if (own) parts.push(`${own} ảnh/clip của bạn cho các cảnh đầu`);
+    const source = opts.images === "pexels" ? "ảnh miễn phí" : opts.images === "stock-video" ? "clip miễn phí"
+      : opts.images === "ai" ? "ảnh AI vẽ" : null;
+    if (source) parts.push(`${source} cho ${own ? "các cảnh còn lại" : "từng cảnh"}`);
+    else if (!own) warn.push("chưa có hình — chọn Hình ảnh › Ảnh miễn phí / Clip miễn phí / AI vẽ, hoặc đính kèm thêm ảnh");
+    warn.push("giọng đọc và AI viết lời không dùng — tiếng là tiếng trong file");
+    $("plan").innerHTML = `Sẽ tạo: <b>${escapeHtml(parts.join(" · "))}</b>` +
+      `<br><span class="warn">${icon("info")} ${warn.map(escapeHtml).join(" · ")}</span>`;
+    return;
+  }
   parts.push(opts.kind === "image" ? "bộ ảnh" : `video ${opts.aspect}`);
   if (opts.mode !== "text" && opts.length && opts.length !== "auto") {
     parts.push(opts.length === "free" ? "dài không giới hạn" : `dài ${lengthChipLabel()}`);
@@ -2570,6 +2593,15 @@ function bindComposer() {
   $("noticeText").addEventListener("click", () => { setOpt("mode", "text"); $("input").focus(); });
 
   $("attachBtn").addEventListener("click", () => $("fileInput").click());
+  // Trang chủ › "Từ âm thanh có sẵn": chọn file âm thanh, đính vào ô tạo video — bấm Tạo video là dựng từ chính file đó.
+  $("fromAudio").addEventListener("click", (e) => {
+    e.preventDefault();
+    const picker = $("fileInput");
+    picker.accept = "audio/*";
+    picker.click();
+    // Hộp chọn file đóng (chọn hay huỷ) thì nút đính kèm lại nhận đủ loại file.
+    window.addEventListener("focus", () => setTimeout(() => { picker.accept = "image/*,video/*,audio/*"; }, 300), { once: true });
+  });
   $("exampleBtn").addEventListener("click", useExample);
   $("normalizeBtn").addEventListener("click", normalizeText);
   $("undoNormalize").addEventListener("click", undoNormalize);
@@ -2601,20 +2633,28 @@ function bindComposer() {
 
 function addFiles(files) {
   for (const file of files) {
-    if (!/^(image|video)\//.test(file.type)) {
-      setHint(`Bỏ qua ${file.name} — chỉ nhận ảnh hoặc video.`, true);
+    if (!/^(image|video|audio)\//.test(file.type)) {
+      setHint(`Bỏ qua ${file.name} — chỉ nhận ảnh, video hoặc âm thanh.`, true);
       continue;
     }
+    const audio = file.type.startsWith("audio/");
+    // Một video dựng từ một file âm thanh — thả file thứ hai thì thay file trước.
+    if (audio && pendingAudio()) pending = pending.filter((f) => !f.audio);
     const item = {
       id: Math.random().toString(36).slice(2),
       name: file.name, path: null,
       url: URL.createObjectURL(file),
       video: file.type.startsWith("video/"),
+      audio,
     };
     pending.push(item);
     upload(file, item);
+    if (audio) {
+      setHint(`Dựng video từ “${file.name}”: chọn phong cách và Hình ảnh rồi bấm Tạo video. Gõ tiêu đề nếu muốn — không bắt buộc.`);
+    }
   }
   renderPending();
+  updateSend();
 }
 
 async function upload(file, item) {
@@ -2634,7 +2674,8 @@ async function upload(file, item) {
 function renderPending() {
   $("pending").innerHTML = pending.map((f) => `
     <div class="chip-file ${f.path ? "" : "loading"}" title="${escapeHtml(f.name)}">
-      ${f.video ? `<video src="${f.url}" muted></video><span class="tag">video</span>` : `<img src="${f.url}" alt="" />`}
+      ${f.audio ? `<span class="chip-audio">${icon("audio-lines")}<small>${escapeHtml(f.name)}</small></span>`
+        : f.video ? `<video src="${f.url}" muted></video><span class="tag">video</span>` : `<img src="${f.url}" alt="" />`}
       <button type="button" data-rm="${f.id}" aria-label="Bỏ ${escapeHtml(f.name)}">${icon("x")}</button>
     </div>`).join("");
   renderPlan();
@@ -2717,6 +2758,7 @@ function restoreChatDraft(draft) {
     id: Math.random().toString(36).slice(2),
     name: p.split("/").pop(), path: p, url: `/public/${p}`,
     video: isVideoFile(p),
+    audio: isAudioFile(p),
   }));
   renderPending();
   updateSend();
@@ -2781,14 +2823,15 @@ function autosize() {
 function updateSend() {
   const btn = $("send");
   const uploading = pending.some((f) => !f.path);
-  btn.disabled = busy || sending || !$("input").value.trim() || uploading;
+  const empty = !$("input").value.trim() && !pendingAudio();
+  btn.disabled = busy || sending || empty || uploading;
   btn.classList.toggle("sending", sending);
   $("sendLabel").textContent = sending ? "Đang gửi…"
     : current ? "Gửi" : opts.kind === "image" ? "Tạo bộ ảnh" : "Tạo video";
   btn.title = sending ? "Đang gửi — đợi một chút"
     : busy ? "Đang dựng — đợi xong đã"
     : uploading ? "Đợi tải file lên xong"
-    : !$("input").value.trim() ? "Gõ nội dung vào ô trên trước" : "";
+    : empty ? "Gõ nội dung vào ô trên trước" : "";
 }
 
 function setHint(text, isError = false) {
@@ -3860,8 +3903,10 @@ function renderBatchFields() {
   }
 
   fields.push(["aspect", def("Khung hình"), `▭ ${opts.aspect}`]);
-  if (!fileSource()) fields.push(["images", "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
-  if (!fileSource() && aiDraws()) fields.push(["art", "Kiểu vẽ", artChipLabel(), artIcon(opts.art)]);
+  // File thu sẵn: hình cho từng cảnh của file âm thanh (file video giữ hình gốc).
+  const pickImages = !fileSource() || batchSource === "media";
+  if (pickImages) fields.push(["images", batchSource === "media" ? "Hình (file âm thanh)" : "Hình ảnh", imageChipLabel(), imagesIcon(opts.images, opts.video)]);
+  if (pickImages && aiDraws()) fields.push(["art", "Kiểu vẽ", artChipLabel(), artIcon(opts.art)]);
   if (opts.kind === "video" && !fileSource()) {
     fields.push(["voice", def("Giọng đọc"), voice ? voice.key : "Không giọng", voiceIcon(voice?.key)]);
   }

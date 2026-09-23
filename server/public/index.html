@@ -126,6 +126,7 @@
   .msg-bot.error .text { color: var(--err); white-space: pre-wrap; }
   .atts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-bottom: 6px; }
   .atts img, .atts video { height: 84px; border-radius: 10px; object-fit: cover; background: #000; }
+  .atts audio { height: 40px; max-width: 280px; }
 
   .player { background: #000; border-radius: 14px; overflow: hidden; border: 1px solid var(--line);
             max-height: 72vh; max-width: 100%; display: block; }
@@ -208,7 +209,7 @@
   @keyframes optsIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 
   /* Trang chủ: thẻ các cách làm khác */
-  .tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 780px; margin-top: 26px; text-align: left; }
+  .tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 940px; margin-top: 26px; text-align: left; }
   .tools a { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; padding: 12px 14px;
              border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); text-decoration: none;
              transition: border-color .15s, background .15s, transform .15s; }
@@ -230,6 +231,7 @@
   .style-card.on .opt-thumb { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,122,26,.25); }
   .style-card b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .style-card small { font-size: 11.5px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  @media (max-width: 1180px) { .tools { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 860px) {
     .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .style-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -254,6 +256,12 @@
                       border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff;
                       font-size: 12px; line-height: 20px; padding: 0; }
   .chip-file .tag { position: absolute; left: 4px; bottom: 3px; font-size: 10px; color: #fff; text-shadow: 0 1px 2px #000; }
+  /* File âm thanh: ô rộng hơn, icon sóng âm + tên file. */
+  .chip-file:has(.chip-audio) { width: 150px; }
+  .chip-audio { display: flex; flex-direction: column; justify-content: center; gap: 4px; height: 100%; padding: 8px 26px 8px 10px;
+                background: var(--panel-2); color: var(--accent); }
+  .chip-audio small { color: var(--text); font-size: 11px; line-height: 1.25; overflow: hidden; display: -webkit-box;
+                      -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
   .icon-btn { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 50%; border: 1px solid var(--line);
               background: transparent; display: grid; place-items: center; color: var(--muted); padding: 0;
               text-decoration: none; }
@@ -1241,6 +1249,7 @@
       <a href="/editor.html#new"><i data-icon="scissors"></i><b>Sửa video có sẵn</b><span>Cắt ghép, thêm chữ, nhạc, bỏ khoảng lặng</span></a>
       <a href="#/batch"><i data-icon="layers"></i><b>Làm hàng loạt</b><span>Nhiều video một lượt từ danh sách ý tưởng</span></a>
       <a href="#/subs"><i data-icon="captions"></i><b>Thêm phụ đề</b><span>Phụ đề cho video có sẵn, nhiều ngôn ngữ</span></a>
+      <a href="#" id="fromAudio"><i data-icon="audio-lines"></i><b>Từ âm thanh có sẵn</b><span>Giọng thu, podcast, bài hát → video có phụ đề và hình</span></a>
     </nav>
     <div class="recent" id="recentWrap" hidden>
       <div class="recent-head"><h2>Gần đây</h2><a href="#/library">Xem tất cả <i data-icon="arrow-right"></i></a></div>
@@ -1301,7 +1310,7 @@
         <button type="button" class="tool-btn" id="undoNormalize" hidden title="Trả lại đoạn trước khi chuẩn hoá"><i data-icon="undo-2"></i> Hoàn tác</button>
         <span class="spacer"></span>
       </div>
-      <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden />
+      <input type="file" id="fileInput" accept="image/*,video/*,audio/*" multiple hidden />
     </form>
     <p class="text-preview expand-only" id="textPreview" hidden></p>
     <p class="hint" id="hint"></p>
