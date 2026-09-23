@@ -21,7 +21,6 @@ const TRANSITION_FRAMES = 14;
 export const KineticStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   background,
   captions,
@@ -99,7 +98,7 @@ export const KineticStyle: React.FC<ShortProps> = ({
         clipPath={clipPath}
         translate={translate}
       />
-      {showTitle ? <TitleIntro title={title} subtitle={subtitle} handle={handle} swatch={palette[1]} /> : null}
+      {showTitle ? <TitleIntro title={title} subtitle={subtitle} swatch={palette[1]} /> : null}
     </AbsoluteFill>
   );
 };

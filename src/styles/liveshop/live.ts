@@ -187,10 +187,6 @@ export const formatVnd = (n: number) => `${String(Math.round(n)).replace(/\B(?=(
 
 /* ------------------------------------------------------------ người dẫn */
 
-export const handleName = (handle: string) => handle.trim().replace(/^@+/, "") || "shop.live";
-
-export const initialOf = (handle: string) => upper(Array.from(handleName(handle).normalize("NFC"))[0] ?? "S");
-
 /* ------------------------------------------------------------ bình luận */
 
 export type ChatKind = "chat" | "join" | "buy";

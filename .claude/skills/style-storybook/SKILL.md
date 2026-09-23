@@ -22,7 +22,7 @@ description: Phong cách "Sách truyện" — sách tranh thiếu nhi, tranh min
 | `captions` | **Mỗi lúc một câu**, to, căn giữa vùng chữ. Từ đang đọc sáng màu nhấn, nảy lên; từ chưa đọc mờ 38%. Mốc từng từ chia 90% thời lượng câu theo độ dài từ. |
 | `punch` | Có nguyên văn trong câu: các từ đó chuyển màu nhấn, lắc lư, sao bắn ra quanh câu lúc `atMs`. Không khớp → thành nhãn tròn (khi cảnh không có `visual`). |
 | `visual` stat/badge | Nhãn tròn răng cưa màu nhấn, chữ trắng. Có tranh: đè góc dưới phải tranh. Không tranh: to, là hình chính của trang. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: bìa truyện có trăng khuyết, "Ngày xửa ngày xưa…", tiêu đề màu nhấn viền trắng, dòng phụ, handle. Frame 66 góc bìa cuộn lên. |
+| `title`/`subtitle` | Khi `showTitle`: bìa truyện có trăng khuyết, "Ngày xửa ngày xưa…", tiêu đề màu nhấn viền trắng, dòng phụ. Frame 66 góc bìa cuộn lên. |
 
 ## Chuyển động
 

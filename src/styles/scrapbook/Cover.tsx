@@ -1,6 +1,6 @@
 /**
  * Bìa album mở đầu video: bìa vải bố màu nhấn sẫm, gáy bên trái, đường chỉ khâu, bọc góc đồng, nhãn giấy dán
- * giữa bìa có tiêu đề viết tay, dòng phụ và handle dập nổi phía dưới; ảnh đầu tiên cài hờ ở góc bìa.
+ * giữa bìa có tiêu đề viết tay và dòng phụ; ảnh đầu tiên cài hờ ở góc bìa.
  * Cuối phần tiêu đề bìa lật mở sang trái (xoay 3D quanh gáy), lộ bảng kỷ niệm bên dưới.
  *
  * Frame 0 đã có đủ bìa + tiêu đề (làm ảnh đại diện được) — chỉ các chi tiết phụ hiện dần.
@@ -35,13 +35,12 @@ const Corner: React.FC<{ size: number; style: React.CSSProperties }> = ({ size, 
 export const AlbumCover: React.FC<{
   title: string;
   subtitle: string;
-  handle: string;
   accent: string;
   firstScene: Scene | null;
   frame: number;
   layout: ReturnType<typeof useLayout>;
   ready: boolean;
-}> = ({ title, subtitle, handle, accent, firstScene, frame, layout, ready }) => {
+}> = ({ title, subtitle, accent, firstScene, frame, layout, ready }) => {
   const { width, height, unit, portrait } = layout;
   const open = interpolate(frame, [COVER_OPEN_START, COVER_OPEN_END], [0, 1], { ...clamp, easing: Easing.bezier(0.55, 0, 0.35, 1) });
   if (open >= 1) return null;
@@ -62,7 +61,6 @@ export const AlbumCover: React.FC<{
 
   const settle = interpolate(frame, [0, 16], [0, 1], { ...clamp, easing: Easing.bezier(0.2, 0.8, 0.2, 1) });
   const subIn = interpolate(frame, [10, 22], [0, 1], clamp);
-  const handleIn = interpolate(frame, [18, 30], [0, 1], clamp);
   const photoIn = interpolate(frame, [6, 24], [0, 1], { ...clamp, easing: Easing.spring({ damping: 12 }) });
   const photoW = (coverW - spine) * (portrait ? 0.4 : 0.2);
   const hasPhoto = Boolean(firstScene?.image);
@@ -181,26 +179,6 @@ export const AlbumCover: React.FC<{
             <div style={{ fontFamily: HAND, fontSize: subSize, lineHeight: 1.2, opacity: subIn, color: shade(INK, 0.15) }}>{subtitle}</div>
           ) : null}
         </div>
-
-        {/* Handle dập nổi */}
-        {handle ? (
-          <div
-            style={{
-              position: "absolute",
-              left: spine,
-              right: 0,
-              bottom: coverH * (portrait ? 0.07 : 0.045),
-              textAlign: "center",
-              fontFamily: HAND,
-              fontSize: 46 * unit,
-              color: "rgba(255, 236, 200, 0.82)",
-              textShadow: `0 ${-1.5 * unit}px 0 rgba(0,0,0,0.45), 0 ${1.5 * unit}px 0 rgba(255,255,255,0.18)`,
-              opacity: handleIn,
-            }}
-          >
-            {handle}
-          </div>
-        ) : null}
       </div>
     </AbsoluteFill>
   );

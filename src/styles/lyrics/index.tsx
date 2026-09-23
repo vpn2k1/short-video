@@ -2,7 +2,7 @@
  * Phong cách "Lời nhạc cuộn" — xem skill `.claude/skills/style-lyrics/SKILL.md`.
  *
  * Lời đồng bộ kiểu app nghe nhạc: nền là ảnh/clip của cảnh phóng to nhoè đậm màu (không ảnh thì các mảng màu
- * trôi), trình phát nhỏ ở trên (ảnh bìa, tên bài, handle, thanh tiến độ), lời bài hát xếp thành danh sách chữ
+ * trôi), trình phát nhỏ ở trên (ảnh bìa, tên bài, thanh tiến độ), lời bài hát xếp thành danh sách chữ
  * lớn canh trái cuộn lên theo câu đang hát — câu đang hát sáng dần từng từ, câu khác mờ và nhoè theo khoảng
  * cách, đoạn nhạc dạo dài hiện "• • •" sáng dần. Khung dọc có đoạn dạo đầu: màn "Đang phát" cỡ lớn rồi ảnh
  * bìa thu về góc trên. Nhịp nền đo từ chính file nhạc (src/styles/music.tsx).
@@ -41,7 +41,8 @@ const useGeometry = () => {
       side,
       mini,
       full,
-      miniText: { x: mini.x + artS + 28 * unit, y: mini.y + 8 * unit, w: width - (mini.x + artS + 28 * unit) - side - 64 * unit },
+      // Tên bài canh giữa theo chiều cao ảnh bìa nhỏ.
+      miniText: { x: mini.x + artS + 28 * unit, y: mini.y + artS / 2 - 24 * unit, w: width - (mini.x + artS + 28 * unit) - side - 64 * unit },
       progress: { x: side, y: mini.y + artS + 30 * unit, w: width - side * 2 },
       lyrics: { x: side, top: lyricsTop, bottom: lyricsBottom, w: width - side * 2, size: 70 * unit, anchor: lyricsTop + (lyricsBottom - lyricsTop) * 0.26 },
     };
@@ -59,7 +60,7 @@ const useGeometry = () => {
     mini: art,
     full: art,
     miniText: { x: art.x, y: art.y + artS + 26 * unit, w: artS },
-    progress: { x: art.x, y: art.y + artS + 150 * unit, w: artS },
+    progress: { x: art.x, y: art.y + artS + 110 * unit, w: artS },
     lyrics: { x: lx, top, bottom, w: width - lx - safe.side, size: (width / height > 1.4 ? 58 : 50) * unit, anchor: top + (bottom - top) * 0.32 },
   };
 };
@@ -196,7 +197,7 @@ const LyricsList: React.FC<{ lines: Caption[]; scenes: Scene[]; palette: Palette
 
 /* ------------------------------------------------------------ trình phát */
 
-const Player: React.FC<{ title: string; handle: string; scenes: Scene[]; palette: Palette; t: number }> = ({ title, handle, scenes, palette, t }) => {
+const Player: React.FC<{ title: string; scenes: Scene[]; palette: Palette; t: number }> = ({ title, scenes, palette, t }) => {
   const { unit, width } = useLayout();
   const g = useGeometry();
   const e = easeInOut(t);
@@ -210,14 +211,13 @@ const Player: React.FC<{ title: string; handle: string; scenes: Scene[]; palette
   return (
     <>
       <div style={{ position: "absolute", left: art.x, top: art.y }}>
-        <Artwork scenes={scenes} handle={handle} palette={palette} size={art.s} radius={radius} />
+        <Artwork scenes={scenes} title={title} palette={palette} size={art.s} radius={radius} />
       </div>
       {/* Trình phát nhỏ (khung dọc sau đoạn dạo) — ở khung ngang đây là khối chữ dưới ảnh bìa. */}
       <div style={{ position: "absolute", left: g.miniText.x, top: g.miniText.y, width: g.miniText.w, opacity: miniAlpha }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 * unit }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ ...one, fontFamily: FONT, fontWeight: 800, fontSize: (g.stacked ? 36 : 40) * unit, color: "#fff" }}>{name}</div>
-            <div style={{ ...one, fontFamily: FONT, fontWeight: 600, fontSize: (g.stacked ? 28 : 30) * unit, color: "rgba(255,255,255,0.65)", marginTop: 4 * unit }}>{handle}</div>
           </div>
           {g.stacked ? null : <PlayingBars size={30 * unit} color="rgba(255,255,255,0.8)" />}
         </div>
@@ -234,7 +234,6 @@ const Player: React.FC<{ title: string; handle: string; scenes: Scene[]; palette
       {fullAlpha > 0 ? (
         <div style={{ position: "absolute", left: g.full.x, top: g.full.y + g.full.s + 56 * unit, width: g.full.s, opacity: fullAlpha }}>
           <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 56 * unit, lineHeight: 1.25, color: "#fff" }}>{name}</div>
-          <div style={{ ...one, fontFamily: FONT, fontWeight: 600, fontSize: 34 * unit, color: "rgba(255,255,255,0.7)", marginTop: 8 * unit }}>{handle}</div>
           <div style={{ marginTop: 40 * unit }}>
             <Progress width={g.full.s} unit={unit} fontSize={24 * unit} />
           </div>
@@ -278,7 +277,7 @@ const StatChip: React.FC<{ scenes: Scene[]; palette: Palette; opacity: number }>
   );
 };
 
-const Body: React.FC<ShortProps> = ({ title, handle, accent, captions, scenes, showTitle }) => {
+const Body: React.FC<ShortProps> = ({ title, accent, captions, scenes, showTitle }) => {
   const frame = useCurrentFrame();
   const { fps } = useLayout();
   const g = useGeometry();
@@ -292,7 +291,7 @@ const Body: React.FC<ShortProps> = ({ title, handle, accent, captions, scenes, s
       <Backdrop scenes={scenes} palette={palette} />
       <LyricsList lines={lines} scenes={scenes} palette={palette} opacity={t} />
       <StatChip scenes={scenes} palette={palette} opacity={t} />
-      <Player title={title} handle={handle} scenes={scenes} palette={palette} t={t} />
+      <Player title={title} scenes={scenes} palette={palette} t={t} />
     </AbsoluteFill>
   );
 };

@@ -89,12 +89,11 @@ export type BatchSource = "ideas" | "custom" | "media" | "variants" | "subs" | "
 export type EditKind = "props" | "rebuild";
 
 /**
- * Nhận diện kênh áp cho mọi video của loạt (lưu cùng Mẫu cài đặt): tên kênh, màu nhấn, đoạn mở đầu/kết thúc,
+ * Nhận diện kênh áp cho mọi video của loạt (lưu cùng Mẫu cài đặt): màu nhấn, đoạn mở đầu/kết thúc,
  * và — tuỳ chọn — kiểu phụ đề riêng. Kiểu phụ đề riêng THAY hiệu ứng phụ đề của phong cách (vd. Chữ động bật từng
  * chữ) ở các phong cách cho phép, nên chỉ áp khi người dùng bật.
  */
 export type Kit = {
-  handle?: string;
   accent?: string;
   intro?: string | null;
   outro?: string | null;
@@ -105,10 +104,6 @@ export const parseKit = (raw: unknown): Kit | undefined => {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
   const kit: Kit = {};
-  if (typeof r.handle === "string" && r.handle.trim()) {
-    const handle = r.handle.trim().slice(0, 30);
-    kit.handle = handle.startsWith("@") ? handle : `@${handle}`;
-  }
   if (typeof r.accent === "string" && /^#[0-9a-f]{6}$/i.test(r.accent)) kit.accent = r.accent;
   for (const key of ["intro", "outro"] as const) {
     const rel = typeof r[key] === "string" ? String(r[key]).trim().replace(/^\/+/, "") : "";
@@ -128,7 +123,6 @@ export type EditPlan = {
   kind: EditKind;
   /** Đường dẫn nhạc, "random", hoặc null = bỏ nhạc. */
   music?: string | null;
-  handle?: string;
   accent?: string;
   /** "random" = mỗi video bốc thăm một phong cách (chỉ trong nhóm dựng được từ lời có sẵn). */
   style?: StyleChoice | typeof RANDOM_STYLE;
@@ -1039,7 +1033,7 @@ export const readItemScript = (id: unknown, itemId: unknown) => {
 
 /**
  * Lưu lời người dùng sửa (hoặc dán đè) cho một mục rồi dựng lại từ lời đó — KHÔNG gọi AI viết lại.
- * Giữ phong cách, màu, handle của kịch bản cũ và ảnh từng cảnh theo thứ tự (cảnh mới thêm thì tìm ảnh mới).
+ * Giữ phong cách, màu của kịch bản cũ và ảnh từng cảnh theo thứ tự (cảnh mới thêm thì tìm ảnh mới).
  * Mục đang chờ duyệt: `approve` = lưu rồi duyệt luôn; không thì vẫn chờ duyệt. Mục đã xong/lỗi/bỏ qua: dựng lại.
  */
 export const saveItemScript = (id: unknown, body: unknown) => {
@@ -1610,7 +1604,6 @@ const prepareMedia = async (batch: Batch, item: BatchItem, log: (line: string) =
   const props = shortSchema.parse({
     title: song ? baseName.slice(0, 60) : captions[0]?.text.slice(0, 60) ?? path.basename(item.file!),
     subtitle: "",
-    handle: "@kenh",
     accent: "#e8590c",
     background: "#0b0b12",
     captions,
@@ -1660,7 +1653,6 @@ const parseEditPlan = (raw: Record<string, unknown> | undefined): EditPlan => {
     if (music === "__keep__") throw new Error("Nhạc nền không hợp lệ.");
     plan.music = music;
   }
-  if (typeof r.handle === "string" && r.handle.trim()) plan.handle = r.handle.trim().slice(0, 30);
   if (typeof r.accent === "string" && r.accent.trim()) {
     if (!HEX.test(r.accent.trim())) throw new Error("Màu nhấn phải có dạng #rrggbb.");
     plan.accent = r.accent.trim();
@@ -1697,7 +1689,6 @@ const editSummary = (plan: EditPlan | undefined) => {
   if (plan.music !== undefined) {
     parts.push(plan.music === null ? "bỏ nhạc" : plan.music === "random" ? "nhạc ngẫu nhiên" : `nhạc ${path.basename(plan.music)}`);
   }
-  if (plan.handle) parts.push(`tên kênh ${plan.handle}`);
   if (plan.accent) parts.push(`màu ${plan.accent}`);
   return parts.join(" · ");
 };
@@ -1773,7 +1764,6 @@ const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) =>
     const props = readJson(propsPath);
     if (!props) throw new Error("Video này chưa dựng lần nào nên chưa có gì để sửa.");
     if (plan.music !== undefined) props.music = await resolveMusicChoice(plan.music, log);
-    if (plan.handle) props.handle = plan.handle;
     if (plan.accent) props.accent = plan.accent;
     // Kiểm tra cho chắc nhưng ghi nguyên object: parse của zod bỏ mất trường lạ mà trình chỉnh sửa có thể đã thêm.
     shortSchema.parse(props);
@@ -1789,7 +1779,7 @@ const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) =>
     const script = parseScript(JSON.parse(fs.readFileSync(scriptPath, "utf8")));
     if (plan.replace) {
       const count = replaceInScript(script, plan.replace);
-      const others = plan.style || plan.voice !== undefined || plan.aspect || plan.music !== undefined || plan.handle || plan.accent;
+      const others = plan.style || plan.voice !== undefined || plan.aspect || plan.music !== undefined || plan.accent;
       if (count === 0 && !others) {
         log("Không có chữ nào cần thay trong video này — bỏ qua, không dựng lại.");
         Object.assign(item, previewOf(script));
@@ -1798,7 +1788,6 @@ const prepareEdit = async (batch: Batch, item: BatchItem, log: (line: string) =>
       log(`Thay ${count} chỗ trong lời.`);
     }
     if (style && style !== "auto") script.style = style;
-    if (plan.handle) script.handle = plan.handle;
     if (plan.accent) script.accent = plan.accent;
     fs.writeFileSync(scriptPath, JSON.stringify(parseScript(script), null, 2));
     Object.assign(item, previewOf(script));
@@ -1906,7 +1895,6 @@ const prepareClip = async (batch: Batch, item: BatchItem, log: (line: string) =>
   const props = shortSchema.parse({
     title,
     subtitle: "",
-    handle: "@kenh",
     accent: "#e8590c",
     background: "#0b0b12",
     // Video gốc đã in phụ đề: không gắn thêm. Tiếng vẫn phát (voiceoverTrack), độ dài theo cảnh.
@@ -1998,11 +1986,10 @@ const build = async (batch: Batch, item: BatchItem, log: (line: string) => void)
   const voiceScript = parentSlug && fs.existsSync(path.join(videoDir(parentSlug), "script.json"))
     ? parseScript(JSON.parse(fs.readFileSync(path.join(videoDir(parentSlug), "script.json"), "utf8")))
     : undefined;
-  // Nhận diện kênh: tên kênh, màu nhấn vào kịch bản (lưu lại để sửa sau vẫn giữ); kiểu phụ đề vào props lúc dựng.
+  // Nhận diện kênh: màu nhấn vào kịch bản (lưu lại để sửa sau vẫn giữ); kiểu phụ đề vào props lúc dựng.
   const kit = item.edit ? undefined : batch.kit;
-  if (kit?.handle || kit?.accent) {
-    if (kit.handle) script.handle = kit.handle;
-    if (kit.accent) script.accent = kit.accent;
+  if (kit?.accent) {
+    script.accent = kit.accent;
     fs.writeFileSync(scriptPath, JSON.stringify(script, null, 2));
   }
   // Song ngữ: dịch sẵn lời của từng ngôn ngữ, rồi lúc dựng thêm mỗi ngôn ngữ một hàng phụ đề cùng mốc giờ.
@@ -2065,7 +2052,6 @@ const applyKitToProps = (slug: string, kit: Kit) => {
   const propsPath = path.join(videoDir(slug), "props.json");
   const props = readJson(propsPath);
   if (!props) return;
-  if (kit.handle) props.handle = kit.handle;
   if (kit.accent) props.accent = kit.accent;
   if (kit.captionLook) props.captionLook = { ...(props.captionLook ?? {}), ...kit.captionLook };
   fs.writeFileSync(propsPath, JSON.stringify(props, null, 2));

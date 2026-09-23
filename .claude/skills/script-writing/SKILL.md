@@ -22,7 +22,6 @@ vì timing đến từ phiên âm chứ không sinh lại được.
 {
   "title": "Hook ngắn, tối đa 6 từ, không dấu chấm cuối",
   "subtitle": "Một dòng làm rõ lợi ích",
-  "handle": "@tenkenh",
   "accent": "#e8590c",
   "background": "#12100e",
   "scenes": [

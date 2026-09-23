@@ -6,7 +6,7 @@ import { Easing, interpolate } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { findPunch } from "../whiteboard/written";
-import { chars, clamp, deep, MAP, mix, pad2, POP, SERIF, UI, upper } from "./geo";
+import { chars, clamp, deep, MAP, mix, pad2, SERIF, UI, upper } from "./geo";
 import type { Rect } from "./parts";
 import { splitTag } from "./parts";
 
@@ -155,26 +155,6 @@ export const CaptionPanel: React.FC<{
 // ---------------------------------------------------------------------------
 // Khung tiêu đề cartouche
 // ---------------------------------------------------------------------------
-/**
- * Dải ruy băng màu nhấn vắt ngang đáy khung: thân băng + hai đuôi cắt chữ V thấp hơn, nếp gấp tối màu.
- * `t` kéo hai đuôi từ trong ra.
- */
-const Ribbon: React.FC<{ w: number; h: number; accent: string; t: number }> = ({ w, h, accent, t }) => {
-  const reach = h * 1.2 * t;
-  const drop = h * 0.32;
-  const fold = h * 0.5;
-  return (
-    <svg width={w + reach * 2} height={h + drop} viewBox={`${-reach} 0 ${w + reach * 2} ${h + drop}`} style={{ display: "block", overflow: "visible" }}>
-      <path d={`M ${fold} ${drop} L ${-reach} ${drop} L ${-reach + h * 0.38} ${drop + h / 2} L ${-reach} ${drop + h} L ${fold} ${drop + h} Z`} fill={deep(accent, 0.3)} />
-      <path d={`M ${w - fold} ${drop} L ${w + reach} ${drop} L ${w + reach - h * 0.38} ${drop + h / 2} L ${w + reach} ${drop + h} L ${w - fold} ${drop + h} Z`} fill={deep(accent, 0.3)} />
-      <path d={`M 0 ${h} L ${fold} ${h + drop} L ${fold} ${h} Z`} fill={deep(accent, 0.6)} />
-      <path d={`M ${w} ${h} L ${w - fold} ${h + drop} L ${w - fold} ${h} Z`} fill={deep(accent, 0.6)} />
-      <rect x={0} y={0} width={w} height={h} fill={accent} />
-      <rect x={0} y={h * 0.12} width={w} height={h * 0.76} fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth={Math.max(1, h * 0.03)} strokeDasharray={`${h * 0.12} ${h * 0.1}`} />
-    </svg>
-  );
-};
-
 /** Hoa văn góc khung (vẽ cho góc trên trái, xoay cho các góc khác): cung lõm + chấm, kiểu bản đồ cổ. */
 const Corner: React.FC<{ size: number; rot: number; style: React.CSSProperties }> = ({ size, rot, style }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" style={{ position: "absolute", rotate: `${rot}deg`, ...style }}>
@@ -184,13 +164,11 @@ const Corner: React.FC<{ size: number; rot: number; style: React.CSSProperties }
 );
 
 export const TitleCartouche: React.FC<{
-  title: string; subtitle: string; handle: string; accent: string; frame: number; width: number; cy: number; cx: number; unit: number; tall: boolean;
-}> = ({ title, subtitle, handle, accent, frame, width, cy, cx, unit, tall }) => {
+  title: string; subtitle: string; accent: string; frame: number; width: number; cy: number; cx: number; unit: number; tall: boolean;
+}> = ({ title, subtitle, accent, frame, width, cy, cx, unit, tall }) => {
   const unroll = interpolate(frame, [12, 26], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
-  const ribbonT = interpolate(frame, [20, 32], [0, 1], { ...clamp, easing: POP });
   const titleT = interpolate(frame, [22, 34], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const subT = interpolate(frame, [28, 38], [0, 1], clamp);
-  const handleT = interpolate(frame, [34, 44], [0, 1], { ...clamp, easing: POP });
   const exit = interpolate(frame, [TITLE_FRAMES - 20, TITLE_FRAMES - 4], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
   if (unroll <= 0 || exit >= 1) return null;
   const innerW = width - 110 * unit;
@@ -200,7 +178,6 @@ export const TitleCartouche: React.FC<{
   const sub = subtitle.normalize("NFC").trim();
   // Dòng phụ dạng "Hà Nội · Huế · Sài Gòn" hiện thành chuỗi điểm dừng có chấm tròn giữa.
   const stops = sub ? splitTag(sub) : null;
-  const ribbonH = 64 * unit;
   return (
     <div
       style={{
@@ -263,34 +240,6 @@ export const TitleCartouche: React.FC<{
             </div>
           </div>
         ) : null}
-      </div>
-      {/* Ruy băng vắt ngang đáy khung, mang handle */}
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: -ribbonH * 0.7, display: "flex", justifyContent: "center", opacity: ribbonT }}>
-        <div style={{ position: "relative" }}>
-          <Ribbon w={width * 0.62} h={ribbonH} accent={accent} t={ribbonT} />
-          {handle ? (
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: 0,
-                height: ribbonH,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontFamily: UI,
-                fontWeight: 700,
-                fontSize: 30 * unit,
-                color: MAP.paper,
-                whiteSpace: "nowrap",
-                opacity: handleT,
-              }}
-            >
-              {handle}
-            </div>
-          ) : null}
-        </div>
       </div>
     </div>
   );

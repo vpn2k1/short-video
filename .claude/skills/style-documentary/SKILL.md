@@ -27,7 +27,7 @@ description: Phong cách "Phim tài liệu" — ảnh toàn khung chuyển độ
 | `visual` stat | con số serif rất lớn + vạch vàng mảnh + chú thích small caps; dọc: dưới tag, ngang: bên trái |
 | `visual` badge | nhãn đóng dấu mực đỏ viền đôi, nghiêng, góc trên-phải |
 | `captions` | phụ đề serif trắng, bóng mềm, một vạch vàng ngắn phía trên; mỗi lúc một câu, fade + trượt nhẹ |
-| `title` | 70 frame đầu: làm tối ảnh đầu, dòng máy chữ `handle · phim tài liệu`, tít serif hiện lên, vạch mảnh, `subtitle` small caps giãn chữ |
+| `title` | 70 frame đầu: làm tối ảnh đầu, dòng máy chữ `phim tài liệu`, tít serif hiện lên, vạch mảnh, `subtitle` small caps giãn chữ |
 
 ## Chuyển động
 

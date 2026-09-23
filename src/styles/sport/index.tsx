@@ -2,7 +2,7 @@
  * Phong cách "Thể thao" — xem skill `.claude/skills/style-sport/SKILL.md`.
  *
  * Giao diện truyền hình thể thao: ảnh/clip toàn khung tăng tương phản, đẩy máy nhanh đầu cảnh; đổi cảnh bằng vệt
- * sọc chéo accent + tối quét ngang. Đồ hoạ: bảng tỉ số góc trên trái (tên kênh viết tắt, đồng hồ trận, LIVE),
+ * sọc chéo accent + tối quét ngang. Đồ hoạ: bảng tỉ số góc trên trái (đồng hồ trận, LIVE),
  * dải phụ đề nắp chéo hai đầu + ticker, bảng tên cầu thủ/vòng đấu (tag), bảng thống kê (visual), câu nhấn nổ kiểu
  * "GOAL!" có vệt tốc độ, chớp trắng và rung 6 frame (punch). Không ảnh → sân vận động ban đêm vẽ SVG.
  *
@@ -22,7 +22,7 @@ import { makeLayout } from "./layout";
 import { PUNCH_HOLD, ramp, SHAKE_FRAMES, SPORT_FONTS } from "./theme";
 import { TitleIntro } from "./TitleIntro";
 
-export const SportStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const SportStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(SPORT_FONTS);
   const frame = useCurrentFrame();
   const { width: W, height: H, unit: u, safe } = useLayout();
@@ -63,7 +63,7 @@ export const SportStyle: React.FC<ShortProps> = ({ title, subtitle, handle, acce
   const cap = useCaptionClock(captions);
   const capScene = cap.caption && scenes.length ? Math.max(0, activeIndexAt(scenes, cap.startFrame)) : -1;
 
-  const tickerItems = [title, subtitle, handle].map((t) => t.trim()).filter(Boolean);
+  const tickerItems = [title, subtitle].map((t) => t.trim()).filter(Boolean);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0e17", overflow: "hidden" }}>
@@ -86,12 +86,12 @@ export const SportStyle: React.FC<ShortProps> = ({ title, subtitle, handle, acce
       </AbsoluteFill>
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <TitleIntro title={title} subtitle={subtitle} handle={handle} accent={accent} />
+          <TitleIntro title={title} subtitle={subtitle} accent={accent} />
         </Sequence>
       ) : null}
       <StripeWipes cuts={cuts} accent={accent} />
       {scene?.punch ? <ReplayFrame L={L} accent={accent} at={pAt} until={pUntil} safeTop={safe.top} /> : null}
-      <ScoreBug L={L} handle={handle} title={title} accent={accent} enter={onAir + 6} />
+      <ScoreBug L={L} title={title} accent={accent} enter={onAir + 6} />
       <Ticker L={L} items={tickerItems} accent={accent} enter={onAir + 8} />
       <LowerThird
         L={L}

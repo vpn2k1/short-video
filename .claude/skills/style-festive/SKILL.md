@@ -30,7 +30,7 @@ description: Phong cách "Lễ hội Tết" — nền đỏ son có mây vàng (
 | `punch` | Có nguyên văn trong câu: lúc `atMs` cụm từ chuyển vàng phát sáng và nảy lên; ba chùm pháo hoa nổ quanh dải lụa (hoặc hai bên lời chúc); mưa xu vàng lỗ vuông + bao lì xì rơi ~3 giây. Không khớp câu nào của cảnh → thêm viên vàng chữ đỏ trên dải lụa (hoặc dòng vàng dưới lời chúc). |
 | `visual` stat | Bao lì xì đỏ: nắp chữ V viền vàng, khuy vàng, con số Playfair vàng lớn, chú thích trắng ngà. Có ảnh: dán góc dưới phải khung ảnh, nghiêng 6°; thiệp: giữa phần trên thiệp. |
 | `visual` badge | Đồng xu mạ vàng vành răng cưa, lòng đỏ chữ vàng in hoa, chú thích trong viên đỏ viền vàng bên dưới. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: pháo hoa nổ năm chùm, hai lồng đèn nhỏ thả xuống, cuộn thư đỏ có hai trục vàng mở ra từ giữa, tiêu đề Playfair vàng, dòng phụ trắng ngà, handle trong viên vàng phía dưới; tan dần ở frame 56–70. |
+| `title`/`subtitle` | Khi `showTitle`: pháo hoa nổ năm chùm, hai lồng đèn nhỏ thả xuống, cuộn thư đỏ có hai trục vàng mở ra từ giữa, tiêu đề Playfair vàng, dòng phụ trắng ngà; tan dần ở frame 56–70. |
 
 ## Chuyển động
 

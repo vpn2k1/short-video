@@ -34,7 +34,7 @@ description: Phong cách "Top xếp hạng" — đếm ngược #5 → #1, số 
 | `visual` stat | ô điểm kính tối góc phải trên thẻ: ngôi sao vàng + số lớn (`9,5/10`, `4,8★`, `2 triệu`) + `caption` nhỏ |
 | `visual` badge | nhãn dán hồng đỏ viền trắng nghiêng 6° góc phải trên (`BẤT NGỜ`, `ĐÁNG THỬ`), in hoa bằng JS |
 | `image` | ảnh/video trong thẻ; video dùng `ClipVideo` (tôn trọng `crop`, `trimStartMs`, `volume`); ảnh qua `CropBox`. `null` → nền gradient màu accent có sọc chéo |
-| `title` / `subtitle` / `handle` | phần mở đầu 70 frame: "TOP" + số N cuộn, hàng ô N…1, tiêu đề 3 dòng, phụ đề vàng, viên handle |
+| `title` / `subtitle` | phần mở đầu 70 frame: "TOP" + số N cuộn, hàng ô N…1, tiêu đề 3 dòng, phụ đề vàng |
 | `accent` | đèn rọi, bóng số hạng, ô hạng, thanh tên, hàng đang chiếu, gạch chân phụ đề, vệt gió |
 | `showTitle` | tắt → thẻ đầu vào ngay frame 0, không có "TOP N" |
 | `background` | không dùng — sân khấu luôn tối |
@@ -42,7 +42,7 @@ description: Phong cách "Top xếp hạng" — đếm ngược #5 → #1, số 
 ## Chuyển động
 
 - Mở đầu (0–70): "TOP" rơi xuống nảy; số N cuộn dọc 1 → N (frame 6–28, ease-out) rồi phồng nhẹ khi dừng; ô #N…#1 rơi
-  xuống lần lượt cách 4 frame (ô #1 vàng đội vương miện); tiêu đề từng dòng trượt lên từ frame 24, phụ đề 36, handle 44;
+  xuống lần lượt cách 4 frame (ô #1 vàng đội vương miện); tiêu đề từng dòng trượt lên từ frame 24, phụ đề 36;
   frame 59–68 cả cụm văng sang trái + nghiêng.
 - Đổi cảnh (whip trên timeline tuyệt đối, không TransitionSeries): thẻ cũ văng trái từ 5 frame trước điểm vào (8 frame,
   ease-in, nghiêng), thẻ mới văng từ phải vào 10 frame (ease-out); 9 vệt gió trắng/accent quét ngang quanh điểm cắt.

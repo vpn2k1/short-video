@@ -294,7 +294,6 @@ export const textToScript = (
       style,
       title: clipWords(title, 60),
       subtitle: clipWords(subtitle, 90) || clipWords(title, 90),
-      handle: "@kenh",
       accent: "#ff6b2c",
       background: "#0f1115",
       scenes,

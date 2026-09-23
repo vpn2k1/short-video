@@ -1,5 +1,5 @@
 /**
- * Ảnh bìa cho video đã làm: composition "Cover" (src/compositions/Cover) với tiêu đề, phụ đề phụ, tên kênh,
+ * Ảnh bìa cho video đã làm: composition "Cover" (src/compositions/Cover) với tiêu đề, phụ đề phụ,
  * màu nhấn của chính video, nền là hình cảnh đầu tiên.
  *
  *   await makeCover("slug")  →  "/out/covers/slug.jpg"
@@ -60,7 +60,7 @@ const backgroundFor = async (slug: string, scenes: Media[], overlays: Media[]) =
   }
 };
 
-/** Dữ liệu cho composition "Cover" từ chính video: tiêu đề, tên kênh, màu, ảnh cảnh đầu, khung. */
+/** Dữ liệu cho composition "Cover" từ chính video: tiêu đề, màu, ảnh cảnh đầu, khung. */
 export const coverInput = async (slug: string, layout: CoverLayout = "bottom") => {
   const props = readJson(path.join(videoDir(slug), "props.json"));
   const script = readJson(path.join(videoDir(slug), "script.json"));
@@ -70,7 +70,6 @@ export const coverInput = async (slug: string, layout: CoverLayout = "bottom") =
   return {
     title: String(source.title ?? slug).trim() || slug,
     subtitle: String(source.subtitle ?? "").trim(),
-    handle: String(source.handle ?? "").trim(),
     accent: /^#[0-9a-f]{6}$/i.test(source.accent ?? "") ? source.accent as string : "#e8590c",
     background: /^#[0-9a-f]{6}$/i.test(source.background ?? "") ? source.background as string : "#0b0b12",
     image,

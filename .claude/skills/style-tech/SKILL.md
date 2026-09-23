@@ -11,9 +11,9 @@ description: Phong cách "Công nghệ tối giản" — nền navy tối, thẻ
   hai quầng sáng: một theo `accent`, một cyan/tím. Hạt nhiễu rất nhẹ (`<Grain opacity={0.05}/>`).
 - Bảng màu cố định ngoài `accent`: cyan `#22d3ee`, tím `#8b5cf6`, chữ `#eaf2ff`.
   Prop `background` KHÔNG dùng — phong cách luôn tối.
-- Chữ: `FONTS.sans` cho phụ đề (600) và câu nhấn (800); `FONTS.mono` cho tag, số cảnh, handle, chú thích stat.
+- Chữ: `FONTS.sans` cho phụ đề (600) và câu nhấn (800); `FONTS.mono` cho tag, số cảnh, chú thích stat.
 - Bố cục:
-  - Dọc (9:16, 3:4): thanh tiến độ → hàng tag + handle → thẻ kính → câu nhấn → phụ đề.
+  - Dọc (9:16, 3:4): thanh tiến độ → hàng tag → thẻ kính → câu nhấn → phụ đề.
   - Ngang/vuông (16:9, 2:1, 1:1): thanh tiến độ trên cùng; cột trái (tag, tiêu đề mờ, câu nhấn,
     phụ đề), thẻ kính bên phải.
 - Chiều cao vùng câu nhấn và phụ đề tính trước từ toàn bộ dữ liệu (`estimateLines`) nên bố cục
@@ -35,7 +35,7 @@ description: Phong cách "Công nghệ tối giản" — nền navy tối, thẻ
   - Dọc: panel đè lên mép dưới thẻ; ngang: đè góc dưới trái thẻ.
 - `captions`: viên kính; chữ sáng dần theo tiến độ đọc (ước theo số ký tự), từ đang đọc ánh
   cyan, vạch mảnh ở đáy chạy theo thời lượng câu. Tối đa 4 dòng giữ chỗ.
-- `title/subtitle/handle` (khi `showTitle`): handle gõ kiểu terminal, tiêu đề gradient, vạch sáng
+- `title/subtitle` (khi `showTitle`): dòng `> intro` gõ kiểu terminal, tiêu đề gradient, vạch sáng
   nở, subtitle mờ vào; biến mất ở frame ~56–70. Khung ngang còn in `title` mờ dưới tag.
 - `captionPosition` bị bỏ qua — vị trí phụ đề do bố cục quyết định.
 

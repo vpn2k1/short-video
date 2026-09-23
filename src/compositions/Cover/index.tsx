@@ -3,7 +3,7 @@
  *
  * Khác thẻ tiêu đề đầu video (TitleCard): thẻ đó có chuyển động và mỗi phong cách vẽ một kiểu, cắt từ video ra
  * thì có cái đẹp có cái đang viết dở chữ, có cái không có chữ. Bìa này luôn cùng một bố cục cho mọi phong cách:
- * ảnh cảnh đầu phủ kín, lớp tối dần từ dưới lên, tiêu đề to nằm trong vùng an toàn, vạch màu nhấn, tên kênh.
+ * ảnh cảnh đầu phủ kín, lớp tối dần từ dưới lên, tiêu đề to nằm trong vùng an toàn, vạch màu nhấn.
  *
  * Server render bằng renderStill (scripts/render.ts › renderCover) — không có chuyển động nên chỉ 1 frame.
  */
@@ -16,7 +16,6 @@ import { fontInfo } from "../../fonts/catalog";
 export const coverSchema = z.object({
   title: z.string(),
   subtitle: z.string(),
-  handle: z.string(),
   accent: z.string(),
   background: z.string(),
   /** Ảnh nền (đường dẫn trong public/); null = nền màu. */
@@ -31,7 +30,6 @@ export type CoverProps = z.infer<typeof coverSchema>;
 export const defaultCoverProps: CoverProps = {
   title: "Ba mẹo tiết kiệm điện mùa hè",
   subtitle: "Cái thứ ba ít ai để ý",
-  handle: "@kenh",
   accent: "#e8590c",
   background: "#0b0b12",
   image: null,
@@ -54,23 +52,6 @@ const Backdrop: React.FC<{ image: string | null; accent: string; background: str
     <AbsoluteFill style={{ background: `radial-gradient(circle at 30% 20%, ${accent}66, transparent 60%), ${background}`, ...style }} />
   );
 
-const Handle: React.FC<{ handle: string; base: number; dark?: boolean; center?: boolean }> = ({ handle, base, dark, center }) =>
-  handle ? (
-    <div
-      style={{
-        fontSize: Math.round(base * 0.034),
-        fontWeight: 600,
-        color: dark ? "#111" : "#fff",
-        background: dark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.16)",
-        borderRadius: 999,
-        padding: `${Math.round(base * 0.01)}px ${Math.round(base * 0.026)}px`,
-        alignSelf: center ? "center" : "flex-start",
-      }}
-    >
-      {handle}
-    </div>
-  ) : null;
-
 /** Chữ đen hay trắng thì đọc rõ trên nền màu `hex`. */
 const inkOn = (hex: string) => {
   const n = parseInt(hex.replace("#", "").slice(0, 6), 16);
@@ -78,7 +59,7 @@ const inkOn = (hex: string) => {
   return lum > 0.6 ? "#111111" : "#ffffff";
 };
 
-export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, background, image, aspect, layout }) => {
+export const Cover: React.FC<CoverProps> = ({ title, subtitle, accent, background, image, aspect, layout }) => {
   useFontReady("bevietnam");
   const { width, height, safe } = aspectOf(aspect);
   const wide = width > height;
@@ -96,7 +77,6 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
         <Backdrop image={image} accent={accent} background={background} />
         <AbsoluteFill style={{ background: "rgba(0,0,0,0.55)" }} />
         <AbsoluteFill style={{ padding: pad, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: Math.round(base * 0.04), textAlign: "center" }}>
-          <Handle handle={handle} base={base} center />
           <div style={{ fontSize: Math.round(titleSize * 0.92), fontWeight: 700, lineHeight: 1.35, textTransform: "uppercase", maxWidth: "100%" }}>
             <span style={{ background: accent, color: ink, padding: `0 ${Math.round(base * 0.02)}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", borderRadius: Math.round(base * 0.012) }}>
               {title}
@@ -119,7 +99,6 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: Math.round(base * 0.03),
           padding: wide ? `${safe.top}px ${safe.side}px` : `${Math.round(base * 0.06)}px ${safe.side}px ${safe.bottom}px`, color: ink }}>
-          <Handle handle={handle} base={base} dark={ink === "#111111"} />
           <div style={{ fontSize: Math.round(titleSize * (wide ? 0.8 : 0.9)), fontWeight: 700, lineHeight: 1.12, textWrap: "balance" }}>{title}</div>
           {subtitle ? <div style={{ fontSize: Math.round(base * 0.042), fontWeight: 500, opacity: 0.85 }}>{subtitle}</div> : null}
         </div>
@@ -147,7 +126,6 @@ export const Cover: React.FC<CoverProps> = ({ title, subtitle, handle, accent, b
           maxWidth: wide ? width * 0.62 : undefined,
         }}
       >
-        <div style={{ marginBottom: Math.round(base * 0.03) }}><Handle handle={handle} base={base} /></div>
         <div
           style={{
             fontSize: titleSize,

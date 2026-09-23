@@ -9,7 +9,7 @@ import { cutSilences, silenceCuts, soundSourceRange, soundSpanOf } from "../serv
 /** Một video 10s trên hàng Video 1 (giống dự án tạo trong trình chỉnh sửa) + một câu phụ đề ở giây 6–7. */
 const project = (): ShortProps =>
   shortSchema.parse({
-    title: "t", subtitle: "", handle: "@k", accent: "#ff6b2c", background: "#000000",
+    title: "t", subtitle: "", accent: "#ff6b2c", background: "#000000",
     captions: [{ text: "xin chào", startMs: 6000, endMs: 7000 }],
     aspect: "9:16", style: "plain",
     scenes: [{ image: null, visual: null, tag: null, punch: null, trimStartMs: 0, volume: 0, startMs: 0, endMs: 10_000 }],

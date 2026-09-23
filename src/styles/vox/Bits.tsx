@@ -264,13 +264,12 @@ export const CaptionLine: React.FC<{
 export const TitlePage: React.FC<{
   title: string;
   subtitle: string;
-  handle: string;
   f: number;
   total: number;
   fps: number;
   unit: number;
   maxWidth: number;
-}> = ({ title, subtitle, handle, f, total, fps, unit, maxWidth }) => {
+}> = ({ title, subtitle, f, total, fps, unit, maxWidth }) => {
   const s = spring({ frame: f, fps, config: { damping: 11, stiffness: 120 } });
   const out = interpolate(f, [total - 10, total], [0, 1], { ...clamp });
   const sweepP = interpolate(f, [12, 30], [0, 1], { ...clamp });
@@ -303,7 +302,7 @@ export const TitlePage: React.FC<{
           marginBottom: 30 * unit,
         }}
       >
-        <span>{upperVi(handle || "Hồ sơ")}</span>
+        <span>{upperVi("Hồ sơ")}</span>
         <span>{upperVi("Giải thích")}</span>
       </div>
       <div

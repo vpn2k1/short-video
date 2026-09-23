@@ -261,19 +261,23 @@ export const mediaOverlaySchema = z.object({
 export const noMotion = (): Pick<Scene, "x" | "y" | "width" | "rotate" | "opacity" | "keyframes"> =>
   ({ x: 50, y: 50, width: 100, rotate: 0, opacity: 1, keyframes: [] });
 
-export const WATERMARK_POSITIONS = ["top-right", "top-left", "bottom-right", "bottom-left"] as const;
+/** Trên / dưới / giữa / trái / phải bám vùng an toàn; "custom" = điểm người dùng kéo thả (x, y). */
+export const WATERMARK_POSITIONS = ["top", "bottom", "center", "left", "right", "custom"] as const;
+export type WatermarkPosition = (typeof WATERMARK_POSITIONS)[number];
 
-/** Chữ watermark cố định ở một góc suốt video. */
+/** Chữ watermark (tên kênh, website…) cố định suốt video — nội dung và vị trí theo ô Cài đặt. */
 export const watermarkSchema = z.object({
   text: z.string().min(1).max(60),
-  position: z.enum(WATERMARK_POSITIONS).default("top-right"),
+  position: z.enum(WATERMARK_POSITIONS).default("top"),
+  /** Tâm khối chữ theo % bề rộng / chiều cao khung — chỉ dùng khi position = "custom". */
+  x: z.number().min(0).max(100).default(50),
+  y: z.number().min(0).max(100).default(10),
   opacity: z.number().min(0.1).max(1).default(0.7),
 });
 
 export const shortSchema = z.object({
   title: z.string(),
   subtitle: z.string(),
-  handle: z.string(),
   accent: zColor(),
   background: zColor(),
   captions: z.array(captionSchema),

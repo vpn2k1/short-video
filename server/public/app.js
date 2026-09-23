@@ -1357,7 +1357,7 @@ async function continueVideo() {
   const part = nextPart();
   const direction = await askText({
     title: `Làm tiếp phần ${part}`,
-    message: "AI viết tiếp ngay chỗ video này dừng — cùng phong cách, giọng, khung hình, hình ảnh, nhạc, màu và tên kênh. " +
+    message: "AI viết tiếp ngay chỗ video này dừng — cùng phong cách, giọng, khung hình, hình ảnh, nhạc và màu. " +
       "Muốn phần sau đi theo hướng nào thì ghi vào đây, để trống thì AI tự đi tiếp.",
     placeholder: "Không bắt buộc — ví dụ: kể tiếp lúc hai người gặp lại nhau",
     okText: `${icon("step-forward")} Làm tiếp`,
@@ -2861,8 +2861,14 @@ async function openSettings(focusName) {
         control = `<select id="key-${k.name}" name="${k.name}" data-type="select">${
           k.options.map((o) => `<option value="${o.value}"${(k.value || k.options[0].value) === o.value ? " selected" : ""}>${escapeHtml(o.label)}</option>`).join("")
         }</select>`;
+      } else if (k.type === "point") {
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="point" type="hidden" value="${escapeHtml(k.value)}" />
+          <div class="wm-pad" id="wmPad" title="Kéo chữ tới chỗ muốn đặt">
+            <i class="wm-zone top"></i><i class="wm-zone bottom"></i>
+            <span class="wm-label" id="wmLabel"></span>
+          </div>`;
       } else if (k.type === "text") {
-        control = `<input id="key-${k.name}" name="${k.name}" data-type="text" type="text" spellcheck="false"${k.maxLength ? ` maxlength="${k.maxLength}"` : ""}
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="text" type="text" spellcheck="false"${k.maxLength ? ` maxlength="${k.maxLength}"` : ""}${k.usd ? ` inputmode="decimal"` : ""}
                           value="${escapeHtml(k.value)}" placeholder="${escapeHtml(k.placeholder ?? "")}" />`;
       } else {
         status = `<span class="state ${k.set ? "on" : ""}">${k.set ? `${icon("check")} đã có ${escapeHtml(k.preview)}` : "chưa có"}</span>`;
@@ -2889,6 +2895,7 @@ async function openSettings(focusName) {
         $("keyFields").querySelector(`[data-show-if="${select.name}=${select.value}"] input:placeholder-shown`)?.focus();
       }));
     applyShowIf();
+    bindWatermarkPad();
     $("keyFields").querySelectorAll("[data-remove]").forEach((b) =>
       b.addEventListener("click", () => {
         const name = b.dataset.remove;
@@ -2906,6 +2913,68 @@ async function openSettings(focusName) {
   } catch (e) {
     $("keyFields").innerHTML = `<p class="hint err">Lỗi: ${escapeHtml(e.message)}</p>`;
   }
+}
+
+/**
+ * Khung xem trước vị trí watermark trong Cài đặt: vẽ theo ô chọn vị trí (cùng cách tính với
+ * src/components/WatermarkOverlay.tsx trên khung 9:16); kéo chữ hoặc bấm vào khung thì chuyển sang Tuỳ chỉnh
+ * và lưu tâm khối chữ dạng "x,y" (% khung hình) vào ô WATERMARK_XY.
+ */
+function bindWatermarkPad() {
+  const pad = $("wmPad");
+  if (!pad) return;
+  const label = $("wmLabel");
+  const xy = $("key-WATERMARK_XY");
+  const position = $("key-WATERMARK_POSITION");
+  const text = $("key-WATERMARK_TEXT");
+  // Vùng an toàn 9:16 (1080×1920) theo src/aspects.ts; cạnh dưới = nửa dải đáy, dưới phụ đề.
+  const top = (120 / 1920) * 100;
+  const bottom = ((320 * 0.5) / 1920) * 100;
+  const side = (120 / 1080) * 100;
+  const point = () => {
+    const m = /^(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)$/.exec(xy.value.trim());
+    return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 50, y: 10 };
+  };
+  const draw = () => {
+    label.textContent = text?.value.trim() || "Tên kênh";
+    const { x, y } = point();
+    const places = {
+      top: { left: "50%", top: `${top}%`, transform: "translateX(-50%)" },
+      bottom: { left: "50%", bottom: `${bottom}%`, transform: "translateX(-50%)" },
+      center: { left: "50%", top: "50%", transform: "translate(-50%, -50%)" },
+      left: { left: `${side}%`, top: "50%", transform: "translateY(-50%)" },
+      right: { right: `${side}%`, top: "50%", transform: "translateY(-50%)" },
+      custom: { left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)" },
+    };
+    Object.assign(label.style, { left: "", right: "", top: "", bottom: "" }, places[position.value] ?? places.top);
+  };
+  // Tâm khối chữ theo con trỏ, giữ cả khối nằm trong khung.
+  const moveTo = (event) => {
+    const box = pad.getBoundingClientRect();
+    const halfW = (label.offsetWidth / 2 / box.width) * 100;
+    const halfH = (label.offsetHeight / 2 / box.height) * 100;
+    const clamp = (v, half) => Math.min(100 - half, Math.max(half, v));
+    const x = clamp(((event.clientX - box.left) / box.width) * 100, halfW);
+    const y = clamp(((event.clientY - box.top) / box.height) * 100, halfH);
+    xy.value = `${x.toFixed(1)},${y.toFixed(1)}`;
+    position.value = "custom";
+    draw();
+  };
+  pad.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    pad.setPointerCapture(event.pointerId);
+    pad.classList.add("dragging");
+    moveTo(event);
+  });
+  pad.addEventListener("pointermove", (event) => {
+    if (pad.hasPointerCapture(event.pointerId)) moveTo(event);
+  });
+  const stop = () => pad.classList.remove("dragging");
+  pad.addEventListener("pointerup", stop);
+  pad.addEventListener("pointercancel", stop);
+  position.addEventListener("change", draw);
+  text?.addEventListener("input", draw);
+  draw();
 }
 
 // ---------- gợi ý key lúc tạo video lần đầu ----------
@@ -3817,18 +3886,17 @@ function renderBatchFields() {
     </button>`).join("");
 }
 
-// ---- nhận diện kênh (server/batch.ts › Kit): tên kênh, màu, mở đầu/kết thúc, kiểu phụ đề ----
+// ---- nhận diện kênh (server/batch.ts › Kit): màu, mở đầu/kết thúc, kiểu phụ đề ----
 let batchKit = {};
 let kitOptions = null;   // font, kiểu chữ — lấy một lần từ /api/subs/options
 
 const kitSummary = (kit) => {
-  const bits = [kit.handle, kit.accent ? "màu riêng" : "", kit.intro || kit.outro ? "mở đầu/kết thúc" : "", kit.captionLook ? "kiểu phụ đề" : ""].filter(Boolean);
+  const bits = [kit.accent ? "màu riêng" : "", kit.intro || kit.outro ? "mở đầu/kết thúc" : "", kit.captionLook ? "kiểu phụ đề" : ""].filter(Boolean);
   return bits.length ? bits.join(" · ") : "Chưa đặt";
 };
 
 async function openKitDialog() {
   const k = batchKit;
-  $("kitHandle").value = k.handle ?? "";
   $("kitAccentOn").checked = Boolean(k.accent);
   $("kitAccent").value = k.accent ?? "#e8590c";
   $("kitLookOn").checked = Boolean(k.captionLook);
@@ -3857,7 +3925,6 @@ async function openKitDialog() {
 
 function readKitDialog() {
   const kit = {};
-  if ($("kitHandle").value.trim()) kit.handle = $("kitHandle").value.trim();
   if ($("kitAccentOn").checked) kit.accent = $("kitAccent").value;
   if ($("kitIntro").value) kit.intro = $("kitIntro").value;
   if ($("kitOutro").value) kit.outro = $("kitOutro").value;
@@ -4848,7 +4915,6 @@ function editPlanText(plan) {
   if (plan.voice !== undefined) parts.push(plan.voice ? `giọng ${plan.voice}` : "không giọng");
   if (plan.aspect) parts.push(`▭ ${plan.aspect}`);
   if (plan.music !== undefined) parts.push(plan.music === null ? "không nhạc" : musicLabel(plan.music));
-  if (plan.handle) parts.push(plan.handle);
   if (plan.accent) parts.push(`màu ${plan.accent}`);
   for (const r of plan.replace ?? []) parts.push(`“${r.find}” → “${r.to}”`);
   return parts.join(" · ");
@@ -5951,7 +6017,7 @@ const startBatchCheck = () =>
   runBatchJob("check", $("batchCheck"), (run) => `Đang soát ${run.done}/${run.total}…`);
 
 async function startBatchCovers() {
-  // Mọi video đã có bìa mới: bấm là làm lại tất cả (sau khi đổi tên kênh, màu…) — hỏi trước.
+  // Mọi video đã có bìa mới: bấm là làm lại tất cả (sau khi đổi màu, phong cách…) — hỏi trước.
   const force = $("batchCovers").dataset.force === "1";
   if (force && !(await confirmDialog({
     title: "Làm lại ảnh bìa cho cả loạt?",

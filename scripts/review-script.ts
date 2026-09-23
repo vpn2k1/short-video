@@ -155,7 +155,7 @@ export const reviewScript = async (
     log(`Đã sửa ${changed} câu theo bản soát.`);
     return {
       ...fixed,
-      style: script.style, accent: script.accent, background: script.background, handle: script.handle,
+      style: script.style, accent: script.accent, background: script.background,
       scenes: fixed.scenes.map((scene, i) => ({ ...scene, image: script.scenes[i].image })),
     };
   } catch (error) {

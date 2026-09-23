@@ -27,7 +27,7 @@ description: Phong cách "Bảng trắng" — trang sổ tay kẻ dòng, chữ b
 | `visual` stat | Con số lớn được khoanh tròn vẽ tay, `caption` viết bút chì bên dưới. Có ảnh cùng cảnh → đặt trên tấm thẻ giấy đè góc ảnh. |
 | `visual` badge | Giấy note vàng nghiêng, có mảnh băng dính, chữ viết tay giữa note. |
 | `captions` | Câu hiện tại viết dần từ trái sang phải (60% thời lượng câu). Câu trước **của cùng trang** còn lại phía trên, nhỏ và mờ, nếu đủ chỗ. Tối đa hai câu trên màn. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: trang bìa riêng — tiêu đề viết ra, gạch chân kép màu nhấn, phụ đề và handle bên dưới; frame 70 lật trang sang cảnh đầu. |
+| `title`/`subtitle` | Khi `showTitle`: trang bìa riêng — tiêu đề viết ra, gạch chân kép màu nhấn, phụ đề bên dưới; frame 70 lật trang sang cảnh đầu. |
 
 ## Chuyển động
 

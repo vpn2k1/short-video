@@ -31,8 +31,8 @@ description: Phong cách "Cắt dán tài liệu" kiểu Vox — ảnh dán như
   - `stat` → giấy nhớ ở góc trên-phải sticker; `caption` viết nghiêng bên dưới.
   - `badge` → con dấu ở góc dưới-phải sticker.
 - **captions** — câu đang đọc, một dòng nhỏ ở đáy trên `safe.bottom`. Câu rất dài mới xuống dòng.
-- **title/subtitle/handle** — khi `showTitle`: tờ báo trắng với tít serif, highlighter vàng,
-  handle trên thanh măng-sét. Tờ báo văng lên ở frame 60–70; cảnh đầu vào lúc đó.
+- **title/subtitle** — khi `showTitle`: tờ báo trắng với tít serif, highlighter vàng,
+  thanh măng-sét "HỒ SƠ" — "GIẢI THÍCH" ở hai đầu. Tờ báo văng lên ở frame 60–70; cảnh đầu vào lúc đó.
 
 ## Chuyển động
 

@@ -1,6 +1,6 @@
 ---
 name: style-sport
-description: Phong cách "Thể thao" — giao diện truyền hình thể thao: ảnh/clip toàn khung tăng tương phản, đẩy máy nhanh đầu cảnh, đổi cảnh bằng vệt sọc chéo accent + tối quét ngang; bảng tỉ số góc trên trái (tên kênh viết tắt, đồng hồ trận chạy, chấm LIVE, HIỆP 1/2, vạch tiến độ), dải phụ đề nắp chéo hai đầu + ticker "ĐIỂM TIN", bảng tên cầu thủ có khối số áo "#10 · Quang Hải", bảng thống kê kiểu "72% kiểm soát bóng" có thanh so sánh, câu nhấn nổ kiểu "GOAL!" (sao nổ, vệt tốc độ, chớp trắng, rung 6 frame, khung "▶ PHÁT LẠI"); không ảnh thì sân vận động đêm vẽ SVG; màn mở đầu kiểu mở màn chương trình "● TRỰC TIẾP". Dùng cho tin bóng đá, highlight trận đấu, thử thách thể hình, chuyện vận động viên, kỷ lục và thành tích, dự đoán tỉ số.
+description: Phong cách "Thể thao" — giao diện truyền hình thể thao: ảnh/clip toàn khung tăng tương phản, đẩy máy nhanh đầu cảnh, đổi cảnh bằng vệt sọc chéo accent + tối quét ngang; bảng tỉ số góc trên trái (đồng hồ trận chạy, chấm LIVE, HIỆP 1/2, vạch tiến độ), dải phụ đề nắp chéo hai đầu + ticker "ĐIỂM TIN", bảng tên cầu thủ có khối số áo "#10 · Quang Hải", bảng thống kê kiểu "72% kiểm soát bóng" có thanh so sánh, câu nhấn nổ kiểu "GOAL!" (sao nổ, vệt tốc độ, chớp trắng, rung 6 frame, khung "▶ PHÁT LẠI"); không ảnh thì sân vận động đêm vẽ SVG; màn mở đầu kiểu mở màn chương trình "● TRỰC TIẾP". Dùng cho tin bóng đá, highlight trận đấu, thử thách thể hình, chuyện vận động viên, kỷ lục và thành tích, dự đoán tỉ số.
 ---
 
 # Phong cách: Thể thao (sport)
@@ -13,7 +13,7 @@ description: Phong cách "Thể thao" — giao diện truyền hình thể thao:
 - Chữ: Anton (số, bảng tên, câu nhấn, tiêu đề) và Oswald 500–700 (phụ đề, ticker, nhãn). Cả hai là font đóng gói
   (`ensureFonts(["anton", "oswald"])`). Chỉ nhãn ngắn (tag, câu nhấn, chú thích số liệu, ticker) in hoa bằng JS; phụ đề
   và tiêu đề giữ chữ thường.
-- Màu: `accent` cho mọi khối nhấn (bảng tỉ số, nắp trái dải phụ đề, khối số áo, vệt sọc, sao nổ); nền bảng xanh đen
+- Màu: `accent` cho mọi khối nhấn (vạch tiến độ bảng tỉ số, nắp trái dải phụ đề, khối số áo, vệt sọc, sao nổ); nền bảng xanh đen
   `#0a0e17`/`#121826`; đỏ LIVE `#ff2d3d` cố định. Chữ trên accent tự đổi đen/trắng theo độ sáng (`inkOn`).
 - Bố cục:
   - Dọc (9:16, 3:4): bảng tỉ số góc trên trái; khối đáy chồng từ dưới lên: ticker → dải phụ đề → bảng tên → bảng số liệu;
@@ -34,8 +34,7 @@ description: Phong cách "Thể thao" — giao diện truyền hình thể thao:
 | `visual` badge | khối accent nghiêng chữ in hoa + dải tối chú thích bên dưới, cùng chỗ với bảng thống kê |
 | `punch` | cú nổ "GOAL!": chữ in hoa Anton nghiêng (xoay −6°, skew −12°) viền tối, bóng accent + tối lệch, lao từ 2.3× xuống trong 6 frame kèm bóng nhoè; sao nổ accent 18 cánh, vệt tốc độ bay ra hai bên; chớp trắng 70% + rung khung 6 frame lúc chạm; viền accent quanh khung + chip "▶ PHÁT LẠI". Hiện từ `atMs` (sớm nhất 4 frame sau khi cảnh vào sóng), giữ tối đa 66 frame. Cụm từ này trong phụ đề tô accent |
 | `captions` | dải phụ đề tối nắp chéo hai đầu (trái accent chớp trắng khi đổi câu, phải trắng + vạch accent), Oswald 600 chữ thường, co chữ để ≤ 3 dòng; câu mới trồi lên từ dưới |
-| `title`/`subtitle`/`handle` | 70 frame mở màn: nền sân vận động, tấm accent + tấm trắng + tấm tối quét vào từ hai phía, nhãn "TÂM ĐIỂM", tiêu đề là dòng tít trận đấu trên tấm tối, dòng "● TRỰC TIẾP" đỏ + dòng phụ trên tấm trắng, khối tên kênh viết tắt + handle. Hết màn, vệt sọc quét sang cảnh 1 |
-| `handle` | tên kênh viết tắt trên bảng tỉ số: có dấu ngăn thì lấy chữ cái đầu (`@bong.da_24h` → "BĐ2"), không thì 3 chữ đầu; cũng chạy trong ticker |
+| `title`/`subtitle` | 70 frame mở màn: nền sân vận động, tấm accent + tấm trắng + tấm tối quét vào từ hai phía, nhãn "TÂM ĐIỂM", tiêu đề là dòng tít trận đấu trên tấm tối, dòng "● TRỰC TIẾP" đỏ + dòng phụ trên tấm trắng. Hết màn, vệt sọc quét sang cảnh 1 |
 | `accent` | màu nhấn của mọi đồ hoạ |
 | `captionPosition`, `background` | bỏ qua — vị trí do bố cục truyền hình quyết định |
 
@@ -78,7 +77,7 @@ description: Phong cách "Thể thao" — giao diện truyền hình thể thao:
 ## File
 
 - `src/styles/sport/index.tsx` — `SportStyle`: nhịp lên sóng, mốc cắt, câu nhấn (nổ/giữ/rung/chớp), ghép lớp.
-- `src/styles/sport/theme.ts` — font, màu, easing, `ramp`, `upper`, `fitText`, `abbrOf` (tên kênh viết tắt), `splitTag` (số áo), `clockText`.
+- `src/styles/sport/theme.ts` — font, màu, easing, `ramp`, `upper`, `fitText`, `splitTag` (số áo), `clockText`.
 - `src/styles/sport/layout.ts` — bố cục dọc/ngang: bảng tỉ số, dải phụ đề (giữ chỗ câu cao nhất), ticker, bảng tên, bảng số, vùng câu nhấn.
 - `src/styles/sport/Backdrop.tsx` — ảnh/clip cảnh + đẩy máy, sân vận động SVG (`Stadium`), vệt sọc đổi cảnh (`StripeWipes`).
 - `src/styles/sport/Chrome.tsx` — bảng tỉ số, dải phụ đề nắp chéo, ticker.

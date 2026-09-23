@@ -1,14 +1,14 @@
 /**
  * Màn mở đầu kiểu mở màn chương trình thể thao (70 frame): nền sân vận động, ba tấm chéo (accent → trắng → tối)
- * quét vào từ hai phía, tiêu đề là dòng tít trận đấu trên tấm tối, dòng "● TRỰC TIẾP · <dòng phụ>", tên kênh.
+ * quét vào từ hai phía, tiêu đề là dòng tít trận đấu trên tấm tối, dòng "● TRỰC TIẾP · <dòng phụ>".
  * Lúc kết thúc, vệt sọc chéo đổi cảnh (StripeWipes ở index.tsx) quét qua che đường cắt sang cảnh 1.
  */
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { useLayout } from "../shared";
 import { Stadium } from "./Backdrop";
-import { abbrOf, COND, DISPLAY, EASE_OUT, fitText, INK, inkOn, LIVE_RED, ramp, SNAP, upper } from "./theme";
+import { COND, DISPLAY, EASE_OUT, fitText, INK, LIVE_RED, ramp, upper } from "./theme";
 
-export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: string; accent: string }> = ({ title, subtitle, handle, accent }) => {
+export const TitleIntro: React.FC<{ title: string; subtitle: string; accent: string }> = ({ title, subtitle, accent }) => {
   const frame = useCurrentFrame();
   const { width: W, height: H, unit: u, portrait, safe } = useLayout();
   const left = portrait ? 56 * u : safe.side;
@@ -20,13 +20,12 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: str
   const cy = H * (portrait ? 0.42 : 0.44);
   const panelTop = cy - titleH / 2;
 
-  // Nhịp: tấm accent 0→12, tấm trắng 3→15, tấm tối 5→17, chữ tiêu đề 10→22, dòng TRỰC TIẾP 16→28, kênh 22→32.
+  // Nhịp: tấm accent 0→12, tấm trắng 3→15, tấm tối 5→17, chữ tiêu đề 10→22, dòng TRỰC TIẾP 16→28.
   const pA = ramp(frame, 0, 12, EASE_OUT);
   const pW = ramp(frame, 3, 12, EASE_OUT);
   const pD = ramp(frame, 5, 12, EASE_OUT);
   const pT = ramp(frame, 10, 12, EASE_OUT);
   const pL = ramp(frame, 16, 12, EASE_OUT);
-  const pH = ramp(frame, 22, 10, EASE_OUT);
   const flare = 1 - ramp(frame, 0, 10);
   const blink = Math.floor(frame / 12) % 2 === 0;
   const drift = frame * 0.6 * u; // các tấm trôi chậm sau khi vào, cho khung không đứng hình
@@ -144,36 +143,6 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: str
           </div>
         ) : null}
       </div>
-      {/* Tên kênh: khối viết tắt accent + handle. */}
-      {handle.trim() ? (
-        <div
-          style={{
-            position: "absolute",
-            left: left + 20 * u,
-            top: panelTop + titleH + 34 * u + Math.max(62 * u, subFit.lines * subFit.size * 1.3 + 22 * u) + 22 * u,
-            display: "flex",
-            alignItems: "center",
-            gap: 14 * u,
-            opacity: pH,
-            scale: String(0.9 + 0.1 * ramp(frame, 22, 10, SNAP)),
-            transformOrigin: "left center",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: DISPLAY,
-              fontSize: 30 * u,
-              lineHeight: 1.2,
-              padding: `${4 * u}px ${14 * u}px 0`,
-              backgroundColor: accent,
-              color: inkOn(accent),
-            }}
-          >
-            {abbrOf(handle)}
-          </div>
-          <div style={{ fontFamily: COND, fontWeight: 500, fontSize: 30 * u, lineHeight: 1.2, color: "rgba(255,255,255,0.9)" }}>{handle.trim()}</div>
-        </div>
-      ) : null}
       {/* Nhãn lớn chìm phía trên: "TRẬN CẦU TÂM ĐIỂM" kiểu mở màn. */}
       <div
         style={{

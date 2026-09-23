@@ -21,7 +21,6 @@ import { TitleIntro } from "./TitleIntro";
 export const TechStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -83,26 +82,6 @@ export const TechStyle: React.FC<ShortProps> = ({
           />
         ) : null,
       )}
-      {handle ? (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            height: tagRowH,
-            display: "flex",
-            alignItems: "center",
-            fontFamily: FONTS.mono,
-            fontSize: 24 * unit,
-            letterSpacing: 1.5 * unit,
-            color: INK,
-            // Title card đã có handle — tránh hiện hai lần.
-            opacity: 0.45 * (showTitle ? ramp(frame, TITLE_FRAMES - 12, 12) : 1),
-          }}
-        >
-          {handle}
-        </div>
-      ) : null}
     </div>
   );
 
@@ -274,7 +253,7 @@ export const TechStyle: React.FC<ShortProps> = ({
 
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <TitleIntro title={title} subtitle={subtitle} handle={handle} accent={accent} />
+          <TitleIntro title={title} subtitle={subtitle} accent={accent} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

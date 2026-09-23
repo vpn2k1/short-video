@@ -1,19 +1,18 @@
 /**
- * Đồ hoạ truyền hình cố định của phong cách "Thể thao": bảng tỉ số góc trên trái (tên kênh viết tắt, đồng hồ trận,
+ * Đồ hoạ truyền hình cố định của phong cách "Thể thao": bảng tỉ số góc trên trái (đồng hồ trận,
  * chấm LIVE, vạch tiến độ), dải phụ đề nắp chéo hai đầu, ticker chữ chạy mảnh bên dưới.
  */
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import type { Caption } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
 import { barHeight, captionFit, LINE_HEIGHT, type SportLayout } from "./layout";
-import { abbrOf, clockText, COND, DISPLAY, EASE_OUT, INK, inkOn, LIVE_RED, PANEL, ramp, upper, withAlpha } from "./theme";
+import { clockText, COND, EASE_OUT, INK, inkOn, LIVE_RED, PANEL, ramp, upper, withAlpha } from "./theme";
 
 // ---------------------------------------------------------------------------
 // Bảng tỉ số
 // ---------------------------------------------------------------------------
-export const ScoreBug: React.FC<{ L: SportLayout; handle: string; title: string; accent: string; enter: number }> = ({
+export const ScoreBug: React.FC<{ L: SportLayout; title: string; accent: string; enter: number }> = ({
   L,
-  handle,
   title,
   accent,
   enter,
@@ -32,7 +31,6 @@ export const ScoreBug: React.FC<{ L: SportLayout; handle: string; title: string;
   const progress = Math.min(1, Math.max(0, frame / Math.max(1, durationInFrames - 1)));
   const half = kickoff / 60 + frame / fps / 60 >= 45 ? "HIỆP 2" : "HIỆP 1";
   const blink = Math.floor(frame / 15) % 2 === 0;
-  const abbr = abbrOf(handle);
   const cell: React.CSSProperties = {
     height: h,
     display: "flex",
@@ -53,9 +51,6 @@ export const ScoreBug: React.FC<{ L: SportLayout; handle: string; title: string;
       }}
     >
       <div style={{ display: "flex", alignItems: "stretch" }}>
-        <div style={{ ...cell, backgroundColor: accent, padding: `0 ${20 * u}px`, minWidth: 96 * u }}>
-          <div style={{ ...unskew, fontFamily: DISPLAY, fontSize: 38 * u, lineHeight: 1.1, paddingTop: 3 * u, color: inkOn(accent) }}>{abbr}</div>
-        </div>
         <div style={{ ...cell, backgroundColor: PANEL, padding: `0 ${22 * u}px`, borderTop: `${2 * u}px solid rgba(255,255,255,0.12)` }}>
           <div style={{ ...unskew, fontFamily: COND, fontWeight: 600, fontSize: 38 * u, color: "#fff", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
             {clock}

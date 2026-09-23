@@ -686,10 +686,10 @@ const StepCard: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// Thẻ tiêu đề: tên món, dòng phụ thành các chip, handle, dĩa · muỗng · phới
+// Thẻ tiêu đề: tên món, dòng phụ thành các chip, dĩa · muỗng · phới
 // ---------------------------------------------------------------------------
-const TitleCard: React.FC<{ title: string; subtitle: string; handle: string; hero: Scene | null; accent: string; frame: number }> = ({
-  title, subtitle, handle, hero, accent, frame,
+const TitleCard: React.FC<{ title: string; subtitle: string; hero: Scene | null; accent: string; frame: number }> = ({
+  title, subtitle, hero, accent, frame,
 }) => {
   const { unit, height } = useLayout();
   const geo = useGeometry(false);
@@ -793,18 +793,13 @@ const TitleCard: React.FC<{ title: string; subtitle: string; handle: string; her
             })}
           </div>
         ) : null}
-        {handle ? (
-          <div style={{ fontFamily: HAND, fontSize: 44 * unit, color: "rgba(61, 43, 31, 0.75)", opacity: interpolate(frame, [26, 36], [0, 1], clamp) }}>
-            {handle}
-          </div>
-        ) : null}
       </div>
     </AbsoluteFill>
   );
 };
 
 // ---------------------------------------------------------------------------
-export const RecipeStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const RecipeStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["baloo", "nunito", "patrick"]);
   const frame = useCurrentFrame();
   const { width } = useLayout();
@@ -851,7 +846,7 @@ export const RecipeStyle: React.FC<ShortProps> = ({ title, subtitle, handle, acc
         {card(active)}
       </AbsoluteFill>
       {showTitle && frame < TITLE_FRAMES ? (
-        <TitleCard title={title} subtitle={subtitle} handle={handle} hero={steps.find((s) => s.image) ?? null} accent={accent} frame={frame} />
+        <TitleCard title={title} subtitle={subtitle} hero={steps.find((s) => s.image) ?? null} accent={accent} frame={frame} />
       ) : null}
       <Grain opacity={0.06} animated={false} baseFrequency={0.8} />
     </AbsoluteFill>

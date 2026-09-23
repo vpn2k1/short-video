@@ -1,6 +1,6 @@
 ---
 name: style-pixel
-description: Phong cách "Game 8-bit" — màn hình game RPG cổ điển: HUD tim + thanh XP đầy dần theo tiến độ video + bộ đếm xu, ảnh/clip điểm ảnh hoá trong cửa sổ game viền pixel dày (không ảnh thì phong cảnh pixel), phụ đề là hộp thoại RPG gõ chữ có ▼ nháy và bảng tên người nói, nhãn "MÀN n: TAG", câu nhấn nảy như popup arcade "CRITICAL! +100 XP", số liệu là "ITEM GET!" kèm rương báu, đổi cảnh bằng tan điểm ảnh, màn tiêu đề "NHẤN START". Dùng cho gaming, thử thách, học mà chơi, sự thật thú vị, "level up" bản thân, nội dung cho trẻ em.
+description: Phong cách "Game 8-bit" — màn hình game RPG cổ điển: HUD tim + thanh XP đầy dần theo tiến độ video + bộ đếm xu, ảnh/clip điểm ảnh hoá trong cửa sổ game viền pixel dày (không ảnh thì phong cảnh pixel), phụ đề là hộp thoại RPG gõ chữ có ▼ nháy, nhãn "MÀN n: TAG", câu nhấn nảy như popup arcade "CRITICAL! +100 XP", số liệu là "ITEM GET!" kèm rương báu, đổi cảnh bằng tan điểm ảnh, màn tiêu đề "NHẤN START". Dùng cho gaming, thử thách, học mà chơi, sự thật thú vị, "level up" bản thân, nội dung cho trẻ em.
 ---
 
 # Phong cách: Game 8-bit (pixel)
@@ -18,7 +18,7 @@ description: Phong cách "Game 8-bit" — màn hình game RPG cổ điển: HUD 
   "trôi dưới lưới" như game thật. Cảnh không ảnh: **phong cảnh pixel** vẽ bằng `<rect>` (trời phân dải,
   mặt trời/trăng, mây trôi từng ô, hai lớp đồi, cỏ) — luân phiên ngày / hoàng hôn / đêm theo cảnh.
 - **Hộp thoại RPG**: nền xanh `#141a4a`, viền đôi (đen–trắng–xanh–tím nhạt), chữ Lexend 600 trắng bóng
-  cứng, bảng tên màu `accent` chữ Bungee chứa `handle` đè mép trên trái.
+  cứng.
 - Font: **Bungee** (khối vuông, đủ dấu) cho HUD, nhãn màn, tiêu đề, popup — luôn in hoa bằng
   `toLocaleUpperCase("vi")`; **Lexend** cho lời thoại. Bóng chữ là bóng cứng lệch đúng bội số P, không blur.
 - Bố cục: khung dọc (cao/rộng ≥ 1.3) — HUD → cửa sổ → hộp thoại tách riêng bên dưới (đáy ở
@@ -31,15 +31,14 @@ description: Phong cách "Game 8-bit" — màn hình game RPG cổ điển: HUD 
 |---|---|
 | `captions` | câu hiện tại trong hộp thoại, gõ từng ký tự NFC (≥ 1.2 ký tự/frame, xong trong 70% thời lượng câu); ký tự chưa gõ vẫn chiếm chỗ (trong suốt) nên dòng không nhảy; gõ xong thì ▼ vàng nháy + nhún ở góc phải dưới. Cỡ chữ 56px × unit, co dần tới vừa hộp. Rỗng (phụ đề tuỳ chỉnh) → không vẽ hộp |
 | `captionPosition` | `bottom`: như trên; `center`: hộp thoại nằm giữa cửa sổ game, cửa sổ kéo dài xuống đáy |
-| `handle` | bảng tên người nói trên hộp thoại (in hoa); màn tiêu đề `© HANDLE` |
 | `tag` | nhãn `MÀN n` (màu accent) + khối tối chứa tag in hoa, đè mép trên trái cửa sổ, trượt vào theo nấc mỗi cảnh. Không tag → chỉ `MÀN n` |
 | `punch` | đúng `atMs`: popup giữa cửa sổ ~1.6 s — `★ CRITICAL! ★` trên khối đen, cụm từ in hoa Bungee trắng viền đen bóng accent, nảy vọt theo nấc, 10 sao pixel bắn ra, `+100 XP` vàng bay lên, 8 frame cuối nháy tắt. Trong hộp thoại cụm đó đổi vàng khi gõ tới. HUD +100 xu |
 | `visual` stat | bảng `ITEM GET!` + rương báu mở nắp (ánh vàng) + số lớn Bungee + chú thích |
 | `visual` badge | bảng `NHIỆM VỤ` + nhãn màu accent + chú thích |
 | (vị trí bảng) | có ảnh: bảng nhỏ góc phải trên cửa sổ; không ảnh: bảng to giữa cửa sổ (khung ngang: bên phải, popup câu nhấn dời sang trái) |
 | `image` | ảnh hoặc clip (`SceneMedia`, tôn trọng `crop`, `trimStartMs`, `speed`, `volume`), qua bộ lọc điểm ảnh; `null` → phong cảnh pixel |
-| `title`/`subtitle`/`handle` | màn tiêu đề 70 frame trên phong cảnh đêm: tiêu đề in hoa vàng viền đen bóng accent rơi xuống nảy, dòng phụ trên dải tối, `▶ NHẤN START` nháy, `© HANDLE` dưới đáy; HUD và hộp thoại vào sau |
-| `accent` | bảng tên, nhãn MÀN, bóng chữ popup/tiêu đề, một nửa số sao |
+| `title`/`subtitle` | màn tiêu đề 70 frame trên phong cảnh đêm: tiêu đề in hoa vàng viền đen bóng accent rơi xuống nảy, dòng phụ trên dải tối, `▶ NHẤN START` nháy; HUD và hộp thoại vào sau |
+| `accent` | nhãn MÀN, bóng chữ popup/tiêu đề, một nửa số sao |
 | `background` | không dùng — bảng màu game cố định |
 
 Xu: +10 mỗi câu thoại bắt đầu, +100 mỗi câu nhấn; đồng xu nảy lên mỗi lần cộng.
@@ -90,6 +89,6 @@ Xu: +10 mỗi câu thoại bắt đầu, +100 mỗi câu nhấn; đồng xu nả
 - `src/styles/pixel/parts.tsx` — khung pixel, sprite (sao, xu, tim, rương), phong cảnh pixel, tan điểm ảnh
 - `src/styles/pixel/Viewport.tsx` — cửa sổ game, bộ lọc điểm ảnh hoá, nhãn MÀN
 - `src/styles/pixel/Hud.tsx` — tim, thanh XP, bộ đếm xu
-- `src/styles/pixel/Dialog.tsx` — hộp thoại gõ chữ, bảng tên, ▼
+- `src/styles/pixel/Dialog.tsx` — hộp thoại gõ chữ, ▼
 - `src/styles/pixel/Popups.tsx` — popup CRITICAL!, bảng ITEM GET! / NHIỆM VỤ
 - `src/styles/pixel/Title.tsx` — màn tiêu đề NHẤN START

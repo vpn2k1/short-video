@@ -1,6 +1,6 @@
 ---
 name: style-blueprint
-description: Phong cách "Bản vẽ kỹ thuật" — tờ giấy can xanh có lưới ô, nếp gấp, khung viền chia ô và khung tên góc dưới phải (tên bản vẽ, BẢN VẼ SỐ 01, TỈ LỆ 1:1, NGƯỜI VẼ, TỜ n/m); ảnh/clip đặt như ảnh tham chiếu trong khung nét trắng đổi tông xanh–trắng, dấu canh góc, đường kích thước có mũi tên tự vẽ; phụ đề là mục GHI CHÚ đánh số tròn gõ từng dòng có gạch chân, số chỉ dẫn tương ứng bật trên ảnh; tag là ký hiệu "MẶT CẮT A-A"; câu nhấn đổi màu cam an toàn và được khoanh đám mây sửa đổi kèm tam giác "!"; số liệu là đường kích thước lớn |←— 120 m —→|; không ảnh thì sơ đồ bánh răng/khối lập phương/mặt bích vẽ bằng nét; sang cảnh bằng vạch quét. Dùng cho giải thích cách mọi thứ hoạt động, kỹ thuật, kiến trúc, phát minh, DIY/xây dựng, khoa học, giải phẫu sản phẩm.
+description: Phong cách "Bản vẽ kỹ thuật" — tờ giấy can xanh có lưới ô, nếp gấp, khung viền chia ô và khung tên góc dưới phải (tên bản vẽ, BẢN VẼ SỐ 01, TỈ LỆ 1:1, TỜ n/m); ảnh/clip đặt như ảnh tham chiếu trong khung nét trắng đổi tông xanh–trắng, dấu canh góc, đường kích thước có mũi tên tự vẽ; phụ đề là mục GHI CHÚ đánh số tròn gõ từng dòng có gạch chân, số chỉ dẫn tương ứng bật trên ảnh; tag là ký hiệu "MẶT CẮT A-A"; câu nhấn đổi màu cam an toàn và được khoanh đám mây sửa đổi kèm tam giác "!"; số liệu là đường kích thước lớn |←— 120 m —→|; không ảnh thì sơ đồ bánh răng/khối lập phương/mặt bích vẽ bằng nét; sang cảnh bằng vạch quét. Dùng cho giải thích cách mọi thứ hoạt động, kỹ thuật, kiến trúc, phát minh, DIY/xây dựng, khoa học, giải phẫu sản phẩm.
 ---
 
 # Phong cách: Bản vẽ kỹ thuật (blueprint)
@@ -11,7 +11,7 @@ description: Phong cách "Bản vẽ kỹ thuật" — tờ giấy can xanh có 
 
 - Giấy can xanh `#0d3d7c` (giữa sáng hơn, góc tối), lưới ô phụ 27px + ô chính 135px trắng mờ, nếp gấp giấy (một vệt tối cạnh một vệt sáng), nhiễu giấy nhẹ.
 - Khung bản vẽ: viền ngoài mảnh + viền trong đậm, giữa hai viền là số cột 1 2 3… và chữ hàng A B C… như bản vẽ thật.
-- Khung tên góc dưới phải: TÊN BẢN VẼ (tiêu đề in hoa), BẢN VẼ SỐ 01 (màu nhấn), NGƯỜI VẼ (handle), TỈ LỆ 1:1, TỜ 02 / 05 (đổi theo cảnh).
+- Khung tên góc dưới phải: TÊN BẢN VẼ (tiêu đề in hoa), BẢN VẼ SỐ 01 (màu nhấn), TỈ LỆ 1:1, TỜ 02 / 05 (đổi theo cảnh).
   Dọc/vuông có thêm thước tỉ lệ đen trắng bên trái khung tên.
 - Ảnh/clip = "ảnh tham chiếu": xám hoá tăng tương phản, bóng tối thành xanh đậm, vùng sáng thành trắng xanh (screen + multiply),
   lưới mảnh in chồng; khung nét trắng đôi, dấu canh góc (vòng tròn chữ thập) chéo ra bốn góc, đường kích thước ngang phía trên và dọc
@@ -34,7 +34,7 @@ description: Phong cách "Bản vẽ kỹ thuật" — tờ giấy can xanh có 
 | `punch` | cụm từ trong ghi chú đổi màu nhấn đậm, đám mây sửa đổi tự vẽ quanh cụm + tam giác "!" bật ra; không khớp câu nào → dòng `GHI CHÚ ⚠` riêng dưới danh sách |
 | `visual` stat | đường kích thước lớn: số Lexend 700 ở giữa, hai nửa đường màu nhấn chạy ra hai đầu có mũi tên + vạch gióng, `caption` in hoa mono bên dưới |
 | `visual` badge | nhãn chi tiết khung đôi, chữ in hoa màu nhấn ("CHI TIẾT 3"), bên cạnh `CHI TIẾT` + caption |
-| `title` / `subtitle` / `handle` | màn mở đầu 70 frame: khung tiêu đề tự vẽ có đường kích thước "TỈ LỆ 1:1", dấu tâm hai bên, dòng "BẢN VẼ KỸ THUẬT · SỐ 01", tiêu đề in hoa lớn lộ từ trái sang, dòng phụ, "NGƯỜI VẼ: @handle"; tiêu đề + handle cũng nằm trong khung tên suốt video |
+| `title` / `subtitle` | màn mở đầu 70 frame: khung tiêu đề tự vẽ có đường kích thước "TỈ LỆ 1:1", dấu tâm hai bên, dòng "BẢN VẼ KỸ THUẬT · SỐ 01", tiêu đề in hoa lớn lộ từ trái sang, dòng phụ; tiêu đề cũng nằm trong khung tên suốt video |
 | `accent` | chỉ khi là cam/vàng (xem trên) |
 | `background`, `captionPosition` | không dùng |
 

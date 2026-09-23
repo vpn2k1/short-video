@@ -513,8 +513,8 @@ const CaptionLayer: React.FC<{
 // ---------------------------------------------------------------------------
 // Trang tiêu đề
 // ---------------------------------------------------------------------------
-const TitlePage: React.FC<{ title: string; subtitle: string; handle: string; letter: string; frame: number; ready: boolean }> = ({
-  title, subtitle, handle, letter, frame, ready,
+const TitlePage: React.FC<{ title: string; subtitle: string; letter: string; frame: number; ready: boolean }> = ({
+  title, subtitle, letter, frame, ready,
 }) => {
   const { width, height, safe, unit, portrait } = useLayout();
   const out = interpolate(frame, [TITLE_FRAMES - 18, TITLE_FRAMES], [1, 0], { ...clamp, easing: DISSOLVE });
@@ -525,7 +525,6 @@ const TitlePage: React.FC<{ title: string; subtitle: string; handle: string; let
   const letterT = interpolate(frame, [12, 32], [0, 1], { ...clamp, easing: GLIDE });
   const ruleT = interpolate(frame, [28, 50], [0, 1], { ...clamp, easing: GLIDE });
   const subT = interpolate(frame, [34, 52], [0, 1], { ...clamp, easing: GLIDE });
-  const handleT = interpolate(frame, [40, 58], [0, 1], { ...clamp, easing: GLIDE });
   const subLines = subtitle ? wrap(upper(subtitle), 30 * unit, maxW * 0.62, ready) : [];
 
   return (
@@ -559,17 +558,12 @@ const TitlePage: React.FC<{ title: string; subtitle: string; handle: string; let
           />
         ))}
       </div>
-      {handle ? (
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: safe.bottom + 20 * unit, display: "flex", justifyContent: "center", opacity: handleT * 0.9 }}>
-          <Kicker text={handle} size={21 * unit} />
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };
 
 // ---------------------------------------------------------------------------
-export const LuxuryStyle: React.FC<ShortProps> = ({ title, subtitle, handle, captions, scenes, showTitle }) => {
+export const LuxuryStyle: React.FC<ShortProps> = ({ title, subtitle, captions, scenes, showTitle }) => {
   ensureFonts(["montserrat"]);
   const ready = useFontReady("playfair");
   const frame = useCurrentFrame();
@@ -580,8 +574,8 @@ export const LuxuryStyle: React.FC<ShortProps> = ({ title, subtitle, handle, cap
   const startOf = (i: number) => (i === 0 ? 0 : msToFrames(pages[i].startMs));
   const endOf = (i: number) => (i === pages.length - 1 ? Math.max(startOf(i) + 1, msToFrames(pages[i].endMs)) : startOf(i + 1));
 
-  // Monogram: chữ cái đầu của handle (bỏ @), không có thì của tiêu đề.
-  const source = (handle.replace(/^@+/, "").trim() || title.trim() || "·").normalize("NFC");
+  // Monogram: chữ cái đầu của tiêu đề.
+  const source = (title.trim() || "·").normalize("NFC");
   const letter = upper([...source][0] ?? "·");
 
   // Sau trang tiêu đề: trang cảnh đầu hiện dần lên dưới lớp tiêu đề đang tan.
@@ -623,7 +617,7 @@ export const LuxuryStyle: React.FC<ShortProps> = ({ title, subtitle, handle, cap
       </div>
 
       {showTitle && frame < TITLE_FRAMES ? (
-        <TitlePage title={title} subtitle={subtitle} handle={handle} letter={letter} frame={frame} ready={ready} />
+        <TitlePage title={title} subtitle={subtitle} letter={letter} frame={frame} ready={ready} />
       ) : null}
 
       {/* Giấy: sáng giữa, ngả ấm ra mép, hạt giấy tĩnh rất nhẹ. */}

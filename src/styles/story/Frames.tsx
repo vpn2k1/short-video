@@ -9,7 +9,7 @@ import type { Scene } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
 import { activeIndexAt, Grain, seeded } from "../shared";
 import { Avatar } from "./Chrome";
-import { clamp, createGradient, displayHandle, UI, VIDEO_EXT } from "./theme";
+import { clamp, createGradient, UI, VIDEO_EXT } from "./theme";
 
 /** Số frame của cú xoay lập phương khi sang cảnh. */
 export const CUBE_FRAMES = 12;
@@ -111,12 +111,11 @@ export const PhoneBackdrop: React.FC<{ scenes: Scene[]; accent: string }> = ({ s
 export const trayCenter = (vh: number) => ({ x: 540, y: vh * 0.44 });
 
 /**
- * Màn mở đầu phần 1: "khay story" — avatar lớn với vòng gradient đang xoay tải, tên và "Xem tin mới".
+ * Màn mở đầu phần 1: "khay story" — avatar lớn với vòng gradient đang xoay tải và dòng "Tin mới · 2 giờ trước".
  * Frame 14 ngón tay chạm (avatar lún xuống), từ frame 18 story nở ra thành vòng tròn từ avatar (xem index.tsx).
  */
-export const StoryTray: React.FC<{ vh: number; handle: string; title: string; accent: string; firstImage: Scene | null }> = ({
+export const StoryTray: React.FC<{ vh: number; title: string; accent: string; firstImage: Scene | null }> = ({
   vh,
-  handle,
   title,
   accent,
   firstImage,
@@ -141,7 +140,7 @@ export const StoryTray: React.FC<{ vh: number; handle: string; title: string; ac
           scale: String(enter * tap),
         }}
       >
-        <Avatar size={size} handle={handle} title={title} accent={accent} spin={spin} />
+        <Avatar size={size} title={title} accent={accent} spin={spin} />
         {/* Vệt chạm của ngón tay. */}
         <div
           style={{
@@ -170,8 +169,8 @@ export const StoryTray: React.FC<{ vh: number; handle: string; title: string; ac
           translate: `0 ${interpolate(frame, [3, 12], [20, 0], clamp)}px`,
         }}
       >
-        <div style={{ fontSize: 52, fontWeight: 700 }}>{displayHandle(handle)}</div>
-        <div style={{ fontSize: 36, fontWeight: 500, opacity: 0.7, marginTop: 8 }}>Tin mới · 2 giờ trước</div>
+        <div style={{ fontSize: 52, fontWeight: 700 }}>Tin mới</div>
+        <div style={{ fontSize: 36, fontWeight: 500, opacity: 0.7, marginTop: 8 }}>2 giờ trước</div>
       </div>
       {/* Hàng avatar nhỏ mờ hai bên cho ra khay story. */}
       {[-1, 1].map((side) => (
@@ -197,19 +196,18 @@ export const StoryTray: React.FC<{ vh: number; handle: string; title: string; ac
 /**
  * Chỉ ở khung ngang (16:9, 2:1): các story trước/sau là thẻ nhỏ mờ hai bên điện thoại, như trình xem story
  * trên máy tính — lấp khoảng trống hai bên và cho người xem thấy còn bao nhiêu khung. Thẻ có ảnh tĩnh của
- * cảnh (clip / không ảnh → gradient "Tạo"), avatar và tên ở giữa. Đổi cảnh thì cả dãy trượt theo.
+ * cảnh (clip / không ảnh → gradient "Tạo"), avatar và "2 giờ" ở giữa. Đổi cảnh thì cả dãy trượt theo.
  */
 export const NeighborCards: React.FC<{
   scenes: Scene[];
   accent: string;
-  handle: string;
   title: string;
   /** Tâm điện thoại và nửa bề rộng thân máy (px thật). */
   cx: number;
   cy: number;
   half: number;
   cardH: number;
-}> = ({ scenes, accent, handle, title, cx, cy, half, cardH }) => {
+}> = ({ scenes, accent, title, cx, cy, half, cardH }) => {
   const frame = useCurrentFrame();
   const index = Math.max(0, activeIndexAt(scenes, frame));
   const start = scenes[index] ? msToFrames(scenes[index].startMs) : 0;
@@ -244,10 +242,7 @@ export const NeighborCards: React.FC<{
         {still ? <SceneMedia scene={still} from={msToFrames(still.startMs)} /> : <CreateBackground accent={accent} index={i} />}
         <AbsoluteFill style={{ backgroundColor: "rgba(0,0,0,0.42)" }} />
         <AbsoluteFill style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: cardW * 0.06 }}>
-          <Avatar size={cardW * 0.3} handle={handle} title={title} accent={accent} />
-          <div style={{ fontFamily: UI, fontWeight: 700, fontSize: cardW * 0.085, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,0.4)" }}>
-            {displayHandle(handle)}
-          </div>
+          <Avatar size={cardW * 0.3} title={title} accent={accent} />
           <div style={{ fontFamily: UI, fontWeight: 500, fontSize: cardW * 0.065, color: "rgba(255,255,255,0.75)" }}>2 giờ</div>
         </AbsoluteFill>
       </div>,

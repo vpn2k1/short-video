@@ -22,7 +22,7 @@ const scene = (lines: string[], extra: Partial<VideoScript["scenes"][number]> = 
   ({ lines, image: null, visual: null, tag: null, punch: null, ...extra });
 
 const script = (scenes: VideoScript["scenes"]): VideoScript => ({
-  style: "caption", title: "Tiêu đề", subtitle: "Phụ đề", handle: "@kenh",
+  style: "caption", title: "Tiêu đề", subtitle: "Phụ đề",
   accent: "#e8590c", background: "#101010", scenes,
 });
 

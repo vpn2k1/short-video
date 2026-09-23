@@ -30,7 +30,7 @@ description: Phong cách "Tin nhắn" — kể chuyện bằng giao diện nhắ
 | `title` / `subtitle` | màn hình khoá 70 frame: thông báo "Tin nhắn" trượt xuống, `title` là người gửi, `subtitle` là nội dung xem trước |
 | `accent` | avatar, pill badge |
 | `background` | chọn theme tối/sáng + màu nền ngoài điện thoại |
-| `handle`, `captionPosition` | không dùng |
+| `captionPosition` | không dùng |
 
 ## Quy ước người nói
 

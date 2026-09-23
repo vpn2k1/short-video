@@ -24,7 +24,7 @@ import { FlashSale, saleLevel } from "./FlashSale";
 import { buildChat, clamp, LIVE_FONTS, SMOOTH, useGeo } from "./live";
 import { LiveTitle } from "./Title";
 
-export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(LIVE_FONTS);
   const ready = useFontReady("bevietnam");
   const frame = useCurrentFrame();
@@ -58,7 +58,7 @@ export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, handle, a
       <Feed scenes={scenes} accent={accent} />
       <FloatingHearts geo={geo} scenes={scenes} appear={appear} accent={accent} />
       <Rail geo={geo} accent={accent} appear={appear} title={title} products={products} />
-      <TopBar geo={geo} handle={handle} accent={accent} appear={appear} title={title} />
+      <TopBar geo={geo} accent={accent} appear={appear} title={title} />
       <AbsoluteFill style={{ opacity: 1 - sale * 0.75 }}>
         <ProductCard geo={geo} scenes={scenes} accent={accent} appear={appear} />
         <VisualBadge geo={geo} scenes={scenes} appear={appear} />
@@ -71,13 +71,12 @@ export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, handle, a
         bottom={bannerBottom}
         ready={ready}
         accent={accent}
-        handle={handle}
         appear={appear}
       />
       <FlashSale geo={geo} scenes={scenes} accent={accent} ready={ready} />
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <LiveTitle geo={geo} title={title} subtitle={subtitle} handle={handle} accent={accent} ready={ready} />
+          <LiveTitle geo={geo} title={title} subtitle={subtitle} accent={accent} ready={ready} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

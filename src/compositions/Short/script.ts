@@ -43,7 +43,6 @@ export const videoScriptSchema = z.object({
   style: z.enum(STYLE_IDS),
   title: z.string().min(1).max(60),
   subtitle: z.string().min(1).max(90),
-  handle: z.string().min(1).max(30),
   accent: z.string().regex(HEX_COLOR),
   background: z.string().regex(HEX_COLOR),
   // Bound an toàn, không phải hướng dẫn phong cách — độ dài mong muốn nằm ở system prompt.
@@ -254,7 +253,6 @@ export const scriptToProps = (
   return {
     title: script.title,
     subtitle: script.subtitle,
-    handle: script.handle,
     accent: script.accent,
     background: script.background,
     captions,

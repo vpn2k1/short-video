@@ -169,19 +169,18 @@ const Cell: React.FC<{
 );
 
 /**
- * Khung tên bản vẽ ở góc dưới phải: tên bản vẽ (tiêu đề video), số bản vẽ, tỉ lệ, người vẽ (handle), tờ n/m.
+ * Khung tên bản vẽ ở góc dưới phải: tên bản vẽ (tiêu đề video), số bản vẽ, tỉ lệ, tờ n/m.
  * `sheet` đổi theo cảnh đang chạy.
  */
 export const TitleBlock: React.FC<{
   box: Box;
   unit: number;
   title: string;
-  handle: string;
   sheet: number;
   sheets: number;
   accent: string;
   opacity: number;
-}> = ({ box, unit, title, handle, sheet, sheets, accent, opacity }) => {
+}> = ({ box, unit, title, sheet, sheets, accent, opacity }) => {
   const line = `${Math.max(1, 1.6 * unit).toFixed(2)}px solid ${C.ink}`;
   const thin = `${Math.max(1, 1 * unit).toFixed(2)}px solid ${C.faint}`;
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -213,8 +212,7 @@ export const TitleBlock: React.FC<{
         style={{ gridColumn: "1 / 3", borderRight: thin, borderBottom: thin }}
       />
       <Cell label="BẢN VẼ SỐ" value="01" unit={unit} size={size * 1.25} style={{ borderBottom: thin }} accent={accent} />
-      <Cell label="NGƯỜI VẼ" value={handle || "—"} unit={unit} size={fitLine(handle || "—", size * 0.9, box.w / 3 - 26 * unit, 0.7)} style={{ borderRight: thin }} />
-      <Cell label="TỈ LỆ" value="1:1" unit={unit} size={size} style={{ borderRight: thin }} />
+      <Cell label="TỈ LỆ" value="1:1" unit={unit} size={size} style={{ gridColumn: "1 / 3", borderRight: thin }} />
       <Cell label="TỜ" value={`${pad(sheet)} / ${pad(Math.max(sheet, sheets))}`} unit={unit} size={size} />
     </div>
   );

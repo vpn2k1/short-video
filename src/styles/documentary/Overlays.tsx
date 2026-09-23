@@ -390,13 +390,13 @@ export const DocVisual: React.FC<{ scenes: Scene[]; showTitle: boolean }> = ({ s
 
 /* ----------------------------------------------------------------- title */
 
-/** Mở đầu: làm tối ảnh đầu, dòng máy chữ với handle, tít serif hiện lên, phụ đề small caps. */
-export const DocTitle: React.FC<{ title: string; subtitle: string; handle: string }> = ({ title, subtitle, handle }) => {
+/** Mở đầu: làm tối ảnh đầu, dòng máy chữ "phim tài liệu", tít serif hiện lên, phụ đề small caps. */
+export const DocTitle: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
   const { unit, width, safe } = useLayout();
   const wide = useIsWide();
   const out = interpolate(frame, [TITLE_FRAMES - 12, TITLE_FRAMES], [1, 0], clamp);
-  const over = glyphs(handle ? `${handle}  ·  phim tài liệu` : "phim tài liệu");
+  const over = glyphs("phim tài liệu");
   const typed = Math.min(over.length, Math.max(0, Math.floor((frame - 2) / 1.2)));
   const titleIn = interpolate(frame, [8, 30], [0, 1], { ...clamp, easing: EASE_OUT });
   const subIn = interpolate(frame, [22, 40], [0, 1], { ...clamp, easing: EASE_OUT });

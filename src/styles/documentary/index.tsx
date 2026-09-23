@@ -12,7 +12,6 @@ import { Clipping, DocCaptions, DocTitle, DocVisual, PlaceTag } from "./Overlays
 export const DocumentaryStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   background,
   captions,
   scenes,
@@ -28,7 +27,7 @@ export const DocumentaryStyle: React.FC<ShortProps> = ({
 
     {!showTitle ? null : (
       <Sequence durationInFrames={TITLE_FRAMES}>
-        <DocTitle title={title} subtitle={subtitle} handle={handle} />
+        <DocTitle title={title} subtitle={subtitle} />
       </Sequence>
     )}
 

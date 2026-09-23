@@ -1,6 +1,6 @@
 ---
 name: style-vinyl
-description: Phong cách "Đĩa than" — đĩa than quay 33⅓ vòng/phút, nhãn đĩa là ảnh/clip của cảnh (không ảnh thì nhãn in màu có tên bài + handle), quanh đĩa là vòng 64 cột phổ nhạc nhảy theo tần số đo từ chính file nhạc (bass ở đỉnh) cùng cung mảnh báo tiến độ bài, cần đọc đĩa tựa rãnh ngoài rung theo cú trống; lời hiện từng câu dưới đĩa — từ chưa hát mờ, từ đang hát to lên màu nhấn; câu nhấn bắn vòng sóng từ mép đĩa; mở đầu bằng bìa đĩa có tên bài, đĩa ló ra rồi trượt vào giữa. Dùng cho nhạc lofi, chill, R&B, nhạc xưa, playlist, giới thiệu bài mới, đoạn beat, trích một câu hát hay.
+description: Phong cách "Đĩa than" — đĩa than quay 33⅓ vòng/phút, nhãn đĩa là ảnh/clip của cảnh (không ảnh thì nhãn in màu có tên bài), quanh đĩa là vòng 64 cột phổ nhạc nhảy theo tần số đo từ chính file nhạc (bass ở đỉnh) cùng cung mảnh báo tiến độ bài, cần đọc đĩa tựa rãnh ngoài rung theo cú trống; lời hiện từng câu dưới đĩa — từ chưa hát mờ, từ đang hát to lên màu nhấn; câu nhấn bắn vòng sóng từ mép đĩa; mở đầu bằng bìa đĩa có tên bài, đĩa ló ra rồi trượt vào giữa. Dùng cho nhạc lofi, chill, R&B, nhạc xưa, playlist, giới thiệu bài mới, đoạn beat, trích một câu hát hay.
 ---
 
 # Phong cách: Đĩa than (vinyl)
@@ -23,7 +23,7 @@ câu gợn nhỏ). Nhạc không lời cũng hợp: vài câu phụ đề ngắn
 - **Vòng phổ**: 64 cột bo tròn toả ra từ mép đĩa, đối xứng trái/phải, bass ở đỉnh, treble ở đáy, gradient màu nhấn →
   màu nhấn lệch 55°. Cung trắng mảnh sát mép đĩa là tiến độ bài.
 - **Cần đọc đĩa** góc trên phải, đầu kim tựa rãnh ngoài, rung nhẹ theo cú trống.
-- **Thanh trên**: viên "● ĐANG PHÁT" (chấm màu nhấn nhấp nháy) + tên bài + handle.
+- **Thanh trên**: viên "● ĐANG PHÁT" (chấm màu nhấn nhấp nháy) + tên bài.
 - Chữ: Be Vietnam Pro 800. Dọc: đĩa trên, lời canh giữa dưới đĩa. Ngang/vuông: đĩa bên trái, lời canh trái bên phải.
 
 ## Dữ liệu được dùng thế nào
@@ -32,16 +32,16 @@ câu gợn nhỏ). Nhạc không lời cũng hợp: vài câu phụ đề ngắn
 |---|---|
 | `captions` | Một câu mỗi lúc. Từ chưa hát mờ 26%, tới lượt thì nảy 0.8 → 1 trong 6 frame; từ đang hát to 1.07, màu nhấn, quầng, nhún theo cú trống. Câu mới trượt lên 8 frame. Chỉ vẽ hàng phụ đề đầu. |
 | Nhạc dạo | Câu dứt mà câu sau còn xa hơn 2,5 giây → lời tắt; còn dưới 2,5 giây → hiện sẵn câu sau, mờ. Trước câu đầu hiện sẵn câu đầu. |
-| `image` | Nhãn đĩa (quay cùng đĩa) và nền nhoè. `null` → nhãn in màu có tên bài (nửa trên) + handle (nửa dưới). |
+| `image` | Nhãn đĩa (quay cùng đĩa) và nền nhoè. `null` → nhãn in màu có tên bài ở nửa trên (tránh lỗ giữa). |
 | `tag` | Viên viền màu nhấn "♪ ĐIỆP KHÚC" trên câu hát. |
 | `punch` | Lúc `atMs`: vòng sóng màu phụ lan ra từ mép đĩa (22 frame); cụm từ đổi màu phụ khi hát tới. |
 | `visual` | Viên số liệu viền màu nhấn ở góc trên phải. |
-| `title`/`handle` | Bìa đĩa màn mở đầu, nhãn đĩa khi không ảnh, thanh trên. `subtitle` không dùng. |
+| `title` | Bìa đĩa màn mở đầu, nhãn đĩa khi không ảnh, thanh trên. `subtitle` không dùng. |
 
 ## Chuyển động
 
 - Mở đầu (khi `showTitle`, hoặc suốt đoạn dạo đầu ≥ ~2,5 giây của bài hát đưa từ file): bìa đĩa vuông (ảnh cảnh đầu
-  tiên có ảnh, tên bài lớn + handle ở chân bìa) che bên trái, đĩa ló ra bên phải và đã quay; 20 frame cuối bìa rút
+  tiên có ảnh, tên bài lớn ở chân bìa) che bên trái, đĩa ló ra bên phải và đã quay; 20 frame cuối bìa rút
   sang trái, đĩa trượt vào giữa, cần đĩa + thanh trên + lời hiện lên.
 - Liên tục: đĩa quay, vòng phổ, quầng sáng, bụi, chấm "ĐANG PHÁT".
 

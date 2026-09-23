@@ -15,7 +15,7 @@ description: Phong cách "Tối giản sang trọng" — trang tạp chí trên 
   0.3em cho kicker. In hoa bằng JS `toLocaleUpperCase("vi")`, không dùng CSS text-transform.
 - Bảng màu cố định: mực `#2a2520`, vàng đồng `#b08d57`, nâu nhạt `#8c7f6d`. **`accent` và `background` của video
   bị bỏ qua** — màu nhấn sặc sỡ phá không khí sang trọng.
-- Monogram: chữ cái đầu của `handle` (bỏ `@`), không có thì của `title`, trong vòng tròn chỉ vàng.
+- Monogram: chữ cái đầu của `title`, trong vòng tròn chỉ vàng.
 
 ## Dữ liệu được dùng thế nào
 
@@ -27,7 +27,7 @@ description: Phong cách "Tối giản sang trọng" — trang tạp chí trên 
 | `captions` | Từng câu một, canh giữa, cỡ co theo độ dài (tối đa 4 dòng; trang chữ 6 dòng). Mỗi dòng hiện dần và trôi nhẹ lên, cách nhau 6 frame. Hai gạch vàng mảnh trên/dưới khối chữ, dời êm theo chiều cao câu mới. |
 | `punch` | Có nguyên văn trong câu: in nghiêng, chuyển sang vàng và gạch chân mảnh kéo dần lúc `atMs`. Không khớp câu nào của cảnh → thêm một dòng nghiêng vàng dưới câu đang đọc lúc `atMs`. |
 | `visual` stat/badge | Có ảnh: nhãn phòng tranh nền kem dán ở đáy bản in — con số chữ có chân lớn + chú thích kicker. Không ảnh: con số lớn thay chỗ dấu ngoặc kép. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: trang tiêu đề — vòng tròn monogram tự vẽ, tiêu đề chữ có chân lớn hiện từng dòng, gạch vàng kéo ra, dòng phụ kiểu kicker, handle nhỏ phía dưới; tan dần vào cảnh đầu ở frame 50–70. |
+| `title`/`subtitle` | Khi `showTitle`: trang tiêu đề — vòng tròn monogram tự vẽ, tiêu đề chữ có chân lớn hiện từng dòng, gạch vàng kéo ra, dòng phụ kiểu kicker; tan dần vào cảnh đầu ở frame 50–70. |
 
 ## Chuyển động
 

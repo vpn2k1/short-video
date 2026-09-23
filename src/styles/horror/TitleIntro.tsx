@@ -6,10 +6,10 @@ import { BLOOD, BLOOD_GLOW, BONE, clamp, EASE, isWide, NIGHT } from "./look";
 
 /**
  * Mở đầu: bóng tối có sương, dòng "— Chuyện có thật? —" mờ, tiêu đề hiện dần ra khỏi bóng tối
- * kèm vài nhịp chập chờn, dòng phụ đỏ máu, handle. Cuối cùng cả khung tan vào cảnh đầu.
+ * kèm vài nhịp chập chờn, dòng phụ đỏ máu. Cuối cùng cả khung tan vào cảnh đầu.
  * Đặt trong <Sequence durationInFrames={TITLE_FRAMES}>.
  */
-export const HorrorTitle: React.FC<{ title: string; subtitle: string; handle: string }> = ({ title, subtitle, handle }) => {
+export const HorrorTitle: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
   const { unit, width, height, safe } = useLayout();
   const wide = isWide(width, height);
@@ -25,7 +25,6 @@ export const HorrorTitle: React.FC<{ title: string; subtitle: string; handle: st
   const dip = frame >= 10 && frame < 40 && seeded(`hz-title-${frame}`) < 0.2 ? 0.3 : 1;
   const blur = interpolate(frame, [8, 30], [10, 0], clamp) * unit;
   const subIn = interpolate(frame, [30, 42], [0, 1], { ...clamp, easing: EASE });
-  const handleIn = interpolate(frame, [40, 52], [0, 0.75], clamp);
   const out = interpolate(frame, [TITLE_FRAMES - 12, TITLE_FRAMES], [1, 0], { ...clamp, easing: EASE });
 
   return (
@@ -88,20 +87,6 @@ export const HorrorTitle: React.FC<{ title: string; subtitle: string; handle: st
             }}
           >
             {subtitle.normalize("NFC")}
-          </div>
-        ) : null}
-        {handle ? (
-          <div
-            style={{
-              marginTop: 40 * unit,
-              fontFamily: FONTS.bevietnam,
-              fontWeight: 500,
-              fontSize: 30 * unit,
-              color: BONE,
-              opacity: handleIn,
-            }}
-          >
-            {handle}
           </div>
         ) : null}
       </AbsoluteFill>

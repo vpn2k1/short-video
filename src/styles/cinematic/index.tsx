@@ -13,7 +13,6 @@ import { ChapterTag, CineCaptions, CineTitle, CineVisual, TrailerCard } from "./
 export const CinematicStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   background,
   captions,
   scenes,
@@ -30,7 +29,7 @@ export const CinematicStyle: React.FC<ShortProps> = ({
 
     {!showTitle ? null : (
       <Sequence durationInFrames={TITLE_FRAMES}>
-        <CineTitle title={title} subtitle={subtitle} handle={handle} />
+        <CineTitle title={title} subtitle={subtitle} />
       </Sequence>
     )}
 

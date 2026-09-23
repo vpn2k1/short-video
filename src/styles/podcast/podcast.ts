@@ -36,17 +36,6 @@ export const clock = (frames: number, fps: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
-/** Tên chương trình = handle; bỏ trống thì gọi chung "Podcast". */
-export const showName = (handle: string) => handle.trim().normalize("NFC") || "Podcast";
-
-/** Chữ viết tắt cho ảnh đại diện giữ chỗ: "@kien.thuc_bien" → "KT", "@minhanh" → "MI". */
-export const initials = (handle: string) => {
-  const parts = handle.normalize("NFC").replace(/^@/, "").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  if (parts.length === 0) return "P";
-  const letters = parts.length >= 2 ? [...parts[0]][0] + [...parts[1]][0] : [...parts[0]].slice(0, 2).join("");
-  return upper(letters);
-};
-
 /**
  * Số tập: lấy "Tập 12"/"Ep 12"/"#12" nếu tiêu đề hoặc dòng phụ có ghi, không thì suy cố định từ tiêu đề
  * (cùng tiêu đề luôn ra cùng số) cho giống một tập trong chuỗi.

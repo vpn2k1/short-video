@@ -3,7 +3,7 @@
  * nguồn "edit" (server/batch.ts) và mở màn theo dõi loạt đó. Mỗi video ra một bản mới, bản cũ vẫn giữ.
  *
  * Hai cách sửa, khác nhau ở chỗ giữ được gì:
- *   - Giữ chỉnh sửa: chỉ đổi nhạc, tên kênh, màu rồi render lại — cắt cảnh, phụ đề sửa tay vẫn nguyên.
+ *   - Giữ chỉnh sửa: chỉ đổi nhạc, màu rồi render lại — cắt cảnh, phụ đề sửa tay vẫn nguyên.
  *   - Dựng lại từ kịch bản: đổi được phong cách, giọng, khung, thay chữ; chỉnh sửa tay không mang sang bản mới.
  *
  * Nạp sau app.js, dùng chung $, state, aspects, icon, escapeHtml, postJson, loadHistory, setSelecting,
@@ -17,7 +17,7 @@ let bulkEditKind = "props";
 const BE_KEEP = "__keep__";
 
 const BE_DESC = {
-  props: "Nhanh, không gọi AI. Giữ nguyên lời, giọng đã đọc và mọi chỉnh sửa trong trình chỉnh sửa — chỉ render lại với nhạc, tên kênh, màu mới.",
+  props: "Nhanh, không gọi AI. Giữ nguyên lời, giọng đã đọc và mọi chỉnh sửa trong trình chỉnh sửa — chỉ render lại với nhạc, màu mới.",
   rebuild: "Dựng lại từ kịch bản: đọc lại giọng, dựng lại hình. Chỉnh sửa tay trong trình chỉnh sửa không mang sang bản mới — bản cũ vẫn còn trong lịch sử của từng video.",
 };
 
@@ -25,7 +25,6 @@ function openBulkEdit(videos) {
   if (!videos.length) return;
   bulkEditVideos = videos;
   fillBulkEditOptions();
-  $("beHandle").value = "";
   $("beAccentOn").checked = false;
   $("beAccent").disabled = true;
   $("beReview").checked = false;
@@ -85,7 +84,6 @@ function bulkEditPlan() {
   const plan = { kind: bulkEditKind };
   const music = $("beMusic").value;
   if (music !== BE_KEEP) plan.music = music === "none" ? null : music;
-  if ($("beHandle").value.trim()) plan.handle = $("beHandle").value.trim();
   if ($("beAccentOn").checked) plan.accent = $("beAccent").value;
   if (bulkEditKind === "rebuild") {
     for (const [key, id] of [["style", "beStyle"], ["voice", "beVoice"], ["aspect", "beAspect"]]) {

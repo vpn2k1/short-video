@@ -1,6 +1,5 @@
 /**
- * Hộp thoại RPG: viền pixel đôi, nền xanh đậm, bảng tên người nói (handle) đè mép trên trái,
- * chữ gõ từng ký tự, cụm nhấn đổi vàng khi gõ tới, ▼ nháy ở góc phải dưới khi câu đã hiện đủ.
+ * Hộp thoại RPG: viền pixel đôi, nền xanh đậm, chữ gõ từng ký tự, cụm nhấn đổi vàng khi gõ tới, ▼ nháy ở góc phải dưới khi câu đã hiện đủ.
  */
 import { interpolate } from "remotion";
 import { msToFrames } from "../../constants";
@@ -17,9 +16,7 @@ export const Dialog: React.FC<{
   rect: Rect;
   P: number;
   unit: number;
-  accent: string;
-  speaker: string;
-}> = ({ captions, punches, frame, appear, rect, P, unit, accent, speaker }) => {
+}> = ({ captions, punches, frame, appear, rect, P, unit }) => {
   if (frame < appear) return null;
   const active = activeIndexAt(captions, frame);
   const caption = active >= 0 ? captions[active] : null;
@@ -45,7 +42,6 @@ export const Dialog: React.FC<{
   while (Math.ceil((chars.length * size * 0.58 * 1.12) / innerW) * size * lineHeight > innerH && size > 26 * unit) size *= 0.94;
 
   const blinkOn = Math.floor(frame / 8) % 2 === 0;
-  const plateSize = 28 * unit;
 
   return (
     <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
@@ -97,28 +93,6 @@ export const Dialog: React.FC<{
           </div>
         ) : null}
       </PixelBox>
-      {speaker && open >= 1 ? (
-        <div
-          style={{
-            position: "absolute",
-            left: rect.x + P * 5,
-            top: rect.y,
-            translate: "0 -62%",
-            fontFamily: BLOCK,
-            fontSize: plateSize,
-            lineHeight: 1.35,
-            padding: `${P}px ${P * 2.5}px`,
-            color: WHITE,
-            backgroundColor: accent,
-            border: `${P}px solid ${INK}`,
-            boxShadow: `inset 0 ${-P}px 0 rgba(0,0,0,0.25)`,
-            textShadow: `${P * 0.5}px ${P * 0.5}px 0 ${INK}`,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {speaker}
-        </div>
-      ) : null}
     </div>
   );
 };

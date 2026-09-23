@@ -17,7 +17,7 @@ const overlay = (startMs: number, endMs: number) => ({
 });
 const project = (extra: Record<string, unknown>) =>
   shortSchema.parse({
-    title: "t", subtitle: "", handle: "@kenh", accent: "#e8590c", background: "#000000",
+    title: "t", subtitle: "", accent: "#e8590c", background: "#000000",
     captions: [], aspect: "9:16", style: "plain", scenes: [scene(0, 30016)],
     captionPosition: "bottom", showTitle: false, voiceoverTrack: null, music: null, sfx: false,
     ...extra,

@@ -26,7 +26,7 @@ description: Phong cách "Album kỷ niệm" — bảng bần treo tường, m�
 | `punch` | Giấy note vàng đập xuống góc phải ảnh lúc `atMs` (nảy, nghiêng). Nếu có nguyên văn trong câu thì các chữ đó trên thẻ còn được **tô bút dạ vàng**. |
 | `visual` stat | Nhãn dán tròn màu nhấn viền trắng (sticker bế) ở góc trên trái ảnh: số lớn Baloo, `caption` viết tay bên dưới. |
 | `visual` badge | Như trên nhưng hình hoa hồng răng cưa, vòng chỉ đứt. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: bìa album vải bố màu nhấn sẫm, gáy trái, chỉ khâu, bọc góc đồng, ảnh cảnh đầu cài hờ góc bìa, nhãn giấy giữa bìa có tiêu đề Dancing Script + tim vẽ tay + dòng phụ; handle dập nổi dưới bìa. Frame ~58–82 bìa lật mở sang trái. |
+| `title`/`subtitle` | Khi `showTitle`: bìa album vải bố màu nhấn sẫm, gáy trái, chỉ khâu, bọc góc đồng, ảnh cảnh đầu cài hờ góc bìa, nhãn giấy giữa bìa có tiêu đề Dancing Script + tim vẽ tay + dòng phụ. Frame ~58–82 bìa lật mở sang trái. |
 
 ## Chuyển động
 
@@ -35,7 +35,7 @@ description: Phong cách "Album kỷ niệm" — bảng bần treo tường, m�
 - Sang cảnh: ảnh cũ trượt ra chỗ ở mép bảng trong 18 frame (mang theo note và nhãn dán của nó), ảnh mới rơi xuống đè lên.
   Ảnh thứ i+6 nằm đúng chỗ ảnh thứ i nên ảnh i được bỏ khỏi cây render.
 - Thẻ ghi chú trượt lên cùng câu đầu tiên (sau khi bìa mở), mỗi câu mới viết dần bằng mask mép mềm.
-- Bìa: frame 0 đã có đủ tiêu đề (làm ảnh đại diện được); dòng phụ, handle, ảnh cài góc hiện dần; cuối phần tiêu đề bìa xoay 3D quanh gáy.
+- Bìa: frame 0 đã có đủ tiêu đề (làm ảnh đại diện được); dòng phụ, ảnh cài góc hiện dần; cuối phần tiêu đề bìa xoay 3D quanh gáy.
 - `useFontReady("patrick")`/`("dancing")` giữ `delayRender` tới khi font về — đo chữ bằng canvas lúc font chưa nạp sẽ sai số dòng.
 
 ## Lỗi cần tránh

@@ -11,12 +11,11 @@ const EXIT_FRAMES = 9;
 /**
  * Thẻ tiêu đề kiểu opening anime: bầu trời + tia nắng, chớp trắng mở màn, tiêu đề in hoa đập xuống TỪNG CHỮ
  * (mỗi chữ scale 2.6 → 1, quá đà), rung nhẹ khi chữ cuối chạm; dòng phụ nằm trên dải ruy băng màu nhấn lao vào
- * từ trái, handle nhỏ ở đáy, cánh hoa bay, lấp lánh. 9 frame cuối một nhát chém chéo rút cả thẻ, lộ cảnh đầu.
+ * từ trái, cánh hoa bay, lấp lánh. 9 frame cuối một nhát chém chéo rút cả thẻ, lộ cảnh đầu.
  */
-export const AnimeTitle: React.FC<{ title: string; subtitle: string; handle: string; palette: Palette }> = ({
+export const AnimeTitle: React.FC<{ title: string; subtitle: string; palette: Palette }> = ({
   title,
   subtitle,
-  handle,
   palette,
 }) => {
   const frame = useCurrentFrame();
@@ -46,7 +45,6 @@ export const AnimeTitle: React.FC<{ title: string; subtitle: string; handle: str
   const ribbonAt = Math.min(landed + 2, TITLE_FRAMES - 26);
   const ribbon = interpolate(frame, [ribbonAt, ribbonAt + 9], [-110, 0], { ...clamp, easing: OUT });
   const subIn = interpolate(frame, [ribbonAt + 4, ribbonAt + 11], [0, 1], clamp);
-  const handleOpacity = interpolate(frame, [ribbonAt + 8, ribbonAt + 16], [0, 0.95], clamp);
   const subSize = Math.min((wide ? 44 : 46) * unit, fitHeavy(subtitle.normalize("NFC"), 46 * unit, maxWidth - 120 * unit, 2, 0.6));
 
   // Nhát chém rút: phần còn lại của thẻ là bên PHẢI mép chém.
@@ -162,24 +160,6 @@ export const AnimeTitle: React.FC<{ title: string; subtitle: string; handle: str
           />
         );
       })}
-      {handle.trim() ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: safe.bottom + (wide ? 10 : 40) * unit,
-            textAlign: "center",
-            fontFamily: HEAVY,
-            fontWeight: 800,
-            fontSize: 32 * unit,
-            opacity: handleOpacity,
-            ...outlined(32 * unit, palette.deep, WHITE, 0.14),
-          }}
-        >
-          {handle.normalize("NFC").trim()}
-        </div>
-      ) : null}
       <AbsoluteFill style={{ backgroundColor: "#fff", opacity: flash }} />
       {exitP > 0 && exitP < 1 ? (
         <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>

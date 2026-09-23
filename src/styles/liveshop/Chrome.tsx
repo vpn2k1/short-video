@@ -4,11 +4,11 @@ import type { Scene } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
 import { CartIcon, CommentIcon, EyeIcon, HeartIcon, PlusIcon, ShareIcon } from "./Icons";
 import {
-  alpha, clamp, formatCount, GOLD, handleName, initialOf, inkOn, LIVE_RED, POP, shade, UI, viewersAt, type Geo,
+  alpha, clamp, formatCount, GOLD, inkOn, LIVE_RED, POP, shade, UI, viewersAt, type Geo,
 } from "./live";
 
-/** Ảnh đại diện chủ phòng: vòng tròn gradient accent, chữ cái đầu của handle, viền trắng. */
-export const Avatar: React.FC<{ handle: string; accent: string; size: number; ring?: number }> = ({ handle, accent, size, ring = 3 }) => (
+/** Ảnh đại diện chủ phòng: vòng tròn gradient accent, biểu tượng giỏ hàng, viền trắng. */
+export const Avatar: React.FC<{ accent: string; size: number; ring?: number }> = ({ accent, size, ring = 3 }) => (
   <div
     style={{
       width: size,
@@ -28,17 +28,16 @@ export const Avatar: React.FC<{ handle: string; accent: string; size: number; ri
       color: inkOn(accent),
     }}
   >
-    {initialOf(handle)}
+    <CartIcon size={size * 0.52} color={inkOn(accent)} />
   </div>
 );
 
 /**
- * Thanh chủ phòng góc trái trên: viên thuốc tối trong suốt (ảnh đại diện, tên, lượt thích, nút "Theo dõi"),
+ * Thanh chủ phòng góc trái trên: viên thuốc tối trong suốt (ảnh đại diện, lượt thích, nút "Theo dõi"),
  * nhãn LIVE đỏ có chấm nháy, số người xem tăng dần.
  */
-export const TopBar: React.FC<{ geo: Geo; handle: string; accent: string; appear: number; title: string }> = ({
+export const TopBar: React.FC<{ geo: Geo; accent: string; appear: number; title: string }> = ({
   geo,
-  handle,
   accent,
   appear,
   title,
@@ -47,7 +46,6 @@ export const TopBar: React.FC<{ geo: Geo; handle: string; accent: string; appear
   const { u, side, top, topBarH, wide } = geo;
   const t = interpolate(frame, [appear, appear + 14], [0, 1], { ...clamp, easing: POP });
   const h = topBarH;
-  const name = handleName(handle);
   const likes = 25_600 + Math.floor(seeded(`${title}-likes`, 0, 9000)) + Math.max(0, frame) * 3;
   const pulse = 0.55 + 0.45 * Math.abs(Math.sin(frame / 9));
   const small = (wide ? 22 : 24) * u;
@@ -76,22 +74,9 @@ export const TopBar: React.FC<{ geo: Geo; handle: string; accent: string; appear
           backgroundColor: "rgba(0,0,0,0.38)",
         }}
       >
-        <Avatar handle={handle} accent={accent} size={h - 14 * u} ring={3 * u} />
+        <Avatar accent={accent} size={h - 14 * u} ring={3 * u} />
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 250 * u }}>
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: (wide ? 26 : 29) * u,
-              lineHeight: 1.25,
-              color: "#fff",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {name}
-          </div>
-          <div style={{ fontWeight: 500, fontSize: small * 0.9, lineHeight: 1.25, color: "rgba(255,255,255,0.78)", whiteSpace: "nowrap" }}>
+          <div style={{ fontWeight: 700, fontSize: small, lineHeight: 1.25, color: "#fff", whiteSpace: "nowrap" }}>
             {formatCount(likes)} lượt thích
           </div>
         </div>

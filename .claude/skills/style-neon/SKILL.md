@@ -33,7 +33,7 @@ description: Phong cách "Đêm neon" — phố đêm: ảnh/video tối đi ng�
 | `visual` stat | con số neon lớn đếm lên 30 frame (giữ `80%`, `+30K`, `1.200`, `2,5 triệu`), gạch ống màu phụ, chú thích trắng |
 | `visual` badge | chữ in hoa trong khung ống bo góc màu chính, chú thích bên dưới |
 | `image` | ảnh hoặc video (qua `SceneMedia`: tôn trọng `crop`, `trimStartMs`, `speed`, `volume`); null → tường gạch |
-| `title`/`subtitle`/`handle` | 70 frame trên tường gạch: khung ống màu phụ rè lên, tiêu đề thắp từng chữ (≤ 2 frame/chữ), dòng phụ màu phụ bật sau, handle trắng mờ ở đáy; 9 frame cuối mờ dần lộ cảnh đầu |
+| `title`/`subtitle` | 70 frame trên tường gạch: khung ống màu phụ rè lên, tiêu đề thắp từng chữ (≤ 2 frame/chữ), dòng phụ màu phụ bật sau; 9 frame cuối mờ dần lộ cảnh đầu |
 | `accent` | màu ống chính (và quyết định ống phụ) |
 | `background` | không dùng — nền luôn là đêm `#07060d` |
 

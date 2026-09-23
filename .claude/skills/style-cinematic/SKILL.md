@@ -32,7 +32,7 @@ nhịp chậm và có khoảng lặng. Code: `src/styles/cinematic/`.
 | `punch` | đúng `atMs`: hình tối 62%, cụm từ in hoa (JS) serif lớn giữa khung giữa hai vạch mảnh, thu 1.04 → 1, vào 9 frame, giữ 36 frame (~1.2 s), tắt 12 frame. Tag/visual/phụ đề nhường chỗ lúc này |
 | `visual` stat | con số serif cỡ rất lớn (9:16: 300u, 1:1: 200u, ngang: 250u) + chú thích nghiêng giữa hai vạch; giữa khung phần trên, hiện 20 frame sau đầu cảnh, giữ tới cuối cảnh |
 | `visual` badge | thẻ chương giữa khung: `— CHƯƠNG II —` in hoa serif + chú thích nghiêng, hình tối 35%, hiện ~2.5 s đầu cảnh rồi lui |
-| `title`/`subtitle`/`handle` | 70 frame: màn đen, `@handle trình bày` nghiêng nhỏ, tít serif hiện dần (thu 1.03 → 1), vạch mảnh, subtitle nghiêng; chữ tắt trước, màn đen mở dần vào cảnh đầu |
+| `title`/`subtitle` | 70 frame: màn đen, tít serif hiện dần (thu 1.03 → 1), vạch mảnh, subtitle nghiêng; chữ tắt trước, màn đen mở dần vào cảnh đầu |
 
 ## Chuyển động
 

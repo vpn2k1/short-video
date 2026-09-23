@@ -379,8 +379,8 @@ const PicturePage: React.FC<{ scene: Scene; index: number; printAt: number; fram
 // ---------------------------------------------------------------------------
 // Bìa
 // ---------------------------------------------------------------------------
-const Cover: React.FC<{ title: string; subtitle: string; handle: string; accent: string; unit: number; w: number; h: number }> = ({
-  title, subtitle, handle, accent, unit, w, h,
+const Cover: React.FC<{ title: string; subtitle: string; accent: string; unit: number; w: number; h: number }> = ({
+  title, subtitle, accent, unit, w, h,
 }) => {
   const gold = "#d9b86a";
   let size = 110 * unit;
@@ -416,17 +416,12 @@ const Cover: React.FC<{ title: string; subtitle: string; handle: string; accent:
       <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: size, lineHeight: 1.12, textShadow: `0 ${2 * unit}px ${2 * unit}px rgba(0, 0, 0, 0.5)` }}>{title}</div>
       <div style={{ width: w * 0.3, height: 2 * unit, backgroundColor: gold, opacity: 0.8 }} />
       {subtitle ? <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: Math.min(size * 0.42, 50 * unit), color: "#ecd9a6" }}>{subtitle}</div> : null}
-      {handle ? (
-        <div style={{ position: "absolute", bottom: 90 * unit, left: 0, right: 0, fontFamily: SERIF, fontSize: 32 * unit, letterSpacing: 3 * unit, opacity: 0.85 }}>
-          {handle}
-        </div>
-      ) : null}
     </div>
   );
 };
 
 // ---------------------------------------------------------------------------
-export const BookStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const BookStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["lora", "playfair"]);
   const frame = useCurrentFrame();
   const { width, height } = useLayout();
@@ -517,7 +512,7 @@ export const BookStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accen
         {coverAngle > -180 ? (
           <div style={{ ...pageBox(page), transformStyle: "preserve-3d", transformOrigin: "0% 50%", transform: `rotateY(${coverAngle.toFixed(2)}deg)` }}>
             <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden" }}>
-              <Cover title={title} subtitle={subtitle} handle={handle} accent={accent} unit={unit} w={page.w} h={page.h} />
+              <Cover title={title} subtitle={subtitle} accent={accent} unit={unit} w={page.w} h={page.h} />
             </div>
             <div
               style={{

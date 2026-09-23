@@ -1,6 +1,6 @@
 ---
 name: style-karaoke
-description: Phong cách "Karaoke" — màn hình băng karaoke cho bài hát có lời: ảnh/clip của cảnh làm nền MV (không ảnh thì sân khấu tối có ba luồng đèn quét và đốm bokeh nhún theo bass đo từ chính file nhạc), hai ô lời ở một phần ba dưới — câu chẵn ô trên canh trái, câu lẻ ô dưới canh phải; chữ trắng viền đậm, phần đã hát đổi sang màu nhấn chạy từ trái sang phải theo tiếng hát; 4 chấm đếm ngược trước câu đầu và sau đoạn nhạc dạo; nhãn đoạn "♪ ĐIỆP KHÚC", huy hiệu micro + handle, màn tên bài "♪ KARAOKE ♪" trong đoạn dạo đầu. Dùng cho video bài hát có lời, cover, hát karaoke, nhạc thiếu nhi, đoạn điệp khúc cần người xem hát theo.
+description: Phong cách "Karaoke" — màn hình băng karaoke cho bài hát có lời: ảnh/clip của cảnh làm nền MV (không ảnh thì sân khấu tối có ba luồng đèn quét và đốm bokeh nhún theo bass đo từ chính file nhạc), hai ô lời ở một phần ba dưới — câu chẵn ô trên canh trái, câu lẻ ô dưới canh phải; chữ trắng viền đậm, phần đã hát đổi sang màu nhấn chạy từ trái sang phải theo tiếng hát; 4 chấm đếm ngược trước câu đầu và sau đoạn nhạc dạo; nhãn đoạn "♪ ĐIỆP KHÚC", huy hiệu micro "KARAOKE", màn tên bài "♪ KARAOKE ♪" trong đoạn dạo đầu. Dùng cho video bài hát có lời, cover, hát karaoke, nhạc thiếu nhi, đoạn điệp khúc cần người xem hát theo.
 ---
 
 # Phong cách: Karaoke (karaoke)
@@ -27,8 +27,8 @@ nhịp suy từ lời (trong câu nảy ở mỗi từ).
   nhấn bão hoà (accent xám/đen → xanh karaoke 205°), lộ dần từ trái sang phải trong từng từ.
 - **Hai ô lời** ở một phần ba dưới (trên vùng an toàn đáy): ô trên canh trái, ô dưới canh phải. Mỗi ô cao đủ hai
   hàng ở cỡ gốc (76px dọc, 68px ngang); câu ưu tiên nằm một hàng (co tới 72%), dài hơn thì xuống hai hàng chia đều.
-- **Thanh trên**: viên micro + handle (không có handle → "KARAOKE") góc trái, 5 cột nhạc nhỏ theo phổ góc phải.
-- **Màn tên bài**: "♪ KARAOKE ♪" màu nhấn, tên bài cỡ lớn viền đậm + quầng màu nhấn, dòng phụ, handle.
+- **Thanh trên**: viên micro + chữ "KARAOKE" góc trái, 5 cột nhạc nhỏ theo phổ góc phải.
+- **Màn tên bài**: "♪ KARAOKE ♪" màu nhấn, tên bài cỡ lớn viền đậm + quầng màu nhấn, dòng phụ.
 
 ## Dữ liệu được dùng thế nào
 
@@ -40,7 +40,7 @@ nhịp suy từ lời (trong câu nảy ở mỗi từ).
 | `tag` | "♪ ĐIỆP KHÚC" — viên màu nhấn ở hàng đầu khối lời, cạnh chấm đếm ngược. |
 | `punch` | Cụm từ nảy lên (spring) đúng lúc hát tới, đổi màu nhấn sáng hơn và có quầng. |
 | `visual` | Viên số liệu ở góc trên phải ("2024 phát hành"). |
-| `title`/`subtitle`/`handle` | Màn tên bài: khi `showTitle`, hoặc suốt đoạn dạo đầu nếu câu hát đầu cách giây 0 ít nhất ~4,5 giây (bài hát đưa từ file). |
+| `title`/`subtitle` | Màn tên bài: khi `showTitle`, hoặc suốt đoạn dạo đầu nếu câu hát đầu cách giây 0 ít nhất ~4,5 giây (bài hát đưa từ file). |
 
 ## Lỗi cần tránh
 

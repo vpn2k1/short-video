@@ -164,11 +164,10 @@ const SheetScene: React.FC<{
   );
 };
 
-/** Màn tiêu đề: nét vẽ khung tiêu đề, tên bản vẽ chữ kỹ thuật lớn, dòng phụ, người vẽ; cuối màn thì nhạt đi. */
-const TitleSheet: React.FC<{ title: string; subtitle: string; handle: string; accent: string; end: number }> = ({
+/** Màn tiêu đề: nét vẽ khung tiêu đề, tên bản vẽ chữ kỹ thuật lớn, dòng phụ; cuối màn thì nhạt đi. */
+const TitleSheet: React.FC<{ title: string; subtitle: string; accent: string; end: number }> = ({
   title,
   subtitle,
-  handle,
   accent,
   end,
 }) => {
@@ -189,7 +188,6 @@ const TitleSheet: React.FC<{ title: string; subtitle: string; handle: string; ac
   const out = ramp(frame, end - 12, 10, EASE_IN_OUT);
   const titleReveal = ramp(frame, 12, 22);
   const sub = ramp(frame, 28, 12);
-  const hand = ramp(frame, 36, 12);
   const dim = interpolate(frame, [20, 40], [0, 1], clamp);
   const off = 44 * unit;
   return (
@@ -281,24 +279,6 @@ const TitleSheet: React.FC<{ title: string; subtitle: string; handle: string; ac
           </div>
         ) : null}
       </div>
-      {handle ? (
-        <div
-          style={{
-            position: "absolute",
-            left: box.x,
-            top: box.y + box.h + 26 * unit,
-            width: box.w,
-            textAlign: "right",
-            fontFamily: MONO,
-            fontSize: 22 * unit,
-            letterSpacing: "0.1em",
-            color: C.ink,
-            opacity: hand,
-          }}
-        >
-          {`NGƯỜI VẼ: ${handle}`}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };
@@ -315,7 +295,7 @@ const itemsByScene = (captions: Caption[], scenes: Scene[], appearOf: (i: number
   return out;
 };
 
-export const BlueprintStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const BlueprintStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["lexend", "roboto"]);
   const frame = useCurrentFrame();
   const { width, height, unit } = useLayout();
@@ -348,13 +328,12 @@ export const BlueprintStyle: React.FC<ShortProps> = ({ title, subtitle, handle, 
           {render(active)}
         </AbsoluteFill>
       ) : null}
-      {showTitle && frame < titleEnd ? <TitleSheet title={title} subtitle={subtitle} handle={handle} accent={warm} end={titleEnd} /> : null}
+      {showTitle && frame < titleEnd ? <TitleSheet title={title} subtitle={subtitle} accent={warm} end={titleEnd} /> : null}
       {layout.scale ? <ScaleBar x={layout.scale.x} y={layout.scale.y} w={layout.scale.w} unit={unit} opacity={ramp(frame, 6, 14)} /> : null}
       <TitleBlock
         box={layout.titleBlock}
         unit={unit}
         title={title}
-        handle={handle}
         sheet={active + 1}
         sheets={sheets.length}
         accent={warm}

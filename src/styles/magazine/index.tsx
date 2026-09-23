@@ -16,12 +16,9 @@ const FALLBACK_SCENE: Scene = {
 const TURN_EASE = Easing.bezier(0.65, 0, 0.2, 1);
 
 /**
- * Tên tạp chí trên măng-sét: handle bỏ "@" (giống tên thương hiệu), không có thì vài chữ đầu của title.
- * In hoa bằng JS để giữ dấu tiếng Việt.
+ * Tên tạp chí trên măng-sét: vài chữ đầu của title (≤ 12 ký tự). In hoa bằng JS để giữ dấu tiếng Việt.
  */
-const brandOf = (handle: string, title: string) => {
-  const h = handle.replace(/^@/, "").trim();
-  if (h) return upper(h);
+const brandOf = (title: string) => {
   const words = title.trim().split(/\s+/).filter(Boolean);
   let out = "";
   for (const w of words) {
@@ -39,7 +36,6 @@ const brandOf = (handle: string, title: string) => {
 export const MagazineStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -52,7 +48,7 @@ export const MagazineStyle: React.FC<ShortProps> = ({
   const frame = useCurrentFrame();
   const { width, unit } = useLayout();
   const pages = scenes.length > 0 ? scenes : [FALLBACK_SCENE];
-  const brand = brandOf(handle, title);
+  const brand = brandOf(title);
 
   // Câu thuộc trang mà nó bắt đầu trong đó.
   const byPage: PageCaption[][] = pages.map(() => []);

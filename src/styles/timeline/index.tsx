@@ -40,7 +40,6 @@ const FALLBACK_SCENE: Scene = {
 export const TimelineStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   background,
   captions,
@@ -234,7 +233,6 @@ export const TimelineStyle: React.FC<ShortProps> = ({
         <TitleIntro
           title={title}
           subtitle={subtitle}
-          handle={handle}
           range={range}
           vertical={vertical}
           node={vertical ? { x: geo.line, y: 0 } : { x: geo.anchor, y: geo.line }}

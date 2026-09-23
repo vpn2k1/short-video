@@ -1,6 +1,6 @@
 ---
 name: style-story
-description: Phong cách "Story điện thoại" — mỗi cảnh là một khung story trên điện thoại (chung chung, không logo thật): thanh tiến độ chia đoạn chạy theo cảnh, đầu story có avatar vòng gradient + tên + "2 giờ" + ⋯ ✕, ảnh/clip tràn màn hình, phụ đề là nhãn chữ đậm trên khối màu bo góc nghiêng nhẹ bật từng câu, tag là nhãn vị trí 📍 / nhắc tên @, câu hỏi thành nhãn thăm dò "Có 👍 / Không 👎" có phần trăm chạy, câu nhấn khác thành nhãn GIF + mưa emoji, số liệu là nhãn đếm ngược, thanh "Gửi tin nhắn" có tim bay, cảnh không ảnh là nền gradient chế độ "Tạo", mở đầu bằng chạm avatar mở story. Dùng cho hậu trường, một ngày của tôi, cập nhật cá nhân, khoe sản phẩm kiểu đời thường, hỏi ý kiến/bình chọn, phong cách sống.
+description: Phong cách "Story điện thoại" — mỗi cảnh là một khung story trên điện thoại (chung chung, không logo thật): thanh tiến độ chia đoạn chạy theo cảnh, đầu story có avatar vòng gradient + "2 giờ" + ⋯ ✕, ảnh/clip tràn màn hình, phụ đề là nhãn chữ đậm trên khối màu bo góc nghiêng nhẹ bật từng câu, tag là nhãn vị trí 📍 / nhắc tên @, câu hỏi thành nhãn thăm dò "Có 👍 / Không 👎" có phần trăm chạy, câu nhấn khác thành nhãn GIF + mưa emoji, số liệu là nhãn đếm ngược, thanh "Gửi tin nhắn" có tim bay, cảnh không ảnh là nền gradient chế độ "Tạo", mở đầu bằng chạm avatar mở story. Dùng cho hậu trường, một ngày của tôi, cập nhật cá nhân, khoe sản phẩm kiểu đời thường, hỏi ý kiến/bình chọn, phong cách sống.
 ---
 
 # Story điện thoại
@@ -11,8 +11,8 @@ description: Phong cách "Story điện thoại" — mỗi cảnh là một khun
   đứng giữa bản mờ của ảnh cảnh; khung ngang còn có các story trước/sau là thẻ nhỏ mờ hai bên như trình xem trên máy tính.
 - Mọi thứ trong màn hình vẽ trên canvas ảo rộng 1080px rồi thu phóng cả khối — nhãn dán giữ đúng tỉ lệ ở mọi khung.
 - Chữ: **Be Vietnam Pro** (giao diện, nhãn chữ, nhãn thăm dò), **Baloo 2** 800 (nhãn GIF). Đóng gói sẵn, đủ dấu, nạp bằng `ensureFonts`.
-- Trên cùng: thanh tiến độ trắng mỗi cảnh một đoạn; đầu story: avatar tròn (chữ cái đầu của handle trên nền màu nhấn, vòng
-  gradient màu nhấn → cam → hồng → tím), tên (bỏ "@"), "2 giờ", ⋯ và ✕. Đáy: ô "Gửi tin nhắn" viền trắng, tim, máy bay giấy.
+- Trên cùng: thanh tiến độ trắng mỗi cảnh một đoạn; đầu story: avatar tròn (chữ cái đầu của tiêu đề trên nền màu nhấn, vòng
+  gradient màu nhấn → cam → hồng → tím), "2 giờ", ⋯ và ✕. Không có tên tài khoản — tên kênh chỉ hiện qua watermark trong Cài đặt. Đáy: ô "Gửi tin nhắn" viền trắng, tim, máy bay giấy.
 - Lớp tối mờ trên/dưới để giao diện trắng đọc được trên mọi ảnh. Biểu tượng vẽ SVG kiểu chung chung.
 
 ## Dữ liệu được dùng thế nào
@@ -26,7 +26,7 @@ description: Phong cách "Story điện thoại" — mỗi cảnh là một khun
 | `punch` | Hiện từ `atMs` tới hết cảnh ở ~2/3 màn hình. **Kết bằng "?"** → nhãn thăm dò: câu hỏi + hai hàng "Có 👍 / Không 👎", bấm chọn rồi thanh phần trăm chạy (tỉ lệ cố định theo seed của câu) + "… lượt bình chọn"; câu phụ đề gần như trùng câu hỏi thì nhường chỗ. **Còn lại** → nhãn GIF: chữ tròn in hoa viền màu nhấn, lắc giật mỗi 4 frame, emoji góc + chùm emoji bung ra (chọn theo nghĩa: cười 😂, yêu/đẹp 😍, sốc 😱, ngon 🤤, buồn 🥲, mặc định 🔥👏). Kèm chùm tim bay. Phụ đề nhích lên chừa chỗ. |
 | `visual` stat | Nhãn đếm ngược góc trên phải: chú thích in hoa, con số chạy từ 0 trong các ô chữ số (giữ số 0 đầu như đồng hồ, tối đa 4 chữ số; dài hơn thì in liền), nút "Nhắc tôi". |
 | `visual` badge | Nhãn "thêm của bạn": viên gradient mang chữ + chú thích + "Thêm của bạn ›". |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: khay story (avatar lớn vòng đang xoay, tên, "Tin mới · 2 giờ trước"), chạm avatar, story nở ra thành vòng tròn từ avatar; tiêu đề là nhãn chữ đầu tiên (khối màu nhấn), dòng phụ là nhãn trắng dưới. |
+| `title`/`subtitle` | Khi `showTitle`: khay story (avatar lớn vòng đang xoay, "Tin mới" + "2 giờ trước"), chạm avatar, story nở ra thành vòng tròn từ avatar; tiêu đề là nhãn chữ đầu tiên (khối màu nhấn), dòng phụ là nhãn trắng dưới. |
 | `captionPosition` | Không dùng — vị trí nhãn do phong cách quyết định. |
 
 ## Chuyển động
@@ -44,7 +44,6 @@ description: Phong cách "Story điện thoại" — mỗi cảnh là một khun
 - `tag` dài hơn ~20 ký tự bị co nhỏ; khi cảnh có cả `visual` thì tag chỉ còn nửa trái màn hình.
 - `punch` muốn thành nhãn thăm dò phải KẾT BẰNG "?" và chép nguyên văn từ câu phụ đề; câu hỏi dài hơn ~60 ký tự làm thẻ cao.
 - `visual.text` nên là con số ngắn ("3", "80%", "12") — dài hơn 4 chữ số thì mất ô đếm ngược.
-- Handle rỗng → avatar lấy chữ cái đầu của tiêu đề, tên hiện "tin_cua_ban".
 - Nhãn chữ là phần của khung story nhưng vẫn là phụ đề thường: phong cách này **nhận** kiểu phụ đề tuỳ chỉnh (khi đó composition vẽ phụ đề thay).
 
 ## Viết nội dung cho phong cách này

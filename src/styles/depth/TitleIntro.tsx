@@ -8,15 +8,10 @@ import { useShape } from "./Stage";
 
 /**
  * Màn hình tiêu đề: khoảng không có sàn lưới và khối khung dây lớn; tiêu đề bay tới TỪNG CHỮ từ sâu -1400,
- * mỗi chữ xoay một góc rồi về thẳng; dòng phụ trượt lên, handle mờ ở đáy. 14 frame cuối cả khối lao qua camera
+ * mỗi chữ xoay một góc rồi về thẳng; dòng phụ trượt lên. 14 frame cuối cả khối lao qua camera
  * (sao và sàn tăng tốc) — đúng lúc tấm kính cảnh đầu bay tới.
  */
-export const DepthTitle: React.FC<{ title: string; subtitle: string; handle: string; palette: Palette }> = ({
-  title,
-  subtitle,
-  handle,
-  palette,
-}) => {
+export const DepthTitle: React.FC<{ title: string; subtitle: string; palette: Palette }> = ({ title, subtitle, palette }) => {
   const frame = useCurrentFrame();
   const { unit, width, height, safe, fps } = useLayout();
   const { wide, square } = useShape();
@@ -117,24 +112,6 @@ export const DepthTitle: React.FC<{ title: string; subtitle: string; handle: str
           ) : null}
         </div>
       </AbsoluteFill>
-      {handle.trim() ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: safe.bottom * 0.6,
-            textAlign: "center",
-            fontFamily: BODY,
-            fontWeight: 600,
-            fontSize: 30 * unit,
-            color: "rgba(230,235,255,0.8)",
-            opacity: interpolate(frame, [lettersDone + 4, lettersDone + 14], [0, 1], clamp),
-          }}
-        >
-          {handle.trim()}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };

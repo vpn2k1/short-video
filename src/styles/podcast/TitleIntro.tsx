@@ -2,18 +2,18 @@ import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } f
 import { TITLE_FRAMES } from "../../constants";
 import { fitFontSize, useLayout } from "../shared";
 import { MicIcon, PlayIcon } from "./parts";
-import { alpha, barHeight, clamp, CREAM, mix, MUTED, SANS, showName, STUDIO, upper } from "./podcast";
+import { alpha, barHeight, clamp, CREAM, mix, MUTED, SANS, STUDIO, upper } from "./podcast";
 
 const VIDEO_EXT = /\.(mp4|mov|webm)$/i;
 
 /**
  * Màn tiêu đề: ô bìa podcast vuông (ảnh cảnh đầu tiên ám màu nhấn, hoặc gradient có vòng sóng) với nhãn
- * "PODCAST · TẬP n", tiêu đề lớn, dòng phụ, handle; dưới bìa là nút "▶ Nghe ngay" và một hàng sóng nhỏ.
+ * "PODCAST · TẬP n", tiêu đề lớn, dòng phụ; dưới bìa là nút "▶ Nghe ngay" và một hàng sóng nhỏ.
  * Bìa phóng vào, nút bật lên, frame ~46 nút bị "bấm" (lún xuống), rồi bìa lùi ra và mờ để lộ thẻ tập.
  */
 export const PodcastTitle: React.FC<{
-  title: string; subtitle: string; handle: string; accent: string; coverImage: string | null; episode: number;
-}> = ({ title, subtitle, handle, accent, coverImage, episode }) => {
+  title: string; subtitle: string; accent: string; coverImage: string | null; episode: number;
+}> = ({ title, subtitle, accent, coverImage, episode }) => {
   const frame = useCurrentFrame();
   const { width, height, unit, safe } = useLayout();
   const wide = width / height > 1.2;
@@ -33,7 +33,6 @@ export const PodcastTitle: React.FC<{
   const titleSize = fitFontSize(cleanTitle, tile * 0.13, 0.5);
   const pad = tile * 0.08;
   const image = coverImage && !VIDEO_EXT.test(coverImage) ? coverImage : null;
-  const name = showName(handle);
   const bars = 22;
 
   return (
@@ -104,8 +103,6 @@ export const PodcastTitle: React.FC<{
                 {subtitle.normalize("NFC").trim()}
               </div>
             ) : null}
-            <div style={{ width: tile * 0.14, height: tile * 0.008, borderRadius: 99, backgroundColor: "#ffffff", opacity: 0.7, marginTop: tile * 0.01 }} />
-            <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: tile * 0.04, lineHeight: 1.25, color: "#ffffff", opacity: 0.9 }}>{name}</div>
           </div>
         </div>
         {/* Nút "Nghe ngay" + hàng sóng nhỏ. */}
@@ -142,7 +139,7 @@ export const PodcastTitle: React.FC<{
           </div>
         </div>
         <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 24 * unit, color: CREAM, opacity: 0.5 * button, letterSpacing: 3 * unit, marginTop: -20 * unit }}>
-          {upper("Tập mới · Nghe cùng")} {name}
+          {upper("Tập mới · Mời bạn nghe")}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

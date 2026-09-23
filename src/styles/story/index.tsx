@@ -25,7 +25,7 @@ import { clamp, GeoContext, safeAccent, STORY_FONTS, VIDEO_EXT, VW, type Geo } f
 const OPEN_FROM = 18;
 const OPEN_TO = 34;
 
-export const StoryStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent: rawAccent, captions, scenes: rawScenes, showTitle }) => {
+export const StoryStyle: React.FC<ShortProps> = ({ title, subtitle, accent: rawAccent, captions, scenes: rawScenes, showTitle }) => {
   ensureFonts(STORY_FONTS);
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
@@ -85,14 +85,14 @@ export const StoryStyle: React.FC<ShortProps> = ({ title, subtitle, handle, acce
   const screen = (
     <GeoContext.Provider value={geo}>
       <div style={{ position: "absolute", left: 0, top: 0, width: VW, height: geo.vh, transformOrigin: "0 0", scale: String(scale), overflow: "hidden" }}>
-        {opening ? <StoryTray vh={geo.vh} handle={handle} title={title} accent={accent} firstImage={firstStill} /> : null}
+        {opening ? <StoryTray vh={geo.vh} title={title} accent={accent} firstImage={firstStill} /> : null}
         {showTitle && frame < OPEN_FROM ? null : (
           <AbsoluteFill style={{ clipPath, WebkitClipPath: clipPath, opacity: fadeIn }}>
             <Frames scenes={scenes} accent={accent} />
             <Scrims />
             {geo.phone ? <StatusBar /> : null}
             <ProgressBars scenes={scenes} />
-            <Header handle={handle} title={title} accent={accent} />
+            <Header title={title} accent={accent} />
             <FloatingHearts scenes={scenes} showTitle={showTitle} accent={accent} />
             <TagSticker scenes={scenes} showTitle={showTitle} accent={accent} />
             <VisualSticker scenes={scenes} showTitle={showTitle} accent={accent} />
@@ -122,7 +122,6 @@ export const StoryStyle: React.FC<ShortProps> = ({ title, subtitle, handle, acce
         <NeighborCards
           scenes={scenes}
           accent={accent}
-          handle={handle}
           title={title}
           cx={width / 2}
           cy={height / 2}

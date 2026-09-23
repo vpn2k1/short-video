@@ -12,7 +12,7 @@ const BAR_PAD_EM = 0.14;
  * Title card: tiêu đề in hoa cỡ lớn bật từng từ, thanh vàng quét sau từ cuối,
  * phụ đề trượt lên; co lại và tắt trong 10 frame cuối — trước khi phụ đề chạy.
  */
-export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: string }> = ({ title, subtitle, handle }) => {
+export const TitleIntro: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
   const { width, height, safe, unit, portrait } = useLayout();
   if (frame >= TITLE_FRAMES) return null;
@@ -141,26 +141,6 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: str
           </div>
         ) : null}
       </div>
-
-      {handle ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: safe.bottom,
-            textAlign: "center",
-            fontFamily: FONTS.sans,
-            fontWeight: 700,
-            fontSize: 34 * unit,
-            color: "#ffffff",
-            textShadow: outlineShadow(24 * unit, false),
-            opacity: interpolate(frame, [subStart, subStart + 6], [0, 0.85], clamp) * (1 - exit),
-          }}
-        >
-          {handle}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };

@@ -414,7 +414,7 @@ export const createEditorProject = (body: unknown) => {
   }];
 
   const props = shortSchema.parse({
-    title: name, subtitle: "", handle: "@kenh", accent: "#ff6b2c", background: "#000000",
+    title: name, subtitle: "", accent: "#ff6b2c", background: "#000000",
     captions: [], aspect: aspectId, style: "plain", scenes, overlays,
     captionPosition: "bottom", showTitle: false, voiceoverTrack: null, music: null, sfx: false,
   });
@@ -1889,7 +1889,7 @@ const runMultiScene = async (slug: string, input: MultiInput, log: (line: string
   }
 
   const props = shortSchema.parse({
-    title: input.title, subtitle: "", handle: "@kenh", accent: "#ff6b2c", background: "#000000",
+    title: input.title, subtitle: "", accent: "#ff6b2c", background: "#000000",
     captions, aspect: input.aspect, style: "plain", scenes,
     captionPosition: "bottom", showTitle: false, voiceoverTrack: null, music: await resolveMusicChoice(input.music, log), sfx: false,
   });

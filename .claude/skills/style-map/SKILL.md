@@ -30,11 +30,11 @@ description: Phong cách "Bản đồ hành trình" — tấm bản đồ minh h
 | `captions` | Bảng giấy dưới đáy, mỗi lúc một câu, co chữ nếu dài (tối thiểu 28px); đầu bảng "CHẶNG n / tổng" + hàng chấm hành trình (≤ 12 chấm, nhiều hơn thành thanh). |
 | `punch` | Các từ khớp nguyên văn trong câu được bút dạ màu nhấn quét lúc `atMs`; đồng thời con dấu cao su nghiêng đập xuống (góc dưới trái bưu thiếp, hoặc phía trên ghim khi không ảnh): dòng nhỏ "ĐÃ ĐẾN · CHẶNG 02" + câu nhấn in hoa (câu nhấn > 24 ký tự thì chữ lớn là "ĐÃ ĐẾN!"); vòng khoanh tay vẽ dần quanh ghim. |
 | `visual` stat/badge | Viên mực đậm có vòng màu nhấn + biểu tượng (thước cho km/m, đồng hồ cho ngày/giờ/phút, cờ cho còn lại) + con số + chú thích; nối bằng dây chấm tới giữa chặng vừa đi (cảnh đầu: tới ghim). Tự chọn chỗ trống quanh điểm neo, tránh nhãn, ghim, bưu thiếp, bảng phụ đề. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: bản đồ mở ra (ngang rồi dọc, nếp gấp đậm), camera nhìn toàn hành trình dự kiến, khung cartouche giấy có hoa văn góc: "✦ HÀNH TRÌNH ✦", tiêu đề Playfair, gạch đứt có hình thoi màu nhấn, dòng phụ; ruy băng màu nhấn đuôi chữ V mang handle. |
+| `title`/`subtitle` | Khi `showTitle`: bản đồ mở ra (ngang rồi dọc, nếp gấp đậm), camera nhìn toàn hành trình dự kiến, khung cartouche giấy có hoa văn góc: "✦ HÀNH TRÌNH ✦", tiêu đề Playfair, gạch đứt có hình thoi màu nhấn, dòng phụ. |
 
 ## Chuyển động
 
-- Mở đầu (70 frame): 0–12 bản đồ mở ngang, 6–18 mở dọc; 12–26 cartouche cuộn mở, 20–32 ruy băng kéo đuôi, chữ hiện dần;
+- Mở đầu (70 frame): 0–12 bản đồ mở ngang, 6–18 mở dọc; 12–26 cartouche cuộn mở, chữ hiện dần;
   48–66 cartouche bay lên mờ đi trong lúc camera sà từ toàn cảnh vào điểm 1; frame 58–68 ghim 1 cắm xuống (nảy), gợn tròn loang.
 - Sang cảnh: trong ~42% thời lượng cảnh (10–36 frame) máy bay bay theo đường cong, đường gạch lộ dần phía sau, camera
   trượt theo và lùi ra ~22% giữa đường rồi sà vào; ghim cũ thu nhỏ đổi màu, bưu thiếp cũ thu về ghim cũ.
@@ -78,5 +78,5 @@ description: Phong cách "Bản đồ hành trình" — tấm bản đồ minh h
 - `src/styles/map/geo.ts` — hành trình có seed, đường cong chặng, đất liền/núi/sóng, camera, màu và font.
 - `src/styles/map/Terrain.tsx` — lớp bản đồ theo camera: lưới, vòng sóng, bờ biển, đất, núi, đường dự kiến, chặng đã/đang đi.
 - `src/styles/map/parts.tsx` — ghim, nhãn, máy bay, bưu thiếp + tem, viên số, con dấu, vòng khoanh, la bàn, khung viền, nếp gấp.
-- `src/styles/map/Panel.tsx` — bảng phụ đề "CHẶNG n / tổng" và khung tiêu đề cartouche + ruy băng.
+- `src/styles/map/Panel.tsx` — bảng phụ đề "CHẶNG n / tổng" và khung tiêu đề cartouche.
 - `src/styles/media.tsx` — ảnh/clip của cảnh trong khung (dùng chung).

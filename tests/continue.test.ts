@@ -7,7 +7,7 @@ import { partTitle, seriesBaseTitle } from "../scripts/generate-script";
 import type { VideoScript } from "../src/compositions/Short/script";
 
 const script = (title: string, line: string): VideoScript => ({
-  style: "caption", title, subtitle: "s", handle: "@kenh", accent: "#e8590c", background: "#000000",
+  style: "caption", title, subtitle: "s", accent: "#e8590c", background: "#000000",
   scenes: [{ lines: [line], image: null, visual: null, tag: null, punch: null }],
 });
 

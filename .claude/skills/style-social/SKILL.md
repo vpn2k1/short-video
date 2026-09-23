@@ -13,8 +13,8 @@ description: Phong cách "Bài đăng MXH" — thẻ bài đăng kiểu diễn �
   (đắt) — chỉ phóng 1.06 + lớp tối. Không có ảnh: gradient tối ám màu `accent`.
 - Giữa khung: thẻ bài đăng trắng bo góc 44px × unit, bóng đổ sâu. 9:16: rộng 88% khung (≤ 960 × unit);
   16:9 / 1:1: rộng tới 1150 × unit trong vùng an toàn.
-- Header: avatar tròn gradient `accent` với chữ cái đầu của handle, tên hiển thị (handle bỏ `@`, trống thì
-  "Ẩn danh"), tích xác minh hoa thị vẽ bằng SVG, "· N giờ" xám (N suy từ `seeded(title)`), chip cộng đồng
+- Header: avatar tròn gradient `accent` với chữ "Ẩ", tên người đăng luôn là "Ẩn danh" (tên kênh chỉ hiện qua watermark
+  trong Cài đặt), tích xác minh hoa thị vẽ bằng SVG, "· N giờ" xám (N suy từ `seeded(title)`), chip cộng đồng
   `r/<tag>` dưới tên, nút ⋯ bên phải.
 - Thân bài: `FONTS.sans` 500, chữ đen #0f1419 trên trắng; câu đã qua mờ về xám #6e7a86.
 - Footer: tim / bình luận / chia sẻ + đánh dấu, icon SVG chung chung (không logo thật), số kiểu Việt `1,2K`, `12K`, `1,5 Tr`.
@@ -28,7 +28,6 @@ description: Phong cách "Bài đăng MXH" — thẻ bài đăng kiểu diễn �
 | `scenes` | mỗi cảnh = một thẻ ("một phần"). Không có cảnh → cả video là một thẻ |
 | `title` | tiêu đề đậm của thẻ cảnh 1 (≤ 2 dòng) và tiêu đề lớn của thẻ intro; seed cho số tương tác và "N giờ" |
 | `subtitle` | dòng xám dưới tiêu đề, chỉ trong intro |
-| `handle` | tên hiển thị + chữ cái avatar |
 | `tag` | chip cộng đồng: chữ thường (`vi`), khoảng trắng → `-`, thêm `r/` ("Tâm sự công sở" → `r/tâm-sự-công-sở`) |
 | `punch` | tìm nguyên văn (không phân biệt hoa thường) trong thân bài: đúng `atMs` bút dạ vàng quét qua cụm, chữ đậm, nảy 1.09; tim footer chuyển đỏ + nảy. Không tìm thấy → chip trích dẫn đậm “…” viền trái `accent` mở ra dưới thân bài |
 | `visual` stat | pill `accent` phía trên thẻ: tim trắng đập nhịp + `text` đậm + `caption` ("♥ 12K người đồng cảm") |

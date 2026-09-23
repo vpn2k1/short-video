@@ -1,7 +1,7 @@
 /**
  * Phong cách "Podcast" — clip podcast / audiogram. Xem skill `.claude/skills/style-podcast/SKILL.md`.
  *
- * Phòng thu tối ấm. Thẻ tập bo góc: đầu thẻ (micro, tên chương trình = handle, "TẬP n", "● ĐANG PHÁT"),
+ * Phòng thu tối ấm. Thẻ tập bo góc: đầu thẻ (micro, "PODCAST · TẬP n", "● ĐANG PHÁT"),
  * ảnh/clip của cảnh trong khung lớn, hàng sóng âm nhảy theo lời đọc (cao khi đang nói, êm ở khoảng lặng),
  * thanh tiến độ có thời gian đã phát. Dưới (dọc) hoặc bên phải (ngang/vuông) là thẻ trích dẫn: dấu ngoặc kép
  * lớn, mỗi lúc một câu, từ sáng dần theo nhịp đọc ước lượng. `tag` là bảng tên khách mời / chương,
@@ -18,7 +18,7 @@ import { useCaptionClock, useLayout, useSceneClock } from "../shared";
 import { BubbleIcon, Header, MediaFrame, Scrubber, StatCard, Studio, TagPlate, Waveform } from "./parts";
 import {
   alpha, captionFrames, clamp, CREAM, EMPTY_SCENE, episodeNumber, geometry, MUTED, PODCAST_FONTS, punchRange, SANS, SERIF,
-  showName, speechLevel, wordTimes, type Rect,
+  speechLevel, wordTimes, type Rect,
 } from "./podcast";
 import { PodcastTitle } from "./TitleIntro";
 
@@ -35,8 +35,8 @@ const fitQuote = (text: string, w: number, h: number, base: number, min: number)
 // Thẻ trích dẫn
 // ---------------------------------------------------------------------------
 const Quote: React.FC<{
-  rect: Rect; pad: number; captions: Caption[]; scene: Scene; title: string; handle: string; showTitle: boolean; accent: string; unit: number; stacked: boolean;
-}> = ({ rect, pad, captions, scene, title, handle, showTitle, accent, unit, stacked }) => {
+  rect: Rect; pad: number; captions: Caption[]; scene: Scene; title: string; showTitle: boolean; accent: string; unit: number; stacked: boolean;
+}> = ({ rect, pad, captions, scene, title, showTitle, accent, unit, stacked }) => {
   const frame = useCurrentFrame();
   const { caption, startFrame, index } = useCaptionClock(captions);
   const titleEnd = showTitle ? TITLE_FRAMES - 6 : 0;
@@ -82,9 +82,8 @@ const Quote: React.FC<{
   // Cụm nhấn không có nguyên văn trong câu → hiện luôn cụm đó trong nhãn.
   const labelBase = narrow ? "Đáng nhớ" : "Câu đáng nhớ";
   const labelText = punch && !range ? `${labelBase}: ${punch.text.normalize("NFC").trim()}` : labelBase;
-  // Lời trích của ai: tên trong tag "Khách mời: …" nếu có, không thì tên chương trình.
-  const tagName = scene.tag?.normalize("NFC").match(/^[^:]{1,18}:\s*(.+)$/)?.[1]?.trim();
-  const speaker = tagName || showName(handle);
+  // Lời trích của ai: tên trong tag "Khách mời: …" nếu có, không thì bỏ trống dòng ký tên.
+  const speaker = scene.tag?.normalize("NFC").match(/^[^:]{1,18}:\s*(.+)$/)?.[1]?.trim() ?? "";
 
   return (
     <div
@@ -200,7 +199,7 @@ const Quote: React.FC<{
           )}
         </div>
       </div>
-      {/* Ký tên người nói ở chân thẻ. */}
+      {/* Ký tên người nói ở chân thẻ (chỉ khi tag có tên). */}
       <div
         style={{
           position: "absolute",
@@ -210,7 +209,7 @@ const Quote: React.FC<{
           display: "flex",
           alignItems: "center",
           gap: 14 * unit,
-          opacity: caption ? 1 : 0,
+          opacity: caption && speaker ? 1 : 0,
         }}
       >
         <div style={{ width: 36 * unit, height: 3 * unit, borderRadius: 3 * unit, backgroundColor: accent, flexShrink: 0 }} />
@@ -225,7 +224,7 @@ const Quote: React.FC<{
 // ---------------------------------------------------------------------------
 // Phong cách
 // ---------------------------------------------------------------------------
-export const PodcastStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const PodcastStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(PODCAST_FONTS);
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -261,14 +260,13 @@ export const PodcastStyle: React.FC<ShortProps> = ({ title, subtitle, handle, ac
             boxShadow: `0 ${30 * unit}px ${80 * unit}px rgba(0,0,0,0.5), inset 0 ${1.5 * unit}px 0 rgba(255,255,255,0.06)`,
           }}
         />
-        <Header rect={g.header} handle={handle} episode={episode} accent={accent} unit={unit} compact={g.header.w < 620 * unit} />
+        <Header rect={g.header} episode={episode} accent={accent} unit={unit} compact={g.header.w < 620 * unit} />
         <MediaFrame
           rect={g.media}
           scene={scene}
           prev={prev}
           localFrame={localFrame}
           durationFrames={clock.durationFrames}
-          handle={handle}
           accent={accent}
           level={level}
           unit={unit}
@@ -283,7 +281,6 @@ export const PodcastStyle: React.FC<ShortProps> = ({ title, subtitle, handle, ac
           captions={captions}
           scene={scene}
           title={title}
-          handle={handle}
           showTitle={showTitle}
           accent={accent}
           unit={unit}
@@ -292,7 +289,7 @@ export const PodcastStyle: React.FC<ShortProps> = ({ title, subtitle, handle, ac
       </AbsoluteFill>
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <PodcastTitle title={title} subtitle={subtitle} handle={handle} accent={accent} coverImage={cover} episode={episode} />
+          <PodcastTitle title={title} subtitle={subtitle} accent={accent} coverImage={cover} episode={episode} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

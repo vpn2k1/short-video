@@ -46,7 +46,7 @@ description: Phong cách "Cảnh 3D thật" — studio 3D dựng bằng Three.js
 | `image` ảnh | dán thẳng lên tấm WebGL (crop chỉ cắt vùng kiểu cover) |
 | `image` video, hoặc crop xoay/lật/contain | mặt trước DOM (`SceneMedia` — giữ cắt đầu, tốc độ, tiếng, crop) trong khung CSS `perspective` = tiêu cự camera, cùng tư thế → trùng khít tấm 3D (tấm để mặt trước tối). Chỉ "bật" khi tấm đã tới gần và tấm cảnh trước đã văng đi — DOM luôn vẽ trên canvas |
 | `image` null | nút xoắn crôm màu `key` xoay liên tục thay tấm ảnh |
-| `title`/`subtitle`/`handle` | 70 frame: nút xoắn crôm lớn nở ra phía trên; tiêu đề crôm hiện từng từ (trồi từ nhoè), từ cuối màu nhấn, vệt sáng quét khi đủ chữ; dòng phụ trên viên kính; handle ở đáy; 12 frame cuối chữ mờ, nút xoắn lùi vào sâu khi tấm ảnh đầu xoay tới |
+| `title`/`subtitle` | 70 frame: nút xoắn crôm lớn nở ra phía trên; tiêu đề crôm hiện từng từ (trồi từ nhoè), từ cuối màu nhấn, vệt sáng quét khi đủ chữ; dòng phụ trên viên kính; 12 frame cuối chữ mờ, nút xoắn lùi vào sâu khi tấm ảnh đầu xoay tới |
 | `background` | không dùng |
 
 ## Chuyển động

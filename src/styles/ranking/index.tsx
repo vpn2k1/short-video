@@ -19,7 +19,6 @@ import { TitleIntro } from "./TitleIntro";
 export const RankingStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -37,7 +36,7 @@ export const RankingStyle: React.FC<ShortProps> = ({
       <CaptionStrip L={L} captions={captions} accent={accent} />
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <TitleIntro L={L} title={title} subtitle={subtitle} handle={handle} accent={accent} />
+          <TitleIntro L={L} title={title} subtitle={subtitle} accent={accent} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

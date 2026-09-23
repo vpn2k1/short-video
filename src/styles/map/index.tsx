@@ -115,7 +115,7 @@ const useMapLayout = (): MapLayout => {
   };
 };
 
-export const MapStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const MapStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["bevietnam", "playfair"]);
   const frame = useCurrentFrame();
   const { width, height, unit, safe } = useLayout();
@@ -351,7 +351,6 @@ export const MapStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent
         <TitleCartouche
           title={title}
           subtitle={subtitle}
-          handle={handle}
           accent={accent}
           frame={frame}
           width={L.mode === "wide" ? width * 0.52 : L.mode === "square" ? width * 0.78 : width - 2 * Math.max(70 * unit, safe.side * 0.6)}

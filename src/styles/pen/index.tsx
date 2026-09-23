@@ -328,11 +328,11 @@ const Page: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// Tờ tiêu đề: bút viết tiêu đề, gạch hoa mỹ, dòng phụ, ký tên
+// Tờ tiêu đề: bút viết tiêu đề, gạch hoa mỹ, dòng phụ
 // ---------------------------------------------------------------------------
 const TitleSheet: React.FC<{
-  title: string; subtitle: string; handle: string; accent: string; frame: number; sheet: Sheet; ready: boolean;
-}> = ({ title, subtitle, handle, accent, frame, sheet, ready }) => {
+  title: string; subtitle: string; accent: string; frame: number; sheet: Sheet; ready: boolean;
+}> = ({ title, subtitle, accent, frame, sheet, ready }) => {
   const layout = useLayout();
   const { width, height, safe, unit } = layout;
   const boxW = width - safe.side * 2 - 40 * unit;
@@ -359,17 +359,7 @@ const TitleSheet: React.FC<{
       align: "center", boxWidth: boxW, color: "#3c4a70", start: titleBlock.end + 10, end: titleBlock.end + 30, punch: null,
     }
     : null;
-  const signSize = 54 * unit;
-  const signLines = handle ? wrap(handle, signSize, boxW * 0.6, ready) : [];
-  const signW = Math.max(0, ...signLines.map((l) => l.width));
-  const signBlock: InkBlock | null = signLines.length
-    ? {
-      key: "pen-sign", lines: signLines, x: width - safe.side - 30 * unit - signW, y: height - safe.bottom - signSize * 2,
-      size: signSize, align: "left", boxWidth: signW, color: INK,
-      start: (subBlock?.end ?? titleBlock.end + 10) + 4, end: Math.min(TITLE_FRAMES - 4, (subBlock?.end ?? titleBlock.end + 10) + 16), punch: null,
-    }
-    : null;
-  const blocks = [titleBlock, subBlock, signBlock].filter((b): b is InkBlock => b !== null);
+  const blocks = [titleBlock, subBlock].filter((b): b is InkBlock => b !== null);
 
   // Nét lượn hoa mỹ dưới tiêu đề.
   const fw = Math.min(boxW * 0.7, Math.max(...lines.map((l) => l.width)) * 0.9);
@@ -401,7 +391,7 @@ const TitleSheet: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-export const PenStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const PenStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   const frame = useCurrentFrame();
   const layout = useLayout();
   const ready = useFontReady("dancing");
@@ -466,7 +456,7 @@ export const PenStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent
             transformOrigin: "0% 100%",
           }}
         >
-          <TitleSheet title={title} subtitle={subtitle} handle={handle} accent={accent} frame={frame} sheet={sheet} ready={ready} />
+          <TitleSheet title={title} subtitle={subtitle} accent={accent} frame={frame} sheet={sheet} ready={ready} />
         </AbsoluteFill>
       ) : null}
 

@@ -67,12 +67,11 @@ export const aspectFor = (width: number, height: number): Aspect => {
   return best;
 };
 
-/** Chỗ đặt watermark và phụ đề, tính từ đáy — luôn nằm ngoài dải nền tảng chiếm. */
+/** Chỗ đặt phụ đề, tính từ đáy — luôn nằm ngoài dải nền tảng chiếm. */
 export const layoutFor = (width: number, height: number) => {
   const { safe } = aspectFor(width, height);
   return {
     safe,
-    watermarkBottom: safe.bottom + Math.round(height * 0.021),
     captionBottom: safe.bottom + Math.round(height * 0.094),
   };
 };

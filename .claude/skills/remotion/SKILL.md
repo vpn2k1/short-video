@@ -34,7 +34,7 @@ src/
   scenes/               Background, Scenes (ảnh + cross-fade), SceneVisual, Scrim
   captions/             Captions
   audio/                Soundtrack, mix.ts (hàm thuần tính volume)
-  components/           TitleCard, Watermark, ProgressBar
+  components/           TitleCard, WatermarkOverlay, ProgressBar
 ```
 
 Thứ tự lớp cố định — đảo là hỏng:

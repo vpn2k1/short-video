@@ -352,7 +352,7 @@ const Page: React.FC<{ scene: Scene; index: number; captions: Caption[]; printAt
 // ---------------------------------------------------------------------------
 // Bìa truyện
 // ---------------------------------------------------------------------------
-const CoverPage: React.FC<{ title: string; subtitle: string; handle: string; accent: string; frame: number }> = ({ title, subtitle, handle, accent, frame }) => {
+const CoverPage: React.FC<{ title: string; subtitle: string; accent: string; frame: number }> = ({ title, subtitle, accent, frame }) => {
   const { width, safe, unit } = useLayout();
   const maxW = width - safe.side * 2;
   let size = 130 * unit;
@@ -392,11 +392,6 @@ const CoverPage: React.FC<{ title: string; subtitle: string; handle: string; acc
           </div>
         ) : null}
       </AbsoluteFill>
-      {handle ? (
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: safe.bottom, textAlign: "center", fontFamily: ROUND, fontWeight: 600, fontSize: 34 * unit, color: INK, opacity: 0.7 }}>
-          {handle}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };
@@ -430,7 +425,7 @@ const Curling: React.FC<{ t: number; children: React.ReactNode }> = ({ t, childr
 };
 
 // ---------------------------------------------------------------------------
-export const StorybookStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const StorybookStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["baloo", "dancing"]);
   const frame = useCurrentFrame();
   const pages = scenes.length > 0 ? scenes : [FALLBACK_SCENE];
@@ -467,11 +462,11 @@ export const StorybookStyle: React.FC<ShortProps> = ({ title, subtitle, handle, 
       {coverT < 1 ? (
         coverT <= 0 ? (
           <AbsoluteFill>
-            <CoverPage title={title} subtitle={subtitle} handle={handle} accent={accent} frame={frame} />
+            <CoverPage title={title} subtitle={subtitle} accent={accent} frame={frame} />
           </AbsoluteFill>
         ) : (
           <Curling t={coverT}>
-            <CoverPage title={title} subtitle={subtitle} handle={handle} accent={accent} frame={frame} />
+            <CoverPage title={title} subtitle={subtitle} accent={accent} frame={frame} />
           </Curling>
         )
       ) : null}

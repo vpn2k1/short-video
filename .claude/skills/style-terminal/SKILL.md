@@ -10,7 +10,7 @@ description: Phong cách "Màn hình code" — desktop tối của lập trình 
 ## Nhận diện hình ảnh
 
 - Nền desktop gần đen (#07090d), lưới chấm mờ, quầng sáng `accent` góc trên trái và xanh dương góc dưới phải.
-- Cửa sổ terminal kiểu macOS: thanh tiêu đề ba chấm đỏ/vàng/xanh, tên `~/<handle> — zsh` (không có handle → `~/project — zsh`),
+- Cửa sổ terminal kiểu macOS: thanh tiêu đề ba chấm đỏ/vàng/xanh, tên `~/project — zsh`,
   thân tối trong mờ, scanline rất nhẹ, chữ có quầng sáng nhỏ nhưng vẫn sắc.
 - Bảng màu kiểu GitHub Dark: chữ #e6edf3, dấu nhắc `$` xanh lá, con số vàng hổ phách, "ngoặc kép" xanh lá, chú thích xám nghiêng.
   `accent` chỉ dành cho cụm câu nhấn, số liệu và tiêu đề (accent quá tối tự được làm sáng để đọc được trên nền đen).
@@ -34,7 +34,6 @@ description: Phong cách "Màn hình code" — desktop tối của lập trình 
 | `visual` stat khác | số mono cỡ lớn màu accent (co vừa bề ngang), kèm `↳ caption` |
 | `visual` badge | nhãn nền xanh lá `[ BƯỚC 2 ]` in hoa, kèm `↳ caption` |
 | `title` / `subtitle` | màn mở đầu 70 frame: gõ `npm run <slug-tiêu-đề>`, hai dòng build, tiêu đề chữ lớn accent có bóng khối + gạch `═══`, `// subtitle` |
-| `handle` | tên cửa sổ terminal |
 | `accent` | câu nhấn, số liệu, tiêu đề, quầng sáng nền |
 | `background`, `captionPosition` | không dùng |
 

@@ -39,7 +39,6 @@ const punchFor = (caption: Caption, scenes: Scene[]) => {
 export const BoldStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   background,
   captions,
@@ -149,7 +148,7 @@ export const BoldStyle: React.FC<ShortProps> = ({
         </div>
       ) : null}
 
-      {showTitle ? <TitleIntro title={title} subtitle={subtitle} handle={handle} /> : null}
+      {showTitle ? <TitleIntro title={title} subtitle={subtitle} /> : null}
       <Progress />
     </AbsoluteFill>
   );

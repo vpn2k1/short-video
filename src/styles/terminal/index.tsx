@@ -199,7 +199,6 @@ const dimFrames = (entries: Entry[]) =>
 export const TerminalStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -295,15 +294,11 @@ export const TerminalStyle: React.FC<ShortProps> = ({
   const innerW = term.w - pad.x * 2;
   const ctx = { frame, font, unit, accent, innerW };
 
-  const termTitle = handle
-    ? `~/${handle.replace(/^@/, "")} — zsh`
-    : "~/project — zsh";
-
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: MONO }}>
       <Desktop accent={accent} unit={unit} />
 
-      <WindowFrame box={term} title={termTitle} unit={unit} barH={barH}>
+      <WindowFrame box={term} title="~/project — zsh" unit={unit} barH={barH}>
         {/* Scanline rất nhẹ cho cảm giác màn hình, không làm nhoè chữ. */}
         <AbsoluteFill
           style={{

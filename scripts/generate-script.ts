@@ -40,7 +40,6 @@ Quy tắc:
   nên câu dài quá sẽ bị đọc không kịp. Câu cuối là call-to-action.
 - "accent": màu nhấn nổi bật trên nền tối, dùng cho chữ phụ đề và thanh tiến độ.
 - "background": màu nền tối (độ sáng thấp) để chữ trắng đọc rõ.
-- "handle": tên kênh dạng @tenkenh, suy ra từ chủ đề nếu người dùng không nêu.
 - "scenes[].tag": nhãn rất ngắn (≤18 ký tự) hiện suốt cảnh — năm, con số, địa danh, "Bước 1"… hoặc null.
 - "scenes[].punch": cụm từ đắt nhất của cảnh, CHÉP NGUYÊN VĂN từ một câu trong "lines" của chính
   cảnh đó (≤48 ký tự), sẽ hiện nổi bật đúng lúc giọng đọc tới. null nếu không có cụm nào đáng nhấn.
@@ -319,7 +318,7 @@ BƯỚC NÀY CHỈ LẬP DÀN Ý cho một video dài — lời đọc sẽ vi�
 - "scenes[].tag": tên chương thật ngắn (≤18 ký tự).
 - "scenes[].lines": 1-2 câu tóm tắt chương này nói về gì (dàn ý, không phải lời đọc).
 - Các chương đi theo mạch: mở bằng hook, thân triển khai từng ý không trùng nhau, chương cuối kết và kêu gọi.
-- "image", "visual", "punch": null. "title", "subtitle", "handle", "accent", "background", "style" viết như video thật.`;
+- "image", "visual", "punch": null. "title", "subtitle", "accent", "background", "style" viết như video thật.`;
 
 const CHAPTER_RULES = `
 
@@ -395,7 +394,7 @@ const generateLong = async (
       `Đây là yêu cầu cứng.\n${OVERRIDE_NOTE}`;
     const content =
       `CHỦ ĐỀ VIDEO: ${prompt}\n\n` +
-      `DÀN Ý (title "${outline.title}", subtitle "${outline.subtitle}", handle "${outline.handle}", ` +
+      `DÀN Ý (title "${outline.title}", subtitle "${outline.subtitle}", ` +
       `accent "${outline.accent}", background "${outline.background}", style "${outline.style}"):\n${outlineText}\n\n` +
       (previous.length ? `Hai câu cuối của chương trước: ${previous.map((l) => `"${l}"`).join(" ")}\n\n` : "") +
       `VIẾT CHƯƠNG ${i + 1}/${chapters.length}${i === 0 ? " (chương đầu)" : i === chapters.length - 1 ? " (chương cuối)" : ""}: ` +
@@ -424,12 +423,12 @@ Bạn đang viết PHẦN TIẾP THEO của một video — người xem vừa x
 - Giữ nguyên giọng kể, ngôi kể, nhân vật (cùng tên, cùng cách xưng hô), bối cảnh, ngôn ngữ và nhịp câu của phần trước;
   dùng tag, punch, visual theo đúng kiểu phần trước đã dùng.
 - "title": chép nguyên "title" của phần trước (app tự thêm số phần). "subtitle": nói phần này có gì mới.
-- "handle", "accent", "background", "style": chép nguyên từ phần trước.
+- "accent", "background", "style": chép nguyên từ phần trước.
 - Câu cuối: chuyện còn tiếp thì hẹn phần sau bằng một câu gây tò mò; đã trọn thì kết gọn và kêu gọi.`;
 
 /** Lời phần trước gửi cho model: đủ để viết tiếp, bỏ tên file ảnh (ảnh của video khác, không dùng lại được). */
 const previousPart = (previous: VideoScript) => {
-  const head = { title: previous.title, subtitle: previous.subtitle, style: previous.style, handle: previous.handle,
+  const head = { title: previous.title, subtitle: previous.subtitle, style: previous.style,
     accent: previous.accent, background: previous.background };
   const lines = allLines(previous);
   if (lines.length <= 60) {
@@ -485,7 +484,6 @@ export const continueScript = async (
     ...script,
     style: keepStyle,
     title: partTitle(previous, part),
-    handle: previous.handle,
     accent: previous.accent,
     background: previous.background,
   });
@@ -920,7 +918,6 @@ const tidyScript = (raw: unknown, allowedImages: string[]): VideoScript => {
     background: hexColor(r.background, "#0b0b12"),
     title: clip(r.title, 60),
     subtitle: clip(r.subtitle, 90),
-    handle: clip(r.handle, 30),
     scenes: Array.isArray(scenes)
       ? scenes.map((scene: Record<string, unknown>) => {
           const visual = scene.visual as Record<string, unknown> | null | undefined;

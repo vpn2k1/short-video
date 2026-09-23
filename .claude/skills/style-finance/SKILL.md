@@ -13,7 +13,7 @@ xanh = tăng, đỏ = giảm. Biểu đồ là nhân vật chính và chạy su�
 - Nền `#060a12` kẻ lưới 48 đơn vị, quầng xanh đêm góc trên-phải. Font dữ liệu Roboto (số `tabular-nums`), chữ
   đọc Lexend. Màu cố định: tăng `#16c784`, giảm `#ea3943`, tham chiếu vàng chấm. `accent` chỉ tô khung: viền thẻ
   ảnh, vạch chip mã, vạch trái khung phụ đề, viền dải mã chạy, gạch dưới tiêu đề.
-- **Biểu đồ giá**: bước ngẫu nhiên có seed (`title|handle`), 60–160 điểm trải đều cả video; đầu đường nằm ở
+- **Biểu đồ giá**: bước ngẫu nhiên có seed (`title`), 60–160 điểm trải đều cả video; đầu đường nằm ở
   `frame / thời lượng` nên vẽ từ mép trái tới trục giá bên phải đúng lúc hết video. Đường sáng có quầng, vùng tô
   gradient, cột khối lượng xanh/đỏ, 5 vạch mốc giá, đường tham chiếu (giá mở cửa), vạch đứt từ đầu đường tới nhãn
   giá hiện tại trên trục, chấm đầu nhấp nháy. Màu đường theo giá so với tham chiếu (trễ ±0,35% để không nháy).
@@ -40,7 +40,7 @@ xanh = tăng, đỏ = giảm. Biểu đồ là nhân vật chính và chạy su�
 | `visual` stat | ô số liệu: "▲ TĂNG TRƯỞNG" / "▼ SỤT GIẢM", số cực lớn đếm từ 0 (giữ tiền tố/hậu tố và kiểu dấu "1.250" / "2,35"), sparkline tự vẽ, chú thích dưới; 9:16 nằm dưới thẻ ảnh bên trái, ngang nằm dưới chip mã |
 | `visual` badge | ô khuyến nghị: nhãn chữ in hoa trong viền màu nhấn ("MUA", "NẮM GIỮ") + chú thích, bật lên |
 | `captions` | khung "■ BẢN TIN · 09:15:05 … 02/04" ở một phần ba dưới, Lexend 600, cao cố định theo câu dài nhất (≤ 4 dòng), chữ căn giữa theo chiều dọc; số + đơn vị theo sau ("25 điểm", "30 tỷ", "15%") tô xanh, số đứng trong 3 từ sau "giảm/lỗ/mất…" hoặc có dấu trừ tô đỏ |
-| `title` | 70 frame đầu: màn "PHIÊN MỞ CỬA" — thẻ tối viền xanh trên cùng, chip nháy, `title` Lexend 800, gạch màu nhấn chạy ra, `subtitle`, dòng `handle · PHIÊN SÁNG · 09:15 · MÃ ▲`; biểu đồ bắt đầu vẽ phía sau |
+| `title` | 70 frame đầu: màn "PHIÊN MỞ CỬA" — thẻ tối viền xanh trên cùng, chip nháy, `title` Lexend 800, gạch màu nhấn chạy ra, `subtitle`, dòng `PHIÊN SÁNG · 09:15 · MÃ ▲`; biểu đồ bắt đầu vẽ phía sau |
 | `subtitle` / `title` | từ bỏ dấu làm mã cho dải chạy dưới đáy (3–4 chữ, giá và % seed — rõ là minh hoạ) |
 | `captionPosition` | "center" đặt khung phụ đề quanh 58% chiều cao |
 

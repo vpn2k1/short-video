@@ -141,8 +141,8 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
 
 export type NewsLayout = ReturnType<typeof useNewsLayout>;
 
-/** Chuỗi chạy của ticker: tiêu đề • phụ đề • chuyên mục • handle. */
-export const tickerItems = (title: string, subtitle: string, handle: string, scenes: Scene[]) => {
+/** Chuỗi chạy của ticker: tiêu đề • phụ đề • chuyên mục. */
+export const tickerItems = (title: string, subtitle: string, scenes: Scene[]) => {
   const items: string[] = [];
   const push = (text: string | null | undefined) => {
     const t = text ? nfc(text).trim() : "";
@@ -151,7 +151,6 @@ export const tickerItems = (title: string, subtitle: string, handle: string, sce
   push(title);
   push(subtitle);
   scenes.forEach((s) => push(s.tag ? upper(s.tag) : null));
-  push(handle);
   if (items.length === 0) items.push("TIN NÓNG");
   return items;
 };

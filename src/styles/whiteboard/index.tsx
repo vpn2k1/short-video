@@ -329,11 +329,10 @@ const Page: React.FC<{
 const TitlePage: React.FC<{
   title: string;
   subtitle: string;
-  handle: string;
   accent: string;
   frame: number;
   layout: PageLayout;
-}> = ({ title, subtitle, handle, accent, frame, layout }) => {
+}> = ({ title, subtitle, accent, frame, layout }) => {
   const { width, unit, safe, stacked } = layout;
   const maxWidth = width - safe.side * 2 - 60 * unit;
   let fontSize = (stacked ? 116 : 104) * unit;
@@ -400,23 +399,6 @@ const TitlePage: React.FC<{
           />
         ) : null}
       </AbsoluteFill>
-      {handle ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: safe.bottom + 10 * unit,
-            textAlign: "center",
-            fontFamily: HAND,
-            fontSize: 38 * unit,
-            color: PENCIL,
-            opacity: interpolate(frame, [50, 60], [0, 1], clamp),
-          }}
-        >
-          {handle}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };
@@ -425,7 +407,6 @@ const TitlePage: React.FC<{
 export const WhiteboardStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -479,7 +460,7 @@ export const WhiteboardStyle: React.FC<ShortProps> = ({
       })}
 
       {showTitle && frame < TITLE_FRAMES + TURN_FRAMES ? (
-        <TitlePage title={title} subtitle={subtitle} handle={handle} accent={accent} frame={frame} layout={layout} />
+        <TitlePage title={title} subtitle={subtitle} accent={accent} frame={frame} layout={layout} />
       ) : null}
 
       <Grain opacity={0.06} animated={false} baseFrequency={0.75} />

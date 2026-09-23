@@ -31,7 +31,7 @@ description: Phong cách "Băng VHS" — footage máy quay thập niên 80–90:
 | `visual` stat | bộ đếm băng: nhãn `▶▶ COUNTER`, số lớn mono đếm lên 36 frame (giữ `80%`, `+30K`, `1.200`, `2,5 triệu`), chú thích bên dưới |
 | `visual` badge | hộp xanh viền trắng kiểu `VIDEO 1` ở phải trên, dưới pin; `caption` nhỏ bên dưới |
 | `image` | ảnh: 2 bản kênh màu; video: 1 bản + filter SVG (xem dưới). Tôn trọng `crop`, `trimStartMs`, `volume` |
-| `title`/`subtitle`/`handle` | màn hình xanh `#1a2fbf` 70 frame: `▶ PLAY` nháy, tiêu đề gõ chữ, bộ đếm `0:00:0x`; ẩn phụ đề và OSD |
+| `title`/`subtitle` | màn hình xanh `#1a2fbf` 70 frame: `▶ PLAY` nháy, tiêu đề gõ chữ, bộ đếm `0:00:0x`; ẩn phụ đề và OSD |
 | `accent`/`background` | không dùng — bảng màu cố định của băng VHS |
 
 ## Chuyển động

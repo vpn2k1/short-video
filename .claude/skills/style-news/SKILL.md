@@ -11,11 +11,11 @@ description: Phong cách "Bản tin nóng" — nhãn TRỰC TIẾP, đồng hồ
 
 - Ảnh/video của cảnh phủ toàn khung (dùng chung `Scenes`: Ken Burns, cross-fade, crop), gradient tối trên/dưới
   để đồ hoạ đọc được. Cảnh không có ảnh → trường quay ảo navy (`#0B1B3F`): lưới mảnh trôi, vệt sáng chéo, vòng tròn nét đứt.
-- Góc trên trái: khối logo màu `accent` (chữ là `handle`, trống thì "TIN") + nhãn đỏ `#D71920` "● TRỰC TIẾP", chấm nhấp nháy.
+- Góc trên trái: khối logo màu `accent` chữ "TIN" + nhãn đỏ `#D71920` "● TRỰC TIẾP", chấm nhấp nháy.
   Góc trên phải: đồng hồ mono `HH:MM`, bắt đầu 07:30 và chạy theo thời gian video.
 - Dải dưới (lower third): nhãn chuyên mục đỏ (tag cảnh) → thanh tiêu đề navy viền `accent` (title) → dải trắng chữ đen (phụ đề).
   Dọc 9:16: xếp chồng, chữ to. Ngang 16:9 và vuông 1:1: nhãn chuyên mục nằm bên trái thanh tiêu đề như TV.
-- Ticker ở đáy vùng nội dung: nhãn vàng "MỚI" + chữ chạy (tiêu đề • phụ đề • các tag • handle) lặp liền mạch.
+- Ticker ở đáy vùng nội dung: nhãn vàng "MỚI" + chữ chạy (tiêu đề • phụ đề • các tag) lặp liền mạch.
 - Chữ in hoa (nhãn, NÓNG, câu nhấn) in hoa bằng JS `normalize("NFC").toLocaleUpperCase("vi")`, font `FONTS.sans` đậm, không giãn chữ.
 - Toàn bộ dải dưới + ticker nằm TRÊN vùng nền tảng chiếm (`safe.bottom`); chữ nằm trong `safe.side`, nền dải được tràn mép.
 
@@ -31,7 +31,6 @@ description: Phong cách "Bản tin nóng" — nhãn TRỰC TIẾP, đồng hồ
 | `visual` stat | hộp số liệu góc trên phải: nhãn "SỐ LIỆU", số lớn đếm lên giữ tiền tố/hậu tố (`80%`, `+30K`, `1.200`, `2,5 triệu`), gạch accent, chú thích |
 | `visual` badge | chip chuyên mục màu accent góc trên phải, `caption` trong dải navy bên dưới |
 | `image` | ảnh/video toàn khung; `null` → trường quay navy |
-| `handle` | chữ trong khối logo; cuối chuỗi ticker |
 | `accent` | khối logo, viền thanh tiêu đề, viền ticker, vệt chuyển cảnh |
 | `showTitle` | mở đầu 70 frame; dải dưới chỉ vào khi phần mở đầu kết thúc |
 | `captionPosition` | không dùng — phụ đề luôn nằm trong dải dưới |

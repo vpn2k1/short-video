@@ -36,7 +36,7 @@ import {
 
 type SideKey = 0 | 1 | "verdict";
 
-export const VersusStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const VersusStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["anton", "bevietnam"]);
   const frame = useCurrentFrame();
   const { width: W, height: H, safe, unit: u } = useLayout();
@@ -288,7 +288,7 @@ export const VersusStyle: React.FC<ShortProps> = ({ title, subtitle, handle, acc
         {renderSideText(1)}
         {captionNode}
         {showTitle ? (
-          <IntroText g={g} frame={frame} safe={safe} cx={emblemCx} cy={emblemCy} title={title} subtitle={subtitle} handle={handle} />
+          <IntroText g={g} frame={frame} safe={safe} cx={emblemCx} cy={emblemCy} title={title} subtitle={subtitle} />
         ) : null}
       </AbsoluteFill>
     </AbsoluteFill>

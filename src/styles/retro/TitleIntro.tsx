@@ -9,7 +9,7 @@ import { BLUE_SCREEN, clamp, glyphs, OSD_WHITE } from "./vhs";
  * Cú nhiễu chuyển sang hình nằm ở VhsLook (burst tại TITLE_FRAMES).
  * Đặt trong <Sequence durationInFrames={TITLE_FRAMES}>.
  */
-export const RetroTitle: React.FC<{ title: string; subtitle: string; handle: string }> = ({ title, subtitle, handle }) => {
+export const RetroTitle: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
   const { unit, safe, width, height, fps } = useLayout();
   const wide = width / height > 1.2;
@@ -91,20 +91,6 @@ export const RetroTitle: React.FC<{ title: string; subtitle: string; handle: str
               }}
             >
               {subtitle.normalize("NFC")}
-            </div>
-          ) : null}
-          {handle ? (
-            <div
-              style={{
-                marginTop: 26 * unit,
-                fontFamily: FONTS.mono,
-                fontSize: 32 * unit,
-                color: "rgba(244,246,255,0.8)",
-                opacity: subIn,
-                textShadow: osdShadow(unit),
-              }}
-            >
-              {handle}
             </div>
           ) : null}
         </AbsoluteFill>

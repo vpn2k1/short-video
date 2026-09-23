@@ -20,7 +20,6 @@ import { HorrorTitle } from "./TitleIntro";
 export const HorrorStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   captions,
   scenes,
   captionPosition,
@@ -39,7 +38,7 @@ export const HorrorStyle: React.FC<ShortProps> = ({
       <LoosePunch scenes={scenes} captions={captions} />
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <HorrorTitle title={title} subtitle={subtitle} handle={handle} />
+          <HorrorTitle title={title} subtitle={subtitle} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

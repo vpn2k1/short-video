@@ -1,6 +1,6 @@
 ---
 name: style-pen
-description: Phong cách "Thư tay" — tờ giấy viết thư trên bàn gỗ, cây bút máy viết từng chữ bằng mực xanh đen, câu nhấn đổi màu mực và gạch chân lượn sóng, ảnh cũ kẹp ghim, dòng đề nơi chốn góc trên, trang tiêu đề ký tên. Dùng cho lá thư gửi ai đó, tâm sự, nhật ký, lời cảm ơn, kỷ niệm, lời khuyên chân thành, kể chuyện ngôi thứ nhất.
+description: Phong cách "Thư tay" — tờ giấy viết thư trên bàn gỗ, cây bút máy viết từng chữ bằng mực xanh đen, câu nhấn đổi màu mực và gạch chân lượn sóng, ảnh cũ kẹp ghim, dòng đề nơi chốn góc trên, trang tiêu đề viết tay có nét lượn hoa mỹ. Dùng cho lá thư gửi ai đó, tâm sự, nhật ký, lời cảm ơn, kỷ niệm, lời khuyên chân thành, kể chuyện ngôi thứ nhất.
 ---
 
 # Thư tay
@@ -22,7 +22,7 @@ description: Phong cách "Thư tay" — tờ giấy viết thư trên bàn gỗ,
 | `captions` | Mỗi câu bắt đầu một dòng mới, bút viết dần trong 80% thời lượng câu. Câu đã viết **ở lại** trên tờ. Cỡ chữ tính cho vừa mọi câu của tờ; vẫn không vừa thì câu cũ nhất bị bỏ khỏi tờ. |
 | `punch` | Có nguyên văn trong câu: các chữ đó chuyển sang mực màu nhấn và được gạch chân lượn sóng lúc `atMs`. Không khớp → thành ghi chú bên lề (khi cảnh không có `visual`). |
 | `visual` stat/badge | Ghi chú bên lề: chữ lớn mực màu nhấn, nghiêng, `caption` mực xanh bên dưới. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: bút viết tiêu đề giữa tờ, vẽ nét lượn hoa mỹ màu nhấn, viết dòng phụ, ký handle góc dưới phải. Frame 70 tờ tiêu đề trượt đi. |
+| `title`/`subtitle` | Khi `showTitle`: bút viết tiêu đề giữa tờ, vẽ nét lượn hoa mỹ màu nhấn, viết dòng phụ. Frame 70 tờ tiêu đề trượt đi. |
 
 ## Chuyển động
 

@@ -32,7 +32,7 @@ description: Phong cách "Tranh màu nước" — giấy vẽ cold-press trắng
 | `captions` | Từng câu, canh giữa trên giấy, cân dòng (không để một từ mồ côi), tối đa 3 dòng chữ viết tay / 6 dòng Lora. Mỗi từ thấm ra: mờ nhoè → rõ, màu loang → màu mực, cách nhau 2–7 frame tuỳ độ dài câu. Câu cũ nhoè và phai trong 9 frame. |
 | `punch` | Có nguyên văn trong câu: cụm từ đổi sang màu nhấn đậm (Dancing 700) và nét cọ gạch chân màu nhấn vẽ dần từ trái sang lúc `atMs` (không sớm hơn lúc từ cuối của cụm hiện). Không khớp câu nào của cảnh → thêm một dòng viết tay màu nhấn có gạch chân dưới câu đang đọc lúc `atMs`. |
 | `visual` stat/badge | Vết loang tròn (lót giấy + hai lớp màu, viền đậm) nở ra, con số viết tay màu nhấn + chú thích Lora nghiêng. Có ảnh: đè góc dưới phải bức tranh (đốm màu dời lên hai góc trên). Không ảnh: lớn, giữa mảng loang. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: nét cọ lớn màu loang (thêm một nét phụ màu khác lệch dưới) quét ra, tiêu đề viết tay hiện dần từ trái sang từng dòng, năm bông hoa nở quanh nét cọ, dòng phụ Lora nghiêng, `~ handle ~` màu nhấn. Tan (mờ + nhoè) ở frame 54–70 trong khi tranh cảnh đầu loang lên bên dưới. |
+| `title`/`subtitle` | Khi `showTitle`: nét cọ lớn màu loang (thêm một nét phụ màu khác lệch dưới) quét ra, tiêu đề viết tay hiện dần từ trái sang từng dòng, năm bông hoa nở quanh nét cọ, dòng phụ Lora nghiêng. Tan (mờ + nhoè) ở frame 54–70 trong khi tranh cảnh đầu loang lên bên dưới. |
 
 ## Chuyển động
 

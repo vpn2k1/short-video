@@ -37,7 +37,7 @@ description: Phong cách "Anime" — năng lượng opening anime / key visual: 
 | `visual` stat | "chỉ số sức mạnh": số lớn nghiêng trắng viền `main`, quầng `light` thở, đếm lên 30 frame (giữ `90%`, `+30K`, `1.200`, `9.000`); thanh đo 12 vạch nghiêng sáng dần xanh trời → `main` → vàng (số có `%` dừng đúng tỉ lệ, số khác đầy vạch); chú thích trắng viền tối |
 | `visual` badge | chữ IN HOA trắng trong khối `main` nghiêng viền trắng, bóng khối xanh trời, một lấp lánh vàng ở góc |
 | `image` | ảnh hoặc video (qua `SceneMedia`: tôn trọng `crop`, `trimStartMs`, `speed`, `volume`); null → bầu trời mây |
-| `title`/`subtitle`/`handle` | 70 frame: bầu trời + cánh hoa, chớp trắng mở màn, tiêu đề IN HOA đập xuống từng chữ (scale 2.6 → 1, ≤ 2 frame/chữ, cả dòng nghiêng -4°), rung khi chữ cuối chạm, lấp lánh bật; dòng phụ trên ruy băng `main` lao vào từ trái; handle nhỏ ở đáy; 9 frame cuối nhát chém chéo rút cả thẻ, lộ cảnh đầu |
+| `title`/`subtitle` | 70 frame: bầu trời + cánh hoa, chớp trắng mở màn, tiêu đề IN HOA đập xuống từng chữ (scale 2.6 → 1, ≤ 2 frame/chữ, cả dòng nghiêng -4°), rung khi chữ cuối chạm, lấp lánh bật; dòng phụ trên ruy băng `main` lao vào từ trái; 9 frame cuối nhát chém chéo rút cả thẻ, lộ cảnh đầu |
 | `accent` | bảng màu `main`/`deep`/`light` |
 | `background` | không dùng — nền là ảnh hoặc bầu trời |
 

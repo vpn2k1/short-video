@@ -25,7 +25,6 @@ import { AnimeTitle } from "./TitleIntro";
 export const AnimeStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -52,7 +51,7 @@ export const AnimeStyle: React.FC<ShortProps> = ({
       </AbsoluteFill>
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <AnimeTitle title={title} subtitle={subtitle} handle={handle} palette={palette} />
+          <AnimeTitle title={title} subtitle={subtitle} palette={palette} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

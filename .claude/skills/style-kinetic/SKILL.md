@@ -27,7 +27,7 @@ description: Phong cách "Chữ động" — lời đọc in hoa cỡ lớn bậ
 | `visual` stat | số khổng lồ đếm lên (giữ tiền tố/hậu tố: `80%`, `+30K`, `1.200`, `2,5 triệu`) — trên chữ (dọc) hoặc cột trái (ngang) |
 | `visual` badge | pill viền, đặt ngay trên câu; `caption` nhỏ bên cạnh |
 | `image` | texture grayscale, `screen` trên nền tối / `multiply` trên nền sáng; video thì tắt tiếng, lặp. `null` là bình thường |
-| `title`/`subtitle`/`handle` | title card 70 frame trên nền accent: từ tiêu đề đập xuống, phụ đề gõ chữ, cả tấm cuốn lên |
+| `title`/`subtitle` | title card 70 frame trên nền accent: từ tiêu đề đập xuống, phụ đề gõ chữ, cả tấm cuốn lên |
 | `captionPosition` | không dùng — chữ luôn chiếm giữa khung |
 
 Không có caption nào → hiện `title` làm chữ chính.

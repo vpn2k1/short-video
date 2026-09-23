@@ -35,7 +35,7 @@ dùng phong cách `three` (skill `style-three`).
 | `visual` stat | con số khối màu `key` lật vào (`rotateX -80° → 0`), đếm lên 30 frame (giữ `80%`, `+30K`, `1.200`), chú thích bên dưới; dọc: phía trên tấm kính, ngang: cột trái |
 | `visual` badge | chữ in hoa trắng trên tấm màu nhấn gradient có cạnh dày, nghiêng qua lại |
 | `image` | ảnh hoặc video trên tấm kính (qua `SceneMedia`: tôn trọng `crop`, `trimStartMs`, `speed`, `volume`); null → khối lập phương kính lớn xoay chậm |
-| `title`/`subtitle`/`handle` | 70 frame: không gian có khối khung dây lớn; tiêu đề bay tới TỪNG CHỮ từ sâu -1400 (mỗi chữ xoay ±80° về 0), từ cuối màu `key`; dòng phụ trên viên kính viền màu nhấn; handle ở đáy; 14 frame cuối cả khối lao qua camera, sao và sàn tăng tốc |
+| `title`/`subtitle` | 70 frame: không gian có khối khung dây lớn; tiêu đề bay tới TỪNG CHỮ từ sâu -1400 (mỗi chữ xoay ±80° về 0), từ cuối màu `key`; dòng phụ trên viên kính viền màu nhấn; 14 frame cuối cả khối lao qua camera, sao và sàn tăng tốc |
 | `accent` | mọi màu (xem trên) |
 | `background` | không dùng — nền luôn là khoảng không `#04050d` |
 

@@ -1,6 +1,6 @@
 /**
  * Màn hình tiêu đề game: phong cảnh pixel ban đêm, logo tiêu đề chữ khối rơi xuống nảy theo nấc, dòng phụ,
- * "▶ NHẤN START" nháy, "© handle" dưới đáy. Đặt trong <Sequence durationInFrames={TITLE_FRAMES}>;
+ * "▶ NHẤN START" nháy. Đặt trong <Sequence durationInFrames={TITLE_FRAMES}>;
  * màn tan điểm ảnh sang game nằm ở index.tsx.
  */
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
@@ -8,7 +8,7 @@ import { useLayout } from "../shared";
 import { Landscape, Sparkle } from "./parts";
 import { BLOCK, clamp, GOLD, hardOutline, INK, onTwos, pixelOf, snap, TEXT, upperVi, WHITE } from "./pixel";
 
-export const TitleScreen: React.FC<{ title: string; subtitle: string; handle: string; accent: string }> = ({ title, subtitle, handle, accent }) => {
+export const TitleScreen: React.FC<{ title: string; subtitle: string; accent: string }> = ({ title, subtitle, accent }) => {
   const frame = useCurrentFrame();
   const { width, height, safe, unit } = useLayout();
   const P = pixelOf(unit);
@@ -89,24 +89,6 @@ export const TitleScreen: React.FC<{ title: string; subtitle: string; handle: st
           ▶ NHẤN START
         </div>
       </AbsoluteFill>
-      {handle ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: safe.bottom + (wide ? 0 : 20 * unit),
-            textAlign: "center",
-            fontFamily: BLOCK,
-            fontSize: 30 * unit,
-            color: WHITE,
-            textShadow: hardOutline(Math.max(2, P * 0.5), INK, 1),
-            opacity: subIn ? 0.9 : 0,
-          }}
-        >
-          © {upperVi(handle)}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };

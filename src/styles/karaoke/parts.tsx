@@ -145,10 +145,9 @@ export const MiniBars: React.FC<{ height: number; color: string; unit: number }>
   );
 };
 
-/** Huy hiệu micro + handle ở góc trên trái, cột nhạc nhỏ ở góc trên phải. */
-export const TopBar: React.FC<{ handle: string; palette: Palette; opacity: number }> = ({ handle, palette, opacity }) => {
+/** Huy hiệu micro + chữ "KARAOKE" ở góc trên trái, cột nhạc nhỏ ở góc trên phải. */
+export const TopBar: React.FC<{ palette: Palette; opacity: number }> = ({ palette, opacity }) => {
   const { safe, unit, width } = useLayout();
-  const label = handle.trim() || "KARAOKE";
   return (
     <div
       style={{
@@ -189,7 +188,7 @@ export const TopBar: React.FC<{ handle: string; palette: Palette; opacity: numbe
             textOverflow: "ellipsis",
           }}
         >
-          {label}
+          KARAOKE
         </span>
       </div>
       <MiniBars height={40 * unit} color={palette.sung} unit={unit} />
@@ -256,11 +255,10 @@ export const StatPill: React.FC<{ text: string; caption: string | null; since: n
 
 /* ------------------------------------------------------------ màn tên bài */
 
-/** Màn tên bài kiểu băng karaoke: "♪ KARAOKE ♪", tên bài lớn viền đậm, dòng phụ, người trình bày. */
-export const TitleCard: React.FC<{ title: string; subtitle: string; handle: string; palette: Palette; end: number }> = ({
+/** Màn tên bài kiểu băng karaoke: "♪ KARAOKE ♪", tên bài lớn viền đậm, dòng phụ. */
+export const TitleCard: React.FC<{ title: string; subtitle: string; palette: Palette; end: number }> = ({
   title,
   subtitle,
-  handle,
   palette,
   end,
 }) => {
@@ -290,11 +288,6 @@ export const TitleCard: React.FC<{ title: string; subtitle: string; handle: stri
         {subtitle ? (
           <span style={{ fontFamily: LYRIC_FONT, fontWeight: 600, fontSize: 32 * unit, color: "rgba(255,255,255,0.88)", textAlign: "center", textShadow: outlineShadow(palette.outline, 3 * unit) }}>
             {subtitle.normalize("NFC")}
-          </span>
-        ) : null}
-        {handle ? (
-          <span style={{ fontFamily: LYRIC_FONT, fontWeight: 700, fontSize: 28 * unit, color: palette.sung, textShadow: outlineShadow(palette.outline, 3 * unit) }}>
-            {handle}
           </span>
         ) : null}
       </div>

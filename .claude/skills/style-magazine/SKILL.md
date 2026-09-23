@@ -12,8 +12,8 @@ tràn trang, chữ có chân tương phản cao, dòng tít bìa, tem, mã vạc
 
 - Mỗi cảnh = một trang. Ảnh/clip phủ kín trang, đẩy vào chậm 1.04 → 1.14 suốt cảnh, tăng nhẹ tương phản/bão hoà
   cho cảm giác giấy láng. Lớp tối trên (cho măng-sét) và dưới (cho tít); ngang thêm tối nhẹ bên trái.
-- **Măng-sét**: `handle` bỏ "@", in hoa bằng JS, Playfair Display 900, đo bằng canvas để căng ~86% bề ngang
-  (tối đa 230 đơn vị ở 9:16, 180 ở 1:1/3:4, 150 ở 16:9). Không có handle → vài chữ đầu của `title` (≤ 12 ký tự).
+- **Măng-sét**: vài chữ đầu của `title` (≤ 12 ký tự), in hoa bằng JS, Playfair Display 900, đo bằng canvas để căng
+  ~86% bề ngang (tối đa 230 đơn vị ở 9:16, 180 ở 1:1/3:4, 150 ở 16:9).
 - Dưới măng-sét: dòng số báo Be Vietnam Pro 700 giãn chữ `SỐ 01 · ẤN BẢN ĐẶC BIỆT ——— 02/05` (trang/tổng).
 - Góc dưới-phải: thẻ trắng mã vạch (vạch theo seed) + `SỐ 01  35.000₫`.
 - Chữ trắng trên ảnh, mực `#141414` trên giấy. `accent` tô hộp chuyên mục, khối câu nhấn, vạch kicker, gạch chân.
@@ -45,7 +45,7 @@ tràn trang, chữ có chân tương phản cao, dòng tít bìa, tem, mã vạc
 
 ## Lỗi cần tránh
 
-- Handle dài (> 14 ký tự) → măng-sét co nhỏ, mất khí chất bìa. Handle ngắn kiểu thương hiệu đẹp nhất.
+- `title` mở đầu bằng một từ quá dài → măng-sét co nhỏ, mất khí chất bìa. Tiêu đề mở bằng cụm ngắn kiểu thương hiệu đẹp nhất.
 - `punch` > 5 từ → khối tít xuống hai ba dòng, đè ảnh chủ thể; cụm không có trong câu đọc thì không được gạch chân.
 - Trang giấy (image null) + stat + punch + câu dài 3 dòng ở 9:16 là sát nhau — trang chữ nên để trống visual.
 - Tag dài hơn ~16 ký tự không xuống dòng.

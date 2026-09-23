@@ -21,7 +21,6 @@ import { DepthTitle } from "./TitleIntro";
 export const DepthStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -43,7 +42,7 @@ export const DepthStyle: React.FC<ShortProps> = ({
       <DepthCaptions captions={captions} scenes={scenes} position={captionPosition} showTitle={showTitle} palette={palette} />
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <DepthTitle title={title} subtitle={subtitle} handle={handle} palette={palette} />
+          <DepthTitle title={title} subtitle={subtitle} palette={palette} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

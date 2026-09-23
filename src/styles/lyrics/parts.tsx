@@ -92,10 +92,10 @@ export const Backdrop: React.FC<{ scenes: Scene[]; palette: Palette }> = ({ scen
 
 /* ------------------------------------------------------------ ảnh bìa */
 
-/** Ô ảnh bìa: ảnh/clip của cảnh; cảnh không ảnh thì mảng màu + chữ viết tắt của handle + nốt nhạc. */
-export const Artwork: React.FC<{ scenes: Scene[]; handle: string; palette: Palette; size: number; radius: number }> = ({
+/** Ô ảnh bìa: ảnh/clip của cảnh; cảnh không ảnh thì mảng màu + chữ viết tắt của tên bài. */
+export const Artwork: React.FC<{ scenes: Scene[]; title: string; palette: Palette; size: number; radius: number }> = ({
   scenes,
-  handle,
+  title,
   palette,
   size,
   radius,
@@ -118,7 +118,7 @@ export const Artwork: React.FC<{ scenes: Scene[]; handle: string; palette: Palet
           fontSize: size * 0.34,
         }}
       >
-        {initialsOf(handle || "♪")}
+        {initialsOf(title)}
       </div>
     );
   return (

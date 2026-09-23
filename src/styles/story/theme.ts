@@ -113,17 +113,10 @@ export const createGradient = (accent: string, index: number) => {
 
 /* ------------------------------------------------------------ chữ */
 
-/** Chữ cái đầu của handle cho avatar ("@ban_than" → "B"). */
-export const initialOf = (handle: string, fallback: string) => {
-  const name = handle.normalize("NFC").replace(/^@+/, "").trim() || fallback.normalize("NFC").trim();
-  const first = Array.from(name).find((c) => /\p{L}|\p{N}/u.test(c));
+/** Chữ cái đầu của tiêu đề cho avatar ("Một ngày ở Đà Lạt" → "M"). */
+export const initialOf = (title: string) => {
+  const first = Array.from(title.normalize("NFC").trim()).find((c) => /\p{L}|\p{N}/u.test(c));
   return first ? first.toLocaleUpperCase("vi") : "•";
-};
-
-/** Tên hiển thị trên đầu story: bỏ "@", quá dài thì cắt "…". */
-export const displayHandle = (handle: string) => {
-  const name = Array.from(handle.normalize("NFC").replace(/^@+/, "").trim() || "tin_cua_ban");
-  return name.length > 22 ? `${name.slice(0, 21).join("")}…` : name.join("");
 };
 
 /** Cỡ chữ co theo độ dài: tới `short` ký tự giữ nguyên, dài hơn co theo căn bậc hai, không dưới `min`. */

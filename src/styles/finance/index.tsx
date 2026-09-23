@@ -29,7 +29,6 @@ const linesOf = (text: string, size: number, w: number) => Math.max(1, Math.ceil
 export const FinanceStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -81,7 +80,7 @@ export const FinanceStyle: React.FC<ShortProps> = ({
   if (plot.yBot - plot.yTop < 160 * unit) plot.yTop = plot.yBot - 160 * unit;
 
   // ---- Dữ liệu thị trường (xác định theo props) ----
-  const seed = `${title}|${handle}`;
+  const seed = title;
   const moods = useMemo(() => sceneMoods(scenes, captions), [scenes, captions]);
   const series = useMemo(
     () => buildSeries(seed, scenes, moods, durationInFrames, Math.round(Math.min(160, Math.max(60, (plot.x1 - plot.x0) / (7 * unit))))),
@@ -465,8 +464,6 @@ export const FinanceStyle: React.FC<ShortProps> = ({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {handle ? <span style={{ color: INK }}>{handle}</span> : null}
-                  {handle ? <span>·</span> : null}
                   <span>{upper("Phiên sáng")} · 09:15</span>
                   <span>·</span>
                   <span style={{ color: UP }}>{symbol} ▲</span>

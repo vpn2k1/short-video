@@ -2,17 +2,16 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { TITLE_FRAMES } from "../../constants";
 import { useLayout } from "../shared";
 import { BrickWall } from "./Backdrop";
-import { clamp, core, deadTube, flicker, glyphs, hum, neon, textGlow, TUBE, tubeBorder, type Palette } from "./neon";
+import { clamp, core, deadTube, flicker, glyphs, hum, textGlow, TUBE, tubeBorder, type Palette } from "./neon";
 
 /**
  * Màn hình tiêu đề: tường gạch tối, khung ống màu phụ rè lên trước, rồi tiêu đề thắp TỪNG CHỮ
- * (mỗi chữ chập chờn 5 frame), dòng phụ bật sau cùng, handle trắng mờ ở đáy. Cuối title cả biển mờ
- * dần để lộ cảnh đầu phía dưới.
+ * (mỗi chữ chập chờn 5 frame), dòng phụ bật sau cùng. Cuối title cả biển mờ dần để lộ cảnh
+ * đầu phía dưới.
  */
-export const NeonTitle: React.FC<{ title: string; subtitle: string; handle: string; palette: Palette }> = ({
+export const NeonTitle: React.FC<{ title: string; subtitle: string; palette: Palette }> = ({
   title,
   subtitle,
-  handle,
   palette,
 }) => {
   const frame = useCurrentFrame();
@@ -30,7 +29,6 @@ export const NeonTitle: React.FC<{ title: string; subtitle: string; handle: stri
   const border = flicker(frame - 2, "neon-title-border", 9) * hum(frame, "neon-title-border");
   const subOn = Math.min(lettersDone + 2, TITLE_FRAMES - 22);
   const sub = flicker(frame - subOn, "neon-title-sub", 8) * hum(frame, "neon-title-sub");
-  const handleOpacity = interpolate(frame, [subOn + 6, subOn + 14], [0, 0.85], clamp);
   const out = interpolate(frame, [TITLE_FRAMES - 9, TITLE_FRAMES], [1, 0], clamp);
 
   const length = chars.length;
@@ -107,25 +105,6 @@ export const NeonTitle: React.FC<{ title: string; subtitle: string; handle: stri
           ) : null}
         </div>
       </AbsoluteFill>
-      {handle.trim() ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: safe.bottom + (wide ? 10 : 40) * unit,
-            textAlign: "center",
-            fontFamily: TUBE,
-            fontWeight: 700,
-            fontSize: 32 * unit,
-            color: "#efeaff",
-            opacity: handleOpacity,
-            textShadow: `0 0 ${10 * unit}px ${neon(tH, 50, 0.6)}`,
-          }}
-        >
-          {handle.normalize("NFC")}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };

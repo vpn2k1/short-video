@@ -197,7 +197,7 @@ const StatLayer: React.FC<{ scenes: Scene[]; palette: Palette; hidden: boolean }
   return <StatPill text={scene.visual.text} caption={scene.visual.caption} since={msToFrames(scene.startMs)} palette={palette} />;
 };
 
-const Body: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+const Body: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   const frame = useCurrentFrame();
   const { fps } = useLayout();
   const palette = paletteFor(accent);
@@ -207,10 +207,10 @@ const Body: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions,
   return (
     <AbsoluteFill style={{ backgroundColor: palette.stageTop }}>
       <Backdrop scenes={scenes} palette={palette} />
-      <TopBar handle={handle} palette={palette} opacity={1} />
+      <TopBar palette={palette} opacity={1} />
       <StatLayer scenes={scenes} palette={palette} hidden={inIntro} />
       <Lyrics lines={lines} scenes={scenes} palette={palette} hidden={inIntro} />
-      {inIntro ? <TitleCard title={title} subtitle={subtitle} handle={handle} palette={palette} end={introEnd} /> : null}
+      {inIntro ? <TitleCard title={title} subtitle={subtitle} palette={palette} end={introEnd} /> : null}
     </AbsoluteFill>
   );
 };

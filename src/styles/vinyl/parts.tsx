@@ -67,8 +67,8 @@ export const Backdrop: React.FC<{ scenes: Scene[]; palette: Palette; cx: number;
 
 /* ------------------------------------------------------------ đĩa */
 
-/** Nhãn đĩa: ảnh/clip của cảnh; không ảnh thì nhãn in màu có tên bài (nửa trên) và handle (nửa dưới). Quay cùng đĩa. */
-const Label: React.FC<{ scenes: Scene[]; title: string; handle: string; palette: Palette; size: number }> = ({ scenes, title, handle, palette, size }) => {
+/** Nhãn đĩa: ảnh/clip của cảnh; không ảnh thì nhãn in màu có tên bài ở nửa trên (tránh lỗ giữa). Quay cùng đĩa. */
+const Label: React.FC<{ scenes: Scene[]; title: string; palette: Palette; size: number }> = ({ scenes, title, palette, size }) => {
   const frame = useCurrentFrame();
   const scene = scenes[Math.max(0, activeIndexAt(scenes, frame))];
   return (
@@ -83,7 +83,7 @@ const Label: React.FC<{ scenes: Scene[]; title: string; handle: string; palette:
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-start",
             padding: `${size * 0.16}px ${size * 0.16}px ${size * 0.2}px`,
             boxSizing: "border-box",
             background: `radial-gradient(circle at 35% 30%, ${palette.accent2} 0%, ${palette.accent} 45%, hsl(${palette.hue}, 70%, 22%) 100%)`,
@@ -96,7 +96,6 @@ const Label: React.FC<{ scenes: Scene[]; title: string; handle: string; palette:
           <span style={{ fontWeight: 900, fontSize: size * 0.1, lineHeight: 1.15, maxWidth: "100%", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {title.normalize("NFC").toLocaleUpperCase("vi")}
           </span>
-          <span style={{ fontWeight: 700, fontSize: size * 0.07, opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{handle}</span>
         </div>
       )}
     </div>
@@ -104,13 +103,12 @@ const Label: React.FC<{ scenes: Scene[]; title: string; handle: string; palette:
 };
 
 /** Đĩa than quay 33⅓ vòng/phút: rãnh đĩa, nhãn ảnh bìa, lỗ giữa. Vệt bóng loáng đứng yên — chỉ đĩa quay. */
-export const Disc: React.FC<{ cx: number; cy: number; r: number; scenes: Scene[]; title: string; handle: string; palette: Palette }> = ({
+export const Disc: React.FC<{ cx: number; cy: number; r: number; scenes: Scene[]; title: string; palette: Palette }> = ({
   cx,
   cy,
   r,
   scenes,
   title,
-  handle,
   palette,
 }) => {
   const frame = useCurrentFrame();
@@ -134,7 +132,7 @@ export const Disc: React.FC<{ cx: number; cy: number; r: number; scenes: Scene[]
           placeItems: "center",
         }}
       >
-        <Label scenes={scenes} title={title} handle={handle} palette={palette} size={label} />
+        <Label scenes={scenes} title={title} palette={palette} size={label} />
       </div>
       {/* Bóng loáng đứng yên trên mặt đĩa. */}
       <div
@@ -272,14 +270,13 @@ export const ToneArm: React.FC<{ cx: number; cy: number; r: number }> = ({ cx, c
 
 /* ------------------------------------------------------------ bìa đĩa */
 
-/** Bìa đĩa vuông cho màn mở đầu: ảnh cảnh đầu (hoặc mảng màu), tên bài lớn + handle ở chân bìa. */
-export const Sleeve: React.FC<{ x: number; y: number; size: number; scenes: Scene[]; title: string; handle: string; palette: Palette }> = ({
+/** Bìa đĩa vuông cho màn mở đầu: ảnh cảnh đầu (hoặc mảng màu), tên bài lớn ở chân bìa. */
+export const Sleeve: React.FC<{ x: number; y: number; size: number; scenes: Scene[]; title: string; palette: Palette }> = ({
   x,
   y,
   size,
   scenes,
   title,
-  handle,
   palette,
 }) => {
   const cover = scenes.find((s) => s.image) ?? null;
@@ -305,7 +302,6 @@ export const Sleeve: React.FC<{ x: number; y: number; size: number; scenes: Scen
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.75) 100%)" }} />
       <div style={{ position: "absolute", left: size * 0.07, right: size * 0.07, bottom: size * 0.07 }}>
         <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: size * 0.1, lineHeight: 1.22, color: "#fff" }}>{title.normalize("NFC")}</div>
-        {handle ? <div style={{ fontFamily: FONT, fontWeight: 600, fontSize: size * 0.05, color: "rgba(255,255,255,0.8)", marginTop: size * 0.02 }}>{handle}</div> : null}
       </div>
     </div>
   );

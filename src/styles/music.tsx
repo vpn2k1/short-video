@@ -361,10 +361,10 @@ export const accentHue = (accent: string, fallback: number) => {
   return !c || c.s < 0.15 ? fallback : Math.round(c.h);
 };
 
-/** Chữ viết tắt từ handle: "@kienthucbien" → "K", "Sơn Tùng" → "ST". */
+/** Chữ viết tắt (tối đa 2 chữ) cho ô bìa không ảnh: "Nơi này có anh" → "NN", "Lofi" → "L"; rỗng → "♪". */
 export const initialsOf = (text: string) => {
   // Chỉ lấy từ bắt đầu bằng chữ/số — "Lofi · Side A" không ra "L·".
-  const words = text.replace(/^@/, "").trim().split(/[\s._-]+/).filter((w) => /^[\p{L}\p{N}]/u.test(w));
+  const words = text.trim().split(/[\s._-]+/).filter((w) => /^[\p{L}\p{N}]/u.test(w));
   const letters = words.length > 1 ? words.slice(0, 2).map((w) => [...w][0]) : [...(words[0] ?? "♪")].slice(0, 1);
   return letters.join("").normalize("NFC").toLocaleUpperCase("vi");
 };

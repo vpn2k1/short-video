@@ -24,7 +24,7 @@ description: Phong cách "Mở sách" — cuốn sách bìa da trên bàn dướ
 | `captions` | Mọi câu của trang xếp sẵn thành một đoạn văn (câu chưa đọc tàng hình) nên dòng không nhảy; từng từ "thấm" ra theo nhịp đọc trong nửa đầu câu. Câu cũ **ở lại** trên trang. |
 | `punch` | Có nguyên văn trong câu: các từ đó in nghiêng, đổi màu nhấn, gạch chân kéo dần lúc `atMs`. Không khớp → in thành câu trích giữa trang (khi cảnh không có `visual`). |
 | `visual` stat/badge | Câu trích giữa trang: chữ lớn in nghiêng màu nhấn giữa hai gạch, `caption` nghiêng nhạt bên dưới. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: bìa sách viền mạ vàng hai nét, tiêu đề vàng, dòng phụ nghiêng, handle cuối bìa. Frame 64 bìa mở quanh gáy trong 24 frame. |
+| `title`/`subtitle` | Khi `showTitle`: bìa sách viền mạ vàng hai nét, tiêu đề vàng, dòng phụ nghiêng. Frame 64 bìa mở quanh gáy trong 24 frame. |
 
 ## Chuyển động
 

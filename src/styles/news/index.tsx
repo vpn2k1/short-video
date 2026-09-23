@@ -19,7 +19,6 @@ import { TitleIntro } from "./TitleIntro";
 export const NewsStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -28,7 +27,7 @@ export const NewsStyle: React.FC<ShortProps> = ({
   const L = useNewsLayout(title, captions, scenes);
   // Dải dưới vào khi phần mở đầu bắt đầu trượt đi.
   const enterFrame = showTitle ? TITLE_FRAMES - 4 : 0;
-  const items = tickerItems(title, subtitle, handle, scenes);
+  const items = tickerItems(title, subtitle, scenes);
 
   return (
     <AbsoluteFill style={{ fontFamily: FONT, backgroundColor: NAVY_DEEP, overflow: "hidden" }}>
@@ -45,7 +44,7 @@ export const NewsStyle: React.FC<ShortProps> = ({
       />
       <PunchFlash L={L} scenes={scenes} enterFrame={enterFrame} />
       <Ticker L={L} items={items} accent={accent} />
-      <StationBug L={L} handle={handle} accent={accent} />
+      <StationBug L={L} accent={accent} />
       <Clock L={L} />
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>

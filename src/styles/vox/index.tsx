@@ -212,7 +212,6 @@ const SceneLayer: React.FC<{
 export const VoxStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -257,7 +256,6 @@ export const VoxStyle: React.FC<ShortProps> = ({
           <TitlePage
             title={title}
             subtitle={subtitle}
-            handle={handle}
             f={frame}
             total={TITLE_FRAMES}
             fps={L.fps}

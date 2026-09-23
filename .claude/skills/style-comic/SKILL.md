@@ -32,7 +32,7 @@ description: Phong cách "Truyện tranh" — ảnh trong khung truyện viền 
 | `visual` stat | huy hiệu nổ tròn màu bù lõi trắng ở góc trên-phải khung: số lớn màu nóng viền đen, `caption` in hoa bên dưới; xoay vào |
 | `visual` badge | băng rôn màu nóng hai đuôi gập ở góc trên-phải khung, chữ trắng viền đen; `caption` trong ô trắng nhỏ bên dưới |
 | visual khi không ảnh | đặt giữa khung, phóng 1.6× |
-| `title`/`subtitle`/`handle` | khi `showTitle`: bìa truyện 70 frame — nền tia nắng accent + halftone, măng-sét vàng chứa tít in hoa, ô "SỐ 01", ảnh cảnh đầu trong khung lớn có nhãn "MỚI!", `subtitle` là dải tagline trắng, `handle` là "★ PHÁT HÀNH @handle" |
+| `title`/`subtitle` | khi `showTitle`: bìa truyện 70 frame — nền tia nắng accent + halftone, măng-sét vàng chứa tít in hoa, ô "SỐ 01", ảnh cảnh đầu trong khung lớn có nhãn "MỚI!", `subtitle` là dải tagline trắng |
 | `accent` | màu nóng (nổ, băng rôn, số liệu, chấm nền); màu bù suy ra để đối lập |
 | `background` | không dùng — trang giấy cố định |
 
@@ -42,7 +42,7 @@ description: Phong cách "Truyện tranh" — ảnh trong khung truyện viền 
   cả lớp khung rung 10 frame; khung cũ nằm dưới thêm 8 frame rồi mờ đi. Nét hành động nền vụt vào 14 frame.
   Không TransitionSeries — timeline tuyệt đối.
 - Cảnh đầu khi có bìa: đập xuống ở frame 62, lúc bìa đang lật văng sang trái (frame 59–70).
-- Bìa: măng-sét rơi từ trên (spring), khung ảnh đập (5–18), tagline trượt từ trái (13), "SỐ 01" (19), "MỚI!" (24), handle (28).
+- Bìa: măng-sét rơi từ trên (spring), khung ảnh đập (5–18), tagline trượt từ trái (13), "SỐ 01" (19), "MỚI!" (24).
 - Chấm halftone trôi chậm; mọi ngẫu nhiên qua `seeded()`; mọi chuyển động từ `useCurrentFrame()`.
 
 ## Lỗi cần tránh

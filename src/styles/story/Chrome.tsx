@@ -8,7 +8,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import { msToFrames } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
-import { clamp, displayHandle, initialOf, punchFrame, ringGradient, UI, useGeo, VW } from "./theme";
+import { clamp, initialOf, punchFrame, ringGradient, UI, useGeo, VW } from "./theme";
 
 /* ------------------------------------------------------------ biểu tượng */
 
@@ -44,17 +44,16 @@ const CloseIcon: React.FC<IconProps> = ({ size, color = "#fff" }) => (
 /* ------------------------------------------------------------ avatar */
 
 /**
- * Avatar tròn: chữ cái đầu của handle trên nền màu nhấn, viền đen mảnh rồi vòng gradient story.
+ * Avatar tròn: chữ cái đầu của tiêu đề trên nền màu nhấn, viền đen mảnh rồi vòng gradient story.
  * `spin` xoay vòng (lúc "đang tải" ở màn mở đầu), `ring` 0..1 để tắt dần vòng.
  */
 export const Avatar: React.FC<{
   size: number;
-  handle: string;
   title: string;
   accent: string;
   spin?: number;
   ring?: number;
-}> = ({ size, handle, title, accent, spin = 0, ring = 1 }) => {
+}> = ({ size, title, accent, spin = 0, ring = 1 }) => {
   const pad = Math.max(3, size * 0.06);
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
@@ -84,7 +83,7 @@ export const Avatar: React.FC<{
             lineHeight: 1,
           }}
         >
-          {initialOf(handle, title)}
+          {initialOf(title)}
         </div>
       </div>
     </div>
@@ -120,7 +119,7 @@ export const ProgressBars: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
   );
 };
 
-export const Header: React.FC<{ handle: string; title: string; accent: string }> = ({ handle, title, accent }) => {
+export const Header: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
   const geo = useGeo();
   return (
     <div
@@ -138,10 +137,7 @@ export const Header: React.FC<{ handle: string; title: string; accent: string }>
         textShadow: "0 2px 10px rgba(0,0,0,0.35)",
       }}
     >
-      <Avatar size={92} handle={handle} title={title} accent={accent} />
-      <div style={{ fontSize: 40, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
-        {displayHandle(handle)}
-      </div>
+      <Avatar size={92} title={title} accent={accent} />
       <div style={{ fontSize: 38, fontWeight: 500, opacity: 0.72, whiteSpace: "nowrap" }}>2 giờ</div>
       <div style={{ flex: 1 }} />
       <div style={{ display: "flex", alignItems: "center", gap: 30, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.35))" }}>

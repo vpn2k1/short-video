@@ -21,7 +21,7 @@ description: Phong cách "Livestream bán hàng" — màn hình phiên live bán
 
 ## Bố cục
 
-- **Dọc 9:16**: thanh chủ phòng trên trái (ảnh đại diện chữ cái đầu của handle, tên, lượt thích, "+ Theo dõi") → nhãn
+- **Dọc 9:16**: thanh chủ phòng trên trái (ảnh đại diện biểu tượng giỏ hàng, lượt thích, "+ Theo dõi") → nhãn
   LIVE → số người xem. Dưới nó: thẻ sản phẩm (trái) và huy hiệu số liệu (phải). Mép phải: tim · bình luận · chia sẻ ·
   giỏ hàng. Đáy: lời ghim rộng gần hết khung, khung chat 6 dòng ngay trên lời ghim (đáy chat bám mép trên thẻ ghim, co
   giãn theo số dòng).
@@ -34,14 +34,14 @@ description: Phong cách "Livestream bán hàng" — màn hình phiên live bán
 | Trường | Cách vẽ |
 |---|---|
 | `image` | Máy quay live toàn khung (video: phát, lặp, theo `volume`). Cũng là ảnh thu nhỏ trong thẻ sản phẩm và thẻ flash sale (tắt tiếng). `null` → phông chụp sản phẩm với bóng chai/hộp. |
-| `captions` | **Lời ghim của chủ phòng**: thẻ trắng, dòng đầu "📌 · ảnh đại diện · tên · [Chủ phòng]", lời in đậm 800 tối đa 3 dòng (tự co tới 30px). Đổi câu: thẻ co/giãn chiều cao 6 frame, chữ mới trượt lên. |
+| `captions` | **Lời ghim của chủ phòng**: thẻ trắng, dòng đầu "📌 · ảnh đại diện · [Chủ phòng]", lời in đậm 800 tối đa 3 dòng (tự co tới 30px). Đổi câu: thẻ co/giãn chiều cao 6 frame, chữ mới trượt lên. |
 | Bình luận | Tự sinh, xác định theo tiêu đề (render song song không lệch): tên người xem màu pastel riêng, nhịp 16–30 frame một dòng; 12–60 frame sau mỗi câu người dẫn, người xem **hỏi lại theo nội dung câu** (có giá → "Giá bao nhiêu shop?", có "ship" → "Freeship luôn hả shop?", có "size/màu", "chính hãng", "da/kem/son"…); xen "đã tham gia" và dòng cam "🛒 vừa đặt hàng". |
 | `tag` | **Thẻ sản phẩm đang bán**: ảnh nhỏ có số thứ tự cảnh, tên sản phẩm (tối đa 2 dòng), "Còn 23 sản phẩm" giảm dần (nhanh gấp 4 sau câu nhấn, không dưới 2) + thanh tồn kho, nút "Mua". Cảnh liền nhau cùng `tag` thì thẻ đứng yên, không trượt lại. Số trên giỏ hàng = số `tag` khác nhau. |
 | `visual` stat | Chữ có `%` hoặc bắt đầu bằng `-`/`x` → **sao nổ** vàng viền đỏ xoay chậm, số đỏ, chú thích trong nhãn đỏ bên dưới. Còn lại → **viên cam có lửa** "Đã bán 12.000" (chú thích thay chữ "Đã bán"). Góc phải trên, nảy vào 10 frame sau đầu cảnh. |
 | `visual` badge | Viên vàng có lửa, chữ in hoa ("FREESHIP"), chú thích nhỏ bên dưới. |
 | `punch` | **Thẻ đập giữa màn hình** trong 96 frame: chớp trắng, phóng 1.45 → 1 + lắc, tia nắng vàng xoay sau thẻ, nền tối nhẹ, thẻ sản phẩm/huy hiệu/chat lùi mờ. Câu nhấn **có giá** ("199k", "199.000đ", "1,5 triệu", "từ 399k còn 199k", "giảm 30% còn 350k") → **FLASH SALE**: đầu thẻ đỏ-cam + tia sét + đồng hồ "00:04:59" đếm ngược, ảnh sản phẩm có chip "-50%", tên (`tag`), giá cũ gạch ngang, giá mới Montserrat đỏ lăn từ giá cũ xuống, thanh "Đã bán 62→91% · Sắp hết", nút MUA NGAY phập phồng. Không có giá → **ĐIỂM NỔI BẬT**: câu nhấn in hoa đỏ cỡ lớn quét dạ quang (nút MUA NGAY chỉ khi cảnh có `tag`). Cùng lúc cụm đó trong lời ghim đỏ + quét vàng, chat dồn "Chốt đơn!" 6–11 frame một dòng, tim bay dày gấp 3. |
 | Giá cũ | Lấy số lớn hơn đứng trước trong câu nhấn ("từ **399k** còn 199k"); không có thì suy từ `%` trong câu nhấn; không có nữa thì coi như giảm 50%. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: **màn chờ live** — nền tối ngả accent đè cảnh đầu, ảnh đại diện có hai vòng đỏ toả ra + nhãn "SẮP LIVE", @handle, tiêu đề chữ 900 (≤ 3 dòng), dòng phụ tách theo `·`/`|` thành tối đa 3 viên, "Bắt đầu sau 3 · 2 · 1" rồi nhãn LIVE đập xuống. Không có handle → "shop.live". |
+| `title`/`subtitle` | Khi `showTitle`: **màn chờ live** — nền tối ngả accent đè cảnh đầu, ảnh đại diện có hai vòng đỏ toả ra + nhãn "SẮP LIVE", tiêu đề chữ 900 (≤ 3 dòng), dòng phụ tách theo `·`/`|` thành tối đa 3 viên, "Bắt đầu sau 3 · 2 · 1" rồi nhãn LIVE đập xuống. |
 
 ## Chuyển động
 

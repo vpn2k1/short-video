@@ -188,11 +188,8 @@ export const communityOf = (tag: string | null) => {
   return `r/${slug}`;
 };
 
-/** Tên hiển thị từ handle; không có thì "Ẩn danh". */
-export const displayNameOf = (handle: string) => {
-  const name = nfc(handle ?? "").trim().replace(/^@+/, "");
-  return name || "Ẩn danh";
-};
+/** Tên người đăng: luôn ẩn danh (tên kênh chỉ hiện qua watermark trong Cài đặt). */
+export const AUTHOR_NAME = "Ẩn danh";
 
 export const initialOf = (name: string) => ([...name][0] ?? "?").toLocaleUpperCase("vi");
 

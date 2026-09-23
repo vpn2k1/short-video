@@ -1,7 +1,7 @@
 /**
  * Bìa truyện mở đầu (chỉ khi showTitle, nằm trong Sequence dài TITLE_FRAMES):
  * nền tia nắng accent + halftone, măng-sét vàng chứa tên video, ô "SỐ 01", ảnh cảnh đầu
- * trong khung lớn, dải tagline là subtitle, handle là nhà phát hành. Cuối bìa lật văng sang trái.
+ * trong khung lớn, dải tagline là subtitle. Cuối bìa lật văng sang trái.
  */
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame } from "remotion";
 import { TITLE_FRAMES } from "../../constants";
@@ -14,10 +14,9 @@ import { clamp, comicPalette, fitBlock, INK, outline, upperVi, WHITE, YELLOW } f
 export const Cover: React.FC<{
   title: string;
   subtitle: string;
-  handle: string;
   accent: string;
   firstScene: Scene | null;
-}> = ({ title, subtitle, handle, accent, firstScene }) => {
+}> = ({ title, subtitle, accent, firstScene }) => {
   const frame = useCurrentFrame();
   const L = useLayout();
   const { width: W, height: H, unit: u, fps, safe } = L;
@@ -49,7 +48,6 @@ export const Cover: React.FC<{
   const tagS = spring({ frame: frame - 13, fps, config: { damping: 12, stiffness: 160 } });
   const issueS = spring({ frame: frame - 19, fps, config: { damping: 8, stiffness: 200 } });
   const newS = spring({ frame: frame - 24, fps, config: { damping: 7, stiffness: 180 } });
-  const handleT = interpolate(frame, [28, 36], [0, 1], clamp);
 
   const masthead = (
     <div
@@ -116,30 +114,6 @@ export const Cover: React.FC<{
       }}
     >
       {subText}
-    </div>
-  ) : null;
-
-  const handleRow = handle ? (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 14 * u,
-        backgroundColor: INK,
-        color: WHITE,
-        padding: `${10 * u}px ${26 * u}px`,
-        border: `${4 * u}px solid ${WHITE}`,
-        ...HEAVY,
-        fontWeight: 800,
-        fontSize: 36 * u,
-        lineHeight: 1.1,
-        opacity: handleT,
-        transform: `translateY(${(1 - handleT) * 30 * u}px) rotate(1deg)`,
-      }}
-    >
-      <span style={{ color: YELLOW }}>★</span>
-      <span style={{ fontSize: 24 * u, opacity: 0.8 }}>{upperVi("Phát hành")}</span>
-      <span>{handle}</span>
     </div>
   ) : null;
 
@@ -242,7 +216,6 @@ export const Cover: React.FC<{
               </div>
             ) : null}
           </div>
-          <div style={{ marginTop: 10 * u }}>{handleRow}</div>
         </div>
       ) : (
         <div
@@ -260,7 +233,6 @@ export const Cover: React.FC<{
           <div style={{ width: mastW, display: "flex", flexDirection: "column", justifyContent: "center", gap: 50 * u, paddingTop: 40 * u }}>
             {masthead}
             {tagline}
-            <div>{handleRow}</div>
           </div>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: `${40 * u}px ${20 * u}px ${20 * u}px` }}>{artPanel}</div>
         </div>

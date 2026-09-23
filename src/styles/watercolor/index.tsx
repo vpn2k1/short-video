@@ -477,8 +477,8 @@ const CaptionLayer: React.FC<{
 // ---------------------------------------------------------------------------
 // Trang tiêu đề
 // ---------------------------------------------------------------------------
-const TitlePage: React.FC<{ title: string; subtitle: string; handle: string; frame: number; palette: Palette; ready: boolean }> = ({
-  title, subtitle, handle, frame, palette, ready,
+const TitlePage: React.FC<{ title: string; subtitle: string; frame: number; palette: Palette; ready: boolean }> = ({
+  title, subtitle, frame, palette, ready,
 }) => {
   const { width, height, safe, unit, portrait } = useLayout();
   const out = interpolate(frame, [TITLE_FRAMES - 16, TITLE_FRAMES], [1, 0], { ...clamp, easing: WASH });
@@ -499,7 +499,6 @@ const TitlePage: React.FC<{ title: string; subtitle: string; handle: string; fra
   const subSize = (portrait ? 42 : 38) * unit;
   const subLines = subtitle ? wrap(subtitle, subSize, maxW * 0.86, subFace, ready).slice(0, 3) : [];
   const subT = interpolate(frame, [30, 46], [0, 1], { ...clamp, easing: SOAK });
-  const handleT = interpolate(frame, [38, 54], [0, 1], { ...clamp, easing: SOAK });
   const subTop = cy + strokeH / 2 + 30 * unit;
 
   const r = 46 * unit;
@@ -550,22 +549,12 @@ const TitlePage: React.FC<{ title: string; subtitle: string; handle: string; fra
           {line.words.map((w) => w.text).join(" ")}
         </div>
       ))}
-      {handle ? (
-        <div
-          style={{
-            position: "absolute", left: 0, width, top: subTop + subLines.length * subSize * 1.45 + 34 * unit, textAlign: "center",
-            fontFamily: SERIF, fontWeight: 500, fontSize: 28 * unit, letterSpacing: "0.08em", color: palette.pigment, opacity: handleT * 0.9,
-          }}
-        >
-          ~ {handle.normalize("NFC")} ~
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };
 
 // ---------------------------------------------------------------------------
-export const WatercolorStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const WatercolorStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   const scriptReady = useFontReady("dancing");
   const serifReady = useFontReady("lora");
   const ready = scriptReady && serifReady;
@@ -614,7 +603,7 @@ export const WatercolorStyle: React.FC<ShortProps> = ({ title, subtitle, handle,
       <CaptionLayer captions={captions} scenes={pages} layout={layout} frame={frame} ready={ready} gate={gate} palette={palette} lastFrame={lastFrame} />
 
       {showTitle && frame < TITLE_FRAMES ? (
-        <TitlePage title={title} subtitle={subtitle} handle={handle} frame={frame} palette={palette} ready={ready} />
+        <TitlePage title={title} subtitle={subtitle} frame={frame} palette={palette} ready={ready} />
       ) : null}
 
       <PaperTexture unit={layout.unit} />

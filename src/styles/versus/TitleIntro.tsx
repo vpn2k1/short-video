@@ -1,6 +1,6 @@
 /**
  * Title card "So sánh đối đầu": hai nửa màu phe lao vào từ hai phía, đập nhau ở đường nối (chớp trắng + rung),
- * huy hiệu VS đập xuống, tiêu đề in hoa trên dải tối phía trên huy hiệu, dòng phụ và handle phía dưới.
+ * huy hiệu VS đập xuống, tiêu đề in hoa trên dải tối phía trên huy hiệu, dòng phụ phía dưới.
  * Cuối title card hai nửa màu mờ đi, lộ ra ảnh hai phe nằm sẵn bên dưới — cùng một đường nối nên không bị giật.
  *
  * Tách hai lớp để kẹp đường nối + huy hiệu ở giữa: IntroPanels (dưới) và IntroText (trên).
@@ -87,8 +87,7 @@ export const IntroText: React.FC<{
   cy: number;
   title: string;
   subtitle: string;
-  handle: string;
-}> = ({ g, frame, safe, cx, cy, title, subtitle, handle }) => {
+}> = ({ g, frame, safe, cx, cy, title, subtitle }) => {
   const out = introOut(frame);
   if (out >= 1) return null;
   const { u, W, H, emblemR } = g;
@@ -97,7 +96,6 @@ export const IntroText: React.FC<{
   const titleFit = fitText(titleText, (g.portrait ? 92 : 80) * u, textW - 40 * u, 3, 0.64, 48 * u);
   const titleIn = ramp(frame, CLASH_FRAME + 6, 9);
   const subIn = ramp(frame, CLASH_FRAME + 14, 10);
-  const handleIn = ramp(frame, CLASH_FRAME + 20, 10);
   const slab = (color: string): React.CSSProperties => ({
     backgroundColor: color,
     padding: `${4 * u}px ${18 * u}px`,
@@ -160,20 +158,6 @@ export const IntroText: React.FC<{
             }}
           >
             <span style={slab(withAlpha(NIGHT, 0.75))}>{subtitle}</span>
-          </div>
-        ) : null}
-        {handle ? (
-          <div
-            style={{
-              fontFamily: BODY,
-              fontWeight: 700,
-              fontSize: 30 * u,
-              color: "#ffffff",
-              opacity: 0.9 * handleIn,
-              textShadow: `0 ${2 * u}px ${10 * u}px rgba(0,0,0,0.8)`,
-            }}
-          >
-            {handle}
           </div>
         ) : null}
       </div>

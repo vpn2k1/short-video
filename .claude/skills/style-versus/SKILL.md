@@ -38,7 +38,7 @@ description: Phong cách "So sánh đối đầu" — khung chia đôi hai phe (
 | `visual` badge | viên tối viền màu phe, chữ in hoa + chú thích nhỏ, cùng chỗ với bảng điểm |
 | `punch` | con dấu phán quyết: khung tối viền đôi màu phe, chữ Anton in hoa, rơi từ 2.4× xuống trong 7 frame, vòng sóng chấn động, cả khung rung 12 frame. Hiện từ `atMs` (sớm nhất 6 frame sau khi cảnh vào) tới khi lượt chuyển sang phe kia |
 | `captions` | hộp tối viền trên màu phe, Be Vietnam Pro 800 căn giữa, co chữ để ≤ 4 dòng; nằm ở phe của cảnh đang chạy lúc câu bắt đầu; cụm `punch` trong câu tô màu phe |
-| `title`/`subtitle`/`handle` | 70 frame: hai nửa màu phe lao vào từ hai phía, đập nhau ở frame 12 (chớp trắng + rung), VS đập xuống, tiêu đề in hoa trên dải tối phía trên huy hiệu, dòng phụ + handle phía dưới; tên hai phe (`tag` của cảnh 1 và 2) cỡ lớn trên hai nửa. Cuối title hai nửa màu mờ đi lộ ảnh bên dưới |
+| `title`/`subtitle` | 70 frame: hai nửa màu phe lao vào từ hai phía, đập nhau ở frame 12 (chớp trắng + rung), VS đập xuống, tiêu đề in hoa trên dải tối phía trên huy hiệu, dòng phụ phía dưới; tên hai phe (`tag` của cảnh 1 và 2) cỡ lớn trên hai nửa. Cuối title hai nửa màu mờ đi lộ ảnh bên dưới |
 | `accent` | màu phe A; phe B suy ra từ nó |
 | `captionPosition`, `background` | bỏ qua — vị trí do bố cục phe quyết định |
 

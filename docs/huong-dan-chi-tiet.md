@@ -140,7 +140,7 @@ Tất cả ảnh và video đã tạo từ **mọi cuộc**, kèm dung lượng 
 Nhập prompt → sinh `videos/<slug>/script.json`. Cần `ANTHROPIC_API_KEY`.
 
 ### Tab Sửa kịch bản
-Sửa tiêu đề, handle, màu, và từng cảnh. Mỗi cảnh chia 2 cột:
+Sửa tiêu đề, màu, và từng cảnh. Mỗi cảnh chia 2 cột:
 
 - **Trái**: đường dẫn ảnh · ô **tìm ảnh Pexels** (gõ từ khoá tiếng Anh → lưới thumbnail
   → bấm chọn → tự tải về đúng 1080×1920, tự điền đường dẫn, tự ghi công tác giả) ·
@@ -216,7 +216,7 @@ npm run audio-to-video -- giong.mp3 --name bai-noi --model medium --sub center
 |---|---|---|
 | `--model` | `small` \| `medium` (đã test) · `large-v3` (chưa test) · `large-v3-turbo` **hỏng** | `medium` |
 | `--lang` | mã ngôn ngữ | `vi` |
-| `--title` `--subtitle` `--handle` `--accent` `--background` | metadata | có sẵn |
+| `--title` `--subtitle` `--accent` `--background` | metadata | có sẵn |
 
 ### `fetch-images`
 
@@ -319,7 +319,7 @@ src/
   scenes/            Background, Scenes (ảnh + cross-fade + Ken Burns), Scrim, SceneVisual
   captions/          Captions
   audio/             Soundtrack, mix.ts (hàm thuần tính volume — kiểm chứng không cần render)
-  components/        TitleCard, Watermark, ProgressBar, ChapterMarker, StepTracker
+  components/        TitleCard, WatermarkOverlay, ProgressBar, ChapterMarker, StepTracker
 scripts/
   prompt-to-video    CLI: prompt → mp4
   audio-to-video     CLI: audio → mp4
@@ -418,7 +418,7 @@ grep -c '�' videos/<slug>/props.json   # phải là 0
 | Ảnh không hiện trong video | `Background` render sau `Scenes` | Giữ đúng thứ tự lớp ở mục 3 |
 | `inputRange must be strictly monotonically increasing` | Hai mốc `interpolate` bằng nhau | Tách nhánh cho cảnh đầu/cuối |
 | Video thiếu stream audio | Kiểm bằng `ffprobe` | `ffprobe -v error -show_entries stream=codec_type -of csv=p=0 out/x.mp4` |
-| Watermark bị che khi đăng | Nằm trong dải đáy 320px | Dùng `WATERMARK_BOTTOM` trong `constants.ts` |
+| Watermark bị che khi đăng | Vị trí rơi vào dải nền tảng chiếm | Cài đặt › Watermark: chọn Trên/Giữa, hoặc kéo chữ ra khỏi vùng mờ |
 | Ảnh thiếu file | Đường dẫn sai trong `script.json` | `npm run images` để xem chỗ nào `← THIẾU FILE` |
 
 ---

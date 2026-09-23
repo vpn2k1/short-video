@@ -1,6 +1,6 @@
 /**
  * Trang tiêu đề: trục đang vẽ dần (do lớp trục chung lo), một mốc lớn bật ra, khoảng năm "1945 → Hôm nay",
- * tiêu đề, dòng phụ và handle trượt vào cạnh mốc. Hết trang thì chữ trôi đi theo hướng cuộn của trục.
+ * tiêu đề và dòng phụ trượt vào cạnh mốc. Hết trang thì chữ trôi đi theo hướng cuộn của trục.
  */
 import { interpolate } from "remotion";
 import { TITLE_FRAMES } from "../../constants";
@@ -9,7 +9,6 @@ import { alpha, BODY, clamp, DISPLAY, estimateLines, ramp, UI, type Theme } from
 export const TitleIntro: React.FC<{
   title: string;
   subtitle: string;
-  handle: string;
   range: string | null;
   vertical: boolean;
   /** Vị trí mốc tiêu đề trên trục (trục dọc: chỉ dùng x, y tự canh theo dòng đầu), và khối chữ. */
@@ -19,7 +18,7 @@ export const TitleIntro: React.FC<{
   unit: number;
   accent: string;
   theme: Theme;
-}> = ({ title, subtitle, handle, range, vertical, node, block, frame, unit, accent, theme }) => {
+}> = ({ title, subtitle, range, vertical, node, block, frame, unit, accent, theme }) => {
   const exit = interpolate(frame, [TITLE_FRAMES - 18, TITLE_FRAMES - 4], [0, 1], clamp);
   if (exit >= 1) return null;
   const pop = ramp(frame, 6, 12);
@@ -41,7 +40,6 @@ export const TitleIntro: React.FC<{
     titleLines * titleSize * 1.08,
     6 * unit,
     subLines * 44 * unit * 1.3,
-    handle ? 30 * unit * 1.25 : 0,
   ].filter((h) => h > 0);
   const total = rows.reduce((a, b) => a + b, 0) + gap * (rows.length - 1);
   const top = block.y + (block.h - total) / 2;
@@ -107,9 +105,6 @@ export const TitleIntro: React.FC<{
           <div style={{ fontFamily: BODY, fontWeight: 500, fontSize: 44 * unit, lineHeight: 1.3, color: theme.ink, ...rise(show(20)), opacity: 0.75 * show(20) * (1 - exit) }}>
             {subtitle}
           </div>
-        ) : null}
-        {handle ? (
-          <div style={{ fontFamily: UI, fontWeight: 600, fontSize: 30 * unit, lineHeight: 1.25, color: theme.muted, ...rise(show(27)) }}>{handle}</div>
         ) : null}
       </div>
     </>

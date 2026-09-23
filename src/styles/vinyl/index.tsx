@@ -157,7 +157,7 @@ const Lyrics: React.FC<{ lines: Caption[]; scenes: Scene[]; palette: Palette; op
 
 /* ------------------------------------------------------------ thanh trên, số liệu */
 
-const TopBar: React.FC<{ title: string; handle: string; palette: Palette }> = ({ title, handle, palette }) => {
+const TopBar: React.FC<{ title: string; palette: Palette }> = ({ title, palette }) => {
   const frame = useCurrentFrame();
   const { safe, unit, width } = useLayout();
   const blink = Math.floor(frame / 15) % 2 === 0 ? 1 : 0.35;
@@ -185,7 +185,6 @@ const TopBar: React.FC<{ title: string; handle: string; palette: Palette }> = ({
       </span>
       <div style={{ minWidth: 0 }}>
         <div style={{ ...one, fontFamily: FONT, fontWeight: 800, fontSize: 32 * unit, color: "#fff" }}>{title.normalize("NFC")}</div>
-        {handle ? <div style={{ ...one, fontFamily: FONT, fontWeight: 600, fontSize: 24 * unit, color: "rgba(255,255,255,0.6)" }}>{handle}</div> : null}
       </div>
     </div>
   );
@@ -222,7 +221,7 @@ const StatChip: React.FC<{ scenes: Scene[]; palette: Palette }> = ({ scenes, pal
 
 /* ------------------------------------------------------------ ghép */
 
-const Body: React.FC<ShortProps> = ({ title, handle, accent, captions, scenes, showTitle }) => {
+const Body: React.FC<ShortProps> = ({ title, accent, captions, scenes, showTitle }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useLayout();
   const g = useGeometry();
@@ -242,17 +241,17 @@ const Body: React.FC<ShortProps> = ({ title, handle, accent, captions, scenes, s
     <AbsoluteFill style={{ backgroundColor: palette.base }}>
       <Backdrop scenes={scenes} palette={palette} cx={cx} cy={g.cy} r={g.r} />
       <SpectrumRing cx={cx} cy={g.cy} r={g.r} palette={palette} />
-      <Disc cx={cx} cy={g.cy} r={g.r} scenes={scenes} title={title} handle={handle} palette={palette} />
+      <Disc cx={cx} cy={g.cy} r={g.r} scenes={scenes} title={title} palette={palette} />
       <div style={{ opacity: t }}>
         <ToneArm cx={cx} cy={g.cy} r={g.r} />
       </div>
       {punchAt >= 0 ? <Shockwave cx={cx} cy={g.cy} r={g.r} at={punchAt} color={palette.accent2} /> : null}
       <div style={{ opacity: t }}>
-        <TopBar title={title} handle={handle} palette={palette} />
+        <TopBar title={title} palette={palette} />
       </div>
       {t >= 1 ? <StatChip scenes={scenes} palette={palette} /> : null}
       <Lyrics lines={lines} scenes={scenes} palette={palette} opacity={t} />
-      {t < 1 ? <Sleeve x={sleeveX} y={g.cy - sleeveSize / 2} size={sleeveSize} scenes={scenes} title={title} handle={handle} palette={palette} /> : null}
+      {t < 1 ? <Sleeve x={sleeveX} y={g.cy - sleeveSize / 2} size={sleeveSize} scenes={scenes} title={title} palette={palette} /> : null}
     </AbsoluteFill>
   );
 };

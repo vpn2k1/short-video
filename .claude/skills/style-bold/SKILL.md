@@ -29,7 +29,7 @@ description: Phong cách "Phụ đề từng từ" kiểu Hormozi — ảnh/vide
 | `visual` stat | số vàng khổng lồ viền đen ở một phần ba trên, đếm lên (giữ tiền tố/hậu tố: `80%`, `+30K`, `1.200`, `2,5 triệu`); `caption` in hoa nhỏ bên dưới |
 | `visual` badge | pill vàng viền đen chữ đen, nghiêng nhẹ, ở một phần ba trên; `caption` bên dưới |
 | `image` | nền toàn khung; `null` → nền tối + quầng accent |
-| `title`/`subtitle`/`handle` | title card 70 frame: tiêu đề in hoa bật từng từ, thanh vàng quét sau từ cuối, phụ đề trượt lên (bỏ nếu trùng tiêu đề), handle ở đáy |
+| `title`/`subtitle` | title card 70 frame: tiêu đề in hoa bật từng từ, thanh vàng quét sau từ cuối, phụ đề trượt lên (bỏ nếu trùng tiêu đề) |
 | `captionPosition` | `bottom` = nửa dưới, `center` = giữa khung |
 | `showTitle` | bật title card; phụ đề, tag, visual bị ẩn tới hết frame 70 |
 

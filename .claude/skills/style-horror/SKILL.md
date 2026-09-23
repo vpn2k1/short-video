@@ -30,7 +30,7 @@ description: Phong cách "Truyện ma" — kể chuyện ma lúc nửa đêm (r�
 | `visual` stat | con dấu khắc: khung viền kép nghiêng 1–3°, số Playfair 800 lõm, vết xước cắt ngang, hiện chập chờn; `caption` nghiêng bên dưới |
 | `visual` badge | cùng con dấu, chữ nhỏ hơn in hoa ("HỒ SƠ 07") |
 | `image` | ảnh hoặc video qua `SceneMedia` (tôn trọng `crop`, `trimStartMs`, `speed`, `volume`); `null` → phòng tối SVG |
-| `title`/`subtitle`/`handle` | 70 frame: bóng tối có sương, "— Chuyện có thật? —" mờ, tiêu đề Playfair hiện dần khỏi bóng tối (nhoè → nét, vài nhịp chập), dòng phụ đỏ máu nghiêng, handle; tan vào cảnh đầu |
+| `title`/`subtitle` | 70 frame: bóng tối có sương, "— Chuyện có thật? —" mờ, tiêu đề Playfair hiện dần khỏi bóng tối (nhoè → nét, vài nhịp chập), dòng phụ đỏ máu nghiêng; tan vào cảnh đầu |
 
 ## Chuyển động
 

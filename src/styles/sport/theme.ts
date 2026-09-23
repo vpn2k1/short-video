@@ -91,18 +91,6 @@ export const fitText = (text: string, base: number, width: number, maxLines: num
 };
 
 /**
- * Tên kênh viết tắt cho bảng tỉ số: "@bong.da_24h" → "BĐ2" kiểu chữ cái đầu; không có dấu ngăn thì lấy 3 chữ đầu
- * ("@kienthucbien" → "KIE"). Handle trống → "TV".
- */
-export const abbrOf = (handle: string) => {
-  const clean = handle.normalize("NFC").replace(/^@+/, "").trim();
-  if (!clean) return "TV";
-  const parts = clean.split(/[\s._\-]+/).filter(Boolean);
-  const letters = parts.length >= 2 ? parts.map((p) => Array.from(p)[0]).join("") : Array.from(parts[0] ?? clean).slice(0, 3).join("");
-  return upper(Array.from(letters).slice(0, 3).join(""));
-};
-
-/**
  * Tách tag kiểu bảng tên cầu thủ: "#10 · Quang Hải" → { num: "10", name: "Quang Hải" }.
  * Không có số áo ("VÒNG 3", "Man City") → num null, cả tag là tên.
  */

@@ -309,14 +309,13 @@ export const CineVisual: React.FC<{ scenes: Scene[]; showTitle: boolean; positio
 
 /* ----------------------------------------------------------------- title */
 
-/** Mở đầu: màn đen, "@handle trình bày", tít serif hiện dần, phụ đề nghiêng, rồi mở vào hình. */
-export const CineTitle: React.FC<{ title: string; subtitle: string; handle: string }> = ({ title, subtitle, handle }) => {
+/** Mở đầu: màn đen, tít serif hiện dần, phụ đề nghiêng, rồi mở vào hình. */
+export const CineTitle: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
   const { unit, width, height, safe } = useLayout();
   const wide = isWide(width, height);
   const black = interpolate(frame, [TITLE_FRAMES - 14, TITLE_FRAMES], [1, 0], clamp);
   const textOut = interpolate(frame, [TITLE_FRAMES - 20, TITLE_FRAMES - 8], [1, 0], clamp);
-  const handleIn = interpolate(frame, [2, 16], [0, 1], { ...clamp, easing: EASE });
   const titleIn = interpolate(frame, [10, 34], [0, 1], { ...clamp, easing: EASE });
   const subIn = interpolate(frame, [22, 40], [0, 1], { ...clamp, easing: EASE });
   const text = title.normalize("NFC");
@@ -327,20 +326,6 @@ export const CineTitle: React.FC<{ title: string; subtitle: string; handle: stri
     <AbsoluteFill>
       <AbsoluteFill style={{ backgroundColor: "#000", opacity: black }} />
       <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", opacity: textOut }}>
-        {handle ? (
-          <div
-            style={{
-              fontFamily: FONTS.serif,
-              fontStyle: "italic",
-              fontSize: 32 * unit,
-              color: "rgba(245,241,232,0.7)",
-              marginBottom: 36 * unit,
-              opacity: handleIn,
-            }}
-          >
-            {`${handle.normalize("NFC")} trình bày`}
-          </div>
-        ) : null}
         <div
           style={{
             width: maxWidth,

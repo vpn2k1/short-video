@@ -6,15 +6,10 @@ import { clamp, SANS, type Palette } from "./three";
 
 /**
  * Chữ của màn tiêu đề (vật 3D — nút xoắn crôm — do World vẽ phía trên). Tiêu đề crôm hiện TỪNG TỪ: mỗi từ trồi lên
- * từ nhoè, vệt sáng quét qua cả dòng khi đủ chữ; dòng phụ trên viên kính mờ, handle mờ ở đáy. 12 frame cuối cả khối
+ * từ nhoè, vệt sáng quét qua cả dòng khi đủ chữ; dòng phụ trên viên kính mờ. 12 frame cuối cả khối
  * mờ và thu nhỏ khi tấm ảnh đầu tiên xoay tới.
  */
-export const ThreeTitle: React.FC<{ title: string; subtitle: string; handle: string; palette: Palette }> = ({
-  title,
-  subtitle,
-  handle,
-  palette,
-}) => {
+export const ThreeTitle: React.FC<{ title: string; subtitle: string; palette: Palette }> = ({ title, subtitle, palette }) => {
   const frame = useCurrentFrame();
   const { unit, width, height, safe, fps } = useLayout();
   const { wide, square } = useShape();
@@ -93,24 +88,6 @@ export const ThreeTitle: React.FC<{ title: string; subtitle: string; handle: str
           </div>
         ) : null}
       </div>
-      {handle.trim() ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: safe.bottom * 0.6,
-            textAlign: "center",
-            fontFamily: SANS,
-            fontWeight: 500,
-            fontSize: 30 * unit,
-            color: "rgba(235,240,255,0.8)",
-            opacity: interpolate(frame, [wordsDone + 6, wordsDone + 16], [0, 1], clamp),
-          }}
-        >
-          {handle.trim()}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };

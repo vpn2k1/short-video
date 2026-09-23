@@ -9,7 +9,7 @@ description: Phong cách "Công thức nấu ăn" — tấm thẻ công thức t
 
 - Mặt bàn gỗ ván dọc có vân (SVG feTurbulence), khăn caro màu nhấn lộ một góc, vài lá húng ở mép, ánh đèn bếp ấm.
 - Thẻ công thức giấy kem `#fffaf0` bo góc 30px, dải màu nhấn trên đầu thẻ, bóng đổ xuống bàn, hơi nghiêng ±1°.
-- Chữ: **Baloo 2** cho huy hiệu, tên bước, tiêu đề; **Nunito** 800 cho lời hướng dẫn; **Patrick Hand** cho giấy nhớ và handle.
+- Chữ: **Baloo 2** cho huy hiệu, tên bước, tiêu đề; **Nunito** 800 cho lời hướng dẫn; **Patrick Hand** cho giấy nhớ.
   Cả ba đóng gói sẵn, đủ dấu tiếng Việt, nạp bằng `ensureFonts`.
 - Dọc (≥ 1.2): đầu thẻ (huy hiệu + tên bước + chấm tiến độ) → vạch gạch đứt → ảnh (~58% thân thẻ) → lời hướng dẫn.
   Ngang/vuông: ảnh bên trái nửa thẻ, cột phải là đầu thẻ + lời hướng dẫn.
@@ -26,7 +26,7 @@ description: Phong cách "Công thức nấu ăn" — tấm thẻ công thức t
 | `captions` | **Mỗi lúc một câu** của cảnh, căn giữa vùng chữ, câu dài tự co chữ (tối thiểu 34px). |
 | `punch` | Giấy nhớ vàng dán băng keo: "Mẹo:" màu nhấn + câu nhấn viết tay, mũi tên vẽ dần chỉ vào ảnh (hoặc chỉ lên danh sách khi không ảnh). Có nguyên văn trong câu: các từ đó còn được bút dạ màu nhấn quét lần lượt lúc `atMs`. |
 | `visual` stat/badge | Viên nhãn trắng: vòng màu nhấn có biểu tượng tự chọn theo chữ — "phút/giờ" đồng hồ (kim quay), "g/kg" cái cân, "muỗng/ml/chén" cái muỗng, "độ/lửa" ngọn lửa, "người/phần" hai người, còn lại muỗng (stat) hoặc dấu tích (badge) — + con số + chú thích nhỏ. Dọc: đè mép dưới trái ảnh. Ngang: góc dưới trái trong ảnh. Không ảnh: ngay dưới đầu thẻ bên phải. |
-| `title`/`subtitle`/`handle` | Khi `showTitle`: thẻ tiêu đề có dĩa · "CÔNG THỨC" · muỗng · phới, đĩa tròn chứa ảnh của cảnh đầu tiên có ảnh, tên món to, đường lượn màu nhấn, dòng phụ tách theo `·`/`|` thành chip có biểu tượng (người, đồng hồ, lửa, lá), handle viết tay. |
+| `title`/`subtitle` | Khi `showTitle`: thẻ tiêu đề có dĩa · "CÔNG THỨC" · muỗng · phới, đĩa tròn chứa ảnh của cảnh đầu tiên có ảnh, tên món to, đường lượn màu nhấn, dòng phụ tách theo `·`/`|` thành chip có biểu tượng (người, đồng hồ, lửa, lá). |
 
 ## Chuyển động
 

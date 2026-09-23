@@ -28,7 +28,6 @@ const positional: string[] = [];
 let name: string | undefined;
 let title: string | undefined;
 let subtitle = "";
-let handle = "@kenh";
 let accent = "#e8590c";
 let background = "#0b0b12";
 // medium là mặc định cho tiếng Việt: small sai tên riêng và từ ghép quá nhiều.
@@ -44,7 +43,6 @@ const flags: Record<string, (value: string) => void> = {
   "--name": (v) => (name = slugify(v)),
   "--title": (v) => (title = v),
   "--subtitle": (v) => (subtitle = v),
-  "--handle": (v) => (handle = v),
   "--accent": (v) => (accent = v),
   "--background": (v) => (background = v),
   "--model": (v) => (model = v as WhisperModel),
@@ -142,7 +140,6 @@ const main = async () => {
   const props: ShortProps = shortSchema.parse({
     title: title ?? (song ? fileTitle : captions[0]?.text) ?? "Video",
     subtitle,
-    handle,
     accent,
     background,
     captions,

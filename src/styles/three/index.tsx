@@ -25,7 +25,6 @@ import { World } from "./World";
 export const ThreeStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -46,7 +45,7 @@ export const ThreeStyle: React.FC<ShortProps> = ({
       <ThreeCaptions captions={captions} scenes={scenes} position={captionPosition} showTitle={showTitle} palette={palette} />
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <ThreeTitle title={title} subtitle={subtitle} handle={handle} palette={palette} />
+          <ThreeTitle title={title} subtitle={subtitle} palette={palette} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

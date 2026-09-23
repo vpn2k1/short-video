@@ -8,7 +8,7 @@ import type { Scene } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
 import { Grain } from "../shared";
 import {
-  alpha, barHeight, clamp, clock, CREAM, FAINT, initials, LIVE_RED, mix, MUTED, SANS, showName, STUDIO, upper, type Rect,
+  alpha, barHeight, clamp, clock, CREAM, FAINT, LIVE_RED, mix, MUTED, SANS, STUDIO, upper, type Rect,
 } from "./podcast";
 
 const POP = Easing.out(Easing.back(1.7));
@@ -68,17 +68,15 @@ export const BubbleIcon: React.FC<{ size: number; color: string }> = ({ size, co
 );
 
 // ---------------------------------------------------------------------------
-// Đầu thẻ: ô micro + tên chương trình + "TẬP 12" · "● ĐANG PHÁT"
+// Đầu thẻ: ô micro + "PODCAST · TẬP 12" + "● ĐANG PHÁT"
 // ---------------------------------------------------------------------------
-export const Header: React.FC<{ rect: Rect; handle: string; episode: number; accent: string; unit: number; compact: boolean }> = ({
-  rect, handle, episode, accent, unit, compact,
+export const Header: React.FC<{ rect: Rect; episode: number; accent: string; unit: number; compact: boolean }> = ({
+  rect, episode, accent, unit, compact,
 }) => {
   const frame = useCurrentFrame();
   const icon = rect.h * 0.86;
   // Chấm đỏ nhấp nháy mềm theo nhịp ~1 giây.
   const blink = 0.45 + 0.55 * (0.5 + 0.5 * Math.cos((frame / 30) * Math.PI * 2));
-  const name = showName(handle);
-  const nameSize = Math.max(24 * unit, Math.min(38 * unit, (rect.w * (compact ? 0.52 : 0.56)) / Math.max(8, [...name].length * 0.58)));
   return (
     <div style={{ position: "absolute", left: rect.x, top: rect.y, width: rect.w, height: rect.h, display: "flex", alignItems: "center", gap: 20 * unit }}>
       <div
@@ -96,26 +94,10 @@ export const Header: React.FC<{ rect: Rect; handle: string; episode: number; acc
       >
         <MicIcon size={icon * 0.56} color="#ffffff" />
       </div>
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 * unit }}>
-        <div
-          style={{
-            fontFamily: SANS,
-            fontWeight: 800,
-            fontSize: nameSize,
-            lineHeight: 1.2,
-            color: CREAM,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {name}
-        </div>
-        <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 24 * unit, lineHeight: 1.2, color: MUTED, letterSpacing: 2 * unit, whiteSpace: "nowrap" }}>
-          {upper(`Tập ${episode}`)}
-          {compact ? null : <span style={{ color: alpha(accent, 90) }}> · </span>}
-          {compact ? null : upper("Podcast")}
-        </div>
+      <div style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 800, fontSize: (compact ? 28 : 32) * unit, lineHeight: 1.2, color: CREAM, letterSpacing: 2 * unit, whiteSpace: "nowrap" }}>
+        {compact ? null : upper("Podcast")}
+        {compact ? null : <span style={{ color: alpha(accent, 90) }}> · </span>}
+        {upper(`Tập ${episode}`)}
       </div>
       <div
         style={{
@@ -148,12 +130,11 @@ export const Header: React.FC<{ rect: Rect; handle: string; episode: number; acc
 };
 
 // ---------------------------------------------------------------------------
-// Khung ảnh: ảnh/clip bo góc, phóng chậm; cảnh mới hoà vào đè cảnh cũ. Không ảnh → ảnh đại diện tròn.
+// Khung ảnh: ảnh/clip bo góc, phóng chậm; cảnh mới hoà vào đè cảnh cũ. Không ảnh → ảnh đại diện tròn có micro.
 // ---------------------------------------------------------------------------
-const AvatarPlaceholder: React.FC<{ rect: Rect; handle: string; accent: string; level: number; unit: number }> = ({ rect, handle, accent, level, unit }) => {
+const AvatarPlaceholder: React.FC<{ rect: Rect; accent: string; level: number; unit: number }> = ({ rect, accent, level, unit }) => {
   const frame = useCurrentFrame();
   const d = Math.min(rect.w, rect.h) * 0.52;
-  const text = initials(handle);
   return (
     <div
       style={{
@@ -196,29 +177,27 @@ const AvatarPlaceholder: React.FC<{ rect: Rect; handle: string; accent: string; 
           scale: String(1 + level * 0.035),
         }}
       >
-        <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: d * 0.36, lineHeight: 1.2, color: "#ffffff", letterSpacing: d * 0.01, marginTop: d * 0.02 }}>
-          {text}
-        </div>
+        <MicIcon size={d * 0.46} color="#ffffff" />
       </div>
     </div>
   );
 };
 
-const MediaLayer: React.FC<{ scene: Scene; rect: Rect; handle: string; accent: string; level: number; unit: number; opacity: number; zoom: number }> = ({
-  scene, rect, handle, accent, level, unit, opacity, zoom,
+const MediaLayer: React.FC<{ scene: Scene; rect: Rect; accent: string; level: number; unit: number; opacity: number; zoom: number }> = ({
+  scene, rect, accent, level, unit, opacity, zoom,
 }) => (
   <div style={{ position: "absolute", inset: 0, opacity }}>
     {scene.image ? (
       <SceneMedia scene={scene} from={msToFrames(scene.startMs)} zoom={zoom} />
     ) : (
-      <AvatarPlaceholder rect={rect} handle={handle} accent={accent} level={level} unit={unit} />
+      <AvatarPlaceholder rect={rect} accent={accent} level={level} unit={unit} />
     )}
   </div>
 );
 
 export const MediaFrame: React.FC<{
-  rect: Rect; scene: Scene; prev: Scene | null; localFrame: number; durationFrames: number; handle: string; accent: string; level: number; unit: number;
-}> = ({ rect, scene, prev, localFrame, durationFrames, handle, accent, level, unit }) => {
+  rect: Rect; scene: Scene; prev: Scene | null; localFrame: number; durationFrames: number; accent: string; level: number; unit: number;
+}> = ({ rect, scene, prev, localFrame, durationFrames, accent, level, unit }) => {
   const fade = prev ? interpolate(localFrame, [0, 12], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) }) : 1;
   const zoom = interpolate(localFrame, [0, Math.max(2, durationFrames)], [1.03, 1.1], clamp) + (1 - fade) * 0.04;
   return (
@@ -236,9 +215,9 @@ export const MediaFrame: React.FC<{
       }}
     >
       {prev && fade < 1 ? (
-        <MediaLayer scene={prev} rect={rect} handle={handle} accent={accent} level={level} unit={unit} opacity={1} zoom={1.1} />
+        <MediaLayer scene={prev} rect={rect} accent={accent} level={level} unit={unit} opacity={1} zoom={1.1} />
       ) : null}
-      <MediaLayer scene={scene} rect={rect} handle={handle} accent={accent} level={level} unit={unit} opacity={fade} zoom={zoom} />
+      <MediaLayer scene={scene} rect={rect} accent={accent} level={level} unit={unit} opacity={fade} zoom={zoom} />
       {/* Ánh ấm + tối dần xuống đáy để bảng tên đọc rõ. */}
       <div
         style={{

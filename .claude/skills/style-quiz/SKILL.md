@@ -39,7 +39,7 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
 | `visual` stat | sticker trắng nghiêng góc phải trên khung ảnh: số đỏ đếm lên, thanh meter (hậu tố `%` dừng đúng tỉ lệ), chú thích (`caption`, mặc định "người trả lời sai") |
 | `visual` badge | ruy băng đỏ chéo góc trái trên khung ảnh, chữ in hoa + 🔥 (nếu chữ chưa có emoji), `caption` nhỏ bên dưới |
 | `image` | khung ảnh bo góc viền trắng dày, Ken Burns 1.04→1.12. Video (.mp4/.mov/.webm) qua `ClipVideo` trong `<Sequence from={đầu cảnh}>`; ảnh qua `CropBox`. Tôn trọng `crop`, `trimStartMs`, `volume`. `null` → ô sọc chéo với dấu "?" khổng lồ lắc lư |
-| `title`/`subtitle`/`handle` | title card 70 frame (khi `showTitle`): bong bóng "?" vàng nhịp đập, tiêu đề in hoa trắng bóng đổ, subtitle trong viên trắng, handle nhỏ phía trên; phóng to + mờ ra ở cuối |
+| `title`/`subtitle` | title card 70 frame (khi `showTitle`): bong bóng "?" vàng nhịp đập, tiêu đề in hoa trắng bóng đổ, subtitle trong viên trắng; phóng to + mờ ra ở cuối |
 | chấm tiến độ | mỗi câu một chấm; câu đã lật → chấm trắng đặc có ✓, câu hiện tại → vòng trắng nhịp đập |
 | cuối video | sau lần lật cuối 40 frame: dải vàng "Bình luận số câu bạn đúng 👇" nảy nhẹ (không có punch nào → 2.5 s cuối cảnh cuối) |
 | `accent` | sinh toàn bộ gradient nền, viên tag, viền đĩa |

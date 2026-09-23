@@ -24,7 +24,6 @@ import { TitleIntro } from "./TitleIntro";
 export const QuizStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -209,7 +208,7 @@ export const QuizStyle: React.FC<ShortProps> = ({
 
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <TitleIntro title={title} subtitle={subtitle} handle={handle} accent={accent} />
+          <TitleIntro title={title} subtitle={subtitle} accent={accent} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

@@ -22,15 +22,14 @@ import {
 
 /**
  * Mở đầu: chữ "TOP" rơi xuống, số N cuộn như máy đánh bạc 1 → N rồi đập dừng, hàng ô hạng
- * N…1 xếp chồng vào (ô #1 vàng có vương miện), tiêu đề / phụ đề / handle lần lượt hiện.
+ * N…1 xếp chồng vào (ô #1 vàng có vương miện), tiêu đề / phụ đề lần lượt hiện.
  * Cuối cùng cả cụm văng sang trái đúng lúc thẻ cảnh đầu văng vào.
  * Đặt trong <Sequence durationInFrames={TITLE_FRAMES}>.
  */
-export const TitleIntro: React.FC<{ L: RankLayout; title: string; subtitle: string; handle: string; accent: string }> = ({
+export const TitleIntro: React.FC<{ L: RankLayout; title: string; subtitle: string; accent: string }> = ({
   L,
   title,
   subtitle,
-  handle,
   accent,
 }) => {
   const frame = useCurrentFrame();
@@ -57,7 +56,6 @@ export const TitleIntro: React.FC<{ L: RankLayout; title: string; subtitle: stri
   const contentW = width - Math.max(safe.side, 60 * u) * 2;
   const head = fitText(title, contentW, 3, 78 * s, 46 * s, 900);
   const sub = subtitle.trim() && subtitle.trim() !== title.trim() ? fitText(subtitle, contentW, 2, 42 * s, 30 * s, 600) : null;
-  const handleP = ramp(frame, 44, 10);
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
@@ -208,27 +206,6 @@ export const TitleIntro: React.FC<{ L: RankLayout; title: string; subtitle: stri
               );
             })
           : null}
-        {handle.trim() ? (
-          <div
-            style={{
-              marginTop: 30 * s,
-              padding: `${8 * s}px ${24 * s}px`,
-              borderRadius: 99,
-              border: `${2 * u}px solid rgba(255,255,255,0.35)`,
-              backgroundColor: "rgba(255,255,255,0.08)",
-              fontFamily: FONT,
-              fontWeight: 700,
-              fontSize: 32 * s,
-              lineHeight: 1.3,
-              color: WHITE,
-              whiteSpace: "nowrap",
-              opacity: handleP,
-              transform: `scale(${0.8 + 0.2 * handleP})`,
-            }}
-          >
-            {handle.trim()}
-          </div>
-        ) : null}
       </AbsoluteFill>
     </AbsoluteFill>
   );

@@ -31,7 +31,7 @@ export type SavedPostCopy = PostCopy & {
   source: string;
 };
 
-type VideoText = { title: string; subtitle: string; handle: string; lines: string[]; seconds: number; vertical: boolean };
+type VideoText = { title: string; subtitle: string; lines: string[]; seconds: number; vertical: boolean };
 
 const videoDir = (slug: string) => path.join(process.cwd(), "videos", slug);
 const cachePath = (slug: string) => path.join(videoDir(slug), "post-copy.json");
@@ -61,7 +61,6 @@ const videoText = (slug: string): VideoText | null => {
   return {
     title,
     subtitle: String(props?.subtitle ?? script?.subtitle ?? "").trim(),
-    handle: String(props?.handle ?? script?.handle ?? "").trim(),
     lines: text,
     seconds: Math.round(Math.max(0, ...captions.map((c) => Number(c.endMs) || 0)) / 1000),
     vertical: !(w > h),
@@ -174,7 +173,6 @@ export const generatePostCopy = async (slug: string, provider: ProviderChoice = 
   const user = [
     `Tiêu đề trong video: ${text.title || "(không có)"}`,
     text.subtitle ? `Mô tả phụ: ${text.subtitle}` : "",
-    text.handle ? `Tên kênh: ${text.handle}` : "",
     `Khung hình: ${text.vertical ? "dọc (Shorts/Reels/TikTok)" : "ngang"}${text.seconds ? `, dài khoảng ${text.seconds} giây` : ""}`,
     "",
     "LỜI THOẠI:",

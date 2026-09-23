@@ -3,12 +3,12 @@ import type { NewsLayout } from "./layout";
 import { UPPER_LH } from "./layout";
 import { EASE_OUT, FONT, MONO, measure, NAVY, NAVY_DEEP, RED, ramp, WHITE, withAlpha, YELLOW, INK } from "./theme";
 
-/** Logo kênh (khối vuông màu accent) + nhãn ● TRỰC TIẾP nhấp nháy. */
-export const StationBug: React.FC<{ L: NewsLayout; handle: string; accent: string }> = ({ L, handle, accent }) => {
+/** Logo "TIN" (khối vuông màu accent) + nhãn ● TRỰC TIẾP nhấp nháy. */
+export const StationBug: React.FC<{ L: NewsLayout; accent: string }> = ({ L, accent }) => {
   const frame = useCurrentFrame();
   const { unit, bugH } = L;
   const enter = ramp(frame, 0, 10);
-  const logo = handle.trim() ? handle.trim().normalize("NFC") : "TIN";
+  const logo = "TIN";
   const logoPad = 14 * unit;
   const logoMaxW = 300 * unit;
   const logoFont = Math.min(bugH * 0.36, ((logoMaxW - logoPad * 2) * 0.95) / Math.max(1, measure(logo, 1, 900)));

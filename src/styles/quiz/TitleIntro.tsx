@@ -5,13 +5,12 @@ import { EASE_BACK, EASE_IN, INK, paletteFrom, ramp, upper, YELLOW } from "./the
 
 /**
  * Title card game show: bong bóng "?" vàng khổng lồ nhịp đập, tiêu đề in hoa trắng viền bóng
- * bật vào, subtitle trong viên thuốc trắng, handle nhỏ phía trên. Phóng to + mờ ra ở cuối.
+ * bật vào, subtitle trong viên thuốc trắng. Phóng to + mờ ra ở cuối.
  * Dùng trong <Sequence durationInFrames={TITLE_FRAMES}>.
  */
-export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: string; accent: string }> = ({
+export const TitleIntro: React.FC<{ title: string; subtitle: string; accent: string }> = ({
   title,
   subtitle,
-  handle,
   accent,
 }) => {
   const frame = useCurrentFrame();
@@ -21,7 +20,6 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: str
   const bubbleIn = ramp(frame, 0, 14, EASE_BACK);
   const titleIn = ramp(frame, 8, 14, EASE_BACK);
   const subIn = ramp(frame, 18, 12, EASE_BACK);
-  const handleIn = ramp(frame, 24, 10);
   const out = ramp(frame, TITLE_FRAMES - 12, 12, EASE_IN);
   const beat = 1 + Math.abs(Math.sin(frame / 5)) * 0.08;
   const bubble = (portrait ? 300 : 230) * unit;
@@ -45,20 +43,6 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: str
         transform: `scale(${1 + out * 0.15})`,
       }}
     >
-      {handle ? (
-        <div
-          style={{
-            fontFamily: FONTS.sans,
-            fontWeight: 700,
-            fontSize: 32 * unit,
-            color: "rgba(255,255,255,0.85)",
-            marginBottom: 24 * unit,
-            opacity: handleIn,
-          }}
-        >
-          {handle}
-        </div>
-      ) : null}
       <div
         style={{
           width: bubble,

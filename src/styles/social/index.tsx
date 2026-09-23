@@ -5,10 +5,10 @@ import { activeIndexAt, useLayout } from "../shared";
 import { Backdrop } from "./Backdrop";
 import { BellIcon, HeartIcon } from "./Icons";
 import {
+  AUTHOR_NAME,
   captionsOfScene,
   communityOf,
   countsAt,
-  displayNameOf,
   fitBody,
   HEADLINE_WEIGHT,
   hoursAgo,
@@ -90,7 +90,6 @@ const StatPill: React.FC<{ visual: SceneVisual; u: number; accent: string; frame
 export const SocialStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes: rawScenes,
@@ -123,7 +122,7 @@ export const SocialStyle: React.FC<ShortProps> = ({
   const bodyW = cardW - CARD.padX * 2 * u;
   const contentH = height - safe.top - safe.bottom;
   const centerY = safe.top + contentH * (captionPosition === "bottom" ? 0.53 : 0.5);
-  const name = displayNameOf(handle);
+  const name = AUTHOR_NAME;
   const introEnd = showTitle ? TITLE_FRAMES : 0;
 
   const enterOf = (i: number) => (i === 0 ? (showTitle ? TITLE_FRAMES - 8 : 0) : msToFrames(scenes[i].startMs));

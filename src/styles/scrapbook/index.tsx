@@ -27,7 +27,7 @@ const MOVE_FRAMES = 18;
 /** Số chỗ trống quanh mép — ảnh thứ i+SLOTS nằm đè ảnh thứ i nên ảnh i được bỏ khỏi cây render. */
 const SLOTS = 6;
 
-export const ScrapbookStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, showTitle }) => {
+export const ScrapbookStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   const frame = useCurrentFrame();
   const layout = useLayout();
   const { unit } = layout;
@@ -134,7 +134,6 @@ export const ScrapbookStyle: React.FC<ShortProps> = ({ title, subtitle, handle, 
         <AlbumCover
           title={title}
           subtitle={subtitle}
-          handle={handle}
           accent={accent}
           firstScene={scenes[0] ?? null}
           frame={frame}

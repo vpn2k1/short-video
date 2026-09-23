@@ -4,19 +4,14 @@ import { FONTS, fitFontSize, useLayout } from "../shared";
 import { CYAN, EASE_IN, INK, ramp, withAlpha } from "./theme";
 
 /**
- * Title card: dòng mono (handle) gõ từng ký tự, tiêu đề gradient lớn, vạch sáng
+ * Title card: dòng mono "> intro" gõ từng ký tự, tiêu đề gradient lớn, vạch sáng
  * nở ra, phụ đề mờ dần vào. Dùng trong <Sequence durationInFrames={TITLE_FRAMES}>.
  */
-export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: string; accent: string }> = ({
-  title,
-  subtitle,
-  handle,
-  accent,
-}) => {
+export const TitleIntro: React.FC<{ title: string; subtitle: string; accent: string }> = ({ title, subtitle, accent }) => {
   const frame = useCurrentFrame();
   const { width, height, safe, unit, portrait } = useLayout();
   const contentW = width - safe.side * 2;
-  const overline = handle ? `> ${handle}` : "> intro";
+  const overline = "> intro";
   const chars = [...overline];
   const typed = Math.floor(ramp(frame, 3, chars.length * 1.4, (x) => x) * chars.length);
   const caretOn = Math.floor(frame / 8) % 2 === 0;

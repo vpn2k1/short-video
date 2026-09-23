@@ -28,7 +28,7 @@ description: Phong cách "Dòng thời gian" — trục thời gian chạy suố
 | `visual` stat | Con số Montserrat 900 màu nhấn, đếm từ 0 (số nguyên, "1.800"), chú thích bên dưới. Khung dọc: ô nổi góc dưới-trái ảnh. Khung ngang/vuông: chân cột chữ, có vạch ngăn. Không ảnh: giữa tấm mốc chữ. |
 | `visual` badge | Nhãn màu nhấn góc trên-trái ảnh, chữ in hoa bằng JS. |
 | `captions` | Câu đang đọc của cảnh nằm trong thẻ (dưới ảnh ở khung dọc, cột phải ở khung ngang). Cỡ chữ tính trước từ câu dài nhất (tối đa 4 dòng ở khung dọc) nên thẻ không nhảy. Câu thuộc cảnh đang chạy lúc câu bắt đầu. |
-| `title/subtitle/handle` | Trang tiêu đề khi `showTitle`: trục vẽ dần, mốc lớn bật ra ngang dòng đầu, khoảng năm, tiêu đề, gạch màu nhấn, dòng phụ, handle. |
+| `title/subtitle` | Trang tiêu đề khi `showTitle`: trục vẽ dần, mốc lớn bật ra ngang dòng đầu, khoảng năm, tiêu đề, gạch màu nhấn, dòng phụ. |
 
 ## Chuyển động
 

@@ -8,10 +8,9 @@ const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const SNAP = Easing.bezier(0.16, 1, 0.3, 1);
 
 /** Title card: từng từ tiêu đề đập xuống, phụ đề gõ chữ, rồi cả tấm cuốn lên. */
-export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: string; swatch: Swatch }> = ({
+export const TitleIntro: React.FC<{ title: string; subtitle: string; swatch: Swatch }> = ({
   title,
   subtitle,
-  handle,
   swatch,
 }) => {
   const frame = useCurrentFrame();
@@ -109,24 +108,6 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; handle: str
           </div>
         ) : null}
       </div>
-
-      {handle ? (
-        <div
-          style={{
-            position: "absolute",
-            left: safe.side,
-            bottom: safe.bottom,
-            fontFamily: FONTS.sans,
-            fontWeight: 700,
-            fontSize: 32 * unit,
-            letterSpacing: "0.06em",
-            color: swatch.fg,
-            opacity: interpolate(frame, [subStart, subStart + 8], [0, 0.7], clamp),
-          }}
-        >
-          {handle}
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };

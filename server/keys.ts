@@ -18,7 +18,7 @@ import {
 import { PROVIDERS, VIDEO_MODELS } from "../scripts/ai-video";
 import { BUDGET_DAY_ENV, BUDGET_MONTH_ENV } from "../scripts/video-budget";
 import { DEFAULT_TRANSLATE_OLLAMA_MODEL } from "../scripts/translate";
-import { WATERMARK_MAX_LENGTH } from "../scripts/watermark";
+import { WATERMARK_MAX_LENGTH, parseWatermarkXY, watermarkPosition } from "../scripts/watermark";
 import { DEFAULT_GEMINI_TTS_MODEL, GEMINI_TTS_MODELS } from "../scripts/gemini-tts";
 
 type Field = {
@@ -26,7 +26,8 @@ type Field = {
   label: string;
   help: string;
   group: string;
-  type: "secret" | "text" | "select";
+  /** "point": toạ độ "x,y" (% khung hình) chọn bằng cách kéo thả trên khung xem trước. */
+  type: "secret" | "text" | "select" | "point";
   url?: string;
   placeholder?: string;
   options?: { value: string; label: string }[];
@@ -304,10 +305,10 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "WATERMARK_TEXT",
     label: "Chữ watermark",
-    help: `Tên kênh, @handle hoặc website — tối đa ${WATERMARK_MAX_LENGTH} ký tự.`,
+    help: `Tên kênh, @tên hoặc website — tối đa ${WATERMARK_MAX_LENGTH} ký tự. Đây là chỗ duy nhất tên kênh hiện trong video.`,
     group: "Watermark",
     type: "text",
-    placeholder: "@kenhcuaban",
+    placeholder: "Tên kênh hoặc website",
     freeText: true,
     maxLength: WATERMARK_MAX_LENGTH,
     showIf: WATERMARK_ON,
@@ -315,15 +316,25 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "WATERMARK_POSITION",
     label: "Vị trí watermark",
-    help: "Video dọc: góc dưới dễ bị nút like/share và mô tả của TikTok/Reels che.",
+    help: "Video dọc: cạnh dưới và cạnh phải dễ bị mô tả, nút like/share của TikTok/Reels che. Chọn Tuỳ chỉnh hoặc kéo chữ trong khung bên dưới để đặt ở chỗ bất kỳ.",
     group: "Watermark",
     type: "select",
     options: [
-      { value: "top-right", label: "Góc trên phải" },
-      { value: "top-left", label: "Góc trên trái" },
-      { value: "bottom-right", label: "Góc dưới phải" },
-      { value: "bottom-left", label: "Góc dưới trái" },
+      { value: "top", label: "Trên" },
+      { value: "bottom", label: "Dưới" },
+      { value: "center", label: "Giữa" },
+      { value: "left", label: "Trái" },
+      { value: "right", label: "Phải" },
+      { value: "custom", label: "Tuỳ chỉnh (kéo thả)" },
     ],
+    showIf: WATERMARK_ON,
+  },
+  {
+    name: "WATERMARK_XY",
+    label: "Xem trước vị trí",
+    help: "Kéo chữ tới chỗ muốn đặt — vị trí tự chuyển sang Tuỳ chỉnh. Vùng mờ là nơi nút và chữ của nền tảng thường che.",
+    group: "Watermark",
+    type: "point",
     showIf: WATERMARK_ON,
   },
 ];
@@ -378,7 +389,9 @@ export const keyStatus = () => ({
     const value = process.env[field.name] ?? "";
     return field.type === "secret"
       ? { ...field, set: value.length > 0, preview: value ? mask(value) : "" }
-      : { ...field, set: value.length > 0, value };
+      : field.name === "WATERMARK_POSITION"
+        ? { ...field, set: value.length > 0, value: watermarkPosition(value) }
+        : { ...field, set: value.length > 0, value };
   }),
 });
 
@@ -412,7 +425,9 @@ export const saveKeys = (patch: unknown) => {
     if (field.type === "select" && !field.options?.some((o) => o.value === value)) {
       throw new Error(`${field.label}: lựa chọn không hợp lệ`);
     }
-    if (field.usd) {
+    if (field.type === "point") {
+      if (!parseWatermarkXY(value)) throw new Error(`${field.label}: toạ độ không hợp lệ.`);
+    } else if (field.usd) {
       if (!/^\d{1,6}(\.\d{1,2})?$/.test(value)) {
         throw new Error(`${field.label}: nhập số USD, ví dụ 5 hoặc 2.5 — để trống nếu không giới hạn.`);
       }

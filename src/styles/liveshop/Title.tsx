@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { TITLE_FRAMES } from "../../constants";
 import { Avatar } from "./Chrome";
-import { alpha, clamp, fitLines, handleName, LIVE_RED, NUM, POP, shade, SLAM, SMOOTH, UI, type Geo } from "./live";
+import { alpha, clamp, fitLines, LIVE_RED, NUM, POP, shade, SLAM, SMOOTH, UI, type Geo } from "./live";
 
 /** Mốc của màn chờ: mỗi số đếm lùi đứng 11 frame, rồi "LIVE" đập xuống. */
 const COUNT_AT = 22;
@@ -10,14 +10,13 @@ const LIVE_AT = COUNT_AT + COUNT_STEP * 3;
 
 /**
  * Màn chờ phiên live (khi `showTitle`): nền tối ngả accent đè lên cảnh đầu, ảnh đại diện chủ phòng có hai vòng đỏ
- * toả ra, tên chủ phòng, tiêu đề phiên live chữ đậm, dòng phụ thành viên thuốc, rồi "Bắt đầu sau 3 · 2 · 1" — số
+ * toả ra, tiêu đề phiên live chữ đậm, dòng phụ thành viên thuốc, rồi "Bắt đầu sau 3 · 2 · 1" — số
  * Montserrat nảy từng nhịp — và nhãn LIVE đỏ đập xuống. 8 frame cuối cả màn phóng nhẹ và mờ đi để lộ giao diện live.
  */
-export const LiveTitle: React.FC<{ geo: Geo; title: string; subtitle: string; handle: string; accent: string; ready: boolean }> = ({
+export const LiveTitle: React.FC<{ geo: Geo; title: string; subtitle: string; accent: string; ready: boolean }> = ({
   geo,
   title,
   subtitle,
-  handle,
   accent,
   ready,
 }) => {
@@ -73,7 +72,7 @@ export const LiveTitle: React.FC<{ geo: Geo; title: string; subtitle: string; ha
               />
             ))}
             <div style={{ position: "absolute", inset: -8 * u, borderRadius: "50%", border: `${6 * u}px solid ${LIVE_RED}` }} />
-            <Avatar handle={handle} accent={accent} size={avatar} ring={5 * u} />
+            <Avatar accent={accent} size={avatar} ring={5 * u} />
             <div
               style={{
                 position: "absolute",
@@ -94,11 +93,9 @@ export const LiveTitle: React.FC<{ geo: Geo; title: string; subtitle: string; ha
               {live > 0 ? "LIVE" : "SẮP LIVE"}
             </div>
           </div>
-          <div style={{ marginTop: 18 * u, fontWeight: 700, fontSize: 34 * u, color: "rgba(255,255,255,0.85)", opacity: titleIn }}>
-            @{handleName(handle)}
-          </div>
           <div
             style={{
+              marginTop: 18 * u,
               fontWeight: 900,
               fontSize: titleSize,
               lineHeight: 1.2,

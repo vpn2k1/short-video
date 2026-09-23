@@ -17,11 +17,11 @@ import { useSceneClock } from "../shared";
 import { Dialog } from "./Dialog";
 import { Hud } from "./Hud";
 import { PixelDissolve } from "./parts";
-import { clamp, coinsAt, HUD_BG, INK, onTwos, snap, upperVi, useStage } from "./pixel";
+import { clamp, coinsAt, HUD_BG, INK, onTwos, snap, useStage } from "./pixel";
 import { TitleScreen } from "./Title";
 import { DISSOLVE, PixelateFilter, Viewport } from "./Viewport";
 
-export const PixelStyle: React.FC<ShortProps> = ({ title, subtitle, handle, accent, captions, scenes, captionPosition, showTitle }) => {
+export const PixelStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, captionPosition, showTitle }) => {
   ensureFonts(["bungee", "lexend"]);
   const { durationInFrames } = useVideoConfig();
   const { frame, index, scene, startFrame } = useSceneClock(scenes);
@@ -79,13 +79,11 @@ export const PixelStyle: React.FC<ShortProps> = ({ title, subtitle, handle, acce
           rect={dialog}
           P={P}
           unit={unit}
-          accent={accent}
-          speaker={handle ? upperVi(handle) : ""}
         />
       ) : null}
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <TitleScreen title={title} subtitle={subtitle} handle={handle} accent={accent} />
+          <TitleScreen title={title} subtitle={subtitle} accent={accent} />
         </Sequence>
       ) : null}
       {showTitle && frame >= TITLE_FRAMES - DISSOLVE && frame < TITLE_FRAMES + DISSOLVE ? (

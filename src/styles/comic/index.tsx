@@ -165,7 +165,6 @@ const SceneLayer: React.FC<{
 export const ComicStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -272,7 +271,7 @@ export const ComicStyle: React.FC<ShortProps> = ({
 
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <Cover title={title} subtitle={subtitle} handle={handle} accent={accent} firstScene={scenes[0] ?? null} />
+          <Cover title={title} subtitle={subtitle} accent={accent} firstScene={scenes[0] ?? null} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

@@ -17,9 +17,12 @@ description: Video dọc 9:16 cho TikTok/Reels/Shorts — vùng an toàn, hook, 
 | Đáy | 320 | caption tự động, nút like/share, thanh audio |
 | Hai bên | 120 | cột nút bên phải |
 
-Xếp chỗ theo chiều dọc, tính từ đáy: `0–320` nền tảng chiếm · `360–450` watermark ·
-`500+` phụ đề. Hằng số `WATERMARK_BOTTOM` và `CAPTION_BOTTOM` giữ hai thứ không đè nhau —
+Xếp chỗ theo chiều dọc, tính từ đáy: `0–320` nền tảng chiếm (watermark đặt Dưới nằm ở `160`, nửa dải này) ·
+`500+` phụ đề (`captionBottom` trong `layoutFor()` của `src/aspects.ts`). Watermark Dưới mà cao hơn là đè phụ đề —
 đã từng đè, chỉ lộ ra khi nhìn ảnh render.
+
+Tên kênh chỉ hiện qua watermark (Cài đặt › Watermark: chữ + vị trí Trên/Dưới/Giữa/Trái/Phải hoặc kéo thả) — do
+composition `Short` vẽ trên mọi phong cách. Phong cách và kịch bản không có trường tên kênh.
 
 Kiểm bằng pixel, không tin CSS:
 

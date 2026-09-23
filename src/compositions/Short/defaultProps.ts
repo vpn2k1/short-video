@@ -4,7 +4,6 @@ import { noMotion, type ShortProps } from "./schema";
 export const defaultShortProps: ShortProps = {
   title: "3 mẹo dựng video ngắn",
   subtitle: "mà không cần biết After Effects",
-  handle: "@shortvideo",
   accent: "#ff2e63",
   background: "#0b0b12",
   aspect: "9:16",

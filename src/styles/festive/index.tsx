@@ -547,14 +547,13 @@ const TITLE_BURSTS: [number, number, number, number][] = [
   [4, 0.24, 0.2, 230], [11, 0.76, 0.27, 200], [19, 0.5, 0.12, 260], [28, 0.28, 0.8, 190], [34, 0.72, 0.76, 210],
 ];
 
-const TitleIntro: React.FC<{ title: string; subtitle: string; handle: string; layout: FestiveLayout; frame: number }> = ({
-  title, subtitle, handle, layout, frame,
+const TitleIntro: React.FC<{ title: string; subtitle: string; layout: FestiveLayout; frame: number }> = ({
+  title, subtitle, layout, frame,
 }) => {
   const { unit, width, height, split } = layout;
   const out = interpolate(frame, [TITLE_FRAMES - 14, TITLE_FRAMES], [1, 0], clamp);
   const unroll = interpolate(frame, [8, 32], [0, 1], { ...clamp, easing: EASE_OUT });
   const subT = interpolate(frame, [30, 44], [0, 1], { ...clamp, easing: EASE_OUT });
-  const handleT = interpolate(frame, [38, 52], [0, 1], clamp);
   const scrollW = split ? Math.min(1060 * unit, width * 0.6) : Math.min(width - 150 * unit * 2, 860 * unit);
   const titleSize = sizeFor(title, (split ? 96 : 100) * unit, 16, 0.5);
   const rodW = scrollW + 60 * unit;
@@ -639,30 +638,12 @@ const TitleIntro: React.FC<{ title: string; subtitle: string; handle: string; la
           {rod}
         </div>
       </AbsoluteFill>
-      {handle ? (
-        <div
-          style={{
-            position: "absolute", left: 0, right: 0, bottom: layout.height - (layout.card.y + layout.card.h) + 10 * unit,
-            display: "flex", justifyContent: "center", opacity: handleT,
-          }}
-        >
-          <div
-            style={{
-              fontFamily: ROUND, fontWeight: 700, fontSize: 32 * unit, lineHeight: 1.3, color: RED_DARK,
-              padding: `${6 * unit}px ${28 * unit}px ${2 * unit}px`, borderRadius: 40 * unit, background: GOLD_FOIL,
-              boxShadow: `0 ${6 * unit}px ${16 * unit}px rgba(40, 0, 4, 0.5)`,
-            }}
-          >
-            {handle}
-          </div>
-        </div>
-      ) : null}
     </AbsoluteFill>
   );
 };
 
 // ---------------------------------------------------------------------------
-export const FestiveStyle: React.FC<ShortProps> = ({ title, subtitle, handle, captions, scenes, showTitle }) => {
+export const FestiveStyle: React.FC<ShortProps> = ({ title, subtitle, captions, scenes, showTitle }) => {
   ensureFonts(FESTIVE_FONTS);
   const frame = useCurrentFrame();
   const layout = useFestiveLayout();
@@ -731,7 +712,7 @@ export const FestiveStyle: React.FC<ShortProps> = ({ title, subtitle, handle, ca
 
 
       {showTitle && frame < TITLE_FRAMES ? (
-        <TitleIntro title={title} subtitle={subtitle} handle={handle} layout={layout} frame={frame} />
+        <TitleIntro title={title} subtitle={subtitle} layout={layout} frame={frame} />
       ) : null}
 
       {/* Hai lồng đèn góc: thả xuống đầu video rồi đung đưa lệch nhịp nhau. */}

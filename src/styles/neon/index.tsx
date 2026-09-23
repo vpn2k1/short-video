@@ -20,7 +20,6 @@ import { NeonTitle } from "./TitleIntro";
 export const NeonStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   accent,
   captions,
   scenes,
@@ -38,7 +37,7 @@ export const NeonStyle: React.FC<ShortProps> = ({
       <NeonCaptions captions={captions} scenes={scenes} position={captionPosition} showTitle={showTitle} palette={palette} />
       {showTitle ? (
         <Sequence durationInFrames={TITLE_FRAMES}>
-          <NeonTitle title={title} subtitle={subtitle} handle={handle} palette={palette} />
+          <NeonTitle title={title} subtitle={subtitle} palette={palette} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

@@ -6,7 +6,7 @@ import { activeIndexAt, seeded } from "../shared";
 import { Avatar } from "./Chrome";
 import { CartIcon, FlameIcon, PinIcon, ProductSilhouette } from "./Icons";
 import {
-  alpha, clamp, fitLines, GOLD, handleName, INK, inkOn, NUM, POP, punchSpan, SALE_ORANGE, SALE_RED, shade, SMOOTH, UI, upper,
+  alpha, clamp, fitLines, GOLD, INK, inkOn, NUM, POP, punchSpan, SALE_ORANGE, SALE_RED, shade, SMOOTH, UI, upper,
   type Geo,
 } from "./live";
 
@@ -27,7 +27,7 @@ export const bannerLayout = (text: string, geo: Geo, ready: boolean) => {
 
 /**
  * Câu người dẫn đang nói = bình luận được ghim của chủ phòng: thẻ trắng bo góc có vạch accent bên trái,
- * dòng đầu "📌 Chủ phòng · tên", lời in đậm màu mực. Đổi câu: thẻ co/giãn chiều cao theo số dòng mới trong
+ * dòng đầu "📌 (ảnh đại diện) Chủ phòng", lời in đậm màu mực. Đổi câu: thẻ co/giãn chiều cao theo số dòng mới trong
  * 6 frame, chữ mới trượt lên. Cụm câu nhấn (khi tới lúc) đỏ, quét dạ quang vàng.
  */
 export const HostBanner: React.FC<{
@@ -37,9 +37,8 @@ export const HostBanner: React.FC<{
   bottom: number;
   ready: boolean;
   accent: string;
-  handle: string;
   appear: number;
-}> = ({ geo, captions, scenes, bottom, ready, accent, handle, appear }) => {
+}> = ({ geo, captions, scenes, bottom, ready, accent, appear }) => {
   const frame = useCurrentFrame();
   const { u, side, bannerW } = geo;
   const index = activeIndexAt(captions, frame);
@@ -98,8 +97,7 @@ export const HostBanner: React.FC<{
         }}
       >
         <PinIcon size={small * 1.05} color={SALE_RED} />
-        <Avatar handle={handle} accent={accent} size={cur.header * 0.9} ring={2 * u} />
-        <span style={{ fontWeight: 700, color: "#55535c", overflow: "hidden", textOverflow: "ellipsis" }}>{handleName(handle)}</span>
+        <Avatar accent={accent} size={cur.header * 0.9} ring={2 * u} />
         <span
           style={{
             flexShrink: 0,

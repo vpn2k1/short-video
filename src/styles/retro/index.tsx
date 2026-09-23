@@ -19,7 +19,6 @@ import { RetroTitle } from "./TitleIntro";
 export const RetroStyle: React.FC<ShortProps> = ({
   title,
   subtitle,
-  handle,
   captions,
   scenes,
   captionPosition,
@@ -33,7 +32,7 @@ export const RetroStyle: React.FC<ShortProps> = ({
     <Osd scenes={scenes} title={title} showTitle={showTitle} />
     {showTitle ? (
       <Sequence durationInFrames={TITLE_FRAMES}>
-        <RetroTitle title={title} subtitle={subtitle} handle={handle} />
+        <RetroTitle title={title} subtitle={subtitle} />
       </Sequence>
     ) : null}
     <VhsLook scenes={scenes} showTitle={showTitle} />
