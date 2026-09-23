@@ -18,6 +18,7 @@ import { STYLE_IDS, STYLES, isStyleId, type StyleId } from "../src/styles/meta";
 import { scriptToProps } from "../src/compositions/Short/script";
 import { TITLE_FRAMES, msToFrames } from "../src/constants";
 import { textToScript } from "./text-script";
+import { withGl } from "./render";
 import { writeStockQueries } from "./image-prompts";
 import { stockForScene } from "./stock";
 import { loadKeys } from "../server/keys";
@@ -77,19 +78,19 @@ const main = async () => {
     const composition = await selectComposition({ serveUrl, id: "Short", inputProps });
     const frame = heroFrame(inputProps, composition.durationInFrames);
 
-    await renderStill({
-      composition, serveUrl, inputProps, frame,
+    await withGl(id, (chromiumOptions) => renderStill({
+      composition, serveUrl, inputProps, frame, chromiumOptions,
       output: path.join(OUT_DIR, `${id}.jpg`),
       imageFormat: "jpeg", jpegQuality: 82, scale: 1 / 3,
-    });
+    }));
     const start = Math.max(0, frame - CLIP_LEAD);
     const end = Math.min(composition.durationInFrames - 1, start + CLIP_FRAMES - 1);
-    await renderMedia({
-      composition, serveUrl, inputProps,
+    await withGl(id, (chromiumOptions) => renderMedia({
+      composition, serveUrl, inputProps, chromiumOptions,
       codec: "h264", crf: 30, muted: true, scale: 0.25,
       frameRange: [start, end],
       outputLocation: path.join(OUT_DIR, `${id}.mp4`),
-    });
+    }));
     const kb = (f: string) => Math.round(fs.statSync(path.join(OUT_DIR, f)).size / 1024);
     console.log(`  khung ${frame} · ${id}.jpg ${kb(`${id}.jpg`)} KB · ${id}.mp4 ${kb(`${id}.mp4`)} KB`);
   }

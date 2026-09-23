@@ -68,6 +68,8 @@ export const IMAGE_LOOKS: Record<StyleId, ImageLook> = {
   karaoke: { kind: "photo", look: "Music video still, cinematic concert or city-at-dusk scene, warm stage lights and soft bokeh, emotional atmosphere, room at the bottom for lyrics" },
   lyrics: { kind: "photo", look: "Album cover style photograph, one clear subject, rich saturated colors, soft moody light, simple composition that still reads when heavily blurred" },
   vinyl: { kind: "photo", look: "Square album cover photograph, centered subject that still reads inside a small circle, moody warm film tones, lofi atmosphere" },
+  depth: { kind: "photo", look: "Clean futuristic photograph, one clear subject, dark background with cool rim light and a subtle colored glow, crisp modern detail, sense of depth" },
+  three: { kind: "photo", look: "Premium product-style photograph, one clear subject, glossy studio lighting with soft reflections, dark gradient background, crisp detail" },
 };
 
 /**

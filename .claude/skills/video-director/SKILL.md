@@ -101,6 +101,8 @@ Danh sách ở `src/styles/meta.ts`, bản vẽ ở `src/styles/<id>/`, luật t
 | `karaoke` | `style-karaoke` | bài hát có lời, cover, hát karaoke — hai dòng lời đổi màu theo tiếng hát, chấm đếm ngược |
 | `lyrics` | `style-lyrics` | lyric video, ballad, nhạc chill — lời cuộn kiểu app nghe nhạc trên nền ảnh bìa nhoè |
 | `vinyl` | `style-vinyl` | lofi, R&B, playlist, đoạn beat — đĩa than quay + vòng phổ nhạc, lời từng từ |
+| `depth` | `style-depth` | công nghệ, AI, khoa học, vũ trụ, tương lai — ảnh là tấm kính bay trong không gian 3D, chữ khối |
+| `three` | `style-three` | ra mắt sản phẩm, xe, đồ điện tử, thương hiệu — studio 3D thật (Three.js), ảnh trên tấm kim loại, chữ crôm; render cần GPU |
 
 Mỗi phong cách có `examplePrompt` trong `meta.ts` — hiện trong menu chọn phong cách của web
 và được điền sẵn vào ô chat khi chọn phong cách cho video mới.
@@ -108,7 +110,8 @@ và được điền sẵn vào ô chat khi chọn phong cách cho video mới.
 Đoạn `<!-- ai-guide -->` trong mỗi skill được server đưa thẳng vào prompt viết kịch bản
 (`scripts/style-guides.ts`) — sửa skill là AI viết khác theo. Thêm phong cách mới: id trong
 `meta.ts`, component trong `src/styles/<id>/`, một dòng trong `registry.tsx`, và skill
-`style-<id>` có đoạn ai-guide.
+`style-<id>` có đoạn ai-guide. Phong cách dựng bằng WebGL (Three.js) thêm id vào `WEBGL_STYLES` (meta.ts) để lúc
+render Chrome bật GL — xem `style-three`.
 
 ## Video bài hát (phong cách nhạc)
 

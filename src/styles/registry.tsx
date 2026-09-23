@@ -42,6 +42,8 @@ import { LiveshopStyle } from "./liveshop";
 import { KaraokeStyle } from "./karaoke";
 import { LyricsStyle } from "./lyrics";
 import { VinylStyle } from "./vinyl";
+import { DepthStyle } from "./depth";
+import { ThreeStyle } from "./three";
 
 /** Phong cách → component vẽ. Thêm phong cách mới: thêm id vào meta.ts và một dòng ở đây. */
 export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
@@ -87,6 +89,8 @@ export const STYLE_COMPONENTS: Record<StyleId, React.FC<ShortProps>> = {
   karaoke: KaraokeStyle,
   lyrics: LyricsStyle,
   vinyl: VinylStyle,
+  depth: DepthStyle,
+  three: ThreeStyle,
 };
 
 /**

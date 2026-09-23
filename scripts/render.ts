@@ -1,9 +1,10 @@
 import { bundle } from "@remotion/bundler";
-import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import { renderMedia, renderStill, selectComposition, type ChromiumOptions } from "@remotion/renderer";
 import { enableTailwind } from "@remotion/tailwind-v4";
 import fs from "fs";
 import path from "path";
 import type { ShortProps } from "../src/compositions/Short/schema";
+import { WEBGL_STYLES, type StyleId } from "../src/styles/meta";
 import { watermarkFromSettings } from "./watermark";
 
 export const COMPOSITION_ID = "Short";
@@ -59,6 +60,22 @@ const getBundle = () => {
   return cachedBundle;
 };
 
+/**
+ * Phong cách WebGL (Three.js) cần Chrome bật GL. "angle" dùng GPU — nhanh, đo trên Mac M-series 634 khung 1080×1920
+ * mất 20 giây. Máy không có GPU (máy ảo, server) không tạo được WebGL context → render lại bằng "swangle" (dựng bằng
+ * phần mềm, chạy mọi nơi nhưng chậm hàng chục lần). Phong cách khác giữ mặc định của Remotion như trước.
+ */
+export const withGl = async <T>(style: string, run: (chromiumOptions: ChromiumOptions) => Promise<T>) => {
+  if (!WEBGL_STYLES.has(style as StyleId)) return run({});
+  try {
+    return await run({ gl: "angle" });
+  } catch (error) {
+    if (!/webgl/i.test(error instanceof Error ? `${error.message} ${error.stack ?? ""}` : String(error))) throw error;
+    process.stdout.write("  máy không dựng được WebGL bằng GPU — render lại bằng GL phần mềm (chậm hơn nhiều)…\n");
+    return run({ gl: "swangle" });
+  }
+};
+
 export const renderShort = async (
   props: ShortProps,
   outputLocation: string,
@@ -80,12 +97,13 @@ export const renderShort = async (
   });
 
   let lastLogged = -1;
-  await renderMedia({
+  await withGl(inputProps.style, (chromiumOptions) => renderMedia({
     composition,
     serveUrl,
     codec: "h264",
     outputLocation,
     inputProps,
+    chromiumOptions,
     onProgress: ({ progress }) => {
       const percent = Math.floor(progress * 100);
       if (percent > lastLogged) {
@@ -96,7 +114,7 @@ export const renderShort = async (
         process.stdout.write(`  render ${percent}%\n`);
       }
     },
-  });
+  }));
 
   return { outputLocation, durationInFrames: composition.durationInFrames };
 };
@@ -179,24 +197,26 @@ export const renderScene = async (
   });
 
   if (kind === "image") {
-    await renderStill({
+    await withGl(sceneProps.style, (chromiumOptions) => renderStill({
       composition,
       serveUrl,
       output: outputLocation,
       inputProps: sceneProps,
+      chromiumOptions,
       // Giữa cảnh: qua phần spring-in, chữ đã hiện đủ.
       frame: Math.floor(composition.durationInFrames / 2),
-    });
+    }));
     return { outputLocation, durationInFrames: 1 };
   }
 
   let last = -1;
-  await renderMedia({
+  await withGl(sceneProps.style, (chromiumOptions) => renderMedia({
     composition,
     serveUrl,
     codec: "h264",
     outputLocation,
     inputProps: sceneProps,
+    chromiumOptions,
     onProgress: ({ progress }) => {
       const percent = Math.floor(progress * 100);
       if (percent > last) {
@@ -204,7 +224,7 @@ export const renderScene = async (
         onProgressPercent?.(percent);
       }
     },
-  });
+  }));
 
   return { outputLocation, durationInFrames: composition.durationInFrames };
 };

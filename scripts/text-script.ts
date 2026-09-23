@@ -112,6 +112,8 @@ const guessStyle = (all: string, scenes: ScriptScene[]): StyleId => {
   if (/bài thơ|vần thơ|câu thơ|lời hay ý đẹp|danh ngôn|câu nói hay|tản văn|tuỳ bút|tùy bút|màu nước|bình yên|thương nhớ|chiều thu|mùa thu/i.test(all)) return "watercolor";
   if (/sang trọng|cao cấp|xa xỉ|trang sức|ngọc trai|kim cương|nước hoa|biệt thự|hạng sang|penthouse|sống chậm/i.test(all)) return "luxury";
   if (/nguyên liệu|sơ chế|\d+\s*người ăn|công thức (nấu|làm|pha)|pha chế|làm bánh|nấu ăn/i.test(all)) return "recipe";
+  if (/ra mắt (sản phẩm|mẫu|phiên bản)|sản phẩm mới|mở hộp|unbox|đập hộp|trên tay/i.test(all)) return "three";
+  if (/\b3d\b|ba chiều|vũ trụ|thiên hà|hành tinh|tương lai|thực tế ảo|metaverse|hologram/i.test(all)) return "depth";
   if (/đêm khuya|về đêm|cú đêm|neon|hộp đêm|quán bar|k-?pop/i.test(all)) return "neon";
   if (/bóng đá|trận đấu|cầu thủ|bàn thắng|ghi bàn|tỉ số|tỷ số|highlight|vòng loại|huấn luyện viên|vận động viên|kỷ lục thế giới|siêu phẩm|world cup|sea games|v-?league|thể hình/i.test(all)) return "sport";
   if (/chứng khoán|cổ phiếu|vn-?index|bitcoin|crypto|tiền (số|điện tử|mã hoá|mã hóa)|nhà đầu tư|lãi suất|mua ròng|bán ròng|giá vàng|tỷ giá|báo cáo tài chính|lợi nhuận quý|vốn hoá|vốn hóa|danh mục đầu tư/i.test(all)) return "finance";

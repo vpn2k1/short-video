@@ -49,6 +49,8 @@ export const STYLE_IDS = [
   "karaoke",
   "lyrics",
   "vinyl",
+  "depth",
+  "three",
 ] as const;
 
 export type StyleId = (typeof STYLE_IDS)[number];
@@ -62,6 +64,12 @@ export const DEFAULT_STYLE: StyleId = "caption";
 export const MUSIC_STYLES = new Set<StyleId>(["karaoke", "lyrics", "vinyl"]);
 
 /**
+ * Phong cách dựng bằng WebGL (Three.js): lúc render Chrome phải bật GL — xem scripts/render.ts › withGl.
+ * Xem trước trong trình duyệt (trình chỉnh sửa, Studio) thì dùng WebGL sẵn có của trình duyệt.
+ */
+export const WEBGL_STYLES = new Set<StyleId>(["three"]);
+
+/**
  * Lựa chọn "Ngẫu nhiên": mỗi video MỚI bốc thăm một phong cách (sửa lời, làm tiếp phần sau thì giữ phong cách đang có).
  * Không bốc "Video gốc" — dành cho clip quay sẵn — và phong cách nhạc — dành cho bài hát, bốc trúng cho video đọc
  * lời thường thì lạc. Lời dán sẵn (không có AI viết lại) còn bỏ các phong cách cần lời theo khuôn riêng: hội thoại
@@ -71,7 +79,8 @@ export const RANDOM_STYLE = "random";
 const NEEDS_OWN_SCRIPT = new Set<StyleId>(["chat", "quiz", "ranking", "versus", "social", "recipe", "timeline"]);
 
 export const randomStyle = (pastedText = false): StyleId => {
-  const pool = STYLE_IDS.filter((id) => id !== "plain" && !MUSIC_STYLES.has(id) && !(pastedText && NEEDS_OWN_SCRIPT.has(id)));
+  // Không bốc phong cách WebGL: máy không có GPU phải render bằng GL phần mềm, chậm hàng chục lần — chỉ dùng khi chọn hẳn.
+  const pool = STYLE_IDS.filter((id) => id !== "plain" && !MUSIC_STYLES.has(id) && !WEBGL_STYLES.has(id) && !(pastedText && NEEDS_OWN_SCRIPT.has(id)));
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
@@ -1151,6 +1160,50 @@ Cứ để **đêm trôi thật chậm**
 Chẳng cần vội, chẳng cần nói nhiều
 Một bài hát, một góc phố
 Là đủ cho một buổi chiều`,
+  },
+  depth: {
+    id: "depth",
+    label: "Không gian 3D",
+    emoji: "🧊",
+    summary: "Ảnh/clip thành tấm kính dày bay trong khoảng không có sàn lưới và sao, camera lao qua khi đổi cảnh, chữ khối nổi, tag là khối lập phương xoay.",
+    bestFor: "công nghệ, AI, khoa học, vũ trụ, tương lai, sản phẩm số, game, sự thật thú vị, giới thiệu dự án/sản phẩm, nội dung cần cảm giác \"wow\"",
+    examplePrompt: "3 công nghệ sẽ thay đổi cuộc sống của bạn trong 10 năm tới.",
+    exampleScript: `# 10 năm nữa bạn sống thế nào?
+> 3 công nghệ đang đến rất gần
+
+[AI]
+Trợ lý AI sẽ hiểu lịch của bạn hơn chính bạn.
+Nó tự đặt lịch, tự trả lời thư giúp bạn.
+
+[Xe tự lái]
+! 90% | tai nạn do lỗi con người
+Xe tự lái có thể **cứu hàng triệu người** mỗi năm.
+
+[Nhà thông minh]
+Căn nhà tự bật đèn, tự đóng rèm khi bạn về.
+Bạn đã sẵn sàng cho tương lai chưa?`,
+  },
+  three: {
+    id: "three",
+    label: "Cảnh 3D thật",
+    emoji: "💎",
+    summary: "Studio 3D dựng bằng Three.js: ảnh dán lên tấm dày cạnh kim loại xoay bay tới, khối crôm và sơn bóng trôi quanh, đèn màu và bóng đổ thật, chữ crôm trên kính mờ.",
+    bestFor: "ra mắt sản phẩm, công nghệ, xe, đồ điện tử, thương hiệu, bất động sản, sự kiện, giới thiệu app/startup, nội dung cần vẻ cao cấp hiện đại",
+    examplePrompt: "Giới thiệu chiếc tai nghe chống ồn mới: 3 điểm khiến nó đáng tiền.",
+    exampleScript: `# Tai nghe đáng tiền nhất năm
+> 3 lý do bạn nên nâng cấp
+
+[Chống ồn]
+Bật lên là tiếng ồn thành phố biến mất.
+Đeo cả ngày vẫn **nhẹ như không**.
+
+[Pin]
+! 40 giờ | nghe nhạc liên tục
+Sạc năm phút, nghe thêm hai giờ.
+
+[Âm thanh]
+Âm trầm chắc, giọng hát trong và rõ.
+Bạn sẽ chọn màu nào?`,
   },
 };
 
