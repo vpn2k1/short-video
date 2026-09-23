@@ -64,19 +64,22 @@ Cài bản mới đè lên bản cũ không mất dữ liệu.
 Dành cho ai muốn chạy bản mới nhất trên nhánh chính hoặc sửa code. Không cần dựng app — chỉ cần
 `npm start`.
 
+Hướng dẫn chi tiết từng hệ điều hành (Windows, macOS, Linux) và cách xử lý lỗi thường gặp:
+[docs/cai-dat-local.md](docs/cai-dat-local.md).
+
 ### 1. Cài công cụ
 
 | | Cần | Cài |
 |---|---|---|
 | Node.js | **≥ 20.12** (đã kiểm chứng với 20.19.6) | [nodejs.org](https://nodejs.org) — bản LTS |
-| ffmpeg + ffprobe | bản nào cũng được | macOS `brew install ffmpeg` · Windows `winget install Gyan.FFmpeg` · Ubuntu `sudo apt install ffmpeg` |
+| ffmpeg + ffprobe | chỉ macOS cần cài | macOS `brew install ffmpeg` · Windows/Linux: đã kèm trong `node_modules`, không cần cài |
 | Git | | [git-scm.com](https://git-scm.com) |
 
 Kiểm tra (macOS/Linux dùng Terminal, Windows dùng PowerShell — cài xong nhớ mở cửa sổ mới):
 
 ```bash
 node -v
-ffmpeg -version
+git --version
 ```
 
 ### 2. Tải mã nguồn và chạy
@@ -105,21 +108,28 @@ và key bạn đã tạo (`videos/`, `public/`, `data/`) không bị ghi đè.
 
 ### 4. Tuỳ chọn: giọng đọc và AI chạy trên máy
 
-Bản cài desktop đã kèm hai thứ này. Chạy từ mã nguồn thì tải riêng một lần (cần mạng, vài trăm MB
-đến ~1 GB; `fetch-vieneu.sh` cần thêm `python3` có `pip`):
+Bản cài desktop đã kèm sẵn. Chạy từ mã nguồn thì `npm install` tự tải phần còn thiếu cho máy đang
+chạy (cần mạng, ~2 GB lần đầu; không cần bash hay python — chạy được thẳng trong PowerShell/cmd). Tải
+lại hoặc cài riêng từng phần:
 
 ```bash
-bash desktop/fetch-vieneu.sh mac-arm64
-bash desktop/fetch-local-ai.sh mac-arm64
+npm run setup
 ```
 
-Thay `mac-arm64` bằng `win-x64` hoặc `linux-x64` theo máy. Trên Windows chạy các lệnh này trong
-**Git Bash**.
+```bash
+npm run setup -- --only voice
+```
 
-| Thứ | Có gì | Không tải thì |
+`--only` nhận `voice`, `ai`, `yt-dlp` (nhiều phần: `voice,ai`); thêm `--force` để cài lại. Không muốn
+`npm install` tự tải: đặt `SKIP_LOCAL_SETUP=1`.
+
+| Phần | Có gì | Không tải thì |
 |---|---|---|
-| `fetch-vieneu.sh` | Giọng VieNeu-TTS — 25 giọng Việt (nam/nữ, Bắc/Trung/Nam) | macOS dùng giọng `Linh` có sẵn của máy; Windows dùng giọng Windows (cần cài gói giọng tiếng Việt: Settings › Time & Language › Speech) |
-| `fetch-local-ai.sh` | AI viết kịch bản trên máy (llama.cpp + Qwen2.5 1.5B) | Điền một key AI miễn phí (bên dưới) hoặc dùng [Ollama](docs/ai-tren-may.md) |
+| `voice` | Giọng VieNeu-TTS — 25 giọng Việt (nam/nữ, Bắc/Trung/Nam) | macOS dùng giọng `Linh` có sẵn của máy; Windows dùng giọng Windows (cần cài gói giọng tiếng Việt: Settings › Time & Language › Speech) |
+| `ai` | AI viết kịch bản trên máy (llama.cpp + Qwen2.5 1.5B) | Điền một key AI miễn phí (bên dưới) hoặc dùng [Ollama](docs/ai-tren-may.md) |
+| `yt-dlp` | Tải video Bilibili trong trình chỉnh sửa | Mục 📺 Bilibili không dùng được |
+
+ffmpeg/ffprobe: `npm start` tự dùng bản đi kèm `node_modules` khi máy chưa cài.
 
 Đổi cổng khi `5177` đã bị chiếm:
 
