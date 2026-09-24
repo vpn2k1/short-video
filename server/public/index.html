@@ -923,6 +923,15 @@
   .seg button.on, .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--text);
                                                      box-shadow: inset 0 0 0 1px var(--line-2); font-weight: 600; }
   .bt-source-desc { margin: 8px 2px 14px; }
+  .bt-style-pick { padding: 4px 14px 14px; border-top: 1px solid var(--line); }
+  .bt-style-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; font-size: 13.5px; }
+  .bt-style-grid { max-height: 460px; overflow-y: auto; padding: 2px; }
+  .bt-style-grid .style-card { position: relative; }
+  .bt-style-check { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 22px; height: 22px;
+                    border-radius: 50%; background: var(--accent); color: var(--accent-ink); }
+  .bt-style-check svg { width: 14px; height: 14px; }
+  .bt-script-help { margin: 0; padding: 0 14px 8px; font-size: 12.5px; line-height: 1.55; }
+  .bt-script-help code { font: 12px ui-monospace, Menlo, monospace; background: var(--panel-2); border-radius: 4px; padding: 0 4px; }
   .bt-settings { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
   .bt-settings > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline;
                            gap: 4px 10px; padding: 11px 14px; font-size: 14px; font-weight: 600; }
@@ -1554,6 +1563,8 @@ Lưu lại để làm theo nhé!</pre>
 
     <div class="seg seg-wide" id="batchSources" role="radiogroup" aria-label="Làm hàng loạt từ">
       <button type="button" data-source="ideas" aria-pressed="false"><i data-icon="lightbulb"></i> Danh sách ý tưởng</button>
+      <button type="button" data-source="scripts" aria-pressed="false"><i data-icon="file-text"></i> Lời có sẵn</button>
+      <button type="button" data-source="styles" aria-pressed="false"><i data-icon="palette"></i> 1 chủ đề, nhiều phong cách</button>
       <button type="button" data-source="custom" aria-pressed="false"><i data-icon="puzzle"></i> Mỗi video một ô</button>
       <button type="button" data-source="media" aria-pressed="false"><i data-icon="mic"></i> File thu sẵn</button>
       <button type="button" data-source="variants" aria-pressed="false"><i data-icon="repeat"></i> Biến thể của 1 video</button>
@@ -1564,6 +1575,10 @@ Lưu lại để làm theo nhé!</pre>
     <!-- nguồn: ý tưởng — ô nhập to nhất, nằm dưới cùng -->
     <div class="composer bt-composer" id="batchIdeasBox">
       <textarea id="batchText" spellcheck="false" aria-label="Danh sách ý tưởng"></textarea>
+      <p class="muted bt-script-help" id="batchScriptHelp" hidden>
+        Mỗi video một khối, ngăn bằng dòng <code>---</code>. Trong khối: <code># tiêu đề</code>, <code>&gt; dòng phụ</code>,
+        mỗi dòng một câu, dòng trống sang cảnh mới, <code>[nhãn]</code> đầu cảnh, <code>**câu nhấn**</code>, <code>! con số | chú thích</code>.
+      </p>
       <div class="bt-gen" id="batchIdeaGen" hidden>
         <span class="muted"><i data-icon="sparkles"></i> Chủ đề</span>
         <input type="text" id="batchTopic" placeholder="ví dụ: mẹo tiết kiệm điện trong nhà" />
@@ -1581,11 +1596,27 @@ Lưu lại để làm theo nhé!</pre>
         </div>
       </div>
       <div class="composer-foot">
+        <button type="button" class="tool-btn" id="batchScriptExample" hidden title="Điền hai video mẫu để xem cách viết — ô đang có chữ thì nối vào cuối"><i data-icon="book-open"></i> Điền mẫu</button>
         <button type="button" class="tool-btn" id="batchImport"><i data-icon="file-up"></i> Tải .txt / .csv</button>
         <button type="button" class="tool-btn" id="batchSheetTemplate2" title="File CSV mẫu — thêm cột Phong cách, Khung, Giọng… để đặt riêng từng video"><i data-icon="file-down"></i> File mẫu</button>
         <button type="button" class="tool-btn" id="batchTopicToggle"><i data-icon="sparkles"></i> AI nghĩ ý tưởng</button>
         <span class="spacer"></span>
         <span class="kbd-hint" id="batchCount"></span>
+      </div>
+    </div>
+
+    <!-- nguồn: một chủ đề, nhiều phong cách -->
+    <div class="composer bt-composer" id="batchStylesBox" hidden>
+      <textarea id="batchStylesText" spellcheck="false" aria-label="Chủ đề hoặc lời video" rows="3"></textarea>
+      <div class="bt-style-pick">
+        <div class="bt-style-head">
+          <b>Phong cách</b> <span class="muted" id="batchStylesCount"></span>
+          <span class="spacer"></span>
+          <button type="button" class="tool-btn" id="batchStylesExample" title="Điền chủ đề mẫu (AI viết) hoặc lời mẫu (lời có sẵn) của phong cách đầu tiên đã chọn"><i data-icon="book-open"></i> Điền mẫu</button>
+          <button type="button" class="tool-btn" id="batchStylesRandom"><i data-icon="dices"></i> Thêm 4 ngẫu nhiên</button>
+          <button type="button" class="tool-btn" id="batchStylesClear" hidden>Bỏ chọn</button>
+        </div>
+        <div class="style-grid bt-style-grid" id="batchStyleGrid"></div>
       </div>
     </div>
 

@@ -3450,6 +3450,8 @@ async function submitMulti() {
  * chung `opts` với ô soạn chat nên học một lần là dùng được cả hai chỗ.
  */
 let batchSource = "ideas";
+/** "1 chủ đề, nhiều phong cách": phong cách đã tích, theo thứ tự chọn. */
+let batchStyles = [];
 let batchReview = true;     // chốt duyệt lời trước khi render
 /** AI nghĩ ý tưởng — chọn riêng, không đổi "AI viết lời" của cả loạt. */
 let batchIdeaProvider = "auto";
@@ -3509,6 +3511,8 @@ const BT_SOURCE_ICON = {
 };
 const BT_SOURCE_DESC = {
   ideas: "Mỗi dòng một video. Gõ tay, tải file .txt/.csv, hoặc để AI nghĩ ý tưởng giúp.",
+  scripts: "Dán sẵn lời của nhiều video — mỗi video một khối, ngăn nhau bằng dòng ---. Không gọi AI viết lời.",
+  styles: "Một chủ đề (hoặc một lời có sẵn), chọn nhiều phong cách — mỗi phong cách ra một video để so xem kiểu nào hợp.",
   custom: "Tự nhập từng video. Ô nào muốn khác thì đặt riêng phong cách, khung, giọng.",
   media: "Kéo thả nhiều file audio/video — tự phiên âm, gắn phụ đề rồi render.",
   clips: "Một video dài → nhiều video ngắn: AI nghe hết, chọn đoạn hay, cắt khung dọc, gắn phụ đề và câu hook.",
@@ -3557,6 +3561,19 @@ function bindBatch() {
   });
 
   $("batchText").addEventListener("input", () => { renderBatchCount(); renderBatchPlan(); });
+  $("batchScriptExample").addEventListener("click", fillBatchScriptExample);
+  $("batchStylesText").addEventListener("input", () => { renderBatchCount(); renderBatchPlan(); });
+  $("batchStyleGrid").addEventListener("click", (e) => {
+    const card = e.target.closest("[data-bt-style]");
+    if (card) toggleBatchStyle(card.dataset.btStyle);
+  });
+  $("batchStylesClear").addEventListener("click", () => { batchStyles = []; renderBatchStyles(); renderBatchCount(); renderBatchPlan(); });
+  $("batchStylesRandom").addEventListener("click", () => {
+    const pool = (state?.styles ?? []).map((s) => s.id).filter((id) => id !== "plain" && !batchStyles.includes(id));
+    batchStyles = [...batchStyles, ...pool.sort(() => Math.random() - 0.5).slice(0, 4)];
+    renderBatchStyles(); renderBatchCount(); renderBatchPlan();
+  });
+  $("batchStylesExample").addEventListener("click", fillBatchStylesExample);
   $("batchImport").addEventListener("click", () => $("batchFile").click());
   $("batchFile").addEventListener("change", importBatchFile);
   $("batchSheetImport").addEventListener("click", () => $("batchFile").click());
@@ -3858,8 +3875,10 @@ function renderBatchNew() {
     b.classList.toggle("on", on);
     b.setAttribute("aria-pressed", String(on));
   });
-  $("batchIdeasBox").hidden = batchSource !== "ideas";
+  $("batchIdeasBox").hidden = batchSource !== "ideas" && batchSource !== "scripts";
   $("batchCustomBox").hidden = batchSource !== "custom";
+  $("batchStylesBox").hidden = batchSource !== "styles";
+  if (batchSource === "styles") renderBatchStyles();
   $("batchMediaBox").hidden = batchSource !== "media";
   $("batchVariantBox").hidden = batchSource !== "variants";
   $("batchClipsBox").hidden = batchSource !== "clips";
@@ -3870,7 +3889,10 @@ function renderBatchNew() {
   // Biến thể chưa chọn video gốc: mở sẵn phần cài đặt, vì ô chọn video gốc nằm trong đó.
   if (batchSource === "variants" && !batchVariant.from) $("batchSettings").open = true;
 
-  const textMode = opts.mode === "text";
+  const textMode = batchTextMode();
+  $("batchText").setAttribute("aria-label", textMode ? "Lời các video" : "Danh sách ý tưởng");
+  $("batchScriptHelp").hidden = !textMode;
+  $("batchScriptExample").hidden = !textMode;
   $("batchText").placeholder = textMode
     ? 'Lời video 1 — mỗi dòng một câu, dòng trống để sang cảnh mới\n\n---\n\nLời video 2…'
     : "5 mẹo tiết kiệm pin iPhone\nVì sao Nokia sụp đổ?\nCách pha cà phê muối";
@@ -3898,14 +3920,16 @@ function renderBatchFields() {
   // Nguồn "mỗi video một ô" dùng chung bộ cài đặt này làm MẶC ĐỊNH — ô nào đặt riêng thì thắng.
   const byCard = batchSource === "custom";
   const def = (label) => (byCard || batchSource === "variants" ? `${label} mặc định` : label);
-  if (batchSource === "ideas" || byCard) {
-    fields.push(["mode", def("Lời video"), opts.mode === "text" ? "Có sẵn" : "AI viết", modeIcon(opts.mode)]);
-    if (opts.mode !== "text") fields.push(["provider", "AI viết lời", providerChipLabel(), providerIcon(opts.provider)]);
-    if (opts.mode !== "text") fields.push(["hook", def("Hook"), hookChipLabel(), hookIcon(opts.hook)]);
-    fields.push(
-      ["kind", "Tạo ra", opts.kind === "image" ? "Bộ ảnh" : "Video", kindIcon(opts.kind)],
-      ["style", def("Phong cách"), `${style.emoji} ${style.label}`],
-    );
+  if (batchSource === "ideas" || batchSource === "scripts" || batchSource === "styles" || byCard) {
+    // Lời có sẵn: lời đã dán, không có AI viết lời hay hook để chọn.
+    if (batchSource !== "scripts") {
+      fields.push(["mode", def("Lời video"), opts.mode === "text" ? "Có sẵn" : "AI viết", modeIcon(opts.mode)]);
+      if (opts.mode !== "text") fields.push(["provider", "AI viết lời", providerChipLabel(), providerIcon(opts.provider)]);
+      if (opts.mode !== "text") fields.push(["hook", def("Hook"), hookChipLabel(), hookIcon(opts.hook)]);
+    }
+    fields.push(["kind", "Tạo ra", opts.kind === "image" ? "Bộ ảnh" : "Video", kindIcon(opts.kind)]);
+    // 1 chủ đề, nhiều phong cách: phong cách chọn ở lưới bên dưới, không có ô chung.
+    if (batchSource !== "styles") fields.push(["style", def("Phong cách"), `${style.emoji} ${style.label}`]);
   }
   if (batchSource === "variants") {
     const from = batchProjects?.find((p) => p.slug === batchVariant.from);
@@ -4248,7 +4272,66 @@ async function analyzeClips() {
 const fileSource = () => batchSource === "media" || batchSource === "clips";
 
 /** Nguồn cho chọn phụ đề nhiều ngôn ngữ: những nguồn viết lời mới (ý tưởng, từng ô). */
-const langSource = () => batchSource === "ideas" || batchSource === "custom";
+const langSource = () => ["ideas", "scripts", "custom", "styles"].includes(batchSource);
+/**
+ * Ô danh sách đang chứa lời có sẵn (mỗi video một khối "---"): nguồn "Lời có sẵn", hoặc "Danh sách ý tưởng" với ô
+ * Lời video = Có sẵn. Không đổi opts.mode — opts dùng chung với ô tạo video.
+ */
+const batchTextMode = () => batchSource === "scripts" || (batchSource === "ideas" && opts.mode === "text");
+
+/** Lưới chọn nhiều phong cách (nguồn "1 chủ đề, nhiều phong cách"): bấm thẻ để tích/bỏ, rê chuột xem clip mẫu. */
+function renderBatchStyles() {
+  const styles = (state?.styles ?? []).filter((s) => s.id !== "plain");
+  const textMode = opts.mode === "text";
+  $("batchStylesText").placeholder = textMode
+    ? "Dán lời video — mỗi dòng một câu, dòng trống để sang cảnh mới. Cùng lời này dựng theo từng phong cách đã chọn."
+    : "Chủ đề của video — ví dụ: 5 mẹo ngủ ngon hơn mà không cần thuốc. AI viết lời riêng cho từng phong cách.";
+  $("batchStyleGrid").innerHTML = styles.map((s) => {
+    const on = batchStyles.includes(s.id);
+    return `<button type="button" class="style-card${on ? " on" : ""}" data-bt-style="${escapeHtml(s.id)}" aria-pressed="${on}"
+      title="${escapeHtml(s.bestFor ?? s.summary ?? "")}">
+      ${optThumb(`/style-previews/${s.id}`)}${on ? `<span class="bt-style-check">${icon("check")}</span>` : ""}
+      <b>${s.emoji} ${escapeHtml(s.label)}</b>
+    </button>`;
+  }).join("");
+  bindOptThumbs($("batchStyleGrid"), ".style-card");
+  $("batchStylesCount").textContent = batchStyles.length ? `đã chọn ${batchStyles.length}` : "chưa chọn";
+  $("batchStylesClear").hidden = batchStyles.length === 0;
+}
+
+function toggleBatchStyle(id) {
+  batchStyles = batchStyles.includes(id) ? batchStyles.filter((s) => s !== id) : [...batchStyles, id];
+  renderBatchStyles();
+  renderBatchCount();
+  renderBatchPlan();
+}
+
+/** Điền mẫu cho ô chủ đề: câu ý tưởng mẫu (AI viết) hoặc lời mẫu (có sẵn) của phong cách đầu tiên đã chọn. */
+function fillBatchStylesExample() {
+  const meta = styleMeta(batchStyles[0] ?? "caption");
+  $("batchStylesText").value = opts.mode === "text" ? meta.exampleScript : meta.examplePrompt;
+  $("batchStylesText").focus();
+  renderBatchCount();
+  renderBatchPlan();
+}
+
+/**
+ * "Điền mẫu": hai video mẫu ngăn bằng "---" — mẫu của phong cách đang chọn và mẫu của một phong cách khác (meta.ts ›
+ * exampleScript), để thấy đủ cú pháp. Ô đang có chữ thì nối vào cuối, không xoá lời người dùng đã dán.
+ */
+function fillBatchScriptExample() {
+  const all = (state?.styles ?? []).filter((s) => s.exampleScript);
+  const own = all.find((s) => s.id === opts.style) ?? all[0];
+  const other = all.filter((s) => s !== own)[exampleTurn++ % Math.max(1, all.length - 1)];
+  const sample = [own, other].filter(Boolean).map((s) => s.exampleScript.trim()).join("\n\n---\n\n");
+  const current = $("batchText").value.trim();
+  $("batchText").value = current ? `${current}\n\n---\n\n${sample}` : sample;
+  $("batchText").focus();
+  $("batchText").setSelectionRange(0, 0);
+  $("batchText").scrollTop = 0;
+  renderBatchCount();
+  renderBatchPlan();
+}
 
 async function renderBatchLangs() {
   if (!langSource()) return;
@@ -4274,6 +4357,7 @@ function batchTotal() {
 
 function batchBaseTotal() {
   if (batchSource === "custom") return batchCards.filter((c) => c.text.trim()).length;
+  if (batchSource === "styles") return $("batchStylesText").value.trim() ? batchStyles.length : 0;
   if (batchSource === "media") return batchMedia.length;
   if (batchSource === "clips") return batchClips.clips.filter((c) => c.on).length;
   if (batchSource === "variants") {
@@ -4289,7 +4373,7 @@ function batchBaseTotal() {
 /** Mỗi dòng một video, hoặc mỗi khối "---" một video khi dùng lời có sẵn. */
 const batchLines = () => {
   const text = $("batchText").value;
-  if (opts.mode === "text") {
+  if (batchTextMode()) {
     return text.split(/\n\s*(?:-{3,}|={3,})\s*\n|\n{3,}/).map((b) => b.trim()).filter(Boolean);
   }
   return [...new Set(text.split(/\r?\n/)
@@ -4298,6 +4382,12 @@ const batchLines = () => {
 };
 
 function renderBatchCount() {
+  if (batchSource === "styles") {
+    const n = batchBaseTotal();
+    const per = perIdea();
+    $("batchCount").textContent = n === 0 ? "" : per > 1 ? `${n} phong cách · ${Math.min(50, n * per)} video` : `${n} video`;
+    return;
+  }
   const n = batchLines().length;
   const per = perIdea();
   $("batchCount").textContent = n === 0 ? "" : n > 50 ? `${n} dòng — chỉ lấy 50 dòng đầu`
@@ -4353,6 +4443,10 @@ function renderBatchPlan() {
     }
     parts.push(escapeHtml(imageChipLabel()));
   }
+  if (batchSource === "styles" && batchStyles.length) {
+    const names = batchStyles.map((id) => styleMeta(id).label);
+    parts.push(`phong cách <b>${escapeHtml(names.slice(0, 6).join(", "))}${names.length > 6 ? ` và ${names.length - 6} kiểu nữa` : ""}</b>`);
+  }
   if (batchSource === "custom") {
     const own = batchCards.filter((c) => c.text.trim() && Object.values(c.settings).some(Boolean)).length;
     if (own > 0) parts.push(`<b>${own} ô</b> theo cài đặt riêng của ô`);
@@ -4372,9 +4466,11 @@ function renderBatchPlan() {
       : batchSource === "media" ? "Thêm file audio/video ở trên trước đã."
       : batchSource === "variants" ? "Chọn video gốc và tích ít nhất một biến thể."
       : batchSource === "custom" ? "Nhập nội dung vào ít nhất một ô."
+      : batchSource === "scripts" ? "Dán lời của ít nhất một video — bấm Điền mẫu để xem cách viết."
+      : batchSource === "styles" ? ($("batchStylesText").value.trim() ? "Chọn ít nhất một phong cách ở lưới trên." : "Nhập chủ đề (hoặc dán lời) trước đã.")
       : "Thêm ít nhất một dòng ý tưởng.");
   }
-  const needsAi = batchSource === "ideas"
+  const needsAi = batchSource === "ideas" || batchSource === "styles"
     ? opts.mode === "ai"
     : batchSource === "custom" &&
       batchCards.some((c) => c.text.trim() && (c.settings.mode ?? opts.mode) === "ai");
@@ -4403,7 +4499,9 @@ async function importBatchFile(e) {
   if (/\.(csv|tsv)$/i.test(file.name)) return importBatchSheet(file);
   const lines = (await file.text()).split(/\r?\n/);
   const current = $("batchText").value.trim();
-  $("batchText").value = (current ? `${current}\n` : "") + lines.join("\n").trim();
+  // Lời có sẵn: file nạp thêm là (các) video mới — ngăn bằng "---" để khỏi dính vào video cuối đang có.
+  const join = batchTextMode() ? "\n\n---\n\n" : "\n";
+  $("batchText").value = (current ? `${current}${join}` : "") + lines.join("\n").trim();
   renderBatchCount();
   renderBatchPlan();
   setBatchHint(`Đã nạp ${file.name}.`);
@@ -4853,6 +4951,20 @@ async function createBatch() {
   const at = $("batchStartAt").hidden ? "" : $("batchStartAt").value;
   if (at) body.startAt = new Date(at).getTime();
   if (batchSource === "ideas") body.items = $("batchText").value;
+  // 1 chủ đề, nhiều phong cách = loạt "mỗi video một ô", cùng một lời/chủ đề, mỗi ô một phong cách riêng —
+  // AI viết lời riêng cho từng phong cách (câu đố ra câu hỏi, tin nhắn ra hội thoại…), lời có sẵn thì dựng lại theo kiểu.
+  if (batchSource === "styles") {
+    const text = $("batchStylesText").value.trim();
+    body.source = "custom";
+    body.items = batchStyles.map((id) => ({ text, settings: { style: id } }));
+    if (!body.name.trim()) body.name = `${text.split("\n").find((l) => l.trim())?.replace(/^#\s*/, "").slice(0, 40) ?? "Chủ đề"} · ${batchStyles.length} phong cách`;
+  }
+  // Lời có sẵn = loạt "ý tưởng" với lời dán sẵn (server/batch.ts tách khối "---"), không gọi AI viết lời.
+  if (batchSource === "scripts") {
+    body.source = "ideas";
+    body.items = $("batchText").value;
+    body.settings.mode = "text";
+  }
   if (langSource() && batchSubLangs.length) {
     body.languages = batchSubLangs;
     body.dub = batchDub;
@@ -4896,6 +5008,7 @@ async function createBatch() {
   try {
     const batch = await postJson("/api/batch", body);
     $("batchText").value = "";
+    $("batchStylesText").value = "";
     batchCards = [];
     batchMedia = [];
     batchClips = { file: null, name: "", seconds: 0, busy: false, clips: [], preview: -1 };
@@ -5235,6 +5348,11 @@ function batchItemTile(it, i) {
   const title = shorten(it.title || it.input);
   const bits = [];
   if (busy && it.step) bits.push(`bước ${BT_STEP[it.step] ?? it.step}`);
+  // Ô có phong cách riêng (vd. "1 chủ đề, nhiều phong cách" — cùng tiêu đề) thì ghi rõ để phân biệt.
+  const ownStyle = it.override?.style;
+  if (ownStyle && ownStyle !== batchCur?.settings?.style && styleMeta(ownStyle)) {
+    bits.push(`${styleMeta(ownStyle).emoji} ${styleMeta(ownStyle).label}`);
+  }
   if (it.scenes) bits.push(`${it.scenes} cảnh`);
   if (it.title && it.input && it.input !== it.title) bits.push(shorten(it.input, 60));
   if (it.edited) bits.push("đã chỉnh sửa");
