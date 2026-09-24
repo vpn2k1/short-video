@@ -15,6 +15,7 @@ import {
 } from "./video-length";
 import { LOCAL_AI_LABEL, LOCAL_MODEL_NAME, LocalAiStartError, localAiAvailable, localChat } from "./local-ai";
 import { mapLimit } from "./concurrency";
+import type { VideoLanguage } from "../src/i18n/video";
 
 /** Người dùng chọn một phong cách cụ thể, hoặc để AI tự chọn theo nội dung. */
 export type StyleChoice = StyleId | "auto";
@@ -95,7 +96,7 @@ export type ScriptProvider = "anthropic" | "openai" | "gemini" | "groq" | "openr
 /** Lựa chọn trong giao diện: "auto" = theo Cài đặt, còn lại là một nhà cung cấp cụ thể. */
 export type ProviderChoice = ScriptProvider | "auto";
 
-type CompatProvider = Exclude<ScriptProvider, "anthropic" | "ollama" | "local">;
+export type CompatProvider = Exclude<ScriptProvider, "anthropic" | "ollama" | "local">;
 
 /**
  * Ollama: model chạy ngay trên máy — không cần key, không cần mạng. Bật khi chọn "Ollama"
@@ -132,7 +133,7 @@ export const COMPAT_PROVIDERS: Record<CompatProvider, {
   keyEnv: string;
   modelEnv: string;
   defaultModel: string;
-  /** Model dự phòng khi model mặc định quá tải — chỉ dùng khi người dùng không tự điền model. */
+  /** Model dự phòng khi model đang dùng lỗi (quá tải, hết lượt, JSON hỏng) — xem compatModels. */
   fallbackModels?: string[];
 }> = {
   openai: {
@@ -149,6 +150,8 @@ export const COMPAT_PROVIDERS: Record<CompatProvider, {
   groq: {
     label: "Groq", baseUrl: "https://api.groq.com/openai/v1",
     keyEnv: "GROQ_API_KEY", modelEnv: "GROQ_MODEL", defaultModel: "openai/gpt-oss-120b",
+    // gpt-oss-120b thỉnh thoảng viết JSON hỏng (400 "Failed to validate JSON"); hạn mức Groq tính riêng từng model.
+    fallbackModels: ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"],
   },
   openrouter: {
     // Bộ định tuyến tự chọn một model miễn phí hỗ trợ structured output.
@@ -156,6 +159,28 @@ export const COMPAT_PROVIDERS: Record<CompatProvider, {
     keyEnv: "OPENROUTER_API_KEY", modelEnv: "OPENROUTER_MODEL", defaultModel: "openrouter/free",
   },
 };
+
+/** Model thử lần lượt: model chọn trong Cài đặt (nếu có), rồi mặc định và dự phòng của nhà cung cấp. */
+export const compatModels = (provider: CompatProvider) => {
+  const config = COMPAT_PROVIDERS[provider];
+  const chosen = process.env[config.modelEnv];
+  return [...new Set([...(chosen ? [chosen] : []), config.defaultModel, ...(config.fallbackModels ?? [])])];
+};
+
+/**
+ * Lỗi mà đổi sang model khác của cùng nhà cung cấp có thể qua: quá tải, hết lượt (Groq, Gemini tính hạn mức riêng từng
+ * model), model viết JSON hỏng/bị cắt, model đã bị gỡ.
+ */
+export const tryNextModel = (status: number, message: string) =>
+  status >= 500 || status === 429 ||
+  /json_validate_failed|validate JSON|max completion tokens|decommissioned|model_not_found|does not exist/i.test(message);
+
+/**
+ * Tham số riêng theo model. gpt-oss trên Groq suy luận trước khi trả lời, suy luận dài ăn hết giới hạn token đầu ra →
+ * JSON bị cắt giữa chừng, Groq báo 400 "Failed to validate JSON". Việc viết/biên tập lời không cần suy luận sâu.
+ */
+export const compatExtras = (provider: CompatProvider, model: string) =>
+  provider === "groq" && /gpt-oss/i.test(model) ? { reasoning_effort: "low" } : {};
 
 /**
  * Nhà cung cấp không chịu được prompt lớn: model chạy trên máy (Ollama, AI có sẵn — ngữ cảnh nhỏ) và gói miễn phí Groq
@@ -276,7 +301,22 @@ export type ScriptOptions = {
   log?: (line: string) => void;
   /** Công thức mở đầu người dùng chọn (scripts/hook-library.ts); "auto" hoặc bỏ trống = AI tự chọn kiểu. */
   hook?: string;
+  /** Ngôn ngữ nội dung video. Bỏ trống/"vi" = như cũ (viết theo ngôn ngữ của prompt, mặc định tiếng Việt). */
+  language?: VideoLanguage;
 };
+
+/**
+ * Video tiếng Anh. Luật và ví dụ trong prompt đều bằng tiếng Việt nên model hay viết theo ví dụ — nói rõ ở CUỐI prompt
+ * (model nghe phần cuối nhất) rằng mọi chữ trên màn hình và lời đọc phải là tiếng Anh.
+ */
+export const languageSection = (language?: VideoLanguage) =>
+  language === "en"
+    ? "\n\nVIDEO LANGUAGE: ENGLISH. Write every piece of on-screen and spoken text in natural, native, conversational " +
+      "English — title, subtitle, every line, tag, punch, visual text, captions — even when the user's request or the " +
+      "examples above are in Vietnamese. The rules above are written in Vietnamese: follow them exactly (lengths, " +
+      "structure, JSON fields), but write the content in English. Rules about Vietnamese diacritics or Vietnamese " +
+      "wording do not apply. Never mix Vietnamese into the video."
+    : "";
 
 export const generateScript = async (
   prompt: string,
@@ -294,7 +334,7 @@ export const generateScript = async (
   const target = resolveLength(options.length, prompt);
   options.log?.(`Độ dài: ${lengthLabel(target)}${target.source === "ui" ? " (ô chọn)" : target.source === "prompt" ? " (theo prompt)" : ""}`);
   if (needsChapters(target)) {
-    return generateLong(prompt, target, images, uploads, model, style, provider, options.log, options.hook);
+    return generateLong(prompt, target, images, uploads, model, style, provider, options.log, options.hook, options.language);
   }
   // Phong cách gửi cho model: "Tự động" + nhà cung cấp prompt gọn thì đoán bằng từ khoá
   // (như chế độ Nguyên văn) để không phải kèm hướng dẫn cả 16 phong cách. Tính theo từng nhà cung
@@ -302,7 +342,7 @@ export const generateScript = async (
   // Đợi rồi thử lại khi chạm giới hạn theo phút: làm hàng loạt, lượt soát của video trước (scripts/review-script.ts) cộng
   // lượt viết của video sau hay vượt hạn mức token/phút của gói miễn phí (Groq ~8.000).
   return withRateLimitRetry(() => callModel(
-    (chosen) => SYSTEM + hookSection(options.hook, prompt) + lengthSection(target) + styleSection(styleFor(style, prompt, chosen)) + mediaSection(images, uploads),
+    (chosen) => SYSTEM + hookSection(options.hook, prompt) + lengthSection(target) + styleSection(styleFor(style, prompt, chosen)) + mediaSection(images, uploads) + languageSection(options.language),
     prompt, model, images, style, provider,
   ), options.log);
 };
@@ -366,6 +406,7 @@ const generateLong = async (
   provider: ProviderChoice,
   log?: (line: string) => void,
   hook?: string,
+  language?: VideoLanguage,
 ): Promise<VideoScript> => {
   const plan = target.seconds !== null ? planFor(target.seconds) : null;
   const chapterCount = plan
@@ -377,7 +418,7 @@ const generateLong = async (
 
   log?.("Đang lập dàn ý chương…");
   const outline = await withRateLimitRetry(() => callModel(
-    (chosen) => SYSTEM + OUTLINE_RULES + styleSection(styleFor(style, prompt, chosen)),
+    (chosen) => SYSTEM + OUTLINE_RULES + styleSection(styleFor(style, prompt, chosen)) + languageSection(language),
     `${prompt}\n\nSố chương: ${chapterCount}.`,
     model, [], style, provider,
   ), log);
@@ -413,7 +454,7 @@ const generateLong = async (
       `${chapter.tag ?? ""} — ${chapter.lines.join(" ")}\n` +
       `Viết khoảng ${linesEach} câu, chia thành khoảng ${sceneCount} cảnh, mỗi cảnh ${perScene} câu.`;
     const part = await withRateLimitRetry(() => callModel(
-      () => SYSTEM + (i === 0 ? hookSection(hook, prompt) : "") + chapterLength + CHAPTER_RULES + styleSection(outline.style) + mediaSection(images, uploads),
+      () => SYSTEM + (i === 0 ? hookSection(hook, prompt) : "") + chapterLength + CHAPTER_RULES + styleSection(outline.style) + mediaSection(images, uploads) + languageSection(language),
       content, model, images, outline.style, provider,
     ), log);
     written += 1;
@@ -504,14 +545,14 @@ export const continueScript = async (
   });
 
   if (needsChapters(target)) {
-    return finish(await generateLong(`${CONTINUE_RULES.trim()}\n\n${context}`, target, images, uploads, model, keepStyle, provider, options.log));
+    return finish(await generateLong(`${CONTINUE_RULES.trim()}\n\n${context}`, target, images, uploads, model, keepStyle, provider, options.log, undefined, options.language));
   }
   const lengthText = target.source === "default"
     ? `\n\nĐỘ DÀI VIDEO: giống phần trước — ${previous.scenes.length} cảnh, khoảng ${prevLines} câu, cùng cách chia câu ` +
       `mỗi cảnh.\n${OVERRIDE_NOTE}`
     : lengthSection(target);
   return finish(await withRateLimitRetry(() => callModel(
-    () => SYSTEM + CONTINUE_RULES + lengthText + styleSection(keepStyle) + mediaSection(images, uploads),
+    () => SYSTEM + CONTINUE_RULES + lengthText + styleSection(keepStyle) + mediaSection(images, uploads) + languageSection(options.language),
     context, model, images, keepStyle, provider,
   ), options.log));
 };
@@ -548,7 +589,7 @@ export const editScript = async (
     return generateLong(
       `${instruction}\n\nVideo hiện có tên "${current.title}". Nội dung bản cũ (mở rộng từ đây, giữ chủ đề):\n` +
         allLines(current).join(" "),
-      target, images, uploads, model, changing ? style : current.style, provider, options.log,
+      target, images, uploads, model, changing ? style : current.style, provider, options.log, undefined, options.language,
     );
   }
 
@@ -558,7 +599,7 @@ export const editScript = async (
       (lengthChanges
         ? lengthSection(target)
         : `\n\nĐỘ DÀI VIDEO: giữ đúng độ dài hiện tại (${current.scenes.length} cảnh, ${currentLines} câu) trừ khi yêu cầu sửa nói khác.`) +
-      styleSection(style === "auto" ? current.style : style) + mediaSection(images, uploads),
+      styleSection(style === "auto" ? current.style : style) + mediaSection(images, uploads) + languageSection(options.language),
     `KỊCH BẢN HIỆN TẠI:\n${JSON.stringify(current, null, 2)}\n\n` +
       (changing
         ? `Người dùng đã đổi phong cách sang "${style}" — điều chỉnh tag, punch, visual và nhịp câu cho hợp phong cách mới.\n\n`
@@ -690,8 +731,7 @@ const openAISchema = () => {
 /** ChatGPT, Gemini, Groq, OpenRouter — cùng API chat completions kiểu OpenAI. */
 const callCompatible = async (provider: CompatProvider, system: string, content: string): Promise<unknown> => {
   const config = COMPAT_PROVIDERS[provider];
-  const custom = process.env[config.modelEnv];
-  const models = custom ? [custom] : [config.defaultModel, ...(config.fallbackModels ?? [])];
+  const models = compatModels(provider);
   const schema = openAISchema();
   const send = (model: string, responseFormat: Record<string, unknown>, systemText: string) =>
     fetch(`${config.baseUrl}/chat/completions`, {
@@ -707,16 +747,16 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
           { role: "user", content },
         ],
         response_format: responseFormat,
-        // gpt-oss trên Groq suy luận trước khi trả lời, suy luận dài ăn hết giới hạn token đầu ra → JSON bị cắt
-        // giữa chừng, Groq báo 400 "Failed to validate JSON". Viết kịch bản không cần suy luận sâu.
-        ...(provider === "groq" && /gpt-oss/i.test(model) ? { reasoning_effort: "low" } : {}),
+        ...compatExtras(provider, model),
       }),
     });
 
-  let model = models[0];
-  let response: Response | undefined;
-  for (model of models) {
-    response = await send(
+  // Model lỗi kiểu đổi model là qua được (quá tải, hết lượt, JSON hỏng) → thử model kế tiếp của cùng nhà cung cấp;
+  // tới model cuối mới báo lỗi. Lỗi khác (key sai…) thì dừng ngay.
+  const tried: string[] = [];
+  for (const [index, model] of models.entries()) {
+    const last = index === models.length - 1;
+    let response = await send(
       model,
       { type: "json_schema", json_schema: { name: "video_script", strict: true, schema } },
       system,
@@ -731,44 +771,47 @@ const callCompatible = async (provider: CompatProvider, system: string, content:
         `${system}\n\nChỉ trả về MỘT object JSON đúng JSON Schema sau, không kèm chữ nào khác:\n${JSON.stringify(schema)}`,
       );
     }
-    // Quá tải tạm thời → thử model dự phòng của cùng nhà cung cấp; lỗi khác thì dừng ở đây.
-    if (response.status < 500) break;
-  }
-  if (!response) throw new Error(`${config.label}: chưa có model nào để gọi.`);
 
-  recordCall(config.label, response.ok);
-  if (!response.ok) {
-    const detail = await response.text();
-    let message = detail.slice(0, 300);
+    recordCall(config.label, response.ok);
+    if (!response.ok) {
+      const detail = await response.text();
+      let message = detail.slice(0, 300);
+      try {
+        const parsed = JSON.parse(detail);
+        message = (Array.isArray(parsed) ? parsed[0] : parsed).error?.message ?? message;
+      } catch {
+        // không phải JSON — giữ nguyên text
+      }
+      tried.push(model);
+      if (!last && tryNextModel(response.status, message)) continue;
+      const which = tried.length > 1 ? `${config.label} (đã thử ${tried.join(", ")})` : `${config.label} (${model})`;
+      const text = describeProviderError(which, response.status, message);
+      if (/json_validate_failed|validate JSON|max completion tokens/i.test(message)) {
+        throw new Error(`${which} viết kịch bản bị cắt giữa chừng hoặc sai cấu trúc — bấm thử lại, ` +
+          "hoặc chọn AI khác / đổi model trong ⚙ Cài đặt.");
+      }
+      if (unavailable(response.status, message)) throw new ProviderUnavailable(text);
+      throw new Error(text);
+    }
+
+    const body = (await response.json()) as {
+      choices?: { message?: { content?: string | null; refusal?: string | null } }[];
+    };
+    const message = body.choices?.[0]?.message;
+    if (message?.refusal) {
+      throw new Error(`${config.label} từ chối yêu cầu này: ${message.refusal}`);
+    }
+    // Vài model bọc JSON trong ```json … ``` dù đã yêu cầu JSON thuần.
+    const text = (message?.content ?? "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
     try {
-      const parsed = JSON.parse(detail);
-      message = (Array.isArray(parsed) ? parsed[0] : parsed).error?.message ?? message;
+      return JSON.parse(text);
     } catch {
-      // không phải JSON — giữ nguyên text
+      tried.push(model);
+      if (!last) continue;
+      throw new Error(`${config.label} (${tried.join(", ")}) không trả về JSON hợp lệ. Thử lại, hoặc đổi model trong Cài đặt.`);
     }
-    const text = describeProviderError(`${config.label} (${model})`, response.status, message);
-    if (/json_validate_failed|validate JSON|max completion tokens/i.test(message)) {
-      throw new Error(`${config.label} (${model}) viết kịch bản bị cắt giữa chừng hoặc sai cấu trúc — bấm thử lại, ` +
-        "hoặc chọn AI khác / đổi model trong ⚙ Cài đặt.");
-    }
-    if (unavailable(response.status, message)) throw new ProviderUnavailable(text);
-    throw new Error(text);
   }
-
-  const body = (await response.json()) as {
-    choices?: { message?: { content?: string | null; refusal?: string | null } }[];
-  };
-  const message = body.choices?.[0]?.message;
-  if (message?.refusal) {
-    throw new Error(`${config.label} từ chối yêu cầu này: ${message.refusal}`);
-  }
-  // Vài model bọc JSON trong ```json … ``` dù đã yêu cầu JSON thuần.
-  const text = (message?.content ?? "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`${config.label} (${model}) không trả về JSON hợp lệ. Thử lại, hoặc đổi model trong Cài đặt.`);
-  }
+  throw new Error(`${config.label}: chưa có model nào để gọi.`);
 };
 
 /**

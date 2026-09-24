@@ -8,6 +8,7 @@ import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { FONT_CATALOG } from "../../fonts/catalog";
 import { seeded, useLayout } from "../shared";
+import type { VideoLanguage } from "../../i18n/video";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 export const POP = Easing.spring({ damping: 12, stiffness: 170 });
@@ -129,15 +130,16 @@ export const punchSpan = (text: string, punch: string): [number, number] | null 
 /* ------------------------------------------------------------ số đếm */
 
 /** 12400 → "12,4K", 1250000 → "1,3Tr" — kiểu đếm của app, dấu phẩy thập phân. */
-export const formatCount = (n: number) => {
+export const formatCount = (n: number, language?: VideoLanguage) => {
+  const en = language === "en";
   const v = Math.max(0, Math.floor(n));
   if (v < 1000) return String(v);
   if (v < 1_000_000) {
     const k = Math.floor(v / 100) / 10;
-    return `${k >= 100 ? Math.floor(k) : String(k).replace(".", ",")}K`;
+    return `${k >= 100 ? Math.floor(k) : en ? String(k) : String(k).replace(".", ",")}K`;
   }
   const m = Math.floor(v / 100_000) / 10;
-  return `${String(m).replace(".", ",")}Tr`;
+  return en ? `${m}M` : `${String(m).replace(".", ",")}Tr`;
 };
 
 /** Người xem tăng dần đều, mỗi 10 frame nhích thêm một chút — luôn tăng, không nhảy lùi. */
@@ -222,10 +224,49 @@ const REACTIONS: [RegExp, string[]][] = [
   [/còn|hết|số lượng|ít/i, ["Còn không shop ơi", "Để lại 1 cái nha"]],
 ];
 
-const reactionsFor = (text: string) => {
+const FALLBACK = ["Công nhận luôn", "Đúng rồi đó shop", "Nghe hợp lý ghê"];
+
+/* Bộ bình luận cho video tiếng Anh — cùng vai trò với các bộ tiếng Việt ở trên. */
+const NAMES_EN = [
+  "Emma", "Liam", "Olivia", "Noah", "Ava", "Mia", "Lucas", "Sophie", "Ethan", "Chloe", "Jake", "Lily",
+  "Grace", "Ryan", "Zoe", "Mason", "Ella", "Leo", "Nora", "Ben", "Kate", "Sam", "Ruby", "Max",
+];
+
+const GENERIC_EN = [
+  "Looks so good!", "Can you show it closer?", "Just joined, what are we selling?", "Is shipping free?",
+  "How long does shipping take?", "Is the quality good?", "Bought it last time, love it", "Other colors?",
+  "You're so fun to watch", "Link please!", "Been waiting for this deal", "Can I return it?", "Honestly gorgeous",
+  "Save one for me!", "How much is it?", "Show the last one again?", "Any warranty?", "Love this shop",
+];
+
+const BURST_EN = [
+  "Sold!", "I'll take 2!", "Buying now!", "Just ordered", "One for me please", "Am I in time?", "Got it!",
+  "So cheap!", "Take my money", "Still in stock?",
+];
+
+const REACTIONS_EN: [RegExp, string[]][] = [
+  [/price|how much|cost|\$\s*\d|\d+\s*(k|dollars?|bucks)\b/i, ["How much is it?", "That price is crazy!", "Great price"]],
+  [/free shipping|shipping|ship|deliver/i, ["Free shipping too?", "Is delivery fast?"]],
+  [/gift|free|bonus|bundle/i, ["A free gift, really?", "Nice gift"]],
+  [/sale|off|flash|deal|discount|promo/i, ["Sold!", "Waited all day for this", "Sale time!"]],
+  [/size|colou?r|style/i, ["Size L in stock?", "Is black still available?"]],
+  [/authentic|genuine|warranty|original|quality/i, ["Does it have a warranty?", "Is it authentic?"]],
+  [/skin|cream|serum|lipstick|moistur/i, ["Good for oily skin?", "Okay for sensitive skin?"]],
+  [/\?/, ["Want to know too", "Yes!"]],
+  [/left|stock|sold out|limited|only/i, ["Any left?", "Save one for me"]],
+];
+
+const FALLBACK_EN = ["So true", "Exactly!", "Makes sense"];
+
+const CHAT_SETS = {
+  vi: { names: NAMES, generic: GENERIC, burst: BURST, reactions: REACTIONS, fallback: FALLBACK, buy: "vừa đặt hàng", join: "đã tham gia" },
+  en: { names: NAMES_EN, generic: GENERIC_EN, burst: BURST_EN, reactions: REACTIONS_EN, fallback: FALLBACK_EN, buy: "just ordered", join: "joined" },
+};
+
+const reactionsFor = (text: string, set: (typeof CHAT_SETS)[VideoLanguage]) => {
   const out: string[] = [];
-  for (const [re, list] of REACTIONS) if (re.test(text)) out.push(...list);
-  return out.length ? out : ["Công nhận luôn", "Đúng rồi đó shop", "Nghe hợp lý ghê"];
+  for (const [re, list] of set.reactions) if (re.test(text)) out.push(...list);
+  return out.length ? out : set.fallback;
 };
 
 /**
@@ -233,9 +274,17 @@ const reactionsFor = (text: string) => {
  * ngay sau lời người dẫn thì người xem hỏi lại theo nội dung câu; 3 giây sau câu nhấn thì dồn dập "Chốt đơn!".
  * Vài dòng bắt đầu ở thời điểm âm để khung chat không trống khi vừa vào.
  */
-export const buildChat = (captions: Caption[], scenes: Scene[], startFrame: number, endFrame: number, key: string): ChatLine[] => {
+export const buildChat = (
+  captions: Caption[],
+  scenes: Scene[],
+  startFrame: number,
+  endFrame: number,
+  key: string,
+  language: VideoLanguage = "vi",
+): ChatLine[] => {
+  const { names: NAMES, generic: GENERIC, burst: BURST, buy: BUY, join: JOIN } = CHAT_SETS[language];
   const bursts = scenes.filter((s) => s.punch).map((s) => msToFrames(s.punch!.atMs));
-  const capStarts = captions.map((c) => ({ at: msToFrames(c.startMs), list: reactionsFor(c.text) }));
+  const capStarts = captions.map((c) => ({ at: msToFrames(c.startMs), list: reactionsFor(c.text, CHAT_SETS[language]) }));
   const lines: ChatLine[] = [];
   let t = startFrame - 90;
   let i = 0;
@@ -251,7 +300,7 @@ export const buildChat = (captions: Caption[], scenes: Scene[], startFrame: numb
     if (burst !== undefined) {
       if (r < 0.3) {
         kind = "buy";
-        text = "vừa đặt hàng";
+        text = BUY;
       } else {
         text = BURST[Math.floor(seeded(`${key}-b-${i}`, 0, BURST.length))];
       }
@@ -259,10 +308,10 @@ export const buildChat = (captions: Caption[], scenes: Scene[], startFrame: numb
       text = recent.list[Math.floor(seeded(`${key}-r-${i}`, 0, recent.list.length))];
     } else if (r > 0.9) {
       kind = "join";
-      text = "đã tham gia";
+      text = JOIN;
     } else if (r > 0.84 && t > startFrame) {
       kind = "buy";
-      text = "vừa đặt hàng";
+      text = BUY;
     } else {
       text = GENERIC[Math.floor(seeded(`${key}-g-${i}`, 0, GENERIC.length))];
     }

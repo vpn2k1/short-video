@@ -1,6 +1,7 @@
 import { ChapterMarker } from "../../components/ChapterMarker";
 import type { ShortProps } from "../Short/schema";
 import { Short } from "../Short";
+import { VideoLanguageProvider } from "../../i18n/video";
 
 export { calculateShortMetadata as calculateLongVideoMetadata } from "../Short";
 
@@ -11,6 +12,8 @@ export { calculateShortMetadata as calculateLongVideoMetadata } from "../Short";
 export const LongVideo: React.FC<ShortProps> = (props) => (
   <>
     <Short {...props} />
-    <ChapterMarker scenes={props.scenes} accent={props.accent} />
+    <VideoLanguageProvider language={props.language}>
+      <ChapterMarker scenes={props.scenes} accent={props.accent} />
+    </VideoLanguageProvider>
   </>
 );

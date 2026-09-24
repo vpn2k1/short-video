@@ -2,6 +2,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { TITLE_FRAMES } from "../../constants";
 import { Avatar } from "./Chrome";
 import { alpha, clamp, fitLines, LIVE_RED, NUM, POP, shade, SLAM, SMOOTH, UI, type Geo } from "./live";
+import { useVt } from "../../i18n/video";
 
 /** Mốc của màn chờ: mỗi số đếm lùi đứng 11 frame, rồi "LIVE" đập xuống. */
 const COUNT_AT = 22;
@@ -21,6 +22,7 @@ export const LiveTitle: React.FC<{ geo: Geo; title: string; subtitle: string; ac
   ready,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { u, width, height, wide, square } = geo;
   const out = interpolate(frame, [TITLE_FRAMES - 8, TITLE_FRAMES], [0, 1], { ...clamp, easing: SMOOTH });
   const avatarIn = interpolate(frame, [0, 14], [0, 1], { ...clamp, easing: POP });
@@ -90,7 +92,7 @@ export const LiveTitle: React.FC<{ geo: Geo; title: string; subtitle: string; ac
                 whiteSpace: "nowrap",
               }}
             >
-              {live > 0 ? "LIVE" : "SẮP LIVE"}
+              {live > 0 ? "LIVE" : vt("SẮP LIVE")}
             </div>
           </div>
           <div
@@ -133,7 +135,7 @@ export const LiveTitle: React.FC<{ geo: Geo; title: string; subtitle: string; ac
           <div style={{ height: 150 * u, display: "flex", alignItems: "center", justifyContent: "center", gap: 18 * u }}>
             {counting ? (
               <>
-                <span style={{ fontWeight: 700, fontSize: 32 * u, color: "rgba(255,255,255,0.8)" }}>Bắt đầu sau</span>
+                <span style={{ fontWeight: 700, fontSize: 32 * u, color: "rgba(255,255,255,0.8)" }}>{vt("Bắt đầu sau")}</span>
                 <span
                   style={{
                     fontFamily: NUM,

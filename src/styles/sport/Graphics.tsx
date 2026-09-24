@@ -8,6 +8,7 @@ import { seeded } from "../shared";
 import { parseStat } from "../tech/theme";
 import type { SportLayout } from "./layout";
 import { COND, DISPLAY, EASE_IN, EASE_OUT, fitText, INK, inkOn, PANEL, ramp, SNAP, splitTag, upper, withAlpha } from "./theme";
+import { useVt } from "../../i18n/video";
 
 // ---------------------------------------------------------------------------
 // Bảng tên
@@ -119,6 +120,7 @@ export const StatGraphic: React.FC<{
   yieldUntil?: number;
 }> = ({ L, visual, accent, enter, exit, yieldFrom = 1e7, yieldUntil = 1e7 + 1 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { u } = L;
   const inP = ramp(frame, enter, 12, EASE_OUT);
   const hide = ramp(frame, yieldFrom, 6, EASE_OUT) - ramp(frame, Math.max(yieldFrom + 7, yieldUntil), 10, EASE_OUT);
@@ -193,7 +195,7 @@ export const StatGraphic: React.FC<{
       <div style={{ width: w, backgroundColor: withAlpha(PANEL, 0.94), borderTop: `${6 * u}px solid ${accent}`, padding: `${16 * u}px ${24 * u}px ${20 * u}px` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 * u }}>
           <div style={{ width: 10 * u, height: 26 * u, backgroundColor: accent, transform: "skewX(-14deg)" }} />
-          <div style={{ fontFamily: COND, fontWeight: 600, fontSize: 26 * u, lineHeight: 1.35, color: "rgba(255,255,255,0.86)" }}>{label ?? "THỐNG KÊ"}</div>
+          <div style={{ fontFamily: COND, fontWeight: 600, fontSize: 26 * u, lineHeight: 1.35, color: "rgba(255,255,255,0.86)" }}>{label ?? vt("THỐNG KÊ")}</div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: 4 * u }}>
           <div style={{ fontFamily: DISPLAY, fontSize: numSize, lineHeight: 1.15, color: "#ffffff", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
@@ -325,6 +327,7 @@ const PunchWords: React.FC<{ text: string; size: number; accent: string; u: numb
 export const ReplayFrame: React.FC<{ L: SportLayout; accent: string; at: number; until: number; safeTop: number }> = ({ L, accent, at, until, safeTop }) => {
   // Luôn ở góc trên phải — khung ngang/vuông thì bảng số ở góc đó tạm ẩn trong lúc câu nhấn hiện.
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { u } = L;
   const inP = ramp(frame, at, 6, EASE_OUT);
   const out = ramp(frame, until, 10, EASE_IN);
@@ -355,7 +358,7 @@ export const ReplayFrame: React.FC<{ L: SportLayout; accent: string; at: number;
         <svg width={20 * u} height={22 * u} viewBox="0 0 20 22">
           <polygon points="0,0 20,11 0,22" fill={accent} />
         </svg>
-        PHÁT LẠI
+        {vt("PHÁT LẠI")}
       </div>
     </AbsoluteFill>
   );

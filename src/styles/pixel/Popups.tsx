@@ -7,6 +7,7 @@ import type { Scene } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
 import { Chest, PixelBox, Sparkle } from "./parts";
 import { BLOCK, BOX, clamp, GOLD, hardOutline, INK, onTwos, snap, TEXT, upperVi, WHITE, type Rect } from "./pixel";
+import { useVt } from "../../i18n/video";
 
 /** Độ nảy kiểu sprite: vọt quá rồi dội lại, bước theo 2 frame. */
 const bounce = (local: number) => {
@@ -135,6 +136,7 @@ export const ItemPanel: React.FC<{
   unit: number;
   accent: string;
 }> = ({ visual, local, area, hero, P, unit, accent }) => {
+  const vt = useVt();
   if (local < 0) return null;
   const s = bounce(local);
   const isStat = visual.type === "stat";
@@ -178,7 +180,7 @@ export const ItemPanel: React.FC<{
             whiteSpace: "nowrap",
           }}
         >
-          {isStat ? "ITEM GET!" : "NHIỆM VỤ"}
+          {isStat ? "ITEM GET!" : vt("NHIỆM VỤ")}
         </div>
         {isStat ? <Chest size={snap(112 * unit * scale, P)} open={open} /> : null}
         <div

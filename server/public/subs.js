@@ -328,7 +328,7 @@ function createLookEditor(root, { tracks, look, media, sample, onChange }) {
               ? `<video src="${escapeHtml(media.url)}#t=1" muted playsinline preload="metadata"></video>`
               : `<img src="${escapeHtml(media.url)}" alt="" />` : ""}
             <i class="lk-guide"></i>
-            ${rows.map((_, k) => `<div class="lk-cap" data-track="${k}"><span></span>${multi ? `<b class="lk-cap-n">${k + 1}</b>` : ""}</div>`).join("")}
+            ${rows.map((_, k) => `<div class="lk-cap" data-track="${k}"><span data-no-i18n></span>${multi ? `<b class="lk-cap-n">${k + 1}</b>` : ""}</div>`).join("")}
           </div>
           <p class="lk-tip">${multi ? "Kéo từng hàng chữ trên khung để đặt vị trí" : "Kéo chữ trên khung để đặt vị trí"}</p>
         </div>
@@ -656,7 +656,7 @@ const fmtDuration = (s) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 6
 
 function renderSubsFiles() {
   $("subsFiles").innerHTML = subsFiles.map((f, i) =>
-    `<li><span>${f.video ? icon("clapperboard") : icon("mic")} ${escapeHtml(f.name)}</span>
+    `<li><span data-no-i18n>${f.video ? icon("clapperboard") : icon("mic")} ${escapeHtml(f.name)}</span>
       <span class="sb-file-meta">${[f.width && f.height ? `${f.width}×${f.height}` : "", fmtDuration(f.duration)].filter(Boolean).join(" · ")}</span>
       <button type="button" class="icon-btn" data-subs-rm="${i}" aria-label="Bỏ ${escapeHtml(f.name)}">${icon("x")}</button></li>`).join("") +
     (subsUploading ? `<li><span class="muted">Đang tải lên ${subsUploading} file…</span></li>` : "");
@@ -804,7 +804,7 @@ async function loadSubsRecent() {
       const c = b.counts;
       const pct = c.total === 0 ? 0 : Math.round(((c.done + c.skipped) / c.total) * 100);
       return `<a href="#/batch/${b.id}">
-        <span class="row"><b>${escapeHtml(b.name)}</b><span class="spacer"></span>
+        <span class="row"><b data-no-i18n>${escapeHtml(b.name)}</b><span class="spacer"></span>
           <span class="muted">${b.state === "running" ? `${icon("refresh-cw")} đang chạy` : b.state === "done" ? `${icon("circle-check")} xong` : b.state === "paused" ? `${icon("pause")} tạm dừng` : `${icon("circle")} chưa chạy`}</span></span>
         <span class="mini"><i style="width:${pct}%"></i></span>
         <span class="muted">${c.done}/${c.total} xong${c.error ? ` · ${c.error} lỗi` : ""}</span>

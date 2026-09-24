@@ -9,6 +9,7 @@ import { msToFrames } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
 import { clamp, initialOf, punchFrame, ringGradient, UI, useGeo, VW } from "./theme";
+import { useVt } from "../../i18n/video";
 
 /* ------------------------------------------------------------ biểu tượng */
 
@@ -120,6 +121,7 @@ export const ProgressBars: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
 };
 
 export const Header: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
+  const vt = useVt();
   const geo = useGeo();
   return (
     <div
@@ -138,7 +140,7 @@ export const Header: React.FC<{ title: string; accent: string }> = ({ title, acc
       }}
     >
       <Avatar size={92} title={title} accent={accent} />
-      <div style={{ fontSize: 38, fontWeight: 500, opacity: 0.72, whiteSpace: "nowrap" }}>2 giờ</div>
+      <div style={{ fontSize: 38, fontWeight: 500, opacity: 0.72, whiteSpace: "nowrap" }}>{vt("2 giờ")}</div>
       <div style={{ flex: 1 }} />
       <div style={{ display: "flex", alignItems: "center", gap: 30, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.35))" }}>
         <MoreIcon size={58} />
@@ -171,6 +173,7 @@ const HEART_LIFE = 56;
 
 export const ReplyBar: React.FC<{ scenes: Scene[]; showTitle: boolean }> = ({ scenes, showTitle }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const geo = useGeo();
   const events = heartEvents(scenes, showTitle);
   // Tim ở thanh đập nhẹ mỗi khi có tim bay ra.
@@ -207,7 +210,7 @@ export const ReplyBar: React.FC<{ scenes: Scene[]; showTitle: boolean }> = ({ sc
             textShadow: "0 1px 6px rgba(0,0,0,0.3)",
           }}
         >
-          Gửi tin nhắn
+          {vt("Gửi tin nhắn")}
         </div>
         <div style={{ display: "flex", scale: String(beat), filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.35))" }}>
           <HeartIcon size={70} color={tapped ? "#ff3358" : "#fff"} fill={tapped ? "#ff3358" : "none"} />

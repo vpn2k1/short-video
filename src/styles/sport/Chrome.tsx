@@ -7,6 +7,7 @@ import type { Caption } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
 import { barHeight, captionFit, LINE_HEIGHT, type SportLayout } from "./layout";
 import { clockText, COND, EASE_OUT, INK, inkOn, LIVE_RED, PANEL, ramp, upper, withAlpha } from "./theme";
+import { useVt } from "../../i18n/video";
 
 // ---------------------------------------------------------------------------
 // Bảng tỉ số
@@ -18,6 +19,7 @@ export const ScoreBug: React.FC<{ L: SportLayout; title: string; accent: string;
   enter,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { fps, durationInFrames } = useVideoConfig();
   const { u } = L;
   const p = ramp(frame, enter, 14, EASE_OUT);
@@ -29,7 +31,7 @@ export const ScoreBug: React.FC<{ L: SportLayout; title: string; accent: string;
   const kickoff = 60 * Math.round(seeded(`kick-${title}`, 12, 74));
   const clock = clockText(kickoff + Math.max(0, frame - enter) / fps);
   const progress = Math.min(1, Math.max(0, frame / Math.max(1, durationInFrames - 1)));
-  const half = kickoff / 60 + frame / fps / 60 >= 45 ? "HIỆP 2" : "HIỆP 1";
+  const half = kickoff / 60 + frame / fps / 60 >= 45 ? vt("HIỆP 2") : vt("HIỆP 1");
   const blink = Math.floor(frame / 15) % 2 === 0;
   const cell: React.CSSProperties = {
     height: h,
@@ -233,12 +235,13 @@ export const LowerThird: React.FC<{
 // ---------------------------------------------------------------------------
 export const Ticker: React.FC<{ L: SportLayout; items: string[]; accent: string; enter: number }> = ({ L, items, accent, enter }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { durationInFrames } = useVideoConfig();
   const { u, bar, ticker } = L;
   const open = ramp(frame, enter + 4, 12, EASE_OUT);
   if (open <= 0 || items.length === 0) return null;
   const size = 24 * u;
-  const label = "ĐIỂM TIN";
+  const label = vt("ĐIỂM TIN");
   const labelW = 150 * u;
   const text = items.map((t) => upper(t)).join("   •   ") + "   •   ";
   const speed = 3.2 * u;

@@ -8,6 +8,7 @@ import { FONT_CATALOG } from "../../fonts/catalog";
 import {
   clamp, DOWN, fmtPct, fmtPrice, INK, LINE, MUTED, PANEL, parseStat, type Piece, type TickerItem, UP, upper,
 } from "./market";
+import { useVideoLanguage, useVt } from "../../i18n/video";
 
 export const DATA = FONT_CATALOG.roboto.stack;
 export const TEXT = FONT_CATALOG.lexend.stack;
@@ -30,6 +31,7 @@ export const Header: React.FC<{
   frame: number;
   flash: number;
 }> = ({ unit, x, y, w, h, symbol, clock, price, pct, frame, flash }) => {
+  const language = useVideoLanguage();
   const up = pct >= 0;
   const color = up ? UP : DOWN;
   const blink = Math.floor(frame / 15) % 2 === 0;
@@ -84,7 +86,7 @@ export const Header: React.FC<{
             backgroundColor: flash > 0.01 ? color : `${color}22`,
           }}
         >
-          {arrow(up)} {fmtPct(pct)}
+          {arrow(up)} {fmtPct(pct, language)}
         </div>
       </div>
     </div>
@@ -214,6 +216,7 @@ export const StatPanel: React.FC<{
   opacity: number;
   seed: string;
 }> = ({ unit, x, y, maxW, text, caption, up, local, opacity, seed }) => {
+  const vt = useVt();
   const enter = interpolate(local, [0, 16], [0, 1], { ...clamp, easing: OUT });
   const count = interpolate(local, [6, 42], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const stat = parseStat(text);
@@ -240,7 +243,7 @@ export const StatPanel: React.FC<{
     >
       <div style={{ display: "flex", alignItems: "center", gap: 14 * unit, fontSize: 22 * unit, fontWeight: 700, color, letterSpacing: "0.06em" }}>
         <span>{arrow(up)}</span>
-        <span>{up ? "TĂNG TRƯỞNG" : "SỤT GIẢM"}</span>
+        <span>{up ? vt("TĂNG TRƯỞNG") : vt("SỤT GIẢM")}</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 22 * unit }}>
         <div
@@ -423,92 +426,96 @@ export const CaptionPanel: React.FC<{
   enter: number;
   panelIn: number;
   accent: string;
-}> = ({ unit, x, bottom, w, minH, pieces, punchOn, fontSize, clock, counter, enter, panelIn, accent }) => (
-  <div
-    style={{
-      position: "absolute",
-      left: x,
-      top: bottom,
-      width: w,
-      minHeight: minH,
-      transform: `translateY(-100%) translateY(${((1 - panelIn) * 40 * unit).toFixed(1)}px)`,
-      opacity: panelIn,
-      backgroundColor: "rgba(8, 13, 24, 0.92)",
-      border: `${1.5 * unit}px solid ${LINE}`,
-      borderRadius: 16 * unit,
-      boxShadow: `0 ${20 * unit}px ${60 * unit}px rgba(0,0,0,0.6)`,
-      padding: `${18 * unit}px ${30 * unit}px ${24 * unit}px ${36 * unit}px`,
-      overflow: "hidden",
-      boxSizing: "border-box",
-      display: "flex",
-      flexDirection: "column",
-    }}
-  >
-    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 7 * unit, backgroundColor: accent }} />
+}> = ({ unit, x, bottom, w, minH, pieces, punchOn, fontSize, clock, counter, enter, panelIn, accent }) => {
+  const vt = useVt();
+  return (
     <div
       style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontFamily: DATA,
-        fontSize: 20 * unit,
-        fontWeight: 600,
-        color: MUTED,
-        letterSpacing: "0.08em",
-        marginBottom: 10 * unit,
-        fontVariantNumeric: "tabular-nums",
-      }}
-    >
-      <span>
-        <span style={{ color: accent }}>■</span> BẢN TIN · {clock}
-      </span>
-      <span>{counter}</span>
-    </div>
-    <div
-      style={{
-        flex: 1,
+        position: "absolute",
+        left: x,
+        top: bottom,
+        width: w,
+        minHeight: minH,
+        transform: `translateY(-100%) translateY(${((1 - panelIn) * 40 * unit).toFixed(1)}px)`,
+        opacity: panelIn,
+        backgroundColor: "rgba(8, 13, 24, 0.92)",
+        border: `${1.5 * unit}px solid ${LINE}`,
+        borderRadius: 16 * unit,
+        boxShadow: `0 ${20 * unit}px ${60 * unit}px rgba(0,0,0,0.6)`,
+        padding: `${18 * unit}px ${30 * unit}px ${24 * unit}px ${36 * unit}px`,
+        overflow: "hidden",
+        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
-        fontFamily: TEXT,
-        fontSize,
-        fontWeight: 600,
-        lineHeight: 1.36,
-        color: INK,
-        opacity: enter,
-        transform: `translateY(${((1 - enter) * 14 * unit).toFixed(1)}px)`,
       }}
     >
-      <div>
-      {pieces.map((p, i) => {
-        const color = p.kind === "up" ? UP : p.kind === "down" ? DOWN : undefined;
-        const hot = p.punch && punchOn > 0;
-        return (
-          <span
-            key={`pc-${i}`}
-            style={{
-              color: hot ? (p.kind === "down" ? "#fff" : "#02140c") : color,
-              fontWeight: color || hot ? 800 : undefined,
-              backgroundColor: hot ? `rgba(22, 199, 132, ${(0.95 * punchOn).toFixed(3)})` : undefined,
-              borderRadius: hot ? 6 * unit : undefined,
-              boxDecorationBreak: "clone",
-              WebkitBoxDecorationBreak: "clone",
-              padding: hot ? `0 ${6 * unit}px` : undefined,
-              fontVariantNumeric: color ? "tabular-nums" : undefined,
-            }}
-          >
-            {p.text}
-          </span>
-        );
-      })}
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 7 * unit, backgroundColor: accent }} />
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontFamily: DATA,
+          fontSize: 20 * unit,
+          fontWeight: 600,
+          color: MUTED,
+          letterSpacing: "0.08em",
+          marginBottom: 10 * unit,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        <span>
+          <span style={{ color: accent }}>■</span> {vt("BẢN TIN")} · {clock}
+        </span>
+        <span>{counter}</span>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          fontFamily: TEXT,
+          fontSize,
+          fontWeight: 600,
+          lineHeight: 1.36,
+          color: INK,
+          opacity: enter,
+          transform: `translateY(${((1 - enter) * 14 * unit).toFixed(1)}px)`,
+        }}
+      >
+        <div>
+        {pieces.map((p, i) => {
+          const color = p.kind === "up" ? UP : p.kind === "down" ? DOWN : undefined;
+          const hot = p.punch && punchOn > 0;
+          return (
+            <span
+              key={`pc-${i}`}
+              style={{
+                color: hot ? (p.kind === "down" ? "#fff" : "#02140c") : color,
+                fontWeight: color || hot ? 800 : undefined,
+                backgroundColor: hot ? `rgba(22, 199, 132, ${(0.95 * punchOn).toFixed(3)})` : undefined,
+                borderRadius: hot ? 6 * unit : undefined,
+                boxDecorationBreak: "clone",
+                WebkitBoxDecorationBreak: "clone",
+                padding: hot ? `0 ${6 * unit}px` : undefined,
+                fontVariantNumeric: color ? "tabular-nums" : undefined,
+              }}
+            >
+              {p.text}
+            </span>
+          );
+        })}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 /** Dải mã chạy dưới đáy: mỗi mục rộng cố định nên vòng lặp liền mạch không cần đo chữ. */
 export const Ticker: React.FC<{ unit: number; y: number; width: number; h: number; items: TickerItem[]; frame: number; accent: string }> = ({
   unit, y, width, h, items, frame, accent,
 }) => {
+  const language = useVideoLanguage();
   const itemW = 330 * unit;
   const total = itemW * items.length;
   const copies = Math.ceil(width / total) + 1;
@@ -538,9 +545,9 @@ export const Ticker: React.FC<{ unit: number; y: number; width: number; h: numbe
               style={{ width: itemW, flexShrink: 0, display: "flex", alignItems: "baseline", gap: 12 * unit, fontSize: 26 * unit, paddingLeft: 20 * unit }}
             >
               <span style={{ color: INK, fontWeight: 800 }}>{it.sym}</span>
-              <span style={{ color: MUTED, fontVariantNumeric: "tabular-nums" }}>{fmtPrice(it.price)}</span>
+              <span style={{ color: MUTED, fontVariantNumeric: "tabular-nums" }}>{fmtPrice(it.price, language)}</span>
               <span style={{ color: up ? UP : DOWN, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                {arrow(up)} {fmtPct(it.pct).replace(/^[+−]/, "")}
+                {arrow(up)} {fmtPct(it.pct, language).replace(/^[+−]/, "")}
               </span>
             </div>
           );

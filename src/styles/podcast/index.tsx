@@ -21,6 +21,7 @@ import {
   speechLevel, wordTimes, type Rect,
 } from "./podcast";
 import { PodcastTitle } from "./TitleIntro";
+import { useVt } from "../../i18n/video";
 
 const DIM = "rgba(255, 244, 234, 0.3)";
 
@@ -38,6 +39,7 @@ const Quote: React.FC<{
   rect: Rect; pad: number; captions: Caption[]; scene: Scene; title: string; showTitle: boolean; accent: string; unit: number; stacked: boolean;
 }> = ({ rect, pad, captions, scene, title, showTitle, accent, unit, stacked }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { caption, startFrame, index } = useCaptionClock(captions);
   const titleEnd = showTitle ? TITLE_FRAMES - 6 : 0;
 
@@ -80,7 +82,7 @@ const Quote: React.FC<{
   const fontSize = fitQuote(text, areaW, areaH, (stacked ? 74 : narrow ? 60 : 88) * unit, 30 * unit);
 
   // Cụm nhấn không có nguyên văn trong câu → hiện luôn cụm đó trong nhãn.
-  const labelBase = narrow ? "Đáng nhớ" : "Câu đáng nhớ";
+  const labelBase = narrow ? vt("Đáng nhớ") : vt("Câu đáng nhớ");
   const labelText = punch && !range ? `${labelBase}: ${punch.text.normalize("NFC").trim()}` : labelBase;
   // Lời trích của ai: tên trong tag "Khách mời: …" nếu có, không thì bỏ trống dòng ký tên.
   const speaker = scene.tag?.normalize("NFC").match(/^[^:]{1,18}:\s*(.+)$/)?.[1]?.trim() ?? "";

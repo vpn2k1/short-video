@@ -117,3 +117,13 @@ export const cleanStorage = (body: unknown) => {
   }
   return { freed, removed, ...storageReport() };
 };
+
+/** Ngôn ngữ nội dung đang lưu trong props.json của video — dựng lại giọng đọc thì giữ, không lùi về tiếng Việt. */
+export const previousLanguage = (videoFolder: string): "vi" | "en" => {
+  try {
+    const props = JSON.parse(fs.readFileSync(path.join(videoFolder, "props.json"), "utf8")) as { language?: unknown };
+    return props.language === "en" ? "en" : "vi";
+  } catch {
+    return "vi";
+  }
+};

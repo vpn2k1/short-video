@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ASPECT_IDS, DEFAULT_ASPECT } from "../../aspects";
 import { DEFAULT_STYLE, STYLE_IDS } from "../../styles/meta";
 import { FONT_IDS } from "../../fonts/catalog";
+import { VIDEO_LANGUAGES } from "../../i18n/video";
 
 /** Font phụ đề/văn bản — khoá của src/fonts/catalog.ts (font hệ thống + font đóng gói, đều có dấu tiếng Việt). */
 export const CAPTION_FONTS = FONT_IDS;
@@ -285,6 +286,8 @@ export const shortSchema = z.object({
   aspect: z.enum(ASPECT_IDS as [string, ...string[]]).default(DEFAULT_ASPECT),
   /** Phong cách hình ảnh — xem src/styles/meta.ts. Dữ liệu giống nhau, chỉ cách vẽ khác. */
   style: z.enum(STYLE_IDS).default(DEFAULT_STYLE),
+  /** Ngôn ngữ nội dung — chữ in sẵn trong khung phong cách theo ngôn ngữ này (src/i18n/video.tsx). */
+  language: z.enum(VIDEO_LANGUAGES).default("vi"),
   // Có default để props.json sinh trước khi thêm cảnh vẫn render được.
   scenes: z.array(sceneSchema).default([]),
   /**

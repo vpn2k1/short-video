@@ -8,6 +8,7 @@ export const defaultShortProps: ShortProps = {
   background: "#0b0b12",
   aspect: "9:16",
   style: "caption",
+  language: "vi",
   captionPosition: "bottom",
   showTitle: true,
   scenes: [{ image: null, visual: null, tag: null, punch: null, trimStartMs: 0, volume: 0, crop: null, ...noMotion(), startMs: 0, endMs: 15400 }],

@@ -7,6 +7,7 @@ import type { Scene } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
 import { seeded } from "../shared";
 import { chars, clamp, deep, MAP, pad2, UI, upper } from "./geo";
+import { useVt } from "../../i18n/video";
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
@@ -273,8 +274,8 @@ const CLOCK = "M 0 -10 A 10 10 0 1 1 -0.01 -10 Z M 0 -5.5 L 0 0 L 4.5 2.5";
 const FLAG = "M -6 11 L -6 -11 M -6 -10 L 9 -10 L 5 -4.5 L 9 1 L -6 1";
 
 const iconFor = (text: string) => {
-  if (/\d\s*(km|m|dặm|cây số|mét)\b/i.test(text) || /km|cây số/i.test(text)) return RULER;
-  if (/ngày|giờ|tiếng|phút|đêm|tuần|tháng|năm|\d\s*h\b/i.test(text)) return CLOCK;
+  if (/\d\s*(km|m|dặm|cây số|mét|mi|miles?|ft|feet|meters?|metres?)\b/i.test(text) || /km|cây số/i.test(text)) return RULER;
+  if (/ngày|giờ|tiếng|phút|đêm|tuần|tháng|năm|\d\s*h\b|\b(?:days?|hours?|hrs?|minutes?|mins?|nights?|weeks?|months?|years?)\b/i.test(text)) return CLOCK;
   return FLAG;
 };
 
@@ -411,6 +412,7 @@ export const CircleMark: React.FC<{ x: number; y: number; r: number; draw: numbe
 // ---------------------------------------------------------------------------
 /** La bàn 8 cánh, chữ "B" (Bắc) trên đỉnh; kim rung nhẹ. */
 export const Compass: React.FC<{ x: number; y: number; r: number; frame: number; accent: string; opacity: number }> = ({ x, y, r, frame, accent, opacity }) => {
+  const vt = useVt();
   const wiggle = Math.sin(frame / 18) * 3;
   const long = [0, 90, 180, 270];
   const short = [45, 135, 225, 315];
@@ -433,7 +435,7 @@ export const Compass: React.FC<{ x: number; y: number; r: number; frame: number;
         ))}
         <circle r={4} fill={MAP.paper} stroke={MAP.ink} strokeWidth={1.4} />
       </g>
-      <text x={0} y={-56} textAnchor="middle" fontFamily={UI} fontWeight={800} fontSize={13} fill={MAP.ink}>B</text>
+      <text x={0} y={-56} textAnchor="middle" fontFamily={UI} fontWeight={800} fontSize={13} fill={MAP.ink}>{vt("B")}</text>
     </svg>
   );
 };

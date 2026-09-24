@@ -18,6 +18,7 @@ import {
   type PunchMatch,
   type Word,
 } from "./model";
+import { useVideoLanguage } from "../../i18n/video";
 
 export const INK = "#0f1419";
 export const MUTED = "#6e7a86";
@@ -224,12 +225,15 @@ const Header: React.FC<{ spec: PostSpec }> = ({ spec }) => {
   );
 };
 
-const Stat: React.FC<{ icon: React.ReactNode; value: number; u: number; color?: string }> = ({ icon, value, u, color = GREY }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 12 * u }}>
-    {icon}
-    <span style={{ fontSize: 31 * u, fontWeight: 600, color, fontVariantNumeric: "tabular-nums" }}>{formatCount(value)}</span>
-  </div>
-);
+const Stat: React.FC<{ icon: React.ReactNode; value: number; u: number; color?: string }> = ({ icon, value, u, color = GREY }) => {
+  const language = useVideoLanguage();
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 * u }}>
+      {icon}
+      <span style={{ fontSize: 31 * u, fontWeight: 600, color, fontVariantNumeric: "tabular-nums" }}>{formatCount(value, language)}</span>
+    </div>
+  );
+};
 
 const Footer: React.FC<{ spec: PostSpec; frame: number }> = ({ spec, frame }) => {
   const { u, counts, likeAt } = spec;

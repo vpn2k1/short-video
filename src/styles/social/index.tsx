@@ -17,6 +17,7 @@ import {
   wrapText,
 } from "./model";
 import { CARD, chromeHeight, postHeight, PostCard, type PostSpec, type TextBlock } from "./PostCard";
+import { useVt } from "../../i18n/video";
 
 /**
  * Phong cách "Bài đăng MXH" — xem skill style-social.
@@ -115,6 +116,7 @@ export const SocialStyle: React.FC<ShortProps> = ({
         },
       ];
   const frame = useCurrentFrame();
+  const vt = useVt();
   const index = Math.max(0, activeIndexAt(scenes, frame));
 
   const u = unit;
@@ -122,7 +124,7 @@ export const SocialStyle: React.FC<ShortProps> = ({
   const bodyW = cardW - CARD.padX * 2 * u;
   const contentH = height - safe.top - safe.bottom;
   const centerY = safe.top + contentH * (captionPosition === "bottom" ? 0.53 : 0.5);
-  const name = AUTHOR_NAME;
+  const name = vt(AUTHOR_NAME);
   const introEnd = showTitle ? TITLE_FRAMES : 0;
 
   const enterOf = (i: number) => (i === 0 ? (showTitle ? TITLE_FRAMES - 8 : 0) : msToFrames(scenes[i].startMs));
@@ -154,7 +156,7 @@ export const SocialStyle: React.FC<ShortProps> = ({
       accent,
       name,
       community: communityOf(scene.tag),
-      timeLabel: `${hoursAgo(title)} giờ`,
+      timeLabel: vt("{n} giờ", { n: hoursAgo(title) }),
       headline,
       subtitle: null,
       body: {
@@ -261,13 +263,14 @@ const TitleIntro: React.FC<{
   fps: number;
 }> = ({ title, subtitle, name, accent, community, cardW, bodyW, u, centerY, frame, fps }) => {
   const { width } = useLayout();
+  const vt = useVt();
   const spec: PostSpec = {
     cardW,
     u,
     accent,
     name,
     community,
-    timeLabel: "vừa xong",
+    timeLabel: vt("vừa xong"),
     headline: block(title, 64 * u, 40 * u, HEADLINE_WEIGHT, bodyW, 3, 1.2),
     subtitle: block(subtitle, 40 * u, 32 * u, 500, bodyW, 2, 1.3),
     body: null,
@@ -329,7 +332,7 @@ const TitleIntro: React.FC<{
           >
             <BellIcon size={28 * u} color="#fff" />
           </div>
-          Bài đăng mới
+          {vt("Bài đăng mới")}
         </div>
       </div>
       <PostCard spec={spec} frame={frame} enterFrame={0} />

@@ -23,6 +23,7 @@ import { Feed } from "./Feed";
 import { FlashSale, saleLevel } from "./FlashSale";
 import { buildChat, clamp, LIVE_FONTS, SMOOTH, useGeo } from "./live";
 import { LiveTitle } from "./Title";
+import { useVideoLanguage } from "../../i18n/video";
 
 export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(LIVE_FONTS);
@@ -30,13 +31,14 @@ export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, accent, c
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const geo = useGeo();
+  const language = useVideoLanguage();
   const { u, bannerBottom } = geo;
   // Giao diện live hiện khi màn chờ sắp rút; không có màn chờ thì hiện ngay.
   const appear = showTitle ? TITLE_FRAMES - 8 : 0;
 
   const chat = useMemo(
-    () => buildChat(captions, scenes, 0, durationInFrames, title || "live"),
-    [captions, scenes, durationInFrames, title],
+    () => buildChat(captions, scenes, 0, durationInFrames, title || "live", language),
+    [captions, scenes, durationInFrames, title, language],
   );
   const products = useMemo(() => new Set(scenes.map((s) => s.tag?.trim()).filter(Boolean)).size, [scenes]);
 

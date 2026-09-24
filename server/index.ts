@@ -234,6 +234,12 @@ const server = http.createServer(async (req, res) => {
   try {
     // ---- file tĩnh ----
     if (route === "/" || route === "/index.html") {
+      // Ngôn ngữ giao diện gắn sẵn vào <html lang> để server/public/i18n.js dịch ngay từ lần vẽ đầu, không nháy chữ Việt.
+      if (process.env.APP_LANGUAGE === "en") {
+        const html = fs.readFileSync(path.join(publicDir, "index.html"), "utf8").replace('<html lang="vi">', '<html lang="en">');
+        res.writeHead(200, { "Content-Type": MIME[".html"], "Cache-Control": "no-store" });
+        return res.end(html);
+      }
       return serveFile(req, res, publicDir, "/index.html");
     }
     // Trình chỉnh sửa: JS + CSS đóng gói lúc chạy (xem editor-build.ts).

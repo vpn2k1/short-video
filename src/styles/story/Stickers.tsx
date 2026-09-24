@@ -26,6 +26,7 @@ import {
   useGeo,
   VW,
 } from "./theme";
+import { useVideoLanguage, useVt, videoLocale } from "../../i18n/video";
 
 /** Độ bật (0 → ~1.1 → 1) của nhãn dán tính từ frame xuất hiện. */
 const usePop = (t: number) => {
@@ -339,7 +340,8 @@ export const VisualSticker: React.FC<{ scenes: Scene[]; showTitle: boolean; acce
 };
 
 const StatBody: React.FC<{ visual: SceneVisual; t: number; accent: string }> = ({ visual, t, accent }) => {
-  const label = upperVi(visual.caption?.trim() || "Đếm ngược");
+  const vt = useVt();
+  const label = upperVi(visual.caption?.trim() || vt("Đếm ngược"));
   const n = runningNumber(visual.text, t);
   const gradientText: React.CSSProperties = {
     background: textGradient(accent),
@@ -397,36 +399,39 @@ const StatBody: React.FC<{ visual: SceneVisual; t: number; accent: string }> = (
         }}
       >
         <BellIcon size={30} />
-        Nhắc tôi
+        {vt("Nhắc tôi")}
       </div>
     </>
   );
 };
 
-const BadgeBody: React.FC<{ visual: SceneVisual; accent: string }> = ({ visual, accent }) => (
-  <>
-    <div
-      style={{
-        padding: "12px 30px",
-        borderRadius: 999,
-        background: `linear-gradient(95deg, ${accent}, #ff3d7f)`,
-        color: "#fff",
-        fontSize: shrink(visual.text, 44, 10, 0.65),
-        fontWeight: 800,
-        lineHeight: 1.3,
-        textAlign: "center",
-      }}
-    >
-      {visual.text.normalize("NFC")}
-    </div>
-    {visual.caption ? (
-      <div style={{ fontSize: shrink(visual.caption, 34, 18, 0.72), fontWeight: 700, color: "#1a1a1a", textAlign: "center", lineHeight: 1.35 }}>
-        {visual.caption.normalize("NFC")}
+const BadgeBody: React.FC<{ visual: SceneVisual; accent: string }> = ({ visual, accent }) => {
+  const vt = useVt();
+  return (
+    <>
+      <div
+        style={{
+          padding: "12px 30px",
+          borderRadius: 999,
+          background: `linear-gradient(95deg, ${accent}, #ff3d7f)`,
+          color: "#fff",
+          fontSize: shrink(visual.text, 44, 10, 0.65),
+          fontWeight: 800,
+          lineHeight: 1.3,
+          textAlign: "center",
+        }}
+      >
+        {visual.text.normalize("NFC")}
       </div>
-    ) : null}
-    <div style={{ fontSize: 26, fontWeight: 600, color: "#888" }}>Thêm của bạn ›</div>
-  </>
-);
+      {visual.caption ? (
+        <div style={{ fontSize: shrink(visual.caption, 34, 18, 0.72), fontWeight: 700, color: "#1a1a1a", textAlign: "center", lineHeight: 1.35 }}>
+          {visual.caption.normalize("NFC")}
+        </div>
+      ) : null}
+      <div style={{ fontSize: 26, fontWeight: 600, color: "#888" }}>{vt("Thêm của bạn ›")}</div>
+    </>
+  );
+};
 
 /* ------------------------------------------------------------ punch */
 
@@ -459,9 +464,11 @@ const Poll: React.FC<{ text: string; t: number; pop: number; accent: string }> =
   const reveal = interpolate(t, [VOTE_AT, VOTE_AT + 20], [0, 1], { ...clamp, easing: (x) => 1 - (1 - x) ** 3 });
   const press = interpolate(t, [VOTE_AT - 4, VOTE_AT, VOTE_AT + 5], [1, 0.95, 1], clamp);
   const ink = inkOn(accent);
+  const vt = useVt();
+  const language = useVideoLanguage();
   const options = [
-    { label: "Có 👍", pct: yes, win: true },
-    { label: "Không 👎", pct: 100 - yes, win: false },
+    { label: vt("Có 👍"), pct: yes, win: true },
+    { label: vt("Không 👎"), pct: 100 - yes, win: false },
   ];
   return (
     <div style={{ position: "absolute", left: 0, width: VW, top: geo.vh * 0.655, translate: "0 -50%", display: "flex", justifyContent: "center" }}>
@@ -526,7 +533,7 @@ const Poll: React.FC<{ text: string; t: number; pop: number; accent: string }> =
           </div>
         ))}
         <div style={{ textAlign: "center", fontSize: 28, fontWeight: 600, color: "#8a8a95", marginTop: 20, opacity: reveal }}>
-          {`${Math.round(1200 + seeded(`story-votes-${text}`, 0, 3800)).toLocaleString("vi-VN")} lượt bình chọn`}
+          {vt("{n} lượt bình chọn", { n: Math.round(1200 + seeded(`story-votes-${text}`, 0, 3800)).toLocaleString(videoLocale(language)) })}
         </div>
       </div>
     </div>

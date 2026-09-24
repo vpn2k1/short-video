@@ -2,6 +2,7 @@ import { interpolate, useCurrentFrame } from "remotion";
 import { FONTS, useLayout } from "../shared";
 import type { Rect } from "./ImageFrame";
 import { answerFontSize, EASE_BACK, EASE_IN_OUT, GREEN, GREEN_DARK, INK, paletteFrom, ramp, upper, type SceneInfo } from "./theme";
+import { useVt } from "../../i18n/video";
 
 /** Số frame lật thẻ. */
 export const FLIP_FRAMES = 14;
@@ -24,6 +25,7 @@ type Props = {
 export const QuestionCard: React.FC<Props> = ({ rect, info, accent, questionSize, answerBase, padBottom }) => {
   const frame = useCurrentFrame();
   const { unit } = useLayout();
+  const vt = useVt();
   const pal = paletteFrom(accent);
   const radius = 44 * unit;
   const reveal = info.revealFrame;
@@ -86,7 +88,7 @@ export const QuestionCard: React.FC<Props> = ({ rect, info, accent, questionSize
                 opacity: answerIn,
               }}
             >
-              ĐÁP ÁN
+              {vt("ĐÁP ÁN")}
             </div>
             <div
               style={{

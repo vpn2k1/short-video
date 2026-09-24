@@ -176,7 +176,7 @@
       ...running.map((item) => {
         const determinate = item.step === "render" && item.percent != null;
         return `<li class="act-row">
-          <div class="act-title"><div class="act-spin" aria-hidden="true"></div><span>${esc(item.title)}</span></div>
+          <div class="act-title"><div class="act-spin" aria-hidden="true"></div><span data-no-i18n>${esc(item.title)}</span></div>
           <div class="act-meta" title="${esc(item.last)}">${esc(runningLine(item))}</div>
           <div class="act-bar ${determinate ? "" : "indet"}"><i style="width:${determinate ? item.percent : 35}%"></i></div>
           <div class="act-actions"><button type="button" class="act-btn" data-open="${esc(item.id)}">Xem</button></div>
@@ -184,12 +184,12 @@
       }),
       ...finished.map((item) => item.status === "done"
         ? `<li class="act-row">
-            <div class="act-title"><span class="act-ok" aria-hidden="true">✓</span><span>${esc(item.title)}</span></div>
+            <div class="act-title"><span class="act-ok" aria-hidden="true">✓</span><span data-no-i18n>${esc(item.title)}</span></div>
             <div class="act-meta">${esc(KIND[item.kind] ?? "Việc")} xong lúc ${clock(item.finishedAt)}</div>
             <div class="act-actions"><button type="button" class="act-btn primary" data-open="${esc(item.id)}">${item.kind === "voice" || item.kind === "subtitles" ? "Mở chỉnh sửa" : "Mở để tải"}</button></div>
           </li>`
         : `<li class="act-row">
-            <div class="act-title"><span class="act-err" aria-hidden="true">✗</span><span>${esc(item.title)}</span></div>
+            <div class="act-title"><span class="act-err" aria-hidden="true">✗</span><span data-no-i18n>${esc(item.title)}</span></div>
             <div class="act-meta" title="${esc(item.error)}">Lỗi: ${esc(item.error)}</div>
             <div class="act-actions"><button type="button" class="act-btn" data-open="${esc(item.id)}">Xem</button></div>
           </li>`),
@@ -240,7 +240,7 @@
     el.innerHTML = `<span class="${ok ? "act-ok" : "act-err"}" aria-hidden="true">${ok ? "✓" : "✗"}</span>
       <div class="t">${ok ? `${esc(KIND[item.kind] ?? "Việc")} xong` : `${esc(KIND[item.kind] ?? "Việc")} bị lỗi`}</div>
       <button type="button" class="x" aria-label="Đóng">✕</button>
-      <div class="m">${esc(item.title)}</div>
+      <div class="m" data-no-i18n>${esc(item.title)}</div>
       <div class="act-actions"><button type="button" class="act-btn ${ok ? "primary" : ""}" data-go>${label}</button></div>`;
     const close = () => el.remove();
     el.querySelector(".x").addEventListener("click", close);

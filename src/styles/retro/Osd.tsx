@@ -2,6 +2,7 @@ import { TITLE_FRAMES } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
 import { FONTS, useLayout, useSceneClock } from "../shared";
 import { OSD_WHITE, osdFont, REC_RED, tapeClock, upperVi } from "./vhs";
+import { useVideoLanguage } from "../../i18n/video";
 
 /** Bóng chữ OSD: quầng sáng trắng + bóng đen cứng để đọc được trên mọi nền. */
 export const osdShadow = (unit: number) =>
@@ -48,6 +49,7 @@ const Battery: React.FC<{ unit: number; frame: number; fps: number }> = ({ unit,
 export const Osd: React.FC<{ scenes: Scene[]; title: string; showTitle: boolean }> = ({ scenes, title, showTitle }) => {
   const { frame, scene, index } = useSceneClock(scenes);
   const { unit, safe, fps, width, height } = useLayout();
+  const language = useVideoLanguage();
   if (showTitle && frame < TITLE_FRAMES) return null;
 
   const wide = width / height > 1.2;
@@ -56,7 +58,7 @@ export const Osd: React.FC<{ scenes: Scene[]; title: string; showTitle: boolean 
   const top = safe.top + pad;
   const side = safe.side;
   const recOn = frame % 30 < 20;
-  const { date, time } = tapeClock(title, frame, fps);
+  const { date, time } = tapeClock(title, frame, fps, language);
   const base: React.CSSProperties = {
     position: "absolute",
     fontFamily: FONTS.mono,

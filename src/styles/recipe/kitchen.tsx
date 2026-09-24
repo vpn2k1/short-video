@@ -186,19 +186,19 @@ export const WhiskIcon: React.FC<IconProps> = ({ size, color }) => (
 /** Chọn biểu tượng theo nội dung con số: "15 phút" → đồng hồ, "200g" → cân, "2 muỗng" → muỗng, "180 độ" → lửa. */
 export const iconFor = (text: string, badge: boolean): React.FC<IconProps> => {
   const t = text.normalize("NFC").toLowerCase();
-  if (/phút|giờ|giây|tiếng|min|\d\s*(h|s)\b/.test(t)) return TimerIcon;
-  if (/độ|°|lửa|nhiệt|nóng/.test(t)) return FlameIcon;
-  if (/\d\s*(g|kg|gr|gram|gam|lạng|cân|ký)\b|\d(g|kg)/.test(t)) return ScaleIcon;
-  if (/muỗng|thìa|ml|lít|\d\s*l\b|chén|bát|ly|cốc|cup|tbsp|tsp/.test(t)) return SpoonIcon;
-  if (/người|phần|suất/.test(t)) return PeopleIcon;
+  if (/phút|giờ|giây|tiếng|min|\d\s*(h|s)\b|\b(?:hours?|hrs?|sec(?:ond)?s?)\b/.test(t)) return TimerIcon;
+  if (/độ|°|lửa|nhiệt|nóng|\b(?:degrees?|heat|fire|flame|hot|oven)\b/.test(t)) return FlameIcon;
+  if (/\d\s*(g|kg|gr|gram|gam|lạng|cân|ký)\b|\d(g|kg)|\d\s*(?:grams|oz|ounces?|lbs?|pounds?)\b/.test(t)) return ScaleIcon;
+  if (/muỗng|thìa|ml|lít|\d\s*l\b|chén|bát|ly|cốc|cup|tbsp|tsp|spoon|\b(?:liters?|litres?|bowls?|glass(?:es)?)\b/.test(t)) return SpoonIcon;
+  if (/người|phần|suất|\b(?:serves|servings?|people|persons?|portions?)\b/.test(t)) return PeopleIcon;
   return badge ? CheckIcon : SpoonIcon;
 };
 
 /** Biểu tượng cho chip dòng phụ ở thẻ tiêu đề. */
 export const chipIconFor = (text: string): React.FC<IconProps> => {
   const t = text.normalize("NFC").toLowerCase();
-  if (/người|phần|suất/.test(t)) return PeopleIcon;
-  if (/phút|giờ|tiếng/.test(t)) return TimerIcon;
-  if (/dễ|khó|trung bình|độ khó|lửa|cay/.test(t)) return FlameIcon;
+  if (/người|phần|suất|\b(?:serves|servings?|people|persons?|portions?)\b/.test(t)) return PeopleIcon;
+  if (/phút|giờ|tiếng|\b(?:min(?:ute)?s?|hours?|hrs?)\b/.test(t)) return TimerIcon;
+  if (/dễ|khó|trung bình|độ khó|lửa|cay|\b(?:easy|hard|medium|difficult\w*|spicy)\b/.test(t)) return FlameIcon;
   return LeafIcon;
 };

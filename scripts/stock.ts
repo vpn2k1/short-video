@@ -67,6 +67,17 @@ const MIN_GAP_MS: Record<StockProvider, number> = { pexels: 0, pixabay: 1200, fr
 /** Mốc sớm nhất được gọi tiếp mỗi kho — giữ chỗ trước khi đợi, nên nhiều cảnh tìm cùng lúc vẫn xếp hàng đúng khoảng. */
 const nextCall: Record<StockProvider, number> = { pexels: 0, pixabay: 0, freesound: 0 };
 
+/**
+ * Kho vừa trả 429/403 (lớp chống bot của Pixabay chặn cả API lẫn link file pixabay.com/get/…) thì gác lại một lúc:
+ * tìm chỉ ở kho còn lại, nên cảnh chọn lại sau khi tải hỏng lấy được hình kho khác thay vì lại trúng ảnh không tải nổi.
+ */
+const PAUSE_MS = 90_000;
+const pausedUntil: Record<StockProvider, number> = { pexels: 0, pixabay: 0, freesound: 0 };
+const pauseIfBlocked = (provider: StockProvider, status: number) => {
+  if (status === 429 || status === 403) pausedUntil[provider] = Date.now() + PAUSE_MS;
+};
+const isPaused = (provider: StockProvider) => Date.now() < pausedUntil[provider];
+
 /** Lượt gọi đang chạy theo URL — hai cảnh cùng truy vấn tìm cùng lúc thì chỉ gọi kho một lần. */
 const inflight = new Map<string, Promise<unknown>>();
 
@@ -87,6 +98,7 @@ const fetchJson = async <T>(provider: StockProvider, url: string, headers: Recor
   const response = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json", ...headers }, signal: AbortSignal.timeout(20_000) });
   recordCall(LABELS[provider], response.ok);
   if (!response.ok) {
+    pauseIfBlocked(provider, response.status);
     const text = (await response.text()).slice(0, 400);
     if (/just a moment|cf-chl|challenge/i.test(text)) {
       throw providerError(LABELS[provider], 429,
@@ -244,7 +256,9 @@ export const searchStock = async (kind: StockKind, query: string, orientation: O
   if (usable.length === 0) {
     throw new Error(`Chưa có key ${providers.map((p) => LABELS[p]).join(" hoặc ")} — lấy key miễn phí rồi điền trong ⚙ Cài đặt.`);
   }
-  const settled = await Promise.allSettled(usable.map((provider) =>
+  // Kho đang bị gác (vừa chặn) thì bỏ qua, trừ khi mọi kho đều đang bị gác — khi đó cứ gọi để báo lỗi thật.
+  const open = usable.some((p) => !isPaused(p)) ? usable.filter((p) => !isPaused(p)) : usable;
+  const settled = await Promise.allSettled(open.map((provider) =>
     provider === "pexels" ? searchPexels(kind as "image" | "video", q, orientation, page)
       : provider === "pixabay" ? searchPixabay(kind as "image" | "video", q, orientation, page)
         : searchFreesound(kind as "music" | "sfx", q, page)));
@@ -325,6 +339,7 @@ export const downloadStock = async (provider: StockProvider, kind: StockKind, id
   const { item, url, ext } = await resolveDownload(provider, kind, id);
   if (!url || !ALLOWED_HOSTS.test(new URL(url).hostname)) throw new Error("Link tải không thuộc nhà cung cấp — bỏ qua.");
   const response = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(120_000) });
+  if (!response.ok) pauseIfBlocked(provider, response.status);
   if (!response.ok || !response.body) throw new Error(`Tải file từ ${LABELS[provider]} thất bại (${response.status}).`);
   const bytes = Number(response.headers.get("content-length") ?? 0);
   if (bytes > 300 * 1024 * 1024) throw new Error("File lớn quá 300 MB.");

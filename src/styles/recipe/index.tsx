@@ -18,6 +18,7 @@ import { findPunch } from "../whiteboard/written";
 import {
   BasketIcon, CheckIcon, chipIconFor, deep, ForkIcon, iconFor, INK, KitchenTable, PAPER, SpoonIcon, tint, WhiskIcon,
 } from "./kitchen";
+import { useVt } from "../../i18n/video";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const POP = Easing.out(Easing.back(1.8));
@@ -43,8 +44,8 @@ const upper = (text: string) => text.normalize("NFC").toLocaleUpperCase("vi");
 const chars = (text: string) => [...text].length;
 
 /** Cảnh "nguyên liệu / chuẩn bị" đầu video và cảnh "thành phẩm" cuối video không tính là một bước nấu. */
-const PREP = /nguyên liệu|chuẩn bị|thành phần|cần có|sơ chế trước/i;
-const DONE = /thành phẩm|hoàn thành|thưởng thức|trình bày|kết quả|xong/i;
+const PREP = /nguyên liệu|chuẩn bị|thành phần|cần có|sơ chế trước|\b(?:ingredients?|prep(?:aration)?|you(?:'ll)? need|mise en place)\b/i;
+const DONE = /thành phẩm|hoàn thành|thưởng thức|trình bày|kết quả|xong|\b(?:done|finished|final|serve|serving|plating|enjoy|result)\b/i;
 
 type StepLabel = { kind: "step"; n: number } | { kind: "prep" } | { kind: "done" };
 
@@ -149,7 +150,8 @@ const CardPaper: React.FC<{ card: Rect; accent: string; unit: number }> = ({ car
 // Đầu thẻ: huy hiệu bước + tên bước + chấm tiến độ
 // ---------------------------------------------------------------------------
 const StepBadge: React.FC<{ label: StepLabel; size: number; accent: string; t: number }> = ({ label, size, accent, t }) => {
-  const small = label.kind === "step" ? "BƯỚC" : label.kind === "prep" ? upper("chuẩn bị") : "XONG!";
+  const vt = useVt();
+  const small = label.kind === "step" ? vt("BƯỚC") : label.kind === "prep" ? upper(vt("chuẩn bị")) : vt("XONG!");
   return (
     <div
       style={{
@@ -411,6 +413,7 @@ const StatPill: React.FC<{ visual: NonNullable<Scene["visual"]>; x: number; cy: 
 const TipSticker: React.FC<{ text: string; x: number; y: number; w: number; t: number; arrow: "left" | "up"; accent: string; unit: number; seed: string }> = ({
   text, x, y, w, t, arrow, accent, unit, seed,
 }) => {
+  const vt = useVt();
   const n = chars(text);
   const size = Math.max(34 * unit, Math.min(50 * unit, (w * 2.9) / Math.max(12, n)));
   const tilt = seeded(`${seed}-tip`, 2, 5);
@@ -445,7 +448,7 @@ const TipSticker: React.FC<{ text: string; x: number; y: number; w: number; t: n
       >
         {/* Băng keo mờ */}
         <div style={{ position: "absolute", left: "50%", top: -16 * unit, width: 130 * unit, height: 38 * unit, translate: "-50% 0", rotate: "-4deg", backgroundColor: "rgba(250, 244, 228, 0.78)", backgroundImage: "repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0 3px, transparent 3px 7px)", clipPath: "polygon(0 8%, 4% 0, 8% 10%, 12% 0, 88% 0, 92% 12%, 96% 0, 100% 10%, 100% 92%, 96% 100%, 92% 88%, 88% 100%, 12% 100%, 8% 90%, 4% 100%, 0 90%)", boxShadow: `0 ${1 * unit}px ${3 * unit}px rgba(0, 0, 0, 0.12)` }} />
-        <span style={{ color: deep(accent, 85), fontSize: size * 1.08 }}>Mẹo: </span>
+        <span style={{ color: deep(accent, 85), fontSize: size * 1.08 }}>{vt("Mẹo: ")}</span>
         {text}
       </div>
       <svg
@@ -692,6 +695,7 @@ const TitleCard: React.FC<{ title: string; subtitle: string; hero: Scene | null;
   title, subtitle, hero, accent, frame,
 }) => {
   const { unit, height } = useLayout();
+  const vt = useVt();
   const geo = useGeometry(false);
   const { card, stacked } = geo;
   const innerW = card.w - 120 * unit;
@@ -726,7 +730,7 @@ const TitleCard: React.FC<{ title: string; subtitle: string; hero: Scene | null;
       >
         <div style={{ display: "flex", alignItems: "center", gap: 18 * unit, opacity: iconsT, scale: String(0.7 + iconsT * 0.3) }}>
           <ForkIcon size={56 * unit} color={deep(accent)} />
-          <div style={{ fontFamily: ROUND, fontWeight: 800, fontSize: 40 * unit, color: deep(accent), lineHeight: 1, paddingTop: 6 * unit }}>{upper("công thức")}</div>
+          <div style={{ fontFamily: ROUND, fontWeight: 800, fontSize: 40 * unit, color: deep(accent), lineHeight: 1, paddingTop: 6 * unit }}>{upper(vt("công thức"))}</div>
           <SpoonIcon size={52 * unit} color={deep(accent)} />
           <WhiskIcon size={56 * unit} color={deep(accent)} />
         </div>

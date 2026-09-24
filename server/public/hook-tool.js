@@ -151,7 +151,7 @@ function renderHookToolResults() {
         <div class="ht-card-top"><span class="ht-tag">${htLook(group?.id).icon} ${escapeHtml(h.formula)}</span>
           <span class="ht-words${words > HT_MAX_WORDS ? " err" : ""}" data-ht-words="${i}">${words} từ</span></div>
         <textarea class="ht-text" data-ht-text="${i}" rows="2" maxlength="90" aria-label="Câu hook ${i + 1}">${escapeHtml(h.text)}</textarea>
-        ${h.why ? `<div class="ht-why">${escapeHtml(h.why)}</div>` : ""}
+        ${h.why ? `<div class="ht-why" data-no-i18n>${escapeHtml(h.why)}</div>` : ""}
         <div class="ht-actions">
           <button type="button" class="btn" data-ht-copy="${i}">${icon("copy")} Chép</button>
           <button type="button" class="btn primary" data-ht-use="${i}">${icon("check")} Dùng câu này</button>

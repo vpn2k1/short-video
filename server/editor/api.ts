@@ -44,6 +44,10 @@ export type VoiceOption = {
   online?: boolean;
   /** Câu nghe thử đã có trong bộ nhớ — nghe lại không tốn lượt. */
   sampled?: boolean;
+  /** Máy này đọc được giọng này ngay (đủ key, có giọng hệ thống / giọng trong app). */
+  usable?: boolean;
+  /** Giọng "Tự động" đang chọn cho ngôn ngữ của nó trên máy này. */
+  auto?: boolean;
 };
 
 /** Lỗi server trả về; `code` = "ENOSPC" khi ổ đĩa đầy (server/disk.ts › errorBody). */

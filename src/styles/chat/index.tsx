@@ -6,6 +6,7 @@ import { MediaBubble, NameLabel, Narration, Pill, StatBubble, TextBubble, Typing
 import { Backdrop, Composer, Header, LockScreen } from "./Chrome";
 import { buildConversation, metricsFor, slotHeight } from "./model";
 import { CHAT_FONT, themeFor } from "./theme";
+import { useVideoLanguage } from "../../i18n/video";
 
 /**
  * Phong cách "Tin nhắn" — xem skill style-chat.
@@ -42,7 +43,8 @@ export const ChatStyle: React.FC<ShortProps> = ({
   const m = metricsFor(u, listW);
 
   const introEnd = showTitle ? TITLE_FRAMES : 0;
-  const { items, contact, group } = buildConversation(captions, scenes, title, introEnd, m);
+  const language = useVideoLanguage();
+  const { items, contact, group } = buildConversation(captions, scenes, title, introEnd, m, language);
 
   const slots = items.map((it) => slotHeight(it, frame, m));
   const total = slots.reduce((a, b) => a + b, 0);

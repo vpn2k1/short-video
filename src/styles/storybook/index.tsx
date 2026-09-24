@@ -14,6 +14,7 @@ import { SceneMedia } from "../media";
 import { activeIndexAt, Grain, seeded, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import { curlAt, polygonCss, polygonSvg } from "./curl";
+import { useVt } from "../../i18n/video";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const CURL = Easing.bezier(0.4, 0, 0.3, 1);
@@ -353,6 +354,7 @@ const Page: React.FC<{ scene: Scene; index: number; captions: Caption[]; printAt
 // Bìa truyện
 // ---------------------------------------------------------------------------
 const CoverPage: React.FC<{ title: string; subtitle: string; accent: string; frame: number }> = ({ title, subtitle, accent, frame }) => {
+  const vt = useVt();
   const { width, safe, unit } = useLayout();
   const maxW = width - safe.side * 2;
   let size = 130 * unit;
@@ -368,7 +370,7 @@ const CoverPage: React.FC<{ title: string; subtitle: string; accent: string; fra
       </svg>
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: `0 ${safe.side}px`, gap: 18 * unit, textAlign: "center" }}>
         <div style={{ fontFamily: SCRIPT, fontWeight: 700, fontSize: 60 * unit, color: pastel(accent, 85), opacity: interpolate(frame, [4, 14], [0, 1], clamp) }}>
-          Ngày xửa ngày xưa…
+          {vt("Ngày xửa ngày xưa…")}
         </div>
         <div
           style={{

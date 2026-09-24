@@ -7,6 +7,7 @@ import { interpolate } from "remotion";
 import { seeded } from "../shared";
 import { C, chars, clamp, estimateLines, LABEL, MONO, NOTE, POP, ramp, withAlpha } from "./theme";
 import type { Box } from "./Drawing";
+import { useVt } from "../../i18n/video";
 
 export type NoteItem = { text: string; start: number; end: number };
 
@@ -258,11 +259,12 @@ const RevisionNote: React.FC<{ text: string; at: number; frame: number; size: nu
   accent,
   seed,
 }) => {
+  const vt = useVt();
   const t = interpolate(frame, [at, at + 20], [0, 1], clamp);
   if (t <= 0) return null;
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: size * 0.4, opacity: Math.min(1, t * 3), paddingTop: size * 0.4 }}>
-      <span style={{ fontFamily: MONO, fontSize: size * 0.5, color: accent, letterSpacing: "0.1em", flexShrink: 0 }}>GHI CHÚ ⚠</span>
+      <span style={{ fontFamily: MONO, fontSize: size * 0.5, color: accent, letterSpacing: "0.1em", flexShrink: 0 }}>{vt("GHI CHÚ")} ⚠</span>
       <span style={{ fontFamily: NOTE, fontSize: size, lineHeight: LINE_H, color: C.ink }}>
         <PunchSpan shown={text} hidden="" full={text} t={t} size={size} accent={accent} seed={seed} decoration={{}} />
       </span>
@@ -286,6 +288,7 @@ export const NotesBlock: React.FC<{
   sceneIndex: number;
   opacity: number;
 }> = ({ items, box, frame, unit, base, accent, punch, sceneIndex, opacity }) => {
+  const vt = useVt();
   const header = 34 * unit;
   const textW = (size: number) => box.w - size * 1.5;
   const linesOf = (list: NoteItem[], size: number) =>
@@ -319,7 +322,7 @@ export const NotesBlock: React.FC<{
           gap: 12 * unit,
         }}
       >
-        <span>GHI CHÚ</span>
+        <span>{vt("GHI CHÚ")}</span>
         <span style={{ flex: 1, borderTop: `${Math.max(1, unit)}px dashed ${C.faint}`, marginTop: 11 * unit }} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: size * 0.5 }}>

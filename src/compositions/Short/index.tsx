@@ -14,6 +14,7 @@ import { CaptionStyle } from "../../styles/caption";
 import { FONTS } from "../../styles/shared";
 import { ensureFonts, fontsUsedBy } from "../../fonts/load";
 import type { StyleId } from "../../styles/meta";
+import { VideoLanguageProvider } from "../../i18n/video";
 
 /** Duration follows the timeline items (see videoDurationInFrames), so editing in the Studio resizes the video. */
 export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
@@ -23,7 +24,8 @@ export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({
     durationInFrames: videoDurationInFrames(props),
     fps: FPS,
     ...(({ width, height }) => ({ width, height }))(
-      ASPECTS[(props.aspect as AspectId) ?? DEFAULT_ASPECT] ?? ASPECTS[DEFAULT_ASPECT],
+      ASPECTS[(props.aspect as AspectId) ?? DEFAULT_ASPECT] ??
+        ASPECTS[DEFAULT_ASPECT],
     ),
   };
 };
@@ -42,22 +44,26 @@ export const Short: React.FC<ShortProps> = (props) => {
   ensureFonts(fontsUsedBy(props));
   const styleProps = custom ? { ...props, captions: [] } : props;
   return (
-    <AbsoluteFill style={{ fontFamily: FONTS.sans }}>
-      <Style {...styleProps} />
-      <MediaOverlays overlays={props.overlays ?? []} />
-      {StyleTop ? <StyleTop {...styleProps} /> : null}
-      {custom ? <CustomCaptions props={props} /> : null}
-      <TextOverlays texts={props.texts ?? []} />
-      {props.watermark ? <WatermarkOverlay watermark={props.watermark} /> : null}
-      <Soundtrack
-        captions={props.captions}
-        voiceoverTrack={props.voiceoverTrack}
-        music={props.music}
-        sfx={props.sfx}
-        musicVolume={props.musicVolume}
-        voiceVolume={props.voiceVolume}
-        audioClips={props.audioClips}
-      />
-    </AbsoluteFill>
+    <VideoLanguageProvider language={props.language}>
+      <AbsoluteFill style={{ fontFamily: FONTS.sans }}>
+        <Style {...styleProps} />
+        <MediaOverlays overlays={props.overlays ?? []} />
+        {StyleTop ? <StyleTop {...styleProps} /> : null}
+        {custom ? <CustomCaptions props={props} /> : null}
+        <TextOverlays texts={props.texts ?? []} />
+        {props.watermark ? (
+          <WatermarkOverlay watermark={props.watermark} />
+        ) : null}
+        <Soundtrack
+          captions={props.captions}
+          voiceoverTrack={props.voiceoverTrack}
+          music={props.music}
+          sfx={props.sfx}
+          musicVolume={props.musicVolume}
+          voiceVolume={props.voiceVolume}
+          audioClips={props.audioClips}
+        />
+      </AbsoluteFill>
+    </VideoLanguageProvider>
   );
 };

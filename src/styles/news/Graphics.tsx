@@ -130,7 +130,7 @@ export const SceneGraphic: React.FC<{ L: NewsLayout; scenes: Scene[]; accent: st
             clipPath: wipeFromRight(a),
           }}
         >
-          SỐ LIỆU
+          {L.vt("SỐ LIỆU")}
         </div>
       </div>
       <div

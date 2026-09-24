@@ -20,6 +20,7 @@ import { DetailBadge, ReferenceFrame, SectionTag, StatDimension, Stroke, type Bo
 import { NotesBlock, type NoteItem } from "./Notes";
 import { BlueprintPaper, DrawingBorder, ScaleBar, TitleBlock } from "./Sheet";
 import { accentOn, C, clamp, EASE_IN_OUT, fitSize, LABEL, MONO, NOTE, ramp, upper } from "./theme";
+import { useVt } from "../../i18n/video";
 
 /** Số frame vạch quét lướt qua tờ giấy khi sang cảnh. */
 const WIPE = 16;
@@ -172,13 +173,14 @@ const TitleSheet: React.FC<{ title: string; subtitle: string; accent: string; en
   end,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { width, height, unit, safe } = useLayout();
   const wide = width / height >= 1.3;
   const side = wide ? safe.side + 60 * unit : Math.max(80 * unit, safe.side * 0.72);
   const w = Math.min(width - side * 2, 1150 * unit);
   const x = (width - w) / 2;
   const padX = 44 * unit;
-  const text = upper(title || "BẢN VẼ");
+  const text = upper(title || vt("BẢN VẼ"));
   const size = fitSize(text, (wide ? 96 : 100) * unit, 50 * unit, w - padX * 2, 3, 0.7);
   const lines = Math.min(3, Math.ceil((Array.from(text).length * size * 0.7) / (w - padX * 2)));
   const h = 150 * unit + lines * size * 1.3 + (subtitle ? 120 * unit : 30 * unit);
@@ -213,7 +215,7 @@ const TitleSheet: React.FC<{ title: string; subtitle: string; accent: string; en
             <path d={`M${box.x},${box.y - off} l${16 * unit},${-5 * unit} v${10 * unit} Z M${box.x + box.w},${box.y - off} l${-16 * unit},${-5 * unit} v${10 * unit} Z`} fill={C.ink} opacity={dim > 0.95 ? 1 : 0} />
             <rect x={box.x + box.w / 2 - 110 * unit} y={box.y - off - 15 * unit} width={220 * unit} height={30 * unit} fill={C.paper} />
             <text x={box.x + box.w / 2} y={box.y - off} fill={C.ink} fontFamily={MONO} fontSize={19 * unit} textAnchor="middle" dominantBaseline="central">
-              TỈ LỆ 1:1
+              {vt("TỈ LỆ")} 1:1
             </text>
           </g>
         ) : null}
@@ -237,7 +239,7 @@ const TitleSheet: React.FC<{ title: string; subtitle: string; accent: string; en
         }}
       >
         <div style={{ fontFamily: MONO, fontSize: 19 * unit, letterSpacing: "0.16em", color: accent, opacity: ramp(frame, 8, 10) }}>
-          BẢN VẼ KỸ THUẬT · SỐ 01
+          {vt("BẢN VẼ KỸ THUẬT · SỐ 01")}
         </div>
         <div
           style={{

@@ -10,6 +10,7 @@ import type { Scene } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
 import { seeded } from "../shared";
 import { C, LABEL, MONO, NOTE, POP, ramp, sub, upper } from "./theme";
+import { useVt } from "../../i18n/video";
 
 export type Box = { x: number; y: number; w: number; h: number };
 
@@ -285,6 +286,7 @@ export const ReferenceFrame: React.FC<{
   balloons: number[];
   frame: number;
 }> = ({ scene, index, box, local, appear, unit, width, height, balloons, frame }) => {
+  const vt = useVt();
   const sw = Math.max(1, 2.6 * unit);
   const border = ramp(local, 0, 16);
   const reveal = ramp(local, 8, 16);
@@ -350,7 +352,7 @@ export const ReferenceFrame: React.FC<{
           whiteSpace: "nowrap",
         }}
       >
-        {`HÌNH ${num} — ${hasMedia ? (/\.(mp4|mov|webm)$/i.test(scene.image ?? "") ? "VIDEO THAM CHIẾU" : "ẢNH THAM CHIẾU") : "SƠ ĐỒ NGUYÊN LÝ"}`}
+        {`${vt("HÌNH {n}", { n: num })} — ${hasMedia ? (/\.(mp4|mov|webm)$/i.test(scene.image ?? "") ? vt("VIDEO THAM CHIẾU") : vt("ẢNH THAM CHIẾU")) : vt("SƠ ĐỒ NGUYÊN LÝ")}`}
       </div>
     </AbsoluteFill>
   );
@@ -368,6 +370,7 @@ export const SectionTag: React.FC<{
   unit: number;
   accent: string;
 }> = ({ x, y, maxW, tag, letter, sheet, t, unit, accent }) => {
+  const vt = useVt();
   if (t <= 0) return null;
   const r = 36 * unit;
   const sw = Math.max(1, 2.2 * unit);
@@ -395,7 +398,7 @@ export const SectionTag: React.FC<{
       </svg>
       <div style={{ minWidth: 0, opacity: textT, translate: `${(1 - textT) * -16 * unit}px 0` }}>
         <div style={{ fontFamily: MONO, fontSize: 16 * unit, color: accent, letterSpacing: "0.12em", whiteSpace: "nowrap" }}>
-          {`MẶT CẮT ${letter}-${letter}`}
+          {vt("MẶT CẮT {x}-{x}", { x: letter })}
         </div>
         <div
           style={{
@@ -532,6 +535,7 @@ export const DetailBadge: React.FC<{
   unit: number;
   accent: string;
 }> = ({ box, text, caption, t, unit, accent }) => {
+  const vt = useVt();
   if (t <= 0) return null;
   const inT = sub(t, 0, 0.5);
   const capT = sub(t, 0.4, 0.5);
@@ -561,7 +565,7 @@ export const DetailBadge: React.FC<{
       </div>
       {caption ? (
         <div style={{ minWidth: 0, opacity: capT }}>
-          <div style={{ fontFamily: MONO, fontSize: 15 * unit, letterSpacing: "0.12em", color: C.soft }}>CHI TIẾT</div>
+          <div style={{ fontFamily: MONO, fontSize: 15 * unit, letterSpacing: "0.12em", color: C.soft }}>{vt("CHI TIẾT")}</div>
           <div style={{ fontFamily: NOTE, fontWeight: 500, fontSize: size * 0.62, lineHeight: 1.35, color: C.ink }}>{caption}</div>
         </div>
       ) : null}

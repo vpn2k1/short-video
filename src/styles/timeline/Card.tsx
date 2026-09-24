@@ -7,6 +7,7 @@ import { interpolate } from "remotion";
 import type { Scene, SceneVisual } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
 import { alpha, BODY, clamp, DISPLAY, fitOneLine, OUT, ramp, splitPunch, UI, type Theme } from "./theme";
+import { useVideoLanguage, useVt, videoLocale, type VideoLanguage } from "../../i18n/video";
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
@@ -41,6 +42,7 @@ export const MilestoneCard: React.FC<{
   theme: Theme;
   style: React.CSSProperties;
 }> = ({ scene, index, total, label, layout, line, punchAt, start, duration, frame, unit, accent, theme, style }) => {
+  const vt = useVt();
   const { mode, rect, pad, gap, media, captionFont, eyebrowFont } = layout;
   const row = mode === "row";
   const radius = 34 * unit;
@@ -52,7 +54,7 @@ export const MilestoneCard: React.FC<{
   // Khung ngang: con số nằm ở chân cột chữ. Khung dọc: chồng lên góc dưới ảnh. Không có ảnh: giữa tấm mốc chữ.
   const statInText = row && visual?.type === "stat" && scene.image !== null;
 
-  const eyebrow = `Mốc ${String(index + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}`.toLocaleUpperCase("vi");
+  const eyebrow = vt("Mốc {n} / {total}", { n: String(index + 1).padStart(2, "0"), total: String(total).padStart(2, "0") }).toLocaleUpperCase("vi");
 
   const mediaBox = (
     <div
@@ -166,12 +168,12 @@ export const MilestoneCard: React.FC<{
 };
 
 /** "1.000", "250", "85%"… → đếm dần từ 0. Số thập phân hay chữ thì hiện nguyên. */
-const countUp = (text: string, t: number) => {
+const countUp = (text: string, t: number, language?: VideoLanguage) => {
   const m = text.match(/^(\D*?)(\d{1,3}(?:\.\d{3})+|\d+)(?![\d,])(.*)$/);
   if (!m) return text;
   const target = Number(m[2].replace(/\./g, ""));
   const value = Math.round(target * t);
-  const shown = m[2].includes(".") ? value.toLocaleString("vi-VN") : String(value);
+  const shown = m[2].includes(".") ? value.toLocaleString(videoLocale(language)) : String(value);
   return `${m[1]}${shown}${m[3]}`;
 };
 
@@ -186,6 +188,7 @@ const StatBlock: React.FC<{
   base: number;
   panel?: boolean;
 }> = ({ visual, unit, accent, theme, frame, start, maxW, base, panel }) => {
+  const language = useVideoLanguage();
   const t = ramp(frame, start + 10, 16);
   const count = ramp(frame, start + 10, 24);
   const size = fitOneLine(visual.text, base, maxW - (panel ? 56 * unit : 0), 0.68);
@@ -209,7 +212,7 @@ const StatBlock: React.FC<{
       }}
     >
       <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: size, lineHeight: 1.05, letterSpacing: -0.03 * size, color: accent, whiteSpace: "nowrap" }}>
-        {countUp(visual.text, count)}
+        {countUp(visual.text, count, language)}
       </div>
       {visual.caption ? (
         <div style={{ fontFamily: UI, fontWeight: 600, fontSize: 28 * unit, lineHeight: 1.3, color: theme.ink, opacity: 0.8, maxWidth: maxW }}>

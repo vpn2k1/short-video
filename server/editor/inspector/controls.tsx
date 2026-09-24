@@ -49,8 +49,9 @@ export const VoiceSelect: React.FC<{ voices: VoiceOption[]; value: string; onCha
           {(["vi", "en"] as const).map((lang) => (
             <optgroup key={lang} label={lang === "vi" ? "Tiếng Việt" : "Tiếng Anh"}>
               {voices.filter((v) => v.lang === lang).map((v) => (
-                <option key={v.key} value={v.key} disabled={v.paidPlan}>
-                  {v.key} — {v.label.split("—")[1]?.trim()} · {v.engineLabel}{v.paidPlan ? " (trả phí)" : ""}
+                <option key={v.key} value={v.key} disabled={v.paidPlan || v.usable === false}>
+                  {v.key} — {v.label.split("—")[1]?.trim()} · {v.engineLabel}
+                  {v.paidPlan ? " (trả phí)" : v.usable === false ? " (máy này không có)" : ""}
                 </option>
               ))}
             </optgroup>

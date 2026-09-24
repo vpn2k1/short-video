@@ -5,6 +5,7 @@
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
 import { FONTS, seeded } from "../shared";
+import type { VideoLanguage } from "../../i18n/video";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -41,7 +42,9 @@ export const osdFont = (text: string) => (/^[\x20-\x7E]*$/.test(text) ? FONTS.mo
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Ngày quay giả (1988–1999) và giờ bắt đầu, suy từ tiêu đề — cùng video luôn cùng ngày. */
-export const tapeClock = (title: string, frame: number, fps: number) => {
+const MONTHS_EN = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+export const tapeClock = (title: string, frame: number, fps: number, language?: VideoLanguage) => {
   const key = `retro-date-${title}`;
   const day = Math.floor(seeded(`${key}-d`, 1, 29));
   const month = Math.floor(seeded(`${key}-m`, 1, 13));
@@ -49,7 +52,7 @@ export const tapeClock = (title: string, frame: number, fps: number) => {
   const startSec = Math.floor(seeded(`${key}-t`, 17 * 3600, 22 * 3600));
   const total = startSec + Math.floor(frame / fps);
   return {
-    date: `${pad(day)} THG ${pad(month)} ${year}`,
+    date: language === "en" ? `${MONTHS_EN[month - 1]} ${pad(day)} ${year}` : `${pad(day)} THG ${pad(month)} ${year}`,
     time: `${pad(Math.floor(total / 3600) % 24)}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`,
   };
 };

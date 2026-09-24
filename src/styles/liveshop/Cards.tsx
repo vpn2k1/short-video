@@ -9,6 +9,7 @@ import {
   alpha, clamp, fitLines, GOLD, INK, inkOn, NUM, POP, punchSpan, SALE_ORANGE, SALE_RED, shade, SMOOTH, UI, upper,
   type Geo,
 } from "./live";
+import { useVt } from "../../i18n/video";
 
 /* ------------------------------------------------------------ lời ghim của chủ phòng */
 
@@ -40,6 +41,7 @@ export const HostBanner: React.FC<{
   appear: number;
 }> = ({ geo, captions, scenes, bottom, ready, accent, appear }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { u, side, bannerW } = geo;
   const index = activeIndexAt(captions, frame);
   if (index < 0) return null;
@@ -109,7 +111,7 @@ export const HostBanner: React.FC<{
             color: inkOn(accent),
           }}
         >
-          Chủ phòng
+          {vt("Chủ phòng")}
         </span>
       </div>
       <div
@@ -184,6 +186,7 @@ const Thumb: React.FC<{ scene: Scene; size: number; accent: string; from: number
  */
 export const ProductCard: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; appear: number }> = ({ geo, scenes, accent, appear }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const index = activeIndexAt(scenes, frame);
   const scene = index >= 0 ? scenes[index] : null;
   if (!scene?.tag?.trim()) return null;
@@ -263,7 +266,7 @@ export const ProductCard: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; 
           {scene.tag.normalize("NFC").trim()}
         </div>
         <div style={{ fontWeight: 700, fontSize: nameSize * 0.78, lineHeight: 1.3, color: SALE_RED, fontVariantNumeric: "tabular-nums" }}>
-          Còn {stock} sản phẩm
+          {vt("Còn {n} sản phẩm", { n: stock })}
         </div>
         <div style={{ height: 8 * u, borderRadius: 4 * u, backgroundColor: alpha(SALE_RED, 0.15), overflow: "hidden" }}>
           <div
@@ -293,7 +296,7 @@ export const ProductCard: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; 
         }}
       >
         <CartIcon size={nameSize} color={inkOn(accent)} />
-        Mua
+        {vt("Mua")}
       </div>
     </div>
   );
@@ -322,6 +325,7 @@ const isDiscount = (visual: SceneVisual) => /%|^[-−–x×]/i.test(visual.text.
  */
 export const VisualBadge: React.FC<{ geo: Geo; scenes: Scene[]; appear: number }> = ({ geo, scenes, appear }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const index = activeIndexAt(scenes, frame);
   const scene = index >= 0 ? scenes[index] : null;
   const visual = scene?.visual;
@@ -402,7 +406,7 @@ export const VisualBadge: React.FC<{ geo: Geo; scenes: Scene[]; appear: number }
 
   const isStat = visual.type === "stat";
   const fs = (wide ? 30 : 32) * u;
-  const label = isStat ? caption || "Đã bán" : upper(text);
+  const label = isStat ? caption || vt("Đã bán") : upper(text);
   return (
     <div
       style={{

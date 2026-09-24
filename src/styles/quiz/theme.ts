@@ -6,6 +6,7 @@ import { Easing, interpolate } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { fitFontSize } from "../shared";
+import { translateVideoText, type VideoLanguage } from "../../i18n/video";
 
 export const INK = "#1d1740";
 export const WHITE = "#ffffff";
@@ -126,7 +127,7 @@ export const estimateLines = (text: string, fontSize: number, width: number, cha
 const norm = (text: string) => text.normalize("NFC").toLocaleLowerCase("vi").replace(/\s+/g, " ").trim();
 
 /** Câu kiểu "Suy nghĩ 3 giây nhé…", "Bạn đoán được không?" — dòng chờ trước đáp án. */
-const PAUSE_RE = /(suy nghĩ|nghĩ kỹ|đoán|giây|đếm ngược|3\s*[,.…]?\s*2\s*[,.…]?\s*1|bình luận|chốt đáp án|trả lời đi|bạn chọn)/i;
+const PAUSE_RE = /(suy nghĩ|nghĩ kỹ|đoán|giây|đếm ngược|3\s*[,.…]?\s*2\s*[,.…]?\s*1|bình luận|chốt đáp án|trả lời đi|bạn chọn|\b(?:think|guess|seconds?|count ?down|comment|lock (?:it )?in|your answer|pick one|choose)\b)/i;
 
 export type SceneInfo = {
   scene: Scene;
@@ -168,7 +169,12 @@ const QUIET_MIN = 60;
  * Câu hỏi = khối liền kề kết thúc ở câu có "?" cuối cùng trước đáp án; các dòng liền
  * trước không kết thúc bằng . ! được coi là phần đầu của câu hỏi (câu dài tách 2 dòng).
  */
-export const analyzeScenes = (scenes: Scene[], captions: Caption[], showTitle: boolean): SceneInfo[] => {
+export const analyzeScenes = (
+  scenes: Scene[],
+  captions: Caption[],
+  showTitle: boolean,
+  language?: VideoLanguage,
+): SceneInfo[] => {
   const total = scenes.length;
   return scenes.map((scene, index) => {
     const start = msToFrames(scene.startMs);
@@ -247,7 +253,7 @@ export const analyzeScenes = (scenes: Scene[], captions: Caption[], showTitle: b
       start,
       end,
       enter,
-      label: upper(scene.tag?.trim() || `CÂU ${index + 1}/${total}`),
+      label: upper(scene.tag?.trim() || translateVideoText(language, "CÂU {n}/{total}", { n: index + 1, total })),
       question,
       questionFrame,
       revealFrame,

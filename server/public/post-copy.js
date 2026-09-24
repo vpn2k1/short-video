@@ -147,7 +147,7 @@ async function copyText(text) {
 function copyField(label, value, key, multiline = false) {
   return `<div class="pc-field">
     <div class="pc-top"><span>${label}</span><button type="button" class="btn" data-pc-copy="${key}">${icon("copy")} Chép</button></div>
-    <div class="pc-text${multiline ? " pc-multi" : ""}">${escapeHtml(value)}</div>
+    <div class="pc-text${multiline ? " pc-multi" : ""}" data-no-i18n>${escapeHtml(value)}</div>
   </div>`;
 }
 

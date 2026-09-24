@@ -2,7 +2,7 @@ import { interpolate, useCurrentFrame } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { useCaptionClock, useSceneClock } from "../shared";
-import { CAPTION_LH, DEFAULT_CATEGORY, HEADLINE_LH, UPPER_LH, type NewsLayout } from "./layout";
+import { CAPTION_LH, HEADLINE_LH, UPPER_LH, type NewsLayout } from "./layout";
 import { EASE_IN, EASE_INOUT, EASE_OUT, fitText, FONT, INK, NAVY, RED, ramp, upper, WHITE, withAlpha, YELLOW } from "./theme";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -65,7 +65,7 @@ export const LowerThird: React.FC<{
   if (frame < enterFrame) return null;
 
   const { unit, stacked, headline } = L;
-  const label = scene?.tag ? upper(scene.tag) : DEFAULT_CATEGORY;
+  const label = scene?.tag ? upper(scene.tag) : L.defaultCategory;
   const catEnter = sceneIndex <= 0 ? enterFrame : Math.max(sceneStart, enterFrame);
   const catP = ramp(frame, catEnter, 8, EASE_INOUT);
   const headP = ramp(frame, enterFrame + 3, 10, EASE_INOUT);
@@ -279,7 +279,7 @@ export const PunchFlash: React.FC<{ L: NewsLayout; scenes: Scene[]; enterFrame: 
             color: RED,
           }}
         >
-          NÓNG
+          {L.vt("NÓNG")}
         </div>
         <div
           style={{

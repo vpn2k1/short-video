@@ -6,6 +6,7 @@ import { interpolate, spring } from "remotion";
 import type { Caption, SceneVisual } from "../../compositions/Short/schema";
 import { FONTS, fitFontSize, seeded } from "../shared";
 import { HIGHLIGHT, INK, PAPER_LIGHT } from "./palette";
+import { useVt } from "../../i18n/video";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -270,6 +271,7 @@ export const TitlePage: React.FC<{
   unit: number;
   maxWidth: number;
 }> = ({ title, subtitle, f, total, fps, unit, maxWidth }) => {
+  const vt = useVt();
   const s = spring({ frame: f, fps, config: { damping: 11, stiffness: 120 } });
   const out = interpolate(f, [total - 10, total], [0, 1], { ...clamp });
   const sweepP = interpolate(f, [12, 30], [0, 1], { ...clamp });
@@ -302,8 +304,8 @@ export const TitlePage: React.FC<{
           marginBottom: 30 * unit,
         }}
       >
-        <span>{upperVi("Hồ sơ")}</span>
-        <span>{upperVi("Giải thích")}</span>
+        <span>{upperVi(vt("Hồ sơ"))}</span>
+        <span>{upperVi(vt("Giải thích"))}</span>
       </div>
       <div
         style={{

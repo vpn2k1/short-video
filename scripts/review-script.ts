@@ -9,6 +9,7 @@
  *
  * Bước này không bao giờ làm hỏng lượt tạo video: soát lỗi, hết lượt, hay bản sửa đổi khung kịch bản thì giữ bản đầu.
  */
+import type { VideoLanguage } from "../src/i18n/video";
 import { allLines, type VideoScript } from "../src/compositions/Short/script";
 import { editScript, scriptProviders, type ProviderChoice } from "./generate-script";
 import { askJson, parseJson, type JsonReply } from "./llm-json";
@@ -90,7 +91,7 @@ const retryPerMinute = async <T>(run: () => Promise<T>, log: (line: string) => v
 export const reviewScript = async (
   script: VideoScript,
   request: string,
-  options: { slug: string; provider: ProviderChoice; log?: (line: string) => void },
+  options: { slug: string; provider: ProviderChoice; log?: (line: string) => void; language?: VideoLanguage },
 ): Promise<VideoScript> => {
   const log = options.log ?? (() => {});
   const first = scriptProviders(options.provider)[0];
@@ -104,7 +105,11 @@ export const reviewScript = async (
     ({ value: problems } = await retryPerMinute(() => askJson(
       options.provider,
       {
-        system: `${CRITIC}\n\nHƯỚNG DẪN PHONG CÁCH "${script.style}" (để đối chiếu):\n${styleGuide(script.style)}`,
+        system: `${CRITIC}\n\nHƯỚNG DẪN PHONG CÁCH "${script.style}" (để đối chiếu):\n${styleGuide(script.style)}` +
+          (options.language === "en"
+            ? "\n\nVIDEO NÀY BẰNG TIẾNG ANH: soát câu chữ tiếng Anh (tự nhiên, đúng ngữ pháp); câu nào còn tiếng Việt là lỗi. " +
+              "Viết \"problem\" và \"fix\" bằng tiếng Việt, câu sửa đề xuất bằng tiếng Anh."
+            : ""),
         user: `YÊU CẦU GỐC CỦA NGƯỜI DÙNG: ${request}\n\nKỊCH BẢN:\n${scriptToText(script)}`,
         temperature: 0.2,
         maxTokens: 1500,
@@ -145,7 +150,8 @@ export const reviewScript = async (
     "Không thêm số liệu mới. Giữ nguyên số cảnh và số câu mỗi cảnh.";
   try {
     const fixed = await retryPerMinute(
-      () => editScript(script, instruction, options.slug, [], undefined, script.style, options.provider), log);
+      () => editScript(script, instruction, options.slug, [], undefined, script.style, options.provider,
+        { language: options.language }), log);
     const after = allLines(fixed);
     if (fixed.scenes.length !== script.scenes.length || Math.abs(after.length - lines.length) > Math.max(2, lines.length * 0.2)) {
       log("Bản sửa đổi khung kịch bản — giữ bản viết đầu.");

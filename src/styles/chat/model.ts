@@ -10,6 +10,7 @@ import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
 import { CHAT_FONT } from "./theme";
+import { translateVideoText, type VideoLanguage } from "../../i18n/video";
 
 // ---------------------------------------------------------------- người nói
 
@@ -17,7 +18,7 @@ import { CHAT_FONT } from "./theme";
  * Tên được coi là "tôi" → bong bóng xanh bên phải. So không phân biệt hoa thường.
  * "Em"/"Anh" cố ý KHÔNG có trong danh sách: trong chuyện tình cảm đó thường là người kia.
  */
-export const ME_NAMES = ["tôi", "mình", "tui", "tớ", "tao", "tau", "me", "i", "bản thân"];
+export const ME_NAMES = ["tôi", "mình", "tui", "tớ", "tao", "tau", "me", "i", "bản thân", "myself"];
 
 const SPEAKER_LINE = /^([^:\s][^:]{0,15}):\s*(.*)$/su;
 
@@ -221,6 +222,7 @@ export const buildConversation = (
   title: string,
   introEnd: number,
   m: Metrics,
+  language?: VideoLanguage,
 ): Conversation => {
   // ---- 1. người nói của từng caption ----
   const msgs: Msg[] = [];
@@ -268,7 +270,7 @@ export const buildConversation = (
   };
   const group = order.length >= 3;
   const leftSpeakers = order.filter((k) => sideOf(k) === "left");
-  const contact = leftSpeakers.length === 1 ? display.get(leftSpeakers[0])! : title || "Tin nhắn";
+  const contact = leftSpeakers.length === 1 ? display.get(leftSpeakers[0])! : title || translateVideoText(language, "Tin nhắn");
 
   // ---- 3. sự kiện theo thứ tự thời gian ----
   type Event =

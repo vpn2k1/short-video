@@ -53,8 +53,7 @@ import { captionLookSchema, mediaCropSchema, shortSchema, type Caption, type Cap
 import type { MediaCrop } from "../src/scenes/CropBox";
 import { ASPECT_IDS, ASPECTS, aspectFor, type AspectId } from "../src/aspects";
 import { canCustomizeCaptions, DEFAULT_CAPTION_LOOK } from "../src/components/captionLook";
-import { findVoice, VOICES } from "../scripts/voices";
-import { missingEngineKey } from "../scripts/tts";
+import { AUTO_VOICE, findVoice, voiceForLanguage } from "../scripts/voices";
 import { slugify } from "../scripts/slug";
 import { scriptToText, textToScript } from "../scripts/text-script";
 import { generatePostCopy, getPostCopy, type PostPlatform, type SavedPostCopy } from "../scripts/post-copy";
@@ -434,15 +433,6 @@ const splitPastedScripts = (text: string) =>
     .filter(Boolean)
     .slice(0, MAX_ITEMS);
 
-/**
- * Giọng dùng khi lồng tiếng một ngôn ngữ: giọng miễn phí trước (trong app, rồi macOS), rồi Gemini, cuối cùng
- * ElevenLabs (tính theo ký tự) — và chỉ giọng đang có key, không cần gói trả phí.
- */
-const ENGINE_ORDER: Record<string, number> = { local: 0, say: 1, gemini: 2, elevenlabs: 3 };
-const voiceForLanguage = (lang: TranslateLanguage) =>
-  VOICES
-    .filter((v) => v.lang === lang && !v.paidPlan && !missingEngineKey(v.engine) && (v.engine !== "say" || process.platform === "darwin"))
-    .sort((a, b) => (ENGINE_ORDER[a.engine] ?? 9) - (ENGINE_ORDER[b.engine] ?? 9))[0]?.key;
 
 /**
  * Mỗi mục gốc + một mục cho mỗi ngôn ngữ (xếp liền sau mục gốc để nhìn bảng là thấy nhóm). Cắt cho vừa MAX_ITEMS
@@ -656,7 +646,7 @@ export const createBatch = (body: CreateBatchInput) => {
     const aspects = (Array.isArray(v.aspects) ? v.aspects : [])
       .map(String).filter((a) => ASPECT_IDS.includes(a as never));
     const voices = (Array.isArray(v.voices) ? v.voices : [])
-      .map(String).filter((key) => key === "" || Boolean(findVoice(key)));
+      .map(String).filter((key) => key === "" || key === AUTO_VOICE || Boolean(findVoice(key)));
     const languages = (Array.isArray(v.languages) ? v.languages : [])
       .filter(isTranslateLanguage);
     const hooks = Math.max(0, Math.min(MAX_HOOKS, Math.round(Number(v.hooks) || 0)));

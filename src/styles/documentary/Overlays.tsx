@@ -3,6 +3,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { fitFontSize, FONTS, Grain, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import { FADE_FRAMES } from "./Footage";
+import { useVt } from "../../i18n/video";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
@@ -393,10 +394,11 @@ export const DocVisual: React.FC<{ scenes: Scene[]; showTitle: boolean }> = ({ s
 /** Mở đầu: làm tối ảnh đầu, dòng máy chữ "phim tài liệu", tít serif hiện lên, phụ đề small caps. */
 export const DocTitle: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { unit, width, safe } = useLayout();
   const wide = useIsWide();
   const out = interpolate(frame, [TITLE_FRAMES - 12, TITLE_FRAMES], [1, 0], clamp);
-  const over = glyphs("phim tài liệu");
+  const over = glyphs(vt("phim tài liệu"));
   const typed = Math.min(over.length, Math.max(0, Math.floor((frame - 2) / 1.2)));
   const titleIn = interpolate(frame, [8, 30], [0, 1], { ...clamp, easing: EASE_OUT });
   const subIn = interpolate(frame, [22, 40], [0, 1], { ...clamp, easing: EASE_OUT });

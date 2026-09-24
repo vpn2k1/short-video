@@ -8,6 +8,7 @@
 import { random } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
+import type { VideoLanguage } from "../../i18n/video";
 
 export const UP = "#16c784";
 export const DOWN = "#ea3943";
@@ -27,10 +28,10 @@ export const plain = (text: string) =>
   text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
 
 /** Từ báo hiệu chiều giảm — đổi màu đỏ, đường giá đi xuống. */
-export const DOWN_WORDS = /(^|[^\p{L}])(giảm|lỗ|sụt|rớt|mất|âm|bán tháo|lao dốc|thua lỗ|đỏ sàn|bốc hơi|tụt)(?=$|[^\p{L}])/iu;
+export const DOWN_WORDS = /(^|[^\p{L}])(giảm|lỗ|sụt|rớt|mất|âm|bán tháo|lao dốc|thua lỗ|đỏ sàn|bốc hơi|tụt|falls?|fell|drop(?:s|ped)?|loss(?:es)?|lose|lost|declin(?:e|es|ed)|plung(?:e|es|ed)|crash(?:es|ed)?|slump(?:s|ed)?|sell-?off|tumbl(?:e|es|ed)|sank|negative)(?=$|[^\p{L}])/iu;
 
 /** Từ báo hiệu chiều tăng — cảnh có chúng thì đường giá đi lên. */
-export const UP_WORDS = /(^|[^\p{L}])(tăng|vượt|lãi|bứt phá|phục hồi|kỷ lục|đỉnh|mua ròng|tích cực|lợi nhuận|gấp)(?=$|[^\p{L}])/iu;
+export const UP_WORDS = /(^|[^\p{L}])(tăng|vượt|lãi|bứt phá|phục hồi|kỷ lục|đỉnh|mua ròng|tích cực|lợi nhuận|gấp|rises?|rose|risen|gain(?:s|ed)?|jump(?:s|ed)?|surg(?:e|es|ed)|soar(?:s|ed)?|rall(?:y|ies|ied)|record|peak|profits?|rebound(?:s|ed)?|climb(?:s|ed)?|growth|grew|doubled?|positive)(?=$|[^\p{L}])/iu;
 
 export const isDownText = (text: string | null | undefined) =>
   !!text && (DOWN_WORDS.test(text) || /^\s*[-−▼]/.test(text));
@@ -134,11 +135,13 @@ export const valueAt = (s: Series, frame: number) => {
 };
 
 const VI2 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const EN2 = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt2 = (language?: VideoLanguage) => (language === "en" ? EN2 : VI2);
 
 /** Giá kiểu Việt Nam: 1.285,43 */
-export const fmtPrice = (n: number) => VI2.format(n);
+export const fmtPrice = (n: number, language?: VideoLanguage) => fmt2(language).format(n);
 export const priceOf = (s: Series, v: number) => s.base * (1 + v / 100);
-export const fmtPct = (v: number) => `${v >= 0 ? "+" : "−"}${VI2.format(Math.abs(v))}%`;
+export const fmtPct = (v: number, language?: VideoLanguage) => `${v >= 0 ? "+" : "−"}${fmt2(language).format(Math.abs(v))}%`;
 
 /** Đồng hồ phiên: 09:15:00 cộng thời gian video. */
 export const clockAt = (frame: number, fps: number) => {
@@ -190,8 +193,8 @@ export const tickerItems = (title: string, subtitle: string, seed: string): Tick
  */
 export type Piece = { text: string; kind: "plain" | "up" | "down"; punch: boolean };
 
-const UNIT = /^(%|tỷ|tỉ|triệu|nghìn|ngàn|k|usd|đồng|đ|₫|lần|điểm|năm|tháng|ngày|người|cổ phiếu|btc)[.,!?;:]*$/iu;
-const BIG_WORD = /^(tỷ|tỉ|triệu)[.,!?;:]*$/iu;
+const UNIT = /^(%|tỷ|tỉ|triệu|nghìn|ngàn|k|usd|đồng|đ|₫|lần|điểm|năm|tháng|ngày|người|cổ phiếu|btc|billion|million|thousand|bn|dollars?|points?|pts|times|years?|months?|days?|people|shares)[.,!?;:]*$/iu;
+const BIG_WORD = /^(tỷ|tỉ|triệu|billion|million|bn)[.,!?;:]*$/iu;
 
 export const splitCaption = (text: string, punch: string | null): Piece[] => {
   const src = text.normalize("NFC");

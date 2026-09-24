@@ -7,9 +7,11 @@ import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { useLayout } from "../shared";
 import { Stadium } from "./Backdrop";
 import { COND, DISPLAY, EASE_OUT, fitText, INK, LIVE_RED, ramp, upper } from "./theme";
+import { useVt } from "../../i18n/video";
 
 export const TitleIntro: React.FC<{ title: string; subtitle: string; accent: string }> = ({ title, subtitle, accent }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { width: W, height: H, unit: u, portrait, safe } = useLayout();
   const left = portrait ? 56 * u : safe.side;
   const contentW = portrait ? W - left - 56 * u : Math.min(W * 0.66, 1200 * u);
@@ -120,7 +122,7 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; accent: str
           }}
         >
           <div style={{ width: 14 * u, height: 14 * u, borderRadius: 99, backgroundColor: "#fff", opacity: blink ? 1 : 0.4 }} />
-          <div style={{ fontFamily: COND, fontWeight: 700, fontSize: 32 * u, lineHeight: 1.25, color: "#fff" }}>TRỰC TIẾP</div>
+          <div style={{ fontFamily: COND, fontWeight: 700, fontSize: 32 * u, lineHeight: 1.25, color: "#fff" }}>{vt("TRỰC TIẾP")}</div>
         </div>
         {subText ? (
           <div
@@ -158,7 +160,7 @@ export const TitleIntro: React.FC<{ title: string; subtitle: string; accent: str
           translate: `${(1 - pA) * -40 * u}px 0px`,
         }}
       >
-        {upper("Tâm điểm")}
+        {upper(vt("Tâm điểm"))}
       </div>
       {/* Loé đèn pha lúc mở. */}
       <AbsoluteFill style={{ backgroundColor: "#fff", opacity: 0.55 * flare }} />

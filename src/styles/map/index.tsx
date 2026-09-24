@@ -22,6 +22,7 @@ import {
   StatBadge, statSize, type Rect,
 } from "./parts";
 import { Terrain } from "./Terrain";
+import { useVt } from "../../i18n/video";
 
 const FALLBACK_SCENE: Scene = {
   image: null, visual: null, tag: null, punch: null, trimStartMs: 0, volume: 0, crop: null, ...noMotion(),
@@ -118,6 +119,7 @@ const useMapLayout = (): MapLayout => {
 export const MapStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["bevietnam", "playfair"]);
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { width, height, unit, safe } = useLayout();
   const L = useMapLayout();
   const stops = scenes.length > 0 ? scenes : [FALLBACK_SCENE];
@@ -283,8 +285,8 @@ export const MapStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captio
   const pinColor = accent;
   const pastColor = mix(accent, MAP.ink, 0.35);
   const cardZoom = (i: number) => interpolate(frame, [starts[i], Math.max(starts[i] + 1, endOf(i))], [1.03, 1.12], clamp);
-  const stampText = scene.punch ? (chars(scene.punch.text) <= 24 ? scene.punch.text : "Đã đến!") : "";
-  const stampTop = scene.punch && chars(scene.punch.text) <= 24 ? `Đã đến · chặng ${pad2(active + 1)}` : `★ chặng ${pad2(active + 1)} ★`;
+  const stampText = scene.punch ? (chars(scene.punch.text) <= 24 ? scene.punch.text : vt("Đã đến!")) : "";
+  const stampTop = scene.punch && chars(scene.punch.text) <= 24 ? vt("Đã đến · chặng {n}", { n: pad2(active + 1) }) : vt("★ chặng {n} ★", { n: pad2(active + 1) });
   const stampW = imgMode ? Math.min(L.card.w * 0.62, 460 * unit) : Math.min(width * 0.6, 480 * unit);
   const stampAt = imgMode
     ? { x: L.card.x + stampW * 0.5 + 10 * unit, y: L.card.y + L.card.h - 70 * unit }

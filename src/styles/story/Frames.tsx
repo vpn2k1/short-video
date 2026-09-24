@@ -10,6 +10,7 @@ import { SceneMedia } from "../media";
 import { activeIndexAt, Grain, seeded } from "../shared";
 import { Avatar } from "./Chrome";
 import { clamp, createGradient, UI, VIDEO_EXT } from "./theme";
+import { useVt } from "../../i18n/video";
 
 /** Số frame của cú xoay lập phương khi sang cảnh. */
 export const CUBE_FRAMES = 12;
@@ -121,6 +122,7 @@ export const StoryTray: React.FC<{ vh: number; title: string; accent: string; fi
   firstImage,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const c = trayCenter(vh);
   const size = 290;
   const enter = interpolate(frame, [0, 10], [0.7, 1], { ...clamp, easing: Easing.out(Easing.back(1.8)) });
@@ -169,8 +171,8 @@ export const StoryTray: React.FC<{ vh: number; title: string; accent: string; fi
           translate: `0 ${interpolate(frame, [3, 12], [20, 0], clamp)}px`,
         }}
       >
-        <div style={{ fontSize: 52, fontWeight: 700 }}>Tin mới</div>
-        <div style={{ fontSize: 36, fontWeight: 500, opacity: 0.7, marginTop: 8 }}>2 giờ trước</div>
+        <div style={{ fontSize: 52, fontWeight: 700 }}>{vt("Tin mới")}</div>
+        <div style={{ fontSize: 36, fontWeight: 500, opacity: 0.7, marginTop: 8 }}>{vt("2 giờ trước")}</div>
       </div>
       {/* Hàng avatar nhỏ mờ hai bên cho ra khay story. */}
       {[-1, 1].map((side) => (
@@ -209,6 +211,7 @@ export const NeighborCards: React.FC<{
   cardH: number;
 }> = ({ scenes, accent, title, cx, cy, half, cardH }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const index = Math.max(0, activeIndexAt(scenes, frame));
   const start = scenes[index] ? msToFrames(scenes[index].startMs) : 0;
   // Trượt một nấc sang trái trong cú xoay cảnh.
@@ -243,7 +246,7 @@ export const NeighborCards: React.FC<{
         <AbsoluteFill style={{ backgroundColor: "rgba(0,0,0,0.42)" }} />
         <AbsoluteFill style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: cardW * 0.06 }}>
           <Avatar size={cardW * 0.3} title={title} accent={accent} />
-          <div style={{ fontFamily: UI, fontWeight: 500, fontSize: cardW * 0.065, color: "rgba(255,255,255,0.75)" }}>2 giờ</div>
+          <div style={{ fontFamily: UI, fontWeight: 500, fontSize: cardW * 0.065, color: "rgba(255,255,255,0.75)" }}>{vt("2 giờ")}</div>
         </AbsoluteFill>
       </div>,
     );

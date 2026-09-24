@@ -1207,6 +1207,8 @@
 <link rel="stylesheet" href="/ui.css" />
 <!-- Icon Lucide: <i data-icon="tên"> hoặc icon("tên") — xem server/icons.ts -->
 <script src="/icons.js"></script>
+<!-- Ngôn ngữ giao diện: dịch chữ tiếng Việt sang tiếng Anh theo bảng i18n/en-*.js — xem i18n.js -->
+<script src="/i18n.js"></script>
 </head>
 <body>
 
@@ -1222,6 +1224,7 @@
   <a class="nav-link" id="nav-bili" href="#/bili" title="Tìm và tải tư liệu Bilibili tác giả cho phép dùng"><i data-icon="monitor-play"></i> <span class="label">Bilibili</span></a>
   <a class="nav-link" id="nav-lib" href="#/library"><i data-icon="folder"></i> <span class="label">Thư viện</span></a>
   <span class="spacer"></span>
+  <button type="button" class="nav-link" id="langToggle" title="Đổi ngôn ngữ giao diện · Switch language" aria-label="Đổi ngôn ngữ giao diện" data-no-i18n><i data-icon="languages"></i> <span class="label" id="langToggleLabel">EN</span></button>
   <button type="button" class="nav-link" id="openShortcuts" title="Phím tắt (? hoặc Ctrl/⌘+/)" aria-label="Phím tắt"><i data-icon="keyboard"></i></button>
   <button type="button" class="nav-link" id="openSettings" title="Cài đặt API key (Ctrl/⌘+,)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>

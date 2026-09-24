@@ -18,6 +18,7 @@ import { fitLine } from "../karaoke/karaoke";
 import { clamp, introEndFrame, mainLines, MusicLevels, punchMask, sungPart, timedWords, useLevels } from "../music";
 import { activeIndexAt, useLayout } from "../shared";
 import { Backdrop, Disc, FONT, paletteFor, Shockwave, Sleeve, SpectrumRing, ToneArm, VINYL_FONTS, type Palette } from "./parts";
+import { useVt } from "../../i18n/video";
 
 /** Câu dứt rồi mà câu sau còn xa hơn chừng này (ms) thì tắt lời cho đoạn nhạc dạo. */
 const IDLE_MS = 2500;
@@ -159,6 +160,7 @@ const Lyrics: React.FC<{ lines: Caption[]; scenes: Scene[]; palette: Palette; op
 
 const TopBar: React.FC<{ title: string; palette: Palette }> = ({ title, palette }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { safe, unit, width } = useLayout();
   const blink = Math.floor(frame / 15) % 2 === 0 ? 1 : 0.35;
   const one = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;
@@ -181,7 +183,7 @@ const TopBar: React.FC<{ title: string; palette: Palette }> = ({ title, palette 
         }}
       >
         <span style={{ width: 12 * unit, height: 12 * unit, borderRadius: "50%", backgroundColor: palette.accent, opacity: blink }} />
-        ĐANG PHÁT
+        {vt("ĐANG PHÁT")}
       </span>
       <div style={{ minWidth: 0 }}>
         <div style={{ ...one, fontFamily: FONT, fontWeight: 800, fontSize: 32 * unit, color: "#fff" }}>{title.normalize("NFC")}</div>

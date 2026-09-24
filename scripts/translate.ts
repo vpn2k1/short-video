@@ -16,7 +16,7 @@
  * thì bản Lite từng bỏ mất một cụm ("cả năm") — luật đó nằm trong prompt dưới đây.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { COMPAT_PROVIDERS, DEFAULT_OLLAMA_HOST } from "./generate-script";
+import { COMPAT_PROVIDERS, DEFAULT_OLLAMA_HOST, compatExtras, compatModels, tryNextModel } from "./generate-script";
 import { LOCAL_AI_LABEL, LOCAL_MODEL_NAME, localAiAvailable, localChat } from "./local-ai";
 import { describeProviderError } from "./provider-error";
 import { freeMode, recordCall } from "./usage";
@@ -195,10 +195,7 @@ const translateCompatible = async (
 ) => {
   const config = COMPAT_PROVIDERS[engine];
   // Gemini luôn dùng cặp model đã đo cho việc dịch, không theo model viết kịch bản trong Cài đặt.
-  const custom = engine === "gemini" ? undefined : process.env[config.modelEnv];
-  const models = custom
-    ? [custom]
-    : engine === "gemini" ? GEMINI_TRANSLATE_MODELS : [config.defaultModel, ...(config.fallbackModels ?? [])];
+  const models = engine === "gemini" ? GEMINI_TRANSLATE_MODELS : compatModels(engine);
   const content = JSON.stringify(items.map((text, i) => ({ i, text })));
 
   let lastError = `${config.label}: chưa có model nào để gọi.`;
@@ -214,19 +211,24 @@ const translateCompatible = async (
           { role: "system", content: batchPrompt(to, from) },
           { role: "user", content },
         ],
+        ...compatExtras(engine, model),
       }),
     });
     if (!response.ok) {
       recordCall(config.label, false);
-      lastError = describeProviderError(`${config.label} (${model})`, response.status, await errorMessage(response),
-        "hoặc chọn model dịch khác");
-      // Quá tải / hết lượt → thử model dự phòng; lỗi khác (key sai…) thì dừng.
-      if (response.status >= 500 || response.status === 429) continue;
+      const message = await errorMessage(response);
+      lastError = describeProviderError(`${config.label} (${model})`, response.status, message, "hoặc chọn model dịch khác");
+      // Quá tải / hết lượt / JSON hỏng → thử model dự phòng; lỗi khác (key sai…) thì dừng.
+      if (tryNextModel(response.status, message)) continue;
       break;
     }
     recordCall(config.label, true);
     const body = (await response.json()) as { choices?: { message?: { content?: string | null } }[] };
-    return readLines(body.choices?.[0]?.message?.content ?? "", items.length, `${config.label} (${model})`);
+    try {
+      return readLines(body.choices?.[0]?.message?.content ?? "", items.length, `${config.label} (${model})`);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
   }
   throw new Error(lastError);
 };

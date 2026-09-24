@@ -50,6 +50,17 @@ const PAID_VIDEO_GROUP = "💳 Trả phí · Tạo video bằng AI";
 
 export const KEY_FIELDS: Field[] = [
   {
+    name: "APP_LANGUAGE",
+    label: "🌐 Ngôn ngữ giao diện · Language",
+    help: "Ngôn ngữ của nút, menu và thông báo trong app. Video mới mặc định làm theo ngôn ngữ này — đổi riêng từng video ở nút Ngôn ngữ khi tạo.",
+    group: "Chung · General",
+    type: "select",
+    options: [
+      { value: "vi", label: "Tiếng Việt" },
+      { value: "en", label: "English" },
+    ],
+  },
+  {
     name: "FREE_MODE",
     label: "💚 Chế độ Miễn phí",
     help: "Bật: chỉ dùng AI chạy trên máy và các gói miễn phí (Gemini, Groq, OpenRouter, Pexels, Pixabay, Freesound…). Không gọi Claude, ChatGPT, video AI hay vẽ ảnh tính tiền. Hết lượt miễn phí thì tự lùi sang lựa chọn trên máy (ví dụ giọng Gemini → giọng có sẵn trong app) và báo rõ.",
@@ -171,10 +182,15 @@ export const KEY_FIELDS: Field[] = [
   {
     name: "GROQ_MODEL",
     label: "Model Groq",
-    help: `Bỏ trống để dùng ${COMPAT_PROVIDERS.groq.defaultModel}. Model phải hỗ trợ structured output.`,
+    help: "Model dùng trước. Model đó lỗi (quá tải, hết lượt, viết JSON hỏng) thì app tự chuyển sang model Groq còn lại.",
     group: "Viết kịch bản",
-    type: "text",
-    placeholder: COMPAT_PROVIDERS.groq.defaultModel,
+    type: "select",
+    options: [
+      { value: "", label: `Tự động — ${COMPAT_PROVIDERS.groq.defaultModel}, lỗi thì đổi model` },
+      { value: "openai/gpt-oss-120b", label: "GPT-OSS 120B — viết tốt nhất" },
+      { value: "qwen/qwen3.8-27b", label: "Qwen 3.8 27B — ổn định, nhanh" },
+      { value: "openai/gpt-oss-20b", label: "GPT-OSS 20B — nhanh nhất, nhẹ" },
+    ],
   },
   {
     name: "OPENROUTER_MODEL",

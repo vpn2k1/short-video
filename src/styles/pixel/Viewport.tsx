@@ -10,6 +10,7 @@ import { SceneMedia } from "../media";
 import { Landscape, PixelBox, PixelDissolve } from "./parts";
 import { BLOCK, clamp, HUD_BG, INK, onTwos, snap, upperVi, WHITE, type Rect } from "./pixel";
 import { ItemPanel, PunchPopup } from "./Popups";
+import { useVt } from "../../i18n/video";
 
 /** Nửa thời gian màn tan điểm ảnh: phủ 9 frame trước điểm cắt, lộ 9 frame sau. */
 export const DISSOLVE = 9;
@@ -50,6 +51,7 @@ const StagePlate: React.FC<{ index: number; tag: string | null; x: number; y: nu
   unit,
   accent,
 }) => {
+  const vt = useVt();
   // Trượt vào từ trái theo nấc 2 ô, 10 frame.
   const slide = snap(interpolate(onTwos(local), [0, 10], [-420 * unit, 0], clamp), P * 2);
   const size = 30 * unit;
@@ -64,7 +66,7 @@ const StagePlate: React.FC<{ index: number; tag: string | null; x: number; y: nu
   };
   return (
     <div style={{ position: "absolute", left: x + slide, top: y, display: "flex", translate: "0 -50%", opacity: local < 0 ? 0 : 1 }}>
-      <div style={{ ...cell, backgroundColor: accent, color: WHITE, textShadow: `${P * 0.5}px ${P * 0.5}px 0 ${INK}` }}>MÀN {index + 1}</div>
+      <div style={{ ...cell, backgroundColor: accent, color: WHITE, textShadow: `${P * 0.5}px ${P * 0.5}px 0 ${INK}` }}>{vt("MÀN {n}", { n: index + 1 })}</div>
       {label ? (
         <div style={{ ...cell, marginLeft: -P, backgroundColor: HUD_BG, color: WHITE, maxWidth: 640 * unit, overflow: "hidden" }}>{label}</div>
       ) : null}

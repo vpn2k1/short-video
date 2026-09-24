@@ -29,6 +29,7 @@ import {
   TagBox,
   upper,
 } from "./Bits";
+import { useVt } from "../../i18n/video";
 
 /** Độ dài lật trang (frame) — index.tsx dùng cùng hằng số để trượt trang. */
 export const TURN = 16;
@@ -70,6 +71,7 @@ export const Page: React.FC<Props> = ({
   ready,
   captionPosition,
 }) => {
+  const vt = useVt();
   const { unit, width, height, safe, captionBottom } = useLayout();
   const wide = width / height > 1.2;
   // 1:1 và 3:4 thấp hơn 9:16 nhiều: không đủ chỗ xếp dọc cột giữa trên tít, nên dàn hai bên như khung ngang.
@@ -181,7 +183,7 @@ export const Page: React.FC<Props> = ({
 
       <Masthead text={brand} top={mastTop} width={width} maxSize={mastMax} color={ink} unit={unit} ready={ready} drop={drop} />
       <IssueLine
-        left={`SỐ ${pad2(1)} · ẤN BẢN ĐẶC BIỆT`}
+        left={vt("SỐ {n} · ẤN BẢN ĐẶC BIỆT", { n: pad2(1) })}
         right={`${pad2(index + 1)}/${pad2(total)}`}
         top={issueTop}
         side={side}
@@ -243,7 +245,7 @@ export const Page: React.FC<Props> = ({
       {/* Tem "MỚI!" của bìa — chỉ lúc bìa dựng. */}
       {intro && frame < TITLE_FRAMES ? (
         <div style={{ position: "absolute", ...(compact ? burstPos : { right: safe.side * 0.7, top: height * 0.24 }), opacity: 1 - coverOut }}>
-          <Burst text="Mới!" caption={null} size={burstSize * 0.85} unit={unit} progress={since(26, 14, POP)} frame={frame} />
+          <Burst text={vt("Mới!")} caption={null} size={burstSize * 0.85} unit={unit} progress={since(26, 14, POP)} frame={frame} />
         </div>
       ) : null}
 
@@ -254,7 +256,7 @@ export const Page: React.FC<Props> = ({
           bottom: wide ? safe.bottom * 0.7 : safe.bottom * 0.42,
         }}
       >
-        <Barcode issue={`SỐ ${pad2(1)}`} unit={unit} opacity={intro ? since(22, 10) : 1} />
+        <Barcode issue={vt("SỐ {n}", { n: pad2(1) })} unit={unit} opacity={intro ? since(22, 10) : 1} />
       </div>
 
       {/* Tít bìa: title + subtitle, dựng lúc mở đầu rồi nhường chỗ cho phụ đề. */}
@@ -270,7 +272,7 @@ export const Page: React.FC<Props> = ({
           }}
         >
           <div style={{ marginBottom: 20 * unit }}>
-            <TagBox text="Trang bìa" accent={accent} unit={unit * 0.85} progress={since(14, 12)} />
+            <TagBox text={vt("Trang bìa")} accent={accent} unit={unit * 0.85} progress={since(14, 12)} />
           </div>
           <div
             style={{
@@ -339,7 +341,7 @@ export const Page: React.FC<Props> = ({
                 textShadow: shadow ? `0 ${2 * unit}px ${8 * unit}px rgba(0,0,0,0.6)` : "none",
               }}
             >
-              {upper(paper ? "Trích dẫn" : index === 0 ? "Câu chuyện trang bìa" : `Trang ${pad2(index + 1)}`)}
+              {upper(paper ? vt("Trích dẫn") : index === 0 ? vt("Câu chuyện trang bìa") : vt("Trang {n}", { n: pad2(index + 1) }))}
             </div>
           </div>
           {paper ? (

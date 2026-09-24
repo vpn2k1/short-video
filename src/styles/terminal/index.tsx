@@ -6,6 +6,7 @@ import { Grain, seeded, useLayout } from "../shared";
 import { IdlePrompt, Line } from "./Lines";
 import { buildSession, sceneAppear, type Entry } from "./session";
 import { C, clamp, MONO, POP, ramp, withAlpha } from "./theme";
+import { useVideoLanguage } from "../../i18n/video";
 
 /**
  * Phong cách "Màn hình code" — xem skill style-terminal.
@@ -208,6 +209,7 @@ export const TerminalStyle: React.FC<ShortProps> = ({
   const { width, height, safe, unit } = useLayout();
   // Be Vietnam Pro: tiêu đề lớn + chữ dự phòng cho ký tự có dấu mà font mono của máy thiếu.
   useFontReady("bevietnam");
+  const language = useVideoLanguage();
 
   const { entries, introEnd } = buildSession({
     title,
@@ -215,6 +217,7 @@ export const TerminalStyle: React.FC<ShortProps> = ({
     captions,
     scenes,
     showTitle,
+    language,
   });
   const dimAt = dimFrames(entries);
 

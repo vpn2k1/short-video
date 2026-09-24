@@ -128,10 +128,10 @@ export const shrink = (text: string, base: number, short: number, min = 0.58) =>
 /** Emoji cho mưa cảm xúc của câu nhấn, chọn theo nghĩa câu. */
 export const reactionEmoji = (text: string) => {
   const t = text.normalize("NFC").toLocaleLowerCase("vi");
-  if (/cười|hài|vui|lầy|hề|haha/.test(t)) return ["😂", "🤣", "😆"];
-  if (/yêu|thương|đẹp|xinh|dễ thương|cute|mê/.test(t)) return ["😍", "🥰", "❤️"];
-  if (/sốc|bất ngờ|trời|không ngờ|choáng|sợ/.test(t)) return ["😱", "😮", "🤯"];
-  if (/ngon|đói|ăn|món/.test(t)) return ["🤤", "😋", "🔥"];
-  if (/buồn|khóc|tiếc|mệt/.test(t)) return ["🥲", "😢", "🫶"];
+  if (/cười|hài|vui|lầy|hề|haha|\b(?:lol|lmao|funny|hilarious|laugh\w*|joke\w*)\b/.test(t)) return ["😂", "🤣", "😆"];
+  if (/yêu|thương|đẹp|xinh|dễ thương|cute|mê|\b(?:love\w*|lovely|beautiful|pretty|adorable|gorgeous)\b/.test(t)) return ["😍", "🥰", "❤️"];
+  if (/sốc|bất ngờ|trời|không ngờ|choáng|sợ|\b(?:shock\w*|surpris\w*|omg|wow|unbelievable|scar\w*)\b/.test(t)) return ["😱", "😮", "🤯"];
+  if (/ngon|đói|ăn|món|\b(?:delicious|yummy|tasty|hungry|food|eat\w*|dish)\b/.test(t)) return ["🤤", "😋", "🔥"];
+  if (/buồn|khóc|tiếc|mệt|\b(?:sad|cry\w*|cried|tired|miss\w*|regret\w*)\b/.test(t)) return ["🥲", "😢", "🫶"];
   return ["🔥", "👏", "😍"];
 };

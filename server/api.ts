@@ -1,12 +1,13 @@
 import fs from "fs";
 import path from "path";
+import { previousLanguage } from "./storage";
 import { execFileSync } from "child_process";
 import { allLines, parseScript, scriptToProps } from "../src/compositions/Short/script";
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { TITLE_FRAMES } from "../src/constants";
 import { generateScript } from "../scripts/generate-script";
 import { ENGINE_LABELS, generateVoiceover, isVoiceCached, synthesizeVoiceover, type TtsEngine } from "../scripts/tts";
-import { fetchAccountVoices, findVoice, VOICES } from "../scripts/voices";
+import { fetchAccountVoices, findVoice, voiceForLanguage, voiceUsable, VOICES } from "../scripts/voices";
 import { renderScene, renderShort } from "../scripts/render";
 import { assertImagesExist, listAllImages } from "../scripts/images";
 import { downloadPhoto, searchPhotos, writeCredits } from "../scripts/pexels";
@@ -94,6 +95,7 @@ export const writeProps = (slug: string, props: unknown) => {
 };
 
 export const voiceCatalog = async (live: boolean) => {
+  const autoKeys = { vi: voiceForLanguage("vi") ?? null, en: voiceForLanguage("en") ?? null };
   const catalog = VOICES.map((voice) => ({
     key: voice.key,
     label: `${voice.key} — ${voice.gender}, ${voice.lang}`,
@@ -104,15 +106,20 @@ export const voiceCatalog = async (live: boolean) => {
     // Nghe thử: giọng trên mạng mà câu mẫu chưa có trong bộ nhớ thì bấm nghe sẽ tốn 1 lượt — nút ghi chú trước.
     online: voice.engine === "gemini" || voice.engine === "elevenlabs",
     sampled: isVoiceCached(voice.engine, voice.id || undefined, VOICE_SAMPLE_TEXT[voice.lang]),
+    /** Máy này đọc được giọng này ngay (đủ key, đã cài giọng trong app, hệ điều hành có giọng đó). */
+    usable: voiceUsable(voice),
+    /** Giọng mà "Tự động" đang chọn cho ngôn ngữ của nó. */
+    auto: autoKeys[voice.lang] === voice.key,
   }));
   if (!live || !process.env.ELEVENLABS_API_KEY) {
-    return { catalog, account: null };
+    return { catalog, auto: autoKeys, account: null };
   }
   try {
-    return { catalog, account: await fetchAccountVoices(process.env.ELEVENLABS_API_KEY) };
+    return { catalog, auto: autoKeys, account: await fetchAccountVoices(process.env.ELEVENLABS_API_KEY) };
   } catch (error) {
     return {
       catalog,
+      auto: autoKeys,
       account: null,
       accountError: error instanceof Error ? error.message : String(error),
     };
@@ -249,6 +256,7 @@ export const buildAndRender = async (
       music: options.music ?? null,
       sfx: options.sfx ?? false,
       captionPosition: options.captionPosition ?? "bottom",
+      language: previousLanguage(dir),
     });
     writeProps(slug, props);
   } else {

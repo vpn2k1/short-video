@@ -29,7 +29,7 @@ export const TitleIntro: React.FC<{ L: NewsLayout; title: string; subtitle: stri
   const tagFont = Math.round((stacked ? 76 : 62) * unit);
   const padX = 30 * unit;
   const padY = 18 * unit;
-  const head = fitText(title || "TIN NÓNG", contentW - padX * 2, 3, (stacked ? 80 : 68) * unit, 42 * unit, 800);
+  const head = fitText(title || L.vt("TIN NÓNG"), contentW - padX * 2, 3, (stacked ? 80 : 68) * unit, 42 * unit, 800);
   const sub =
     subtitle.trim() && subtitle.trim() !== title.trim()
       ? fitText(subtitle, contentW - padX * 2, 2, (stacked ? 42 : 36) * unit, 28 * unit, 600)
@@ -94,7 +94,7 @@ export const TitleIntro: React.FC<{ L: NewsLayout; title: string; subtitle: stri
             transformOrigin: "0% 100%",
           }}
         >
-          TIN NÓNG
+          {L.vt("TIN NÓNG")}
         </div>
 
         <div

@@ -3,6 +3,7 @@ import { TITLE_FRAMES } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
 import type { Metrics } from "./model";
 import { CHAT_FONT, withAlpha, type ChatTheme } from "./theme";
+import { useVt } from "../../i18n/video";
 
 const VIDEO_EXT = /\.(mp4|mov|webm)$/i;
 
@@ -60,6 +61,7 @@ export const Header: React.FC<{
   group: boolean;
   height: number;
 }> = ({ m, theme, accent, contact, group, height }) => {
+  const vt = useVt();
   const avatar = 84 * m.u;
   return (
     <div
@@ -114,7 +116,7 @@ export const Header: React.FC<{
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 * m.u, fontSize: 25 * m.u, color: theme.secondary }}>
           <div style={{ width: 14 * m.u, height: 14 * m.u, borderRadius: "50%", backgroundColor: "#31D158" }} />
-          {group ? "nhóm · đang hoạt động" : "đang hoạt động"}
+          {group ? vt("nhóm · đang hoạt động") : vt("đang hoạt động")}
         </div>
       </div>
       <Icon size={50 * m.u} color={theme.link}>
@@ -135,6 +137,7 @@ export const Composer: React.FC<{ m: Metrics; theme: ChatTheme; height: number; 
   typed,
   frame,
 }) => {
+  const vt = useVt();
   const fieldH = 76 * m.u;
   const caret = Math.floor(frame / 8) % 2 === 0;
   return (
@@ -183,7 +186,7 @@ export const Composer: React.FC<{ m: Metrics; theme: ChatTheme; height: number; 
             <span style={{ color: theme.link, opacity: caret ? 1 : 0 }}>|</span>
           </span>
         ) : (
-          "Tin nhắn"
+          vt("Tin nhắn")
         )}
       </div>
       {typed ? (
@@ -226,6 +229,7 @@ export const LockScreen: React.FC<{
   background: string;
   accent: string;
 }> = ({ frame, fps, m, theme, title, subtitle, clock, scene, background, accent }) => {
+  const vt = useVt();
   const out = interpolate(frame, [TITLE_FRAMES - 16, TITLE_FRAMES - 3], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -288,8 +292,8 @@ export const LockScreen: React.FC<{
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 26 * m.u, color: theme.secondary, lineHeight: 1.3 }}>
-            <span>Tin nhắn</span>
-            <span>bây giờ</span>
+            <span>{vt("Tin nhắn")}</span>
+            <span>{vt("bây giờ")}</span>
           </div>
           <div
             style={{

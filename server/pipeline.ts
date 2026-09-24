@@ -7,6 +7,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { previousLanguage } from "./storage";
 import { allLines, parseScript, scriptToProps } from "../src/compositions/Short/script";
 import { shortSchema, type ShortProps } from "../src/compositions/Short/schema";
 import { TITLE_FRAMES } from "../src/constants";
@@ -164,6 +165,7 @@ export const runVoiceStage = async (
     music: options.music ?? null,
     sfx: options.sfx ?? false,
     captionPosition: options.captionPosition ?? "bottom",
+    language: previousLanguage(dir),
   });
 
   fs.writeFileSync(

@@ -7,6 +7,7 @@ import {
   alpha, clamp, fitLines, formatVnd, GOLD, INK, inkOn, NUM, parsePrice, SALE_ORANGE, SALE_RED, shade, SLAM, SMOOTH, UI, upper,
   type Geo,
 } from "./live";
+import { useVt } from "../../i18n/video";
 
 /** Thẻ flash sale đứng bao lâu sau câu nhấn — khớp 90 frame chat dồn "Chốt đơn!" và tim bay dày. */
 export const SALE_FRAMES = 96;
@@ -96,6 +97,7 @@ const Rays: React.FC<{ size: number; frame: number; opacity: number }> = ({ size
  */
 export const FlashSale: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; ready: boolean }> = ({ geo, scenes, accent, ready }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const sale = activeSale(scenes, frame);
   if (!sale) return null;
   const { scene, index, at } = sale;
@@ -132,7 +134,7 @@ export const FlashSale: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; re
       }}
     >
       <CartIcon size={(wide ? 40 : 46) * u} color={inkOn(accent)} />
-      MUA NGAY
+      {vt("MUA NGAY")}
     </div>
   );
 
@@ -258,7 +260,7 @@ export const FlashSale: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; re
             }}
           >
             <FlameIcon size={26 * u} color={GOLD} />
-            Đã bán {Math.round(sold)}% · Sắp hết
+            {vt("Đã bán {n}% · Sắp hết", { n: Math.round(sold) })}
           </div>
         </div>
         {button}
@@ -327,13 +329,13 @@ export const FlashSale: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; re
           <div style={{ display: "flex", alignItems: "center", gap: 10 * u }}>
             {price ? <BoltIcon size={headFs * 1.2} color={GOLD} /> : <FlameIcon size={headFs * 1.1} color={GOLD} />}
             <span style={{ fontFamily: UI, fontWeight: 900, fontStyle: "italic", fontSize: headFs, letterSpacing: 1 * u, whiteSpace: "nowrap" }}>
-              {price ? "FLASH SALE" : "ĐIỂM NỔI BẬT"}
+              {price ? "FLASH SALE" : vt("ĐIỂM NỔI BẬT")}
             </span>
           </div>
           {price ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6 * u }}>
               {geo.square ? null : (
-                <span style={{ fontFamily: UI, fontWeight: 600, fontSize: 21 * u, marginRight: 6 * u, whiteSpace: "nowrap" }}>Kết thúc sau</span>
+                <span style={{ fontFamily: UI, fontWeight: 600, fontSize: 21 * u, marginRight: 6 * u, whiteSpace: "nowrap" }}>{vt("Kết thúc sau")}</span>
               )}
               <TimeBox value="00" size={26 * u} u={u} />
               <span style={{ fontFamily: NUM, fontWeight: 900, fontSize: 26 * u }}>:</span>

@@ -15,6 +15,7 @@ import {
   YELLOW,
   type SceneInfo,
 } from "./theme";
+import { useVt } from "../../i18n/video";
 
 /**
  * Hàng chấm tiến độ: mỗi câu một chấm, câu đã lật đáp án → chấm trắng đặc có ✓,
@@ -123,7 +124,8 @@ export const StatSticker: React.FC<{ visual: SceneVisual; x: number; y: number; 
   const shown = stat ? `${stat.prefix}${stat.format(stat.value * count)}${stat.suffix}` : visual.text;
   const ratio = stat?.ratio ?? 1;
   const numSize = Math.min(96 * unit, (width - 50 * unit) / Math.max(2.2, [...visual.text].length * 0.62));
-  const caption = visual.caption ?? "người trả lời sai";
+  const vt = useVt();
+  const caption = visual.caption ?? vt("người trả lời sai");
   return (
     <div
       style={{
@@ -318,6 +320,7 @@ export const SubtitleStrip: React.FC<{
 export const EndStrip: React.FC<{ cx: number; cy: number; from: number; maxWidth: number }> = ({ cx, cy, from, maxWidth }) => {
   const frame = useCurrentFrame();
   const { unit } = useLayout();
+  const vt = useVt();
   if (frame < from) return null;
   const inP = ramp(frame, from, 16, EASE_BACK);
   const bounce = Math.abs(Math.sin((frame - from) / 7)) * 6 * unit;
@@ -352,7 +355,7 @@ export const EndStrip: React.FC<{ cx: number; cy: number; from: number; maxWidth
           gap: fontSize * 0.4,
         }}
       >
-        Bình luận số câu bạn đúng
+        {vt("Bình luận số câu bạn đúng")}
         {/* Emoji vàng trên nền vàng bị chìm — đặt trong đĩa tối riêng. */}
         <span
           style={{

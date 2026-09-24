@@ -96,7 +96,7 @@ function renderBiliResults() {
     <button type="button" class="bl-card ${bili.open === r.bvid ? "on" : ""}" data-bvid="${r.bvid}" title="${escapeHtml(r.permission.quote)}">
       <span class="bl-cover"><img src="${escapeHtml(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" /><i>${biliClock(r.duration)}</i></span>
       <span class="bl-meta">
-        <b>${escapeHtml(r.title)}</b>
+        <b data-no-i18n>${escapeHtml(r.title)}</b>
         <small>${escapeHtml(r.author)} · ${biliCount(r.plays)} lượt xem</small>
         <span class="bl-tags">${r.permission.labels.map((l) => `<em>✓ ${escapeHtml(l)}</em>`).join("")}${
           bili.verified.has(r.bvid) ? "" : `<em class="pending">đang kiểm tra…</em>`}</span>
@@ -214,13 +214,13 @@ function renderBiliDetail() {
       <iframe src="https://player.bilibili.com/player.html?${new URLSearchParams({ bvid: d.bvid, p: "1", autoplay: "0", danmaku: "0" })}"
         title="${escapeHtml(d.title)}" allow="fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>
     </div>
-    <h2 class="bl-title">${escapeHtml(d.title)}</h2>
+    <h2 class="bl-title" data-no-i18n>${escapeHtml(d.title)}</h2>
     <p class="muted">${escapeHtml(d.author)} · <a href="${escapeHtml(d.url)}" target="_blank" rel="noreferrer">Mở trên Bilibili ↗</a></p>
     ${d.permission ? `
       <div class="bl-permit">
         <span class="bl-tags">${d.permission.labels.map((l) => `<em>✓ ${escapeHtml(l)}</em>`).join("")}</span>
-        <blockquote>${escapeHtml(d.permission.quote)}</blockquote>
-        <details><summary>Đọc toàn bộ mô tả của tác giả</summary><p>${escapeHtml(d.desc || "(trống)")}</p></details>
+        <blockquote data-no-i18n>${escapeHtml(d.permission.quote)}</blockquote>
+        <details><summary>Đọc toàn bộ mô tả của tác giả</summary><p data-no-i18n>${escapeHtml(d.desc || "(trống)")}</p></details>
         <p class="muted">Dùng đúng điều kiện tác giả nêu (ví dụ “不得用于售卖” = không được bán lại chính tư liệu).${d.noReprintFlag
           ? " Video có bật dấu “cấm đăng lại khi chưa được phép” mặc định của Bilibili — lời cho phép trên là sự cho phép của tác giả; dùng làm tư liệu trong video của bạn, không đăng lại nguyên bản."
           : ""}</p>
@@ -312,8 +312,8 @@ function renderBiliDownloads() {
     <div class="bl-dl">
       <video src="/public/${escapeHtml(item.path)}" controls muted playsinline preload="metadata"></video>
       <div class="bl-dl-body">
-        <b>${escapeHtml(item.title)}</b>
-        <small>${escapeHtml(item.credit)}</small>
+        <b data-no-i18n>${escapeHtml(item.title)}</b>
+        <small data-no-i18n>${escapeHtml(item.credit)}</small>
         <div class="actions">
           <button type="button" class="btn primary" data-bl-edit="${k}">✂️ Dựng video từ clip</button>
           <button type="button" class="btn" data-bl-credit="${k}">Chép ghi nguồn</button>

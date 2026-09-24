@@ -10,6 +10,7 @@ import { BadgeRibbon, EndStrip, Flash, ProgressDots, StatSticker, SubtitleStrip 
 import { QuestionCard } from "./QuestionCard";
 import { analyzeScenes, ANSWER_CHAR_W, answerFontSize, EASE_BACK, EASE_IN, estimateLines, ramp, upper } from "./theme";
 import { TitleIntro } from "./TitleIntro";
+import { useVideoLanguage } from "../../i18n/video";
 
 /**
  * Phong cách "Câu đố" — xem skill style-quiz.
@@ -35,7 +36,8 @@ export const QuizStyle: React.FC<ShortProps> = ({
   // Vuông cũng xếp hàng ngang: xếp dọc thì ảnh bị ép thành dải mỏng (đã render thử 1:1).
   const wide = width / height >= 0.95;
   const square = wide && width / height < 1.2;
-  const infos = analyzeScenes(scenes, captions, showTitle);
+  const language = useVideoLanguage();
+  const infos = analyzeScenes(scenes, captions, showTitle, language);
   const hidden = new Set(infos.flatMap((i) => i.hiddenCaptions));
   const current = Math.max(0, activeIndexAt(scenes, frame));
 

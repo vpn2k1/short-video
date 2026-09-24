@@ -9,6 +9,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, CaptionPosition, Scene } from "../../compositions/Short/schema";
 import { useLayout } from "../shared";
 import { fitText, type Fitted, rankItems, upper } from "./theme";
+import { useVt } from "../../i18n/video";
 
 export const CAPTION_LH = 1.24;
 export const NAME_LH = 1.18;
@@ -46,6 +47,7 @@ export const useRankLayout = (
   showTitle: boolean,
 ) => {
   const base = useLayout();
+  const vt = useVt();
   const { width, height, safe, unit: u, captionBottom } = base;
   const strip = height > width * 1.15;
   const items = rankItems(scenes);
@@ -148,7 +150,7 @@ export const useRankLayout = (
   const rowFontMax = (strip ? 28 : 34) * u;
   const rowFontMin = (strip ? 18 : 22) * u;
   const fittedRows = items.map((it) =>
-    fitPreferOne(it.name || `Hạng ${it.rank}`, rowTextW, rowFontMax, rowFontMax * 0.8, rowFontMin, 800),
+    fitPreferOne(it.name || vt("Hạng {n}", { n: it.rank }), rowTextW, rowFontMax, rowFontMax * 0.8, rowFontMin, 800),
   );
 
   /* ---------------- câu nhấn */

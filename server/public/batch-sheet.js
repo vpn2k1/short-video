@@ -90,6 +90,7 @@ function sheetValue(col, raw) {
   }
   if (col === "voice") {
     if (NONE_WORDS.includes(v) || v === "khong giong") return { voice: "none" };
+    if (["auto", "tu dong", "tu chon"].includes(v)) return { voice: "auto" };
     const found = (state?.voices.catalog ?? []).find((x) => sheetKey(x.key) === v);
     return found ? { voice: found.key } : null;
   }

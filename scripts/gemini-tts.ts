@@ -50,17 +50,30 @@ const waitSeconds = (message: string) => {
   return Number.isFinite(seconds) ? Math.ceil(seconds) : null;
 };
 
+/** Lời có chữ tiếng Việt — hướng dẫn đọc viết cùng thứ tiếng với lời để giọng không ngả sang giọng Việt khi đọc tiếng Anh. */
+const VIETNAMESE = /[ăâđêôơưàáạảãầấậẩẫằắặẳẵèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]/iu;
+
 /** Hướng dẫn cách đọc + lời thoại. Model TTS không đọc phần hướng dẫn, chỉ đọc phần sau "LỜI ĐỌC". */
 const buildPrompt = (lines: string[], style: string) =>
-  [
-    "HƯỚNG DẪN (không đọc phần này):",
-    style.trim() || "Giọng tự nhiên, rõ ràng, nhịp vừa phải, như người dẫn video ngắn trên mạng xã hội.",
-    "Đọc nguyên văn phần lời bên dưới, không thêm, bỏ hay đổi chữ nào.",
-    "Mỗi dòng là một câu: đọc hết dòng rồi NGỪNG HẲN khoảng một giây mới đọc dòng tiếp theo.",
-    "",
-    "LỜI ĐỌC:",
-    ...lines,
-  ].join("\n");
+  VIETNAMESE.test(lines.join(" "))
+    ? [
+      "HƯỚNG DẪN (không đọc phần này):",
+      style.trim() || "Giọng tự nhiên, rõ ràng, nhịp vừa phải, như người dẫn video ngắn trên mạng xã hội.",
+      "Đọc nguyên văn phần lời bên dưới, không thêm, bỏ hay đổi chữ nào.",
+      "Mỗi dòng là một câu: đọc hết dòng rồi NGỪNG HẲN khoảng một giây mới đọc dòng tiếp theo.",
+      "",
+      "LỜI ĐỌC:",
+      ...lines,
+    ].join("\n")
+    : [
+      "INSTRUCTIONS (do not read this part):",
+      style.trim() || "Natural, clear voice at a moderate pace, like the host of a short social-media video.",
+      "Read the script below word for word — do not add, drop or change any word.",
+      "Each line is one sentence: finish the line, then PAUSE for about one second before the next line.",
+      "",
+      "SCRIPT:",
+      ...lines,
+    ].join("\n");
 
 /** Một lượt gọi → PCM 16-bit mono 24 kHz. Tự thử lại khi quá tải / hết hạn mức phút (đợi ngắn). */
 const synthesize = async (lines: string[], voice: string, log: Log) => {

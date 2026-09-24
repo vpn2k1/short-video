@@ -2,6 +2,7 @@ import { z } from "zod";
 import { FPS, OUTRO_FRAMES } from "../../constants";
 import { noMotion, type Caption, type CaptionPosition, type Scene, type ShortProps } from "./schema";
 import { DEFAULT_STYLE, isStyleId, STYLE_IDS } from "../../styles/meta";
+import type { VideoLanguage } from "../../i18n/video";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -147,6 +148,8 @@ export type PropsOptions = {
   aspect?: string;
   /** Ghi đè phong cách trong kịch bản (người dùng chọn cụ thể thay vì "Tự động"). */
   style?: string;
+  /** Ngôn ngữ nội dung video — chữ in sẵn trong khung phong cách theo nó. */
+  language?: VideoLanguage;
 };
 
 /**
@@ -258,6 +261,7 @@ export const scriptToProps = (
     captions,
     aspect,
     style: finalStyle,
+    language: options.language ?? "vi",
     scenes,
     captionPosition,
     showTitle: true,

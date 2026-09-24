@@ -5,6 +5,7 @@ import { ensureFonts, useFontReady } from "../../fonts/load";
 import { activeIndexAt, useLayout } from "../shared";
 import { clamp, upper } from "./Bits";
 import { Page, TURN, type PageCaption } from "./Page";
+import { useVt } from "../../i18n/video";
 
 /** Không có cảnh nào: một trang chữ duy nhất suốt video. */
 const FALLBACK_SCENE: Scene = {
@@ -18,14 +19,14 @@ const TURN_EASE = Easing.bezier(0.65, 0, 0.2, 1);
 /**
  * Tên tạp chí trên măng-sét: vài chữ đầu của title (≤ 12 ký tự). In hoa bằng JS để giữ dấu tiếng Việt.
  */
-const brandOf = (title: string) => {
+const brandOf = (title: string, fallback: string) => {
   const words = title.trim().split(/\s+/).filter(Boolean);
   let out = "";
   for (const w of words) {
     if (out && [...`${out} ${w}`].length > 12) break;
     out = out ? `${out} ${w}` : w;
   }
-  return upper(out || "Tạp chí");
+  return upper(out || fallback);
 };
 
 /**
@@ -46,9 +47,10 @@ export const MagazineStyle: React.FC<ShortProps> = ({
   // Măng-sét đo chữ bằng canvas để căng vừa khổ — phải đợi Playfair nạp xong.
   const ready = useFontReady("playfair");
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { width, unit } = useLayout();
   const pages = scenes.length > 0 ? scenes : [FALLBACK_SCENE];
-  const brand = brandOf(title);
+  const brand = brandOf(title, vt("Tạp chí"));
 
   // Câu thuộc trang mà nó bắt đầu trong đó.
   const byPage: PageCaption[][] = pages.map(() => []);

@@ -3,6 +3,7 @@ import { TITLE_FRAMES } from "../../constants";
 import { fitFontSize, FONTS, seeded, useLayout } from "../shared";
 import { Dust, Fog } from "./Atmos";
 import { BLOOD, BLOOD_GLOW, BONE, clamp, EASE, isWide, NIGHT } from "./look";
+import { useVt } from "../../i18n/video";
 
 /**
  * Mở đầu: bóng tối có sương, dòng "— Chuyện có thật? —" mờ, tiêu đề hiện dần ra khỏi bóng tối
@@ -11,6 +12,7 @@ import { BLOOD, BLOOD_GLOW, BONE, clamp, EASE, isWide, NIGHT } from "./look";
  */
 export const HorrorTitle: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { unit, width, height, safe } = useLayout();
   const wide = isWide(width, height);
 
@@ -49,7 +51,7 @@ export const HorrorTitle: React.FC<{ title: string; subtitle: string }> = ({ tit
             textShadow: `0 0 ${14 * unit}px rgba(0,0,0,0.9)`,
           }}
         >
-          — Chuyện có thật? —
+          {vt("— Chuyện có thật? —")}
         </div>
         <div
           style={{

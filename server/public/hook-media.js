@@ -54,7 +54,7 @@ function renderHookMedia() {
   const current = opts.hookMedia;
   $("hookMediaCurrent").innerHTML = current
     ? `<div class="hm-current">${hookMediaCard(current, current, /\.(mp4|mov|webm)$/i.test(current))}
-       <div><b>Đang dùng làm hình mở đầu</b><div class="muted">${escapeHtml(current)}</div>
+       <div><b>Đang dùng làm hình mở đầu</b><div class="muted" data-no-i18n>${escapeHtml(current)}</div>
        <button type="button" class="btn" data-hm-clear>${icon("x")} Bỏ hình mở đầu</button></div></div>`
     : `<p class="muted">Chưa chọn — cảnh đầu lấy hình như các cảnh khác.</p>`;
 
@@ -70,7 +70,7 @@ function renderHookMedia() {
           title="${escapeHtml(`${item.title} — ${item.author}`)}">
           <img src="${escapeHtml(item.preview)}" alt="" loading="lazy" />
           ${item.kind === "video" ? `<span class="hm-tag">${icon("film")}${item.duration ? ` ${Math.round(item.duration)}s` : ""}</span>` : ""}
-          <span class="hm-note">${escapeHtml(item.author)}</span>
+          <span class="hm-note" data-no-i18n>${escapeHtml(item.author)}</span>
         </button>`).join("")
       : `<p class="muted">Gõ từ khoá rồi bấm Tìm. Từ khoá tiếng Anh cho nhiều kết quả hơn.</p>`;
   } else {

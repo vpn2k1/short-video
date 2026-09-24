@@ -9,6 +9,7 @@ import { findPunch } from "../whiteboard/written";
 import { chars, clamp, deep, MAP, mix, pad2, SERIF, UI, upper } from "./geo";
 import type { Rect } from "./parts";
 import { splitTag } from "./parts";
+import { useVt } from "../../i18n/video";
 
 // ---------------------------------------------------------------------------
 // Bảng phụ đề
@@ -67,6 +68,7 @@ export const CaptionPanel: React.FC<{
   /** 0..1 — bảng trượt lên sau phần mở đầu. */
   show: number;
 }> = ({ rect, caption, scene, stop, total, frame, base, accent, unit, show }) => {
+  const vt = useVt();
   if (show <= 0) return null;
   const pad = 30 * unit;
   const headH = 40 * unit;
@@ -106,7 +108,7 @@ export const CaptionPanel: React.FC<{
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 12 * unit, backgroundColor: accent }} />
       <div style={{ height: headH, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 * unit }}>
         <div style={{ fontFamily: UI, fontWeight: 800, fontSize: 26 * unit, lineHeight: 1.4, letterSpacing: "0.1em", color: deep(accent, 0.2), whiteSpace: "nowrap", paddingTop: 4 * unit }}>
-          {upper("chặng")} {pad2(stop)}
+          {upper(vt("chặng"))} {pad2(stop)}
           <span style={{ color: MAP.muted, letterSpacing: "0.04em" }}> / {pad2(total)}</span>
         </div>
         {total > 1 ? (
@@ -166,6 +168,7 @@ const Corner: React.FC<{ size: number; rot: number; style: React.CSSProperties }
 export const TitleCartouche: React.FC<{
   title: string; subtitle: string; accent: string; frame: number; width: number; cy: number; cx: number; unit: number; tall: boolean;
 }> = ({ title, subtitle, accent, frame, width, cy, cx, unit, tall }) => {
+  const vt = useVt();
   const unroll = interpolate(frame, [12, 26], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const titleT = interpolate(frame, [22, 34], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const subT = interpolate(frame, [28, 38], [0, 1], clamp);
@@ -174,7 +177,7 @@ export const TitleCartouche: React.FC<{
   const innerW = width - 110 * unit;
   let size = (tall ? 96 : 84) * unit;
   while (Math.ceil((chars(title) * size * 0.54) / innerW) > 3 && size > 46 * unit) size *= 0.93;
-  const kicker = upper("hành trình");
+  const kicker = upper(vt("hành trình"));
   const sub = subtitle.normalize("NFC").trim();
   // Dòng phụ dạng "Hà Nội · Huế · Sài Gòn" hiện thành chuỗi điểm dừng có chấm tròn giữa.
   const stops = sub ? splitTag(sub) : null;

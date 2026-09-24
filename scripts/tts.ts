@@ -214,6 +214,8 @@ export type VoiceoverOptions = {
   log?: (line: string) => void;
   /** Giọng đã chọn hết lượt/lỗi hạn mức nên đọc bằng giọng miễn phí khác — câu báo cho người dùng. */
   onFallback?: (note: string) => void;
+  /** Ngôn ngữ của lời đọc — giọng thay thế phải đọc được nó. Bỏ trống = theo ngôn ngữ của giọng đã chọn. */
+  language?: "vi" | "en";
 };
 
 /**
@@ -241,7 +243,7 @@ export const generateVoiceover = async (
     try {
       return await synthesizeVoiceover(lines, slug, engine, voiceOverride);
     } catch (error) {
-      const lang = VOICES.find((v) => v.engine === "gemini" && v.id === voiceOverride)?.lang ?? "vi";
+      const lang = options.language ?? VOICES.find((v) => v.engine === "gemini" && v.id === voiceOverride)?.lang ?? "vi";
       const fallback = shouldFallBack(error) ? fallbackVoice(lang) : null;
       if (!fallback) throw error;
       const reason = {

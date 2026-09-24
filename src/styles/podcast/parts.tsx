@@ -10,6 +10,7 @@ import { Grain } from "../shared";
 import {
   alpha, barHeight, clamp, clock, CREAM, FAINT, LIVE_RED, mix, MUTED, SANS, STUDIO, upper, type Rect,
 } from "./podcast";
+import { useVt } from "../../i18n/video";
 
 const POP = Easing.out(Easing.back(1.7));
 
@@ -74,6 +75,7 @@ export const Header: React.FC<{ rect: Rect; episode: number; accent: string; uni
   rect, episode, accent, unit, compact,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const icon = rect.h * 0.86;
   // Chấm đỏ nhấp nháy mềm theo nhịp ~1 giây.
   const blink = 0.45 + 0.55 * (0.5 + 0.5 * Math.cos((frame / 30) * Math.PI * 2));
@@ -97,7 +99,7 @@ export const Header: React.FC<{ rect: Rect; episode: number; accent: string; uni
       <div style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 800, fontSize: (compact ? 28 : 32) * unit, lineHeight: 1.2, color: CREAM, letterSpacing: 2 * unit, whiteSpace: "nowrap" }}>
         {compact ? null : upper("Podcast")}
         {compact ? null : <span style={{ color: alpha(accent, 90) }}> · </span>}
-        {upper(`Tập ${episode}`)}
+        {upper(vt("Tập {n}", { n: episode }))}
       </div>
       <div
         style={{
@@ -122,7 +124,7 @@ export const Header: React.FC<{ rect: Rect; episode: number; accent: string; uni
           }}
         />
         <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: (compact ? 19 : 22) * unit, lineHeight: 1.2, color: "#ffd9d6", letterSpacing: 1.5 * unit, whiteSpace: "nowrap" }}>
-          {upper(compact ? "Live" : "Đang phát")}
+          {upper(compact ? "Live" : vt("Đang phát"))}
         </div>
       </div>
     </div>

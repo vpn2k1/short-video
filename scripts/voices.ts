@@ -1,4 +1,7 @@
-import { ENGINE_LABELS, type TtsEngine } from "./tts";
+import { execFileSync } from "child_process";
+import { ENGINE_LABELS, missingEngineKey, type TtsEngine } from "./tts";
+import { freeMode } from "./usage";
+import { localVoiceAvailable } from "./vieneu-tts";
 
 export type Voice = {
   /** Tên gõ ở CLI: --voice laura */
@@ -111,6 +114,71 @@ export const VOICES: Voice[] = [
 export const findVoice = (key: string) =>
   VOICES.find((voice) => voice.key === key.toLowerCase());
 
+/**
+ * Giọng của hệ điều hành đang có trên máy này — macOS: `say -v ?`, Windows: giọng SAPI đã bật. Hỏi một lần rồi nhớ.
+ * Không phải máy nào cũng có giọng Linh (macOS phải tải thêm, Windows cần gói giọng vi-VN, Linux không có `say`).
+ */
+let systemVoiceCache: { names: string[]; langs: string[] } | null = null;
+const systemVoices = () => {
+  if (systemVoiceCache) return systemVoiceCache;
+  const found = { names: [] as string[], langs: [] as string[] };
+  try {
+    if (process.platform === "darwin") {
+      // "Linh                vi_VN    # Xin chào! …" — tên có thể có dấu cách ("Bad News").
+      for (const line of execFileSync("say", ["-v", "?"], { encoding: "utf8", timeout: 5000 }).split("\n")) {
+        const m = /^(.+?)\s+([a-z]{2,3})_[A-Za-z]{2,4}\s+#/.exec(line);
+        if (m) { found.names.push(m[1].trim()); found.langs.push(m[2]); }
+      }
+    } else if (process.platform === "win32") {
+      const script = "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).GetInstalledVoices() | " +
+        "Where-Object { $_.Enabled } | ForEach-Object { $_.VoiceInfo.Name + '|' + $_.VoiceInfo.Culture.Name }";
+      const out = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8", timeout: 15000 });
+      for (const line of out.split(/\r?\n/)) {
+        const [name, culture] = line.split("|");
+        if (name && culture) { found.names.push(name.trim()); found.langs.push(culture.trim().slice(0, 2).toLowerCase()); }
+      }
+    }
+  } catch {
+    // Không hỏi được thì coi như máy không có giọng hệ thống — Tự động chọn giọng khác.
+  }
+  systemVoiceCache = found;
+  return found;
+};
+
+/**
+ * Giọng này đọc được ngay trên máy này không: đủ key, đã cài giọng trong app, hoặc hệ điều hành có giọng đó.
+ * Windows đọc giọng `say` bằng SAPI — tìm theo tên, không có thì lấy giọng cùng ngôn ngữ (scripts/tts.ts windowsSpeak).
+ */
+export const voiceUsable = (voice: Voice) => {
+  if (voice.paidPlan || missingEngineKey(voice.engine)) return false;
+  if (freeMode() && voice.engine === "elevenlabs") return false;
+  if (voice.engine === "local") return localVoiceAvailable();
+  if (voice.engine === "say") {
+    const { names, langs } = systemVoices();
+    if (process.platform === "darwin") return names.includes(voice.id);
+    if (process.platform === "win32") return names.some((n) => n.includes(voice.id)) || langs.includes(voice.lang);
+    return false;
+  }
+  return true;
+};
+
+/** Giá trị "Tự động" của ô Giọng: server chọn giọng tốt nhất máy này đang có, theo ngôn ngữ video. */
+export const AUTO_VOICE = "auto";
+
+/**
+ * Thứ tự ưu tiên khi chọn tự động: giọng trong app (offline, tự nhiên) → Gemini (gói miễn phí) → ElevenLabs (tính theo
+ * ký tự) → giọng hệ điều hành (máy móc hơn, nhưng máy nào cũng thử được).
+ */
+const ENGINE_ORDER: Record<string, number> = { local: 0, gemini: 1, elevenlabs: 2, say: 3 };
+
+/** Giọng tự động cho một ngôn ngữ trên máy này; undefined = máy chưa có giọng nào đọc được ngôn ngữ đó. */
+export const voiceForLanguage = (lang: string) =>
+  VOICES
+    .filter((v) => v.lang === lang && voiceUsable(v))
+    .sort((a, b) => (ENGINE_ORDER[a.engine] ?? 9) - (ENGINE_ORDER[b.engine] ?? 9))[0]?.key;
+
+export const vietnameseOnly = (voice: Voice) => voice.lang === "vi" && (voice.engine === "local" || voice.engine === "say");
+
 /** voice_id của ElevenLabs là 20 ký tự chữ-số. */
 export const isElevenLabsVoiceId = (value: string) =>
   /^[A-Za-z0-9]{20}$/.test(value);
@@ -164,4 +232,26 @@ export const formatVoiceList = () => {
     "\nDùng:  --voice <tên>     ví dụ: --voice linh, --voice laura",
   );
   return lines.join("\n");
+};
+
+/**
+ * Giọng thật sẽ dùng cho một video: "" = không giọng; "auto" = giọng tự động theo ngôn ngữ; giọng cụ thể mà máy này
+ * không đọc được (không có giọng Linh, thiếu key, chưa cài giọng trong app) hoặc chỉ đọc tiếng Việt trong video tiếng
+ * Anh thì cũng lùi về giọng tự động. `note` = câu báo cho người dùng khi phải đổi hoặc không có giọng nào.
+ */
+export const resolveVoice = (key: string, language: "vi" | "en" = "vi"): { voice?: Voice; note?: string } => {
+  if (!key) return {};
+  const chosen = key === AUTO_VOICE ? undefined : findVoice(key);
+  if (chosen && voiceUsable(chosen) && !(language === "en" && vietnameseOnly(chosen))) return { voice: chosen };
+  const auto = findVoice(voiceForLanguage(language) ?? "");
+  const why = !chosen ? ""
+    : language === "en" && vietnameseOnly(chosen) ? `Giọng ${chosen.key} chỉ đọc tiếng Việt`
+      : `Máy này không dùng được giọng ${chosen.key}`;
+  if (!auto) {
+    return {
+      note: `🔇 ${why ? `${why} và máy` : "Máy"} chưa có giọng đọc ${language === "en" ? "tiếng Anh" : "tiếng Việt"} nào — ` +
+        "video không có tiếng. Thêm key Gemini (miễn phí) trong ⚙ Cài đặt, hoặc cài giọng có sẵn trong app (npm run setup).",
+    };
+  }
+  return { voice: auto, note: why ? `🎙 ${why} — dùng giọng ${auto.key}.` : undefined };
 };

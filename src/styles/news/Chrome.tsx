@@ -8,7 +8,7 @@ export const StationBug: React.FC<{ L: NewsLayout; accent: string }> = ({ L, acc
   const frame = useCurrentFrame();
   const { unit, bugH } = L;
   const enter = ramp(frame, 0, 10);
-  const logo = "TIN";
+  const logo = L.vt("TIN");
   const logoPad = 14 * unit;
   const logoMaxW = 300 * unit;
   const logoFont = Math.min(bugH * 0.36, ((logoMaxW - logoPad * 2) * 0.95) / Math.max(1, measure(logo, 1, 900)));
@@ -79,7 +79,7 @@ export const StationBug: React.FC<{ L: NewsLayout; accent: string }> = ({ L, acc
             opacity: blinkOn ? 1 : 0.15,
           }}
         />
-        TRỰC TIẾP
+        {L.vt("TRỰC TIẾP")}
       </div>
     </div>
   );
@@ -140,7 +140,7 @@ export const Ticker: React.FC<{ L: NewsLayout; items: string[]; accent: string }
   const gapW = 90 * unit;
   const cycleW = Math.max(200 * unit, measure(text, tickerFont, 600) * 1.03 + gapW);
   const labelFont = Math.round(tickerFont * 0.95);
-  const labelW = Math.round(measure("MỚI", labelFont, 900) * 1.08 + 32 * unit);
+  const labelW = Math.round(measure(L.vt("MỚI"), labelFont, 900) * 1.08 + 32 * unit);
   const labelLeft = L.left;
   const stripLeft = labelLeft + labelW;
   const stripW = width - stripLeft;
@@ -221,7 +221,7 @@ export const Ticker: React.FC<{ L: NewsLayout; items: string[]; accent: string }
           boxShadow: `${8 * unit}px 0 ${14 * unit}px rgba(0,0,0,0.35)`,
         }}
       >
-        MỚI
+        {L.vt("MỚI")}
       </div>
       {/* Phần trái nhãn MỚI: khối đỏ nhỏ cho đầy mép */}
       <div style={{ position: "absolute", left: 0, top: 0, height: tickerH, width: labelLeft, backgroundColor: RED }} />

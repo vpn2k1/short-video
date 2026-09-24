@@ -33,12 +33,14 @@ import {
   VERDICT_FRAMES,
   verdictOffset,
 } from "./theme";
+import { useVt } from "../../i18n/video";
 
 type SideKey = 0 | 1 | "verdict";
 
 export const VersusStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captions, scenes, showTitle }) => {
   ensureFonts(["anton", "bevietnam"]);
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { width: W, height: H, safe, unit: u } = useLayout();
   const g = makeGeo(W, H, u);
   const { a: colorA, b: colorB } = sideColors(accent);
@@ -261,7 +263,7 @@ export const VersusStyle: React.FC<ShortProps> = ({ title, subtitle, accent, cap
   const emblemIn = showTitle ? ramp(frame, CLASH_FRAME + 1, 10, SLAM) : 1;
   const pulse = Math.max(k >= 0 ? 1 - ramp(frame, kEnter, 18) : 0, 0.3 + 0.3 * Math.sin(frame / 9));
   const pairs = Math.floor(n / 2);
-  const round = pairs >= 2 && k >= 0 && k !== verdictIndex ? `VÒNG ${Math.floor(k / 2) + 1}/${pairs}` : null;
+  const round = pairs >= 2 && k >= 0 && k !== verdictIndex ? vt("VÒNG {n}/{total}", { n: Math.floor(k / 2) + 1, total: pairs }) : null;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#07070c", overflow: "hidden" }}>

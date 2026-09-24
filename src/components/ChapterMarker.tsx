@@ -2,6 +2,7 @@ import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { msToFrames } from "../constants";
 import { layoutFor } from "../aspects";
 import type { Scene } from "../compositions/Short/schema";
+import { useVt } from "../i18n/video";
 
 const SHOW_SECONDS = 2.2;
 
@@ -14,6 +15,7 @@ export const ChapterMarker: React.FC<{ scenes: Scene[]; accent: string }> = ({
   accent,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { fps, width, height } = useVideoConfig();
   const { safe } = layoutFor(width, height);
   const showFrames = Math.round(fps * SHOW_SECONDS);
@@ -51,7 +53,7 @@ export const ChapterMarker: React.FC<{ scenes: Scene[]; accent: string }> = ({
           transform: `translateY(${(1 - enter) * -20}px)`,
         }}
       >
-        {`Chương ${index + 1}`}
+        {vt("Chương {n}", { n: index + 1 })}
       </span>
     </div>
   );

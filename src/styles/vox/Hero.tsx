@@ -8,6 +8,7 @@ import type { SceneCrop } from "../../compositions/Short/schema";
 import { Img, Sequence, staticFile } from "remotion";
 import { FONTS, seeded } from "../shared";
 import { INK, PAPER_LIGHT } from "./palette";
+import { useVt } from "../../i18n/video";
 
 const VIDEO_EXT = /\.(mp4|mov|webm)$/i;
 const CUTOUT_EXT = /\.png$/i;
@@ -80,6 +81,7 @@ type Props = {
 
 export const Hero: React.FC<Props> = ({ image, kind, w, h, unit, sceneIndex, sceneStart, title, trimStartMs, speed, volume, crop }) => {
   const key = `vox-hero-${sceneIndex}`;
+  const vt = useVt();
 
   if (kind === "cutout" && image) {
     // Viền sticker trắng bám theo silhouette: 4 bóng trắng không nhoè theo 4 hướng
@@ -137,7 +139,7 @@ export const Hero: React.FC<Props> = ({ image, kind, w, h, unit, sceneIndex, sce
               textOverflow: "ellipsis",
             }}
           >
-            {(title || "Hồ sơ").normalize("NFC").toLocaleUpperCase("vi")}
+            {(title || vt("Hồ sơ")).normalize("NFC").toLocaleUpperCase("vi")}
           </div>
           <div style={{ display: "flex", gap: 30 * unit, flex: 1, minHeight: 0 }}>
             <div

@@ -4,6 +4,7 @@
  */
 import { AbsoluteFill } from "remotion";
 import { C, LABEL, MONO, upper } from "./theme";
+import { useVt } from "../../i18n/video";
 
 /** Nền giấy can: lưới 2 cấp, nếp gấp ngang/dọc, tối góc. Không động — giấy phải đứng yên để nét vẽ nổi lên. */
 export const BlueprintPaper: React.FC<{ width: number; height: number; unit: number }> = ({ width, height, unit }) => {
@@ -181,10 +182,11 @@ export const TitleBlock: React.FC<{
   accent: string;
   opacity: number;
 }> = ({ box, unit, title, sheet, sheets, accent, opacity }) => {
+  const vt = useVt();
   const line = `${Math.max(1, 1.6 * unit).toFixed(2)}px solid ${C.ink}`;
   const thin = `${Math.max(1, 1 * unit).toFixed(2)}px solid ${C.faint}`;
   const pad = (n: number) => String(n).padStart(2, "0");
-  const t = upper(title || "BẢN VẼ");
+  const t = upper(title || vt("BẢN VẼ"));
   const size = 21 * unit;
   return (
     <div
@@ -205,27 +207,28 @@ export const TitleBlock: React.FC<{
       }}
     >
       <Cell
-        label="TÊN BẢN VẼ"
+        label={vt("TÊN BẢN VẼ")}
         value={t}
         unit={unit}
         size={fitLine(t, size, (box.w * 2) / 3 - 26 * unit)}
         style={{ gridColumn: "1 / 3", borderRight: thin, borderBottom: thin }}
       />
-      <Cell label="BẢN VẼ SỐ" value="01" unit={unit} size={size * 1.25} style={{ borderBottom: thin }} accent={accent} />
-      <Cell label="TỈ LỆ" value="1:1" unit={unit} size={size} style={{ gridColumn: "1 / 3", borderRight: thin }} />
-      <Cell label="TỜ" value={`${pad(sheet)} / ${pad(Math.max(sheet, sheets))}`} unit={unit} size={size} />
+      <Cell label={vt("BẢN VẼ SỐ")} value="01" unit={unit} size={size * 1.25} style={{ borderBottom: thin }} accent={accent} />
+      <Cell label={vt("TỈ LỆ")} value="1:1" unit={unit} size={size} style={{ gridColumn: "1 / 3", borderRight: thin }} />
+      <Cell label={vt("TỜ")} value={`${pad(sheet)} / ${pad(Math.max(sheet, sheets))}`} unit={unit} size={size} />
     </div>
   );
 };
 
 /** Thước tỉ lệ đen trắng xen kẽ, đặt cạnh khung tên. */
 export const ScaleBar: React.FC<{ x: number; y: number; w: number; unit: number; opacity: number }> = ({ x, y, w, unit, opacity }) => {
+  const vt = useVt();
   const h = 12 * unit;
   const segs = 5;
   const sw = Math.max(1, 1.3 * unit);
   return (
     <div style={{ position: "absolute", left: x, top: y, width: w, opacity }}>
-      <div style={{ fontFamily: MONO, fontSize: 13 * unit, color: C.soft, letterSpacing: "0.08em", marginBottom: 6 * unit }}>THƯỚC TỈ LỆ (m)</div>
+      <div style={{ fontFamily: MONO, fontSize: 13 * unit, color: C.soft, letterSpacing: "0.08em", marginBottom: 6 * unit }}>{vt("THƯỚC TỈ LỆ (m)")}</div>
       <svg width={w} height={h + 22 * unit} style={{ overflow: "visible" }}>
         {Array.from({ length: segs }, (_, i) => (
           <rect

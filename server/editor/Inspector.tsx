@@ -20,7 +20,10 @@ export const Inspector: React.FC<Props> = ({
 }) => {
   // Mở ra đúng giọng video đang dùng — trước đây luôn là "linh", bấm "Đổi giọng toàn bộ" là đọc lại bằng giọng khác.
   // `values`: biết giọng của video (tải xong, hoặc vừa đổi giọng toàn bộ) thì ô chọn giọng về đúng giọng đó.
-  const voiceForm = useForm<VoiceFields>({ values: { voice: videoVoice ?? "linh" } });
+  // Chưa biết giọng của video: lấy giọng "Tự động" của máy này (không mặc định Linh — nhiều máy không có giọng đó).
+  const autoVoice = voices.find((v) => v.auto && v.lang === (props.language ?? "vi"))?.key
+    ?? voices.find((v) => v.usable !== false && !v.paidPlan)?.key ?? "";
+  const voiceForm = useForm<VoiceFields>({ values: { voice: videoVoice ?? autoVoice } });
   /** Lỗi khi đổi Lấp đầy/Vừa khung của cảnh (không đọc được kích thước file). */
   const [fitError, setFitError] = useState<string | null>(null);
   useEffect(() => setFitError(null), [selection]);

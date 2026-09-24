@@ -12,6 +12,7 @@ import { SceneMedia } from "../media";
 import { seeded } from "../shared";
 import { Doodle, PushPin, TAPE_COLORS, WashiTape, type DoodleKind } from "./paper";
 import { HAND, INK, inkOn, PHOTO_PAPER, ROUND, SCRIPT, shade } from "./text";
+import { useVt } from "../../i18n/video";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 /** Dán mạnh tay: vượt quá rồi nảy về. */
@@ -83,6 +84,7 @@ const Photo: React.FC<Props> = ({ scene, index, w, h, border, strip, appear, fra
 // Vé kỷ niệm — thay ảnh khi cảnh không có hình
 // ---------------------------------------------------------------------------
 const Ticket: React.FC<Props & { headline: string }> = ({ index, w, h, appear, frame, unit, accent, headline }) => {
+  const vt = useVt();
   const stubW = w * 0.24;
   const notch = Math.min(w, h) * 0.07;
   const mainW = w - stubW;
@@ -139,7 +141,7 @@ const Ticket: React.FC<Props & { headline: string }> = ({ index, w, h, appear, f
           }}
         >
           <div style={{ fontFamily: HAND, fontSize: Math.min(h * 0.1, 44 * unit), color: shade(accent, -0.25), lineHeight: 1 }}>
-            {"Vé kỷ niệm".toLocaleUpperCase("vi")}
+            {vt("Vé kỷ niệm").toLocaleUpperCase("vi")}
           </div>
           <div style={{ fontFamily: SCRIPT, fontWeight: 700, fontSize: size, lineHeight: 1.08, maxWidth: "100%", overflowWrap: "break-word" }}>
             {headline}

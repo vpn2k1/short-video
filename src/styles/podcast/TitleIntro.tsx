@@ -3,6 +3,7 @@ import { TITLE_FRAMES } from "../../constants";
 import { fitFontSize, useLayout } from "../shared";
 import { MicIcon, PlayIcon } from "./parts";
 import { alpha, barHeight, clamp, CREAM, mix, MUTED, SANS, STUDIO, upper } from "./podcast";
+import { useVt } from "../../i18n/video";
 
 const VIDEO_EXT = /\.(mp4|mov|webm)$/i;
 
@@ -15,6 +16,7 @@ export const PodcastTitle: React.FC<{
   title: string; subtitle: string; accent: string; coverImage: string | null; episode: number;
 }> = ({ title, subtitle, accent, coverImage, episode }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { width, height, unit, safe } = useLayout();
   const wide = width / height > 1.2;
   const square = !wide && height / width < 1.2;
@@ -80,7 +82,7 @@ export const PodcastTitle: React.FC<{
               <MicIcon size={tile * 0.058} color="#ffffff" />
             </div>
             <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: tile * 0.04, lineHeight: 1.2, color: "#ffffff", letterSpacing: tile * 0.006 }}>
-              {upper(`Podcast · Tập ${episode}`)}
+              {upper(vt("Podcast · Tập {n}", { n: episode }))}
             </div>
           </div>
           <div style={{ position: "absolute", left: pad, right: pad, bottom: pad, display: "flex", flexDirection: "column", gap: tile * 0.025 }}>
@@ -122,7 +124,7 @@ export const PodcastTitle: React.FC<{
             <div style={{ width: 52 * unit, height: 52 * unit, borderRadius: "50%", backgroundColor: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <PlayIcon size={30 * unit} color={accent} />
             </div>
-            <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 38 * unit, lineHeight: 1.2, color: "#ffffff" }}>Nghe ngay</div>
+            <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 38 * unit, lineHeight: 1.2, color: "#ffffff" }}>{vt("Nghe ngay")}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 * unit, height: 70 * unit }}>
             {Array.from({ length: bars }, (_, i) => (
@@ -139,7 +141,7 @@ export const PodcastTitle: React.FC<{
           </div>
         </div>
         <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 24 * unit, color: CREAM, opacity: 0.5 * button, letterSpacing: 3 * unit, marginTop: -20 * unit }}>
-          {upper("Tập mới · Mời bạn nghe")}
+          {upper(vt("Tập mới · Mời bạn nghe"))}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

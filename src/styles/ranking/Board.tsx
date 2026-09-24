@@ -2,6 +2,7 @@ import { useCurrentFrame } from "remotion";
 import { Crown, Trophy } from "./Gold";
 import { BEAT, currentAt, NAME_LH, type RankLayout } from "./layout";
 import { EASE_INOUT, FONT, GOLD, GOLD_GRADIENT, INK, ramp, type RankItem, textOn, upper, WHITE, withAlpha } from "./theme";
+import { useVt } from "../../i18n/video";
 
 type RowState = { current: boolean; reveal: number; revealed: boolean };
 
@@ -12,6 +13,7 @@ type RowState = { current: boolean; reveal: number; revealed: boolean };
  */
 export const Board: React.FC<{ L: RankLayout; accent: string }> = ({ L, accent }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   if (L.items.length === 0 || frame < L.introEnd - 1) return null;
   const current = currentAt(L, frame);
   const sorted = [...L.items].sort((a, b) => a.rank - b.rank || a.index - b.index);
@@ -45,7 +47,7 @@ export const Board: React.FC<{ L: RankLayout; accent: string }> = ({ L, accent }
         >
           <Trophy size={44 * u} />
           <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 34 * u, lineHeight: 1.3, color: WHITE, whiteSpace: "nowrap" }}>
-            {upper("Bảng xếp hạng")}
+            {upper(vt("Bảng xếp hạng"))}
           </div>
         </div>
       ) : null}

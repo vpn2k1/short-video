@@ -23,7 +23,8 @@ import { isStyleId, MUSIC_STYLES, randomStyle, RANDOM_STYLE, STYLES, type StyleI
 import { guessStyle, textToScript } from "../scripts/text-script";
 import { reviewScript } from "../scripts/review-script";
 import { ENGINE_LABELS, generateVoiceover, missingEngineKey } from "../scripts/tts";
-import { findVoice } from "../scripts/voices";
+import { AUTO_VOICE, findVoice, resolveVoice } from "../scripts/voices";
+import { isVideoLanguage, type VideoLanguage } from "../src/i18n/video";
 import { freeMode } from "../scripts/usage";
 import {
   RANDOM_MUSIC, chooseStockForScene, downloadStockChoice, prefetchStockForScene, randomFreesoundMusic, type StockChoice,
@@ -80,6 +81,8 @@ export type ChatSettings = {
   hook: string;
   /** Ảnh/clip ghim vào câu mở đầu (đường dẫn trong public/); "" = để AI chọn hình như các cảnh khác. */
   hookMedia: string;
+  /** Ngôn ngữ nội dung video: lời AI viết, giọng đọc, chữ in sẵn trong khung phong cách (src/i18n/video.tsx). */
+  language: VideoLanguage;
 };
 
 /**
@@ -157,7 +160,7 @@ export const resolveMusicChoice = async (music: string | null, log: (line: strin
   return track.path;
 };
 
-export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: "linh", music: null, video: "", provider: "auto", images: "library", art: "auto", length: "auto", hook: "auto", hookMedia: "" };
+export const DEFAULT_SETTINGS: ChatSettings = { kind: "video", style: "auto", mode: "ai", aspect: "9:16", voice: AUTO_VOICE, music: null, video: "", provider: "auto", images: "library", art: "auto", length: "auto", hook: "auto", hookMedia: "", language: "vi" };
 
 /** Ảnh đã dựng của một video: out/scenes/<slug>-<cảnh>.png, theo thứ tự cảnh. */
 const sceneImages = (slug: string) => {
@@ -630,7 +633,8 @@ export const readEditorProps = (slug: string, requested: number | null = null) =
   return {
     slug, props, title: script?.title ?? props.title, running: running.has(slug),
     version, latest, hasDraft: version !== null && fs.existsSync(versionDraftPath(slug, version)),
-    voice: typeof voice === "string" && voice ? voice : null,
+    // "Tự động" → giọng cụ thể máy này đang chọn cho ngôn ngữ của video, để ô chọn giọng có đúng một mục.
+    voice: typeof voice === "string" && voice ? resolveVoice(voice, props.language).voice?.key ?? null : null,
   };
 };
 
@@ -936,7 +940,7 @@ export const normalizeSettings = (
     mode: s.mode === "ai" || s.mode === "text" ? s.mode : base.mode,
     aspect: typeof s.aspect === "string" && ASPECT_IDS.includes(s.aspect as never)
       ? s.aspect : base.aspect,
-    voice: typeof s.voice === "string" && (s.voice === "" || findVoice(s.voice))
+    voice: typeof s.voice === "string" && (s.voice === "" || s.voice === AUTO_VOICE || findVoice(s.voice))
       ? s.voice : base.voice,
     music: isMusicPath(s.music)
       ? s.music : s.music === null ? null : base.music,
@@ -952,6 +956,8 @@ export const normalizeSettings = (
     hook: isHookChoice(s.hook) ? s.hook : base.hook ?? "auto",
     hookMedia: typeof s.hookMedia === "string" && (s.hookMedia === "" || MEDIA_RE.test(s.hookMedia))
       ? s.hookMedia : base.hookMedia ?? "",
+    // Cuộc chat cũ lưu trước khi có ô ngôn ngữ thì không có trường này — video cũ đều là tiếng Việt.
+    language: isVideoLanguage(s.language) ? s.language : base.language ?? "vi",
   };
 };
 
@@ -1287,7 +1293,7 @@ export const prepareScript = async (
   } else if (existing) {
     log(`Đang sửa kịch bản theo yêu cầu (${providerLabel(scriptProvider(settings.provider) ?? "gemini")} viết)…`);
     script = await editScript(parseScript(existing), prompt, slug, uploads, undefined, style, settings.provider,
-      { length: settings.length, log });
+      { length: settings.length, log, language: settings.language });
   } else {
     const series = readJson(chatPath(slug))?.series as ChatSeries | undefined;
     let partTitle: string | null = null;
@@ -1297,15 +1303,15 @@ export const prepareScript = async (
       const before = parseScript(previous);
       log(`Đang viết phần ${series.part}, nối tiếp “${before.title}” (${providerLabel(scriptProvider(settings.provider) ?? "gemini")} viết)…`);
       script = await continueScript(before, series.part, prompt, slug, uploads, undefined, style, settings.provider,
-        { length: settings.length, log });
+        { length: settings.length, log, language: settings.language });
       partTitle = script.title;
     } else {
       log(`Đang viết kịch bản bằng ${providerLabel(scriptProvider(settings.provider) ?? "gemini")}…`);
       script = await generateScript(prompt, slug, undefined, uploads, style, settings.provider,
-        { length: settings.length, hook: settings.hook, log });
+        { length: settings.length, hook: settings.hook, log, language: settings.language });
     }
     // Lượt soát: bắt dữ kiện sai, câu đố vô lý, số liệu bịa rồi sửa đúng chỗ đó (scripts/review-script.ts).
-    script = await reviewScript(script, prompt, { slug, provider: settings.provider, log });
+    script = await reviewScript(script, prompt, { slug, provider: settings.provider, log, language: settings.language });
     // Bản soát có thể viết lại tiêu đề — phần tiếp giữ đúng "Tên loạt (Phần n)".
     if (partTitle) script = { ...script, title: partTitle };
   }
@@ -1344,7 +1350,7 @@ export const buildFromScript = async (
   if (settings.kind === "image") {
     await findSceneImages(slug, script, settings, log);
     const props = shortSchema.parse(
-      scriptToProps(script, { startAtFrame: TITLE_FRAMES, aspect: settings.aspect }),
+      scriptToProps(script, { startAtFrame: TITLE_FRAMES, aspect: settings.aspect, language: settings.language }),
     );
     clearSceneImages(props, settings, log);
     assertImagesExist(props);
@@ -1380,11 +1386,14 @@ export const buildFromScript = async (
   // Giọng lỗi trước thì lỗi đó được báo; việc tìm hình vẫn chạy nốt (hình tìm được lưu vào kịch bản, lần chạy lại dùng
   // luôn) — đánh dấu đã xử lý để lỗi của nó (nếu có) không làm sập tiến trình khi không còn ai đợi.
   imagesTask?.catch(() => {});
-  const voice = settings.voice ? findVoice(settings.voice) : undefined;
-  if (settings.voice && !voice) {
+  if (settings.voice && settings.voice !== AUTO_VOICE && !findVoice(settings.voice)) {
     // Giọng đã bị gỡ khỏi app (ví dụ EverAI) — báo rõ thay vì âm thầm làm video không tiếng.
     throw new Error(`Giọng "${settings.voice}" không còn trong app — chọn giọng khác ở mục Giọng đọc rồi thử lại.`);
   }
+  // "Tự động", giọng máy này không có (không phải máy nào cũng có giọng Linh), hay giọng chỉ đọc tiếng Việt trong video
+  // tiếng Anh → giọng tốt nhất máy này đọc được ngôn ngữ của video (scripts/voices.ts resolveVoice).
+  const { voice, note: languageNote = "" } = resolveVoice(settings.voice, settings.language);
+  if (languageNote) log(languageNote);
   let voiceover;
   let voiceNote = "";
   if (voice) {
@@ -1394,7 +1403,7 @@ export const buildFromScript = async (
       throw new Error("Bản dịch lệch số câu so với bản gốc — bấm Chạy lại để dịch lại.");
     }
     voiceover = await generateVoiceover(spoken, slug, voice.engine, voice.id, {
-      log, onFallback: (note) => { voiceNote = note; },
+      log, onFallback: (note) => { voiceNote = note; }, language: settings.language,
     });
   } else {
     log("Không dùng giọng đọc.");
@@ -1408,6 +1417,7 @@ export const buildFromScript = async (
       music,
       captionPosition: "bottom",
       aspect: settings.aspect,
+      language: settings.language,
     }),
   );
   if (typeof patch === "function") patch(props);
@@ -1438,7 +1448,7 @@ export const buildFromScript = async (
     music ? `🎵 ${path.basename(music).replace(/\.\w+$/, "")}${settings.music === RANDOM_MUSIC ? " (ngẫu nhiên)" : ""}` : "không nhạc nền",
   ].join(" · ");
   return {
-    text: `${existed ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s\n${audioLine}${aiNote ? `\n${aiNote}` : ""}${voiceNote ? `\n${voiceNote}` : ""}`,
+    text: `${existed ? "Đã sửa" : "Đã tạo"} "${script.title}" · ${styleLabel} · ${script.scenes.length} cảnh · ${seconds}s\n${audioLine}${aiNote ? `\n${aiNote}` : ""}${languageNote ? `\n${languageNote}` : ""}${voiceNote ? `\n${voiceNote}` : ""}`,
     style: script.style,
     mp4: `/out/${slug}.mp4?t=${Date.now()}`,
     aspect: settings.aspect,
@@ -1645,6 +1655,11 @@ const sceneImageQueries = async (
       log(`Không viết được mô tả hình (${error instanceof Error ? error.message : error}) — vẽ theo bản dịch lời đọc.`);
     }
   }
+  // Video tiếng Anh: lời đã là tiếng Anh, kho ảnh tìm bằng tiếng Anh — ghép tiêu đề giữ chủ thể, không cần dịch.
+  if (settings.language === "en") {
+    const queries = text.map((line) => `${script.title}, ${line}`);
+    return settings.images === "ai" ? queries.map((query) => composeImagePrompt(query, imageLookFor(script.style, settings.art).look)) : queries;
+  }
   const engine = pickTranslateEngine(settings.provider);
   if (!engine) {
     log("Không có model dịch — tìm Pexels bằng nguyên văn, kết quả có thể kém.");
@@ -1794,18 +1809,28 @@ const findSceneImages = async (
 
     // (4) Tải các hình đã chọn song song.
     perQuery = need.map(() => null);
+    // Tải hỏng (Pixabay chặn chống bot cả link file) thì chọn hình kế tiếp cho cảnh đó — kho vừa chặn đã bị gác trong
+    // scripts/stock.ts nên lần chọn lại lấy từ kho khác. Trước đây cảnh bỏ trống luôn dù Pexels có sẵn ảnh hợp.
     await mapLimit(chosen, STOCK_PARALLEL, async ({ k, what, choice }) => {
       const n = need[k].i + 1;
-      const { pick, similar } = choice;
-      try {
-        const file = await downloadStockChoice(choice);
-        if (!file.found) return;
-        perQuery[k] = file.path;
-        if (similar) similarFit.add(n);
-        const fit = pick.total ? ` · khớp ${pick.matched}/${pick.total} từ khoá` : "";
-        log(`[${what}] cảnh ${n} ("${pick.query}"${fit})${similar ? " · ảnh cùng chủ đề, không đúng chủ thể" : ""}: ${file.credit}`);
-      } catch (error) {
-        log(`Không tải được ${what} cho cảnh ${n}: ${error instanceof Error ? error.message : error}`);
+      let current: typeof choice | null = choice;
+      for (let attempt = 1; current; attempt++) {
+        const { pick, similar } = current;
+        try {
+          const file = await downloadStockChoice(current);
+          if (!file.found) return;
+          perQuery[k] = file.path;
+          if (similar) similarFit.add(n);
+          const fit = pick.total ? ` · khớp ${pick.matched}/${pick.total} từ khoá` : "";
+          log(`[${what}] cảnh ${n} ("${pick.query}"${fit})${similar ? " · ảnh cùng chủ đề, không đúng chủ thể" : ""}: ${file.credit}`);
+          return;
+        } catch (error) {
+          const retry = attempt < 3;
+          log(`Không tải được ${what} cho cảnh ${n}: ${error instanceof Error ? error.message : error}${retry ? " — thử hình khác." : ""}`);
+          if (!retry) return;
+          const next = await chooseStockForScene(what === "clip" ? "video" : "image", plans[k], seconds[k], used).catch(() => null);
+          current = next?.found ? next : null;
+        }
       }
     });
   }
@@ -1988,7 +2013,7 @@ const parseMulti = (body: unknown): MultiInput & { slug?: string } => {
     slug,
     title: typeof b.title === "string" && b.title.trim() ? b.title.trim().slice(0, 60) : "Video nhiều cảnh",
     aspect: typeof b.aspect === "string" && ASPECT_IDS.includes(b.aspect as never) ? b.aspect : "9:16",
-    voice: typeof b.voice === "string" && (b.voice === "" || findVoice(b.voice)) ? b.voice : "",
+    voice: typeof b.voice === "string" && (b.voice === "" || b.voice === AUTO_VOICE || findVoice(b.voice)) ? b.voice : "",
     music: isMusicPath(b.music) ? b.music : null,
     scenes,
   };
@@ -2060,7 +2085,8 @@ const runMultiScene = async (slug: string, input: MultiInput, log: (line: string
   log("__STEP__ voice");
   const sceneLines = input.scenes.map((s) => s.narration.split(/\n+/).map((l) => l.trim()).filter(Boolean));
   const lines = sceneLines.flat();
-  const voice = input.voice ? findVoice(input.voice) : undefined;
+  const { voice, note: voiceNote } = resolveVoice(input.voice);
+  if (voiceNote) log(voiceNote);
   let voiceover: VoiceoverClip[] | undefined;
   if (voice && lines.length > 0) {
     log(`Đang đọc ${lines.length} câu bằng giọng ${voice.key}…`);

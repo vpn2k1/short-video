@@ -9,6 +9,7 @@ import { TITLE_FRAMES, msToFrames } from "../../constants";
 import type { Caption, Scene, SceneVisual } from "../../compositions/Short/schema";
 import { activeIndexAt } from "../shared";
 import { chars, slugify } from "./theme";
+import { translateVideoText, type VideoLanguage } from "../../i18n/video";
 
 export type Entry =
   /** Dòng lệnh gõ sau dấu nhắc — mỗi câu phụ đề là một lệnh. */
@@ -36,12 +37,14 @@ export const buildSession = ({
   captions,
   scenes,
   showTitle,
+  language,
 }: {
   title: string;
   subtitle: string;
   captions: Caption[];
   scenes: Scene[];
   showTitle: boolean;
+  language?: VideoLanguage;
 }) => {
   const drafts: Draft[] = [];
   let seq = 0;
@@ -54,7 +57,7 @@ export const buildSession = ({
     const slug = slugify(title);
     push({ kind: "cmd", text: `npm run ${slug}`, start: 0, typeEnd: 0, punch: null, scene: -1 }, 6, 0, 26);
     push({ kind: "out", text: `> ${slug}@1.0.0 start`, start: 0, scene: -1 }, 6, 1);
-    push({ kind: "out", text: `✔ build xong · ${scenes.length} cảnh`, start: 0, scene: -1, ok: true }, 6, 1);
+    push({ kind: "out", text: translateVideoText(language, "✔ build xong · {n} cảnh", { n: scenes.length }), start: 0, scene: -1, ok: true }, 6, 1);
     if (title.trim()) push({ kind: "title", text: title.trim(), start: 0, scene: -1 }, 34, 2);
     if (subtitle.trim()) push({ kind: "comment", text: subtitle.trim(), start: 0, scene: -1, mark: "//" }, 46, 3);
   }

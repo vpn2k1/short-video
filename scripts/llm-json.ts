@@ -10,6 +10,10 @@ import { describeProviderError } from "./provider-error";
 import { recordCall } from "./usage";
 import {
   COMPAT_PROVIDERS,
+  compatExtras,
+  compatModels,
+  tryNextModel,
+  type CompatProvider,
   DEFAULT_OLLAMA_HOST,
   DEFAULT_OLLAMA_MODEL,
   providerLabel,
@@ -59,17 +63,20 @@ const errorMessage = async (response: Response) => {
   }
 };
 
-const compatAsk = async (
-  provider: Exclude<ScriptProvider, "anthropic" | "ollama" | "local">,
+/**
+ * Gọi lần lượt các model của nhà cung cấp (compatModels): model lỗi kiểu đổi model là qua (quá tải, hết lượt, JSON
+ * hỏng) hoặc trả lời không đọc được bằng `read` thì thử model kế tiếp; lỗi khác (key sai…) thì dừng luôn.
+ */
+const compatAsk = async <T>(
+  provider: CompatProvider,
   ask: JsonAsk,
-): Promise<JsonReply> => {
+  read: (reply: JsonReply) => T,
+): Promise<T> => {
   const config = COMPAT_PROVIDERS[provider];
-  const models = [
-    process.env[config.modelEnv] || config.defaultModel,
-    ...(process.env[config.modelEnv] ? [] : config.fallbackModels ?? []),
-  ];
+  const models = compatModels(provider);
   let lastError = `${config.label}: chưa có model nào để gọi.`;
   for (const model of models) {
+    const who = `${config.label} (${model})`;
     const response = await fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -84,18 +91,23 @@ const compatAsk = async (
           { role: "system", content: ask.system },
           { role: "user", content: ask.user },
         ],
+        ...compatExtras(provider, model),
       }),
     });
     if (!response.ok) {
       recordCall(config.label, false);
-      lastError = describeProviderError(`${config.label} (${model})`, response.status, await errorMessage(response));
-      // Quá tải / hết lượt → thử model dự phòng; lỗi khác (key sai…) thì dừng luôn.
-      if (response.status >= 500 || response.status === 429) continue;
+      const message = await errorMessage(response);
+      lastError = describeProviderError(who, response.status, message);
+      if (tryNextModel(response.status, message)) continue;
       break;
     }
     recordCall(config.label, true);
     const body = (await response.json()) as { choices?: { message?: { content?: string | null } }[] };
-    return { raw: body.choices?.[0]?.message?.content ?? "", who: `${config.label} (${model})` };
+    try {
+      return read({ raw: body.choices?.[0]?.message?.content ?? "", who });
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
   }
   throw new Error(lastError);
 };
@@ -185,14 +197,11 @@ export const askJson = async <T>(
   const failures: string[] = [];
   for (const provider of providers) {
     try {
+      if (provider !== "anthropic" && provider !== "ollama" && provider !== "local") {
+        return { value: await compatAsk(provider, ask, read), provider };
+      }
       const reply =
-        provider === "anthropic"
-          ? await claudeAsk(ask)
-          : provider === "ollama"
-            ? await ollamaAsk(ask)
-            : provider === "local"
-              ? await localAsk(ask)
-              : await compatAsk(provider, ask);
+        provider === "anthropic" ? await claudeAsk(ask) : provider === "ollama" ? await ollamaAsk(ask) : await localAsk(ask);
       return { value: read(reply), provider };
     } catch (error) {
       failures.push(error instanceof Error ? error.message : String(error));

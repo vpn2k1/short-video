@@ -6,6 +6,7 @@ import { CartIcon, CommentIcon, EyeIcon, HeartIcon, PlusIcon, ShareIcon } from "
 import {
   alpha, clamp, formatCount, GOLD, inkOn, LIVE_RED, POP, shade, UI, viewersAt, type Geo,
 } from "./live";
+import { useVideoLanguage, useVt } from "../../i18n/video";
 
 /** Ảnh đại diện chủ phòng: vòng tròn gradient accent, biểu tượng giỏ hàng, viền trắng. */
 export const Avatar: React.FC<{ accent: string; size: number; ring?: number }> = ({ accent, size, ring = 3 }) => (
@@ -43,6 +44,8 @@ export const TopBar: React.FC<{ geo: Geo; accent: string; appear: number; title:
   title,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
+  const language = useVideoLanguage();
   const { u, side, top, topBarH, wide } = geo;
   const t = interpolate(frame, [appear, appear + 14], [0, 1], { ...clamp, easing: POP });
   const h = topBarH;
@@ -77,7 +80,7 @@ export const TopBar: React.FC<{ geo: Geo; accent: string; appear: number; title:
         <Avatar accent={accent} size={h - 14 * u} ring={3 * u} />
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 250 * u }}>
           <div style={{ fontWeight: 700, fontSize: small, lineHeight: 1.25, color: "#fff", whiteSpace: "nowrap" }}>
-            {formatCount(likes)} lượt thích
+            {vt("{n} lượt thích", { n: formatCount(likes, language) })}
           </div>
         </div>
         <div
@@ -96,7 +99,7 @@ export const TopBar: React.FC<{ geo: Geo; accent: string; appear: number; title:
           }}
         >
           <PlusIcon size={small * 0.9} color={inkOn(accent)} />
-          Theo dõi
+          {vt("Theo dõi")}
         </div>
       </div>
       <div
@@ -134,7 +137,7 @@ export const TopBar: React.FC<{ geo: Geo; accent: string; appear: number; title:
         }}
       >
         <EyeIcon size={small * 1.1} color="#fff" />
-        {formatCount(viewersAt(frame, title))}
+        {formatCount(viewersAt(frame, title), language)}
       </div>
     </div>
   );
@@ -221,6 +224,8 @@ export const Rail: React.FC<{ geo: Geo; accent: string; appear: number; title: s
   products,
 }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
+  const language = useVideoLanguage();
   const { u, railIcon, railGap, railRight, railBottom } = geo;
   const t = interpolate(frame, [appear + 4, appear + 18], [0, 1], { ...clamp, easing: POP });
   const hearts = 48_300 + Math.floor(seeded(`${title}-hearts`, 0, 20_000)) + Math.max(0, frame) * 11;
@@ -246,15 +251,15 @@ export const Rail: React.FC<{ geo: Geo; accent: string; appear: number; title: s
       <RailButton
         u={u}
         size={railIcon}
-        label={formatCount(hearts)}
+        label={formatCount(hearts, language)}
         icon={<div style={{ scale: String(beat), display: "flex" }}><HeartIcon size={glyph} color={LIVE_RED} /></div>}
       />
-      <RailButton u={u} size={railIcon} label={formatCount(comments)} icon={<CommentIcon size={glyph} color="#fff" />} />
-      <RailButton u={u} size={railIcon} label="Chia sẻ" icon={<ShareIcon size={glyph} color="#fff" />} />
+      <RailButton u={u} size={railIcon} label={formatCount(comments, language)} icon={<CommentIcon size={glyph} color="#fff" />} />
+      <RailButton u={u} size={railIcon} label={vt("Chia sẻ")} icon={<ShareIcon size={glyph} color="#fff" />} />
       <RailButton
         u={u}
         size={railIcon}
-        label="Giỏ hàng"
+        label={vt("Giỏ hàng")}
         badge={String(Math.max(1, products))}
         badgeColor={accent}
         icon={<CartIcon size={glyph} color={GOLD} />}

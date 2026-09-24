@@ -8,6 +8,7 @@
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { FONTS, seeded } from "../shared";
+import type { VideoLanguage } from "../../i18n/video";
 
 export const SOCIAL_FONT = FONTS.sans;
 export const BODY_WEIGHT = 500;
@@ -194,15 +195,17 @@ export const AUTHOR_NAME = "Ẩn danh";
 export const initialOf = (name: string) => ([...name][0] ?? "?").toLocaleUpperCase("vi");
 
 /** Định dạng kiểu Việt: 950, 1,2K, 12K, 1,5 Tr. */
-export const formatCount = (n: number) => {
+export const formatCount = (n: number, language?: VideoLanguage) => {
+  const en = language === "en";
   const v = Math.max(0, Math.round(n));
   if (v < 1000) return String(v);
   if (v < 1_000_000) {
     const k = v / 1000;
-    return k < 10 ? `${(Math.floor(k * 10) / 10).toString().replace(".", ",")}K` : `${Math.floor(k)}K`;
+    const k1 = (Math.floor(k * 10) / 10).toString();
+    return k < 10 ? `${en ? k1 : k1.replace(".", ",")}K` : `${Math.floor(k)}K`;
   }
-  const m = v / 1_000_000;
-  return `${(Math.floor(m * 10) / 10).toString().replace(".", ",")} Tr`;
+  const m = (Math.floor((v / 1_000_000) * 10) / 10).toString();
+  return en ? `${m}M` : `${m.replace(".", ",")} Tr`;
 };
 
 export type Counts = { likes: number; comments: number; shares: number };

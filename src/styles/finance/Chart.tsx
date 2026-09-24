@@ -4,6 +4,7 @@
  */
 import { AbsoluteFill } from "remotion";
 import { fmtPrice, INK, LINE, MUTED, priceOf, type Series, valueAt } from "./market";
+import { useVideoLanguage } from "../../i18n/video";
 
 export type Plot = {
   x0: number;
@@ -47,6 +48,7 @@ export const PriceChart: React.FC<{
   height: number;
   axisFont: number;
 }> = ({ series: s, plot: p, frame, color, unit, width, height, axisFont }) => {
+  const language = useVideoLanguage();
   const head = Math.min(frame, p.duration - 1);
   const last = Math.min(s.values.length - 1, Math.floor(head / s.step));
   const pts: [number, number][] = [];
@@ -62,7 +64,7 @@ export const PriceChart: React.FC<{
   const levels = [0, 0.25, 0.5, 0.75, 1].map((t) => {
     const y = p.yTop + t * (p.yBot - p.yTop);
     const v = s.max - t * (s.max - s.min);
-    return { y, label: fmtPrice(priceOf(s, v)) };
+    return { y, label: fmtPrice(priceOf(s, v), language) };
   });
   const refY = yOf(p, s, 0);
   const barGap = (p.x1 - p.x0) / Math.max(1, s.values.length - 1);
@@ -153,7 +155,7 @@ export const PriceChart: React.FC<{
           boxShadow: `0 0 ${18 * unit}px ${color}88`,
         }}
       >
-        {fmtPrice(priceOf(s, hv))}
+        {fmtPrice(priceOf(s, hv), language)}
       </div>
     </AbsoluteFill>
   );

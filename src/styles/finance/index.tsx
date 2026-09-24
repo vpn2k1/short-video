@@ -22,6 +22,7 @@ import {
 import {
   BadgePanel, CaptionPanel, DATA, Header, Ohlc, OUT, POP, PunchBubble, StatPanel, TagChip, TEXT, Ticker,
 } from "./Panels";
+import { useVideoLanguage, useVt, videoLocale } from "../../i18n/video";
 
 /** Ước lượng số dòng của câu ở cỡ chữ cho trước (Lexend 600 ~0,56 em mỗi ký tự). */
 const linesOf = (text: string, size: number, w: number) => Math.max(1, Math.ceil(([...text].length * size * 0.56) / w));
@@ -39,6 +40,8 @@ export const FinanceStyle: React.FC<ShortProps> = ({
   const { durationInFrames } = useVideoConfig();
   const { width, height, safe, unit, fps } = useLayout();
   const frame = useCurrentFrame();
+  const vt = useVt();
+  const language = useVideoLanguage();
   const cap = useCaptionClock(captions);
   const wide = width >= height * 0.95;
   const side = safe.side;
@@ -102,7 +105,7 @@ export const FinanceStyle: React.FC<ShortProps> = ({
     lo = Math.min(lo, series.values[i]);
     vol += series.volumes[i];
   }
-  const volText = `${(vol * 0.137).toLocaleString("vi-VN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })} Tr`;
+  const volText = `${(vol * 0.137).toLocaleString(videoLocale(language), { maximumFractionDigits: 2, minimumFractionDigits: 2 })} ${vt("Tr")}`;
 
   // Loé sáng của câu nhấn gần nhất.
   let flash = 0;
@@ -176,7 +179,7 @@ export const FinanceStyle: React.FC<ShortProps> = ({
         h={headerH}
         symbol={symbol}
         clock={clockAt(frame, fps)}
-        price={fmtPrice(priceOf(series, hv))}
+        price={fmtPrice(priceOf(series, hv), language)}
         pct={hv}
         frame={frame}
         flash={flash}
@@ -207,10 +210,10 @@ export const FinanceStyle: React.FC<ShortProps> = ({
         row={wide}
         opacity={chromeIn}
         items={[
-          { label: "Mở cửa", value: fmtPrice(series.base) },
-          { label: "Cao nhất", value: fmtPrice(priceOf(series, hi)), color: UP },
-          { label: "Thấp nhất", value: fmtPrice(priceOf(series, lo)), color: DOWN },
-          { label: "Khối lượng", value: volText },
+          { label: vt("Mở cửa"), value: fmtPrice(series.base, language) },
+          { label: vt("Cao nhất"), value: fmtPrice(priceOf(series, hi), language), color: UP },
+          { label: vt("Thấp nhất"), value: fmtPrice(priceOf(series, lo), language), color: DOWN },
+          { label: vt("Khối lượng"), value: volText },
         ]}
       />
 
@@ -266,7 +269,7 @@ export const FinanceStyle: React.FC<ShortProps> = ({
               }}
             >
               <span>
-                <span style={{ color: accent }}>●</span> TIN THỊ TRƯỜNG
+                <span style={{ color: accent }}>●</span> {vt("TIN THỊ TRƯỜNG")}
               </span>
               <span style={{ fontVariantNumeric: "tabular-nums" }}>
                 {String(i + 1).padStart(2, "0")}/{String(scenes.length).padStart(2, "0")}
@@ -439,7 +442,7 @@ export const FinanceStyle: React.FC<ShortProps> = ({
                   }}
                 >
                   <span style={{ width: 14 * unit, height: 14 * unit, borderRadius: 99, backgroundColor: UP, opacity: blink ? 1 : 0.3 }} />
-                  PHIÊN MỞ CỬA
+                  {vt("PHIÊN MỞ CỬA")}
                 </div>
                 <div style={{ ...rise(8), fontFamily: TEXT, fontWeight: 800, fontSize: titleSize, lineHeight: 1.22, color: INK, textWrap: "balance" }}>
                   {title}
@@ -464,7 +467,7 @@ export const FinanceStyle: React.FC<ShortProps> = ({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  <span>{upper("Phiên sáng")} · 09:15</span>
+                  <span>{upper(vt("Phiên sáng"))} · 09:15</span>
                   <span>·</span>
                   <span style={{ color: UP }}>{symbol} ▲</span>
                 </div>

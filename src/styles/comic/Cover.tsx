@@ -10,6 +10,7 @@ import { useLayout } from "../shared";
 import { BurstShape, HEAVY } from "./Bits";
 import { panelFrame, PanelArt, SpeedRays } from "./Panel";
 import { clamp, comicPalette, fitBlock, INK, outline, upperVi, WHITE, YELLOW } from "./palette";
+import { useVt } from "../../i18n/video";
 
 export const Cover: React.FC<{
   title: string;
@@ -18,6 +19,7 @@ export const Cover: React.FC<{
   firstScene: Scene | null;
 }> = ({ title, subtitle, accent, firstScene }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const L = useLayout();
   const { width: W, height: H, unit: u, fps, safe } = L;
   const stacked = W / H < 0.8;
@@ -31,7 +33,7 @@ export const Cover: React.FC<{
   const bottom = stacked ? H - safe.bottom + 60 * u : H - safe.bottom;
 
   const mastW = stacked ? W - 2 * side : (W - 2 * side) * 0.54;
-  const titleText = upperVi(title || "Truyện mới");
+  const titleText = upperVi(title || vt("Truyện mới"));
   const titleSize = fitBlock(titleText, {
     maxWidth: mastW - 80 * u,
     maxHeight: stacked ? 3 * 150 * u : 4 * 130 * u,
@@ -91,7 +93,7 @@ export const Cover: React.FC<{
           transform: `scale(${Math.max(0, issueS)}) rotate(8deg)`,
         }}
       >
-        <div style={{ ...HEAVY, fontSize: 30 * u, lineHeight: 1.1 }}>{upperVi("Số")}</div>
+        <div style={{ ...HEAVY, fontSize: 30 * u, lineHeight: 1.1 }}>{upperVi(vt("Số"))}</div>
         <div style={{ ...HEAVY, fontSize: 70 * u, lineHeight: 0.95 }}>01</div>
       </div>
     </div>
@@ -142,7 +144,7 @@ export const Cover: React.FC<{
           textShadow: outline(4 * u, INK, 5 * u),
         }}
       >
-        {upperVi("Mới!")}
+        {upperVi(vt("Mới!"))}
       </div>
     </div>
   );

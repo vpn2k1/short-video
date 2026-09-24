@@ -8,6 +8,7 @@
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { useLayout } from "../shared";
 import { fitText, measure, nfc, upper, type Fitted } from "./theme";
+import { translateVideoText, useVt, type VideoLanguage } from "../../i18n/video";
 
 export const CAPTION_LH = 1.28;
 export const HEADLINE_LH = 1.2;
@@ -26,6 +27,8 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
   const { width, height, safe, unit } = base;
   const stacked = height > width * 1.1;
   const u = unit;
+  const vt = useVt();
+  const defaultCategory = vt(DEFAULT_CATEGORY);
 
   const left = safe.side;
   const contentW = width - safe.side * 2;
@@ -43,7 +46,7 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
   const catFont = Math.round((stacked ? 36 : 32) * u);
   const catPadX = Math.round((stacked ? 24 : 22) * u);
   const catPadY = Math.round((stacked ? 8 : 6) * u);
-  const catLabels = [DEFAULT_CATEGORY, ...scenes.map((s) => (s.tag ? upper(s.tag) : DEFAULT_CATEGORY))];
+  const catLabels = [defaultCategory, ...scenes.map((s) => (s.tag ? upper(s.tag) : defaultCategory))];
   const catMaxW = contentW * (stacked ? 0.9 : 0.34);
   const catWidthFor = (label: string) =>
     Math.min(catMaxW, measure(label, catFont, 900) * 1.06 + catPadX * 2);
@@ -54,8 +57,8 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
   const headPadY = Math.round((stacked ? 14 : 10) * u);
   const headTextW = (stacked ? contentW : contentW - catRowW) - headPadX * 2;
   const headline = stacked
-    ? fitText(title || DEFAULT_CATEGORY, headTextW, 2, 58 * u, 38 * u, 800)
-    : fitPreferOne(title || DEFAULT_CATEGORY, headTextW, 50 * u, 38 * u, 32 * u, 800);
+    ? fitText(title || defaultCategory, headTextW, 2, 58 * u, 38 * u, 800)
+    : fitPreferOne(title || defaultCategory, headTextW, 50 * u, 38 * u, 32 * u, 800);
   const headH = Math.round(Math.max(1, headline.lines.length) * headline.size * HEADLINE_LH + headPadY * 2);
   const catH = stacked ? Math.round(catFont * UPPER_LH + catPadY * 2) : headH;
 
@@ -80,7 +83,7 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
   const punchGap = Math.round((stacked ? 22 : 14) * u);
   const nongFont = Math.round((stacked ? 40 : 34) * u);
   const nongPadX = Math.round(20 * u);
-  const nongW = measure("NÓNG", nongFont, 900) * 1.08 + nongPadX * 2;
+  const nongW = measure(vt("NÓNG"), nongFont, 900) * 1.08 + nongPadX * 2;
   const punchPadY = Math.round((stacked ? 14 : 10) * u);
   const punchTextW = contentW - nongW - 24 * u;
   const punchMax = (stacked ? 62 : 50) * u;
@@ -103,6 +106,8 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
 
   return {
     ...base,
+    vt,
+    defaultCategory,
     stacked,
     left,
     contentW,
@@ -142,7 +147,7 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
 export type NewsLayout = ReturnType<typeof useNewsLayout>;
 
 /** Chuỗi chạy của ticker: tiêu đề • phụ đề • chuyên mục. */
-export const tickerItems = (title: string, subtitle: string, scenes: Scene[]) => {
+export const tickerItems = (title: string, subtitle: string, scenes: Scene[], language?: VideoLanguage) => {
   const items: string[] = [];
   const push = (text: string | null | undefined) => {
     const t = text ? nfc(text).trim() : "";
@@ -151,6 +156,6 @@ export const tickerItems = (title: string, subtitle: string, scenes: Scene[]) =>
   push(title);
   push(subtitle);
   scenes.forEach((s) => push(s.tag ? upper(s.tag) : null));
-  if (items.length === 0) items.push("TIN NÓNG");
+  if (items.length === 0) items.push(translateVideoText(language, "TIN NÓNG"));
   return items;
 };

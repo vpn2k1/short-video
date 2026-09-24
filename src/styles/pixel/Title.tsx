@@ -7,9 +7,11 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { useLayout } from "../shared";
 import { Landscape, Sparkle } from "./parts";
 import { BLOCK, clamp, GOLD, hardOutline, INK, onTwos, pixelOf, snap, TEXT, upperVi, WHITE } from "./pixel";
+import { useVt } from "../../i18n/video";
 
 export const TitleScreen: React.FC<{ title: string; subtitle: string; accent: string }> = ({ title, subtitle, accent }) => {
   const frame = useCurrentFrame();
+  const vt = useVt();
   const { width, height, safe, unit } = useLayout();
   const P = pixelOf(unit);
   const wide = width / height > 1.2;
@@ -86,7 +88,7 @@ export const TitleScreen: React.FC<{ title: string; subtitle: string; accent: st
             opacity: startOn ? 1 : 0,
           }}
         >
-          ▶ NHẤN START
+          {vt("▶ NHẤN START")}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

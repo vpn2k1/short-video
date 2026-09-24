@@ -5,6 +5,7 @@
  */
 import { Easing, interpolate } from "remotion";
 import { FONTS, seeded } from "../shared";
+import { useVt } from "../../i18n/video";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 /** Chậm, sang: vào nhanh, đậu êm, không nảy. */
@@ -332,6 +333,7 @@ export const Burst: React.FC<{
 
 /** Góc mã vạch + giá như bìa báo sạp. Vạch rải theo seed — mọi frame giống nhau. */
 export const Barcode: React.FC<{ issue: string; unit: number; opacity: number }> = ({ issue, unit, opacity }) => {
+  const vt = useVt();
   const bars: { x: number; w: number }[] = [];
   let x = 0;
   for (let i = 0; i < 34; i++) {
@@ -370,7 +372,7 @@ export const Barcode: React.FC<{ issue: string; unit: number; opacity: number }>
         }}
       >
         <span>{issue}</span>
-        <span>35.000₫</span>
+        <span>{vt("35.000₫")}</span>
       </div>
     </div>
   );

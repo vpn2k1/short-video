@@ -5,6 +5,7 @@ import { Backdrop } from "./Backdrop";
 import { Clock, StationBug, Ticker } from "./Chrome";
 import { SceneGraphic, SceneWipes } from "./Graphics";
 import { tickerItems, useNewsLayout } from "./layout";
+import { useVideoLanguage } from "../../i18n/video";
 import { LowerThird, PunchFlash } from "./LowerThird";
 import { FONT, NAVY_DEEP } from "./theme";
 import { TitleIntro } from "./TitleIntro";
@@ -25,9 +26,10 @@ export const NewsStyle: React.FC<ShortProps> = ({
   showTitle,
 }) => {
   const L = useNewsLayout(title, captions, scenes);
+  const language = useVideoLanguage();
   // Dải dưới vào khi phần mở đầu bắt đầu trượt đi.
   const enterFrame = showTitle ? TITLE_FRAMES - 4 : 0;
-  const items = tickerItems(title, subtitle, scenes);
+  const items = tickerItems(title, subtitle, scenes, language);
 
   return (
     <AbsoluteFill style={{ fontFamily: FONT, backgroundColor: NAVY_DEEP, overflow: "hidden" }}>
