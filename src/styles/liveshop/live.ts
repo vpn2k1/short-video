@@ -142,12 +142,44 @@ export const formatCount = (n: number, language?: VideoLanguage) => {
   return en ? `${m}M` : `${String(m).replace(".", ",")}Tr`;
 };
 
-/** Người xem tăng dần đều, mỗi 10 frame nhích thêm một chút — luôn tăng, không nhảy lùi. */
-export const viewersAt = (frame: number, key: string) => {
-  const base = 8200 + Math.floor(seeded(`${key}-viewers`, 0, 5200));
-  const step = Math.floor(Math.max(0, frame) / 10);
-  return base + step * 21 + Math.floor(seeded(`${key}-v-${step}`, 0, 14));
+/**
+ * Số người xem lúc bắt đầu live — ngẫu nhiên theo từng video (theo tiêu đề, nên render lại vẫn y nguyên):
+ * phần đông phiên nhỏ vài trăm tới vài nghìn, ít phiên đông vài chục nghìn.
+ */
+export const viewerStart = (key: string) => {
+  const tier = seeded(`${key}-vtier`);
+  const [min, max] = tier < 0.35 ? [240, 1900] : tier < 0.82 ? [2000, 12_000] : [12_000, 46_000];
+  return Math.round(seeded(`${key}-v0`, min, max));
 };
+
+/** Một bước đếm người xem (frame) — số đổi đủ nhanh để thấy đang tăng, không nhảy từng frame gây rối mắt. */
+const VIEWER_STEP = 6;
+
+/**
+ * Người xem tăng dần không đều như live thật: mỗi bước thêm vài người (phiên càng đông thêm càng nhiều), thỉnh
+ * thoảng một đợt vào dồn; 3 giây sau câu nhấn (flash sale) tăng gấp ba. Luôn tăng, không nhảy lùi.
+ */
+export const viewersAt = (frame: number, key: string, bursts: number[] = []) => {
+  const start = viewerStart(key);
+  const scale = Math.max(1, start / 900);
+  const steps = Math.floor(Math.max(0, frame) / VIEWER_STEP);
+  let n = start;
+  for (let i = 1; i <= steps; i++) {
+    const r = seeded(`${key}-vs-${i}`);
+    let add = r * r * 4 * scale;
+    if (seeded(`${key}-vw-${i}`) < 0.05) add += seeded(`${key}-vx-${i}`, 6, 22) * scale;
+    const at = i * VIEWER_STEP;
+    if (bursts.some((b) => at >= b && at < b + 90)) add *= 3;
+    n += add;
+  }
+  return Math.round(n);
+};
+
+/** Số người xem hiện đủ chữ số tới 99.999 ("12.483") để thấy nhảy từng người; lớn hơn thì rút gọn như formatCount. */
+export const formatViewers = (n: number, language?: VideoLanguage) =>
+  n < 100_000
+    ? String(Math.max(0, Math.floor(n))).replace(/\B(?=(\d{3})+(?!\d))/g, language === "en" ? "," : ".")
+    : formatCount(n, language);
 
 /* ------------------------------------------------------------ giá */
 
@@ -261,6 +293,67 @@ const FALLBACK_EN = ["So true", "Exactly!", "Makes sense"];
 const CHAT_SETS = {
   vi: { names: NAMES, generic: GENERIC, burst: BURST, reactions: REACTIONS, fallback: FALLBACK, buy: "vừa đặt hàng", join: "đã tham gia" },
   en: { names: NAMES_EN, generic: GENERIC_EN, burst: BURST_EN, reactions: REACTIONS_EN, fallback: FALLBACK_EN, buy: "just ordered", join: "joined" },
+};
+
+/** Tên người xem theo ngôn ngữ video — hàng avatar người xem, dải quà tặng dùng chung với khung chat. */
+export const viewerNames = (language: VideoLanguage = "vi") => CHAT_SETS[language].names;
+
+/* ------------------------------------------------------------ quà tặng */
+
+export type Gift = { emoji: string; name: string };
+
+const GIFT_SETS: Record<VideoLanguage, { verb: string; gifts: Gift[] }> = {
+  vi: {
+    verb: "đã tặng",
+    gifts: [
+      { emoji: "🌹", name: "Hoa hồng" }, { emoji: "🍦", name: "Kem ốc quế" }, { emoji: "🎁", name: "Hộp quà" },
+      { emoji: "💎", name: "Kim cương" }, { emoji: "🚀", name: "Tên lửa" }, { emoji: "🧸", name: "Gấu bông" },
+      { emoji: "💖", name: "Trái tim" }, { emoji: "👑", name: "Vương miện" }, { emoji: "🍩", name: "Bánh donut" },
+    ],
+  },
+  en: {
+    verb: "sent",
+    gifts: [
+      { emoji: "🌹", name: "Rose" }, { emoji: "🍦", name: "Ice cream" }, { emoji: "🎁", name: "Gift box" },
+      { emoji: "💎", name: "Diamond" }, { emoji: "🚀", name: "Rocket" }, { emoji: "🧸", name: "Teddy bear" },
+      { emoji: "💖", name: "Heart" }, { emoji: "👑", name: "Crown" }, { emoji: "🍩", name: "Donut" },
+    ],
+  },
+};
+
+export type GiftEvent = { at: number; name: string; hue: number; gift: Gift; verb: string; combo: number };
+
+/**
+ * Lượt tặng quà của cả video: cứ 3,5–7 giây một lượt (sau câu nhấn dồn hơn), mỗi lượt một người tặng một món, số
+ * combo 1–12 đếm dần lúc dải quà đang hiện. Tính một lần theo timeline tuyệt đối như buildChat.
+ */
+export const buildGifts = (
+  scenes: Scene[],
+  startFrame: number,
+  endFrame: number,
+  key: string,
+  language: VideoLanguage = "vi",
+): GiftEvent[] => {
+  const { verb, gifts } = GIFT_SETS[language];
+  const names = CHAT_SETS[language].names;
+  const bursts = scenes.filter((s) => s.punch).map((s) => msToFrames(s.punch!.atMs));
+  const out: GiftEvent[] = [];
+  let t = startFrame + seeded(`${key}-g0`, 20, 60);
+  for (let i = 0; t < endFrame && i < 400; i++) {
+    const name = names[Math.floor(seeded(`${key}-gn-${i}`, 0, names.length))];
+    const r = seeded(`${key}-gc-${i}`);
+    out.push({
+      at: Math.round(t),
+      name,
+      hue: Math.floor(seeded(`${key}-h-${name}`, 0, 360)),
+      gift: gifts[Math.floor(seeded(`${key}-gg-${i}`, 0, gifts.length))],
+      verb,
+      combo: r < 0.45 ? 1 + Math.floor(r * 6) : 3 + Math.floor(r * 10),
+    });
+    const hot = bursts.some((b) => t >= b - 30 && t < b + 120);
+    t += hot ? seeded(`${key}-gt-${i}`, 45, 80) : seeded(`${key}-gt-${i}`, 105, 210);
+  }
+  return out;
 };
 
 const reactionsFor = (text: string, set: (typeof CHAT_SETS)[VideoLanguage]) => {

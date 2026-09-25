@@ -18,10 +18,11 @@ import { ensureFonts, useFontReady } from "../../fonts/load";
 import { activeIndexAt } from "../shared";
 import { bannerLayout, HostBanner, ProductCard, VisualBadge } from "./Cards";
 import { Chat } from "./Chat";
-import { FloatingHearts, Rail, TopBar } from "./Chrome";
+import { FloatingHearts, Rail, TapHearts, TopBar, ViewerBar } from "./Chrome";
 import { Feed } from "./Feed";
 import { FlashSale, saleLevel } from "./FlashSale";
-import { buildChat, clamp, LIVE_FONTS, SMOOTH, useGeo } from "./live";
+import { GiftBanners } from "./Gifts";
+import { buildChat, buildGifts, clamp, LIVE_FONTS, SMOOTH, useGeo } from "./live";
 import { LiveTitle } from "./Title";
 import { useVideoLanguage } from "../../i18n/video";
 
@@ -40,6 +41,11 @@ export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, accent, c
     () => buildChat(captions, scenes, 0, durationInFrames, title || "live", language),
     [captions, scenes, durationInFrames, title, language],
   );
+  const gifts = useMemo(
+    () => buildGifts(scenes, appear, durationInFrames, title || "live", language),
+    [scenes, appear, durationInFrames, title, language],
+  );
+  const bursts = useMemo(() => scenes.filter((s) => s.punch).map((s) => msToFrames(s.punch!.atMs)), [scenes]);
   const products = useMemo(() => new Set(scenes.map((s) => s.tag?.trim()).filter(Boolean)).size, [scenes]);
 
   // Đáy khung chat bám mép trên lời ghim — co giãn cùng thẻ khi câu đổi số dòng.
@@ -53,19 +59,24 @@ export const LiveshopStyle: React.FC<ShortProps> = ({ title, subtitle, accent, c
     bannerH = interpolate(frame, [start, start + 6], [prev, cur], { ...clamp, easing: SMOOTH });
   }
   const chatBottom = bannerBottom - bannerH - (bannerH ? 16 : 0) * u;
+  // Dải quà tặng nằm ngay trên khung chat.
+  const giftBottom = chatBottom - (geo.chatRows + 0.7) * geo.chatRowH - 12 * u;
   const sale = saleLevel(scenes, frame);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       <Feed scenes={scenes} accent={accent} />
+      <TapHearts geo={geo} scenes={scenes} appear={appear} accent={accent} title={title} />
       <FloatingHearts geo={geo} scenes={scenes} appear={appear} accent={accent} />
       <Rail geo={geo} accent={accent} appear={appear} title={title} products={products} />
       <TopBar geo={geo} accent={accent} appear={appear} title={title} />
+      <ViewerBar geo={geo} appear={appear} title={title} bursts={bursts} />
       <AbsoluteFill style={{ opacity: 1 - sale * 0.75 }}>
         <ProductCard geo={geo} scenes={scenes} accent={accent} appear={appear} />
         <VisualBadge geo={geo} scenes={scenes} appear={appear} />
       </AbsoluteFill>
       <Chat geo={geo} lines={chat} bottom={chatBottom} appear={appear} dim={sale} />
+      <GiftBanners geo={geo} gifts={gifts} bottom={giftBottom} appear={appear} dim={sale} />
       <HostBanner
         geo={geo}
         captions={captions}

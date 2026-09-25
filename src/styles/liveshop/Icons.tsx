@@ -82,3 +82,17 @@ export const ProductSilhouette: React.FC<{ size: number; tone: string; rim: stri
     <rect x="58" y="74" width="7" height="60" rx="3.5" fill={rim} opacity={0.5} />
   </svg>
 );
+
+/** Ngón cái giơ lên — lượt thích bay lên cùng tim. */
+export const LikeIcon: React.FC<Fill> = ({ size, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <path d="M2.5 10.5h3.8v10H2.5zM8 20.5V10.3l4.6-6.6c.5-.7 1.6-.8 2.2-.2.4.4.6 1 .5 1.6l-.8 4.4h5.3c1.4 0 2.4 1.3 2 2.7l-2 6.8c-.3 1-1.2 1.5-2.2 1.5H8z" />
+  </svg>
+);
+
+/** Nút đóng phiên live góc phải trên. */
+export const CloseIcon: React.FC<Fill> = ({ size, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.6} strokeLinecap="round">
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+);
