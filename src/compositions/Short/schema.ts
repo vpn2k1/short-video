@@ -329,6 +329,15 @@ export const shortSchema = z.object({
    * nên props.json đã lưu thường để null.
    */
   watermark: watermarkSchema.nullable().default(null),
+  /**
+   * Avatar của phong cách Story (vòng tròn đầu story): ảnh đại diện kênh (đường dẫn trong public/) và màu nền của chữ
+   * "S" khi không có ảnh. null / trường null = mặc định (chữ "S" trên màu nhấn của video).
+   * Như watermark: server gắn theo ô Cài đặt lúc render/xem trước (scripts/watermark.ts), props.json để null.
+   */
+  avatar: z
+    .object({ image: z.string().nullable(), background: zColor().nullable() })
+    .nullable()
+    .default(null),
 });
 
 export type Caption = z.infer<typeof captionSchema>;

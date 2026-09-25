@@ -18,7 +18,7 @@ import {
 import { PROVIDERS, VIDEO_MODELS } from "../scripts/ai-video";
 import { BUDGET_DAY_ENV, BUDGET_MONTH_ENV } from "../scripts/video-budget";
 import { DEFAULT_TRANSLATE_OLLAMA_MODEL } from "../scripts/translate";
-import { WATERMARK_MAX_LENGTH, parseWatermarkXY, watermarkPosition } from "../scripts/watermark";
+import { AVATAR_COLOR_RE, AVATAR_PATH_RE, WATERMARK_MAX_LENGTH, parseWatermarkXY, watermarkPosition } from "../scripts/watermark";
 import { DEFAULT_GEMINI_TTS_MODEL, GEMINI_TTS_MODELS } from "../scripts/gemini-tts";
 
 type Field = {
@@ -26,8 +26,12 @@ type Field = {
   label: string;
   help: string;
   group: string;
-  /** "point": toạ độ "x,y" (% khung hình) chọn bằng cách kéo thả trên khung xem trước. */
-  type: "secret" | "text" | "select" | "point";
+  /**
+   * "point": toạ độ "x,y" (% khung hình) chọn bằng cách kéo thả trên khung xem trước.
+   * "image": ảnh tải lên thư viện (public/uploads/…) — ô Cài đặt có nút chọn ảnh và ảnh xem trước.
+   * "color": màu "#rrggbb" chọn bằng bảng màu; trống = mặc định của app.
+   */
+  type: "secret" | "text" | "select" | "point" | "image" | "color";
   url?: string;
   placeholder?: string;
   options?: { value: string; label: string }[];
@@ -59,6 +63,20 @@ export const KEY_FIELDS: Field[] = [
       { value: "vi", label: "Tiếng Việt" },
       { value: "en", label: "English" },
     ],
+  },
+  {
+    name: "STORY_AVATAR",
+    label: "Ảnh đại diện (phong cách Story)",
+    help: "Ảnh tròn ở đầu mỗi video phong cách 📱 Story điện thoại — như avatar kênh của bạn. Áp dụng cho mọi video Story, kể cả video làm từ trước (khi xuất lại). Để trống thì hiện chữ S. Nên dùng ảnh vuông.",
+    group: "Chung · General",
+    type: "image",
+  },
+  {
+    name: "STORY_AVATAR_COLOR",
+    label: "Màu nền avatar (phong cách Story)",
+    help: "Màu nền sau chữ S khi chưa chọn ảnh đại diện. Bấm \"Theo màu video\" để dùng màu nhấn riêng của từng video.",
+    group: "Chung · General",
+    type: "color",
   },
   {
     name: "FREE_MODE",
@@ -441,7 +459,13 @@ export const saveKeys = (patch: unknown) => {
     if (field.type === "select" && !field.options?.some((o) => o.value === value)) {
       throw new Error(`${field.label}: lựa chọn không hợp lệ`);
     }
-    if (field.type === "point") {
+    if (field.type === "color") {
+      if (!AVATAR_COLOR_RE.test(value)) throw new Error(`${field.label}: màu phải có dạng #rrggbb.`);
+    } else if (field.type === "image") {
+      if (!AVATAR_PATH_RE.test(value) || !fs.existsSync(path.join(process.cwd(), "public", value))) {
+        throw new Error(`${field.label}: chọn lại ảnh (jpg, png, webp, avif) — không thấy file ${value}.`);
+      }
+    } else if (field.type === "point") {
       if (!parseWatermarkXY(value)) throw new Error(`${field.label}: toạ độ không hợp lệ.`);
     } else if (field.usd) {
       if (!/^\d{1,6}(\.\d{1,2})?$/.test(value)) {

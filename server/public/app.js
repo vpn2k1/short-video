@@ -2115,6 +2115,43 @@ let normalizing = false;
 
 const providerName = (id) => scriptProviders().find((p) => p.id === id)?.label ?? "AI";
 
+/** Lựa chọn lần trước trong popup Chuẩn hoá lời: "auto" (theo chip AI) hoặc "<nhà cung cấp>|<model>". */
+let normalizeChoice = "auto";
+
+/** Ghi chú ngắn cạnh model quen — để chọn nhanh mà không phải nhớ tên. */
+const MODEL_NOTES = {
+  "openai/gpt-oss-120b": "viết tốt nhất",
+  "qwen/qwen3.8-27b": "ổn định, nhanh",
+  "openai/gpt-oss-20b": "nhanh nhất, nhẹ",
+  "gemini-flash-latest": "Flash mới nhất",
+  "gemini-flash-lite-latest": "Flash-Lite — nhẹ, ít quá tải",
+  "openrouter/free": "tự chọn một model miễn phí",
+};
+
+/** Popup chọn model trước khi chuẩn hoá: mọi model của các AI đã có key, chọn xong là chuẩn hoá luôn. */
+function normalizeMenu() {
+  const ready = scriptProviders().filter((p) => p.available);
+  return {
+    id: "normalize", title: "Chuẩn hoá lời bằng model nào?", value: normalizeChoice,
+    onPick: (value) => { normalizeChoice = value; normalizeText(value); },
+    options: [
+      {
+        value: "auto", icon: icon("sparkles"), title: "Tự động",
+        // Chip AI (khi AI viết lời) thắng; không thì theo Cài đặt — có thể đang ghim một nhà cung cấp.
+        sub: opts.provider !== "auto"
+          ? `Theo chip AI: ${providerName(opts.provider)}`
+          : state?.keys.scriptSetting !== "auto"
+            ? `Theo Cài đặt: chỉ dùng ${state?.keys.scriptLabel ?? "?"}`
+            : `Dùng ${ready[0]?.label ?? "AI"} trước; lỗi thì chuyển model/AI khác`,
+      },
+      ...ready.flatMap((p) => (p.models?.length ? p.models : [p.model]).map((model, i) => ({
+        value: `${p.id}|${model}`, group: p.label, icon: icon("bot"), title: model,
+        sub: [i === 0 ? "đang dùng" : "", MODEL_NOTES[model] ?? ""].filter(Boolean).join(" · "),
+      }))),
+    ],
+  };
+}
+
 /** Nút chỉ có nghĩa ở chế độ "Lời có sẵn"; thiếu key thì vẫn hiện để biết là có tính năng này. */
 function syncNormalize() {
   const textMode = opts.mode === "text";
@@ -2131,31 +2168,42 @@ function syncNormalize() {
     ? "Cần 1 API key viết lời (Gemini, Groq, OpenRouter có gói miễn phí) — bấm để mở Cài đặt"
     : empty
       ? "Dán lời vào ô trên trước đã"
-      : `Nhờ ${state?.keys.scriptLabel ?? "AI"} sửa đoạn trên cho đúng mẫu: tiêu đề, chia cảnh, câu ngắn, câu nhấn — không thêm ý mới`;
+      : "Chọn model rồi nhờ AI sửa đoạn trên cho đúng mẫu: tiêu đề, chia cảnh, câu ngắn, câu nhấn — không thêm ý mới";
 }
 
-async function normalizeText() {
+/** Bấm nút Chuẩn hoá lời: kiểm tra trước rồi mở popup chọn model. */
+function openNormalize() {
   if (normalizing) return;
   if (!hasScriptKey()) {
     setHint("Chuẩn hoá lời cần 1 API key viết lời — Gemini, Groq, OpenRouter có gói miễn phí, hoặc chọn Ollama chạy trên máy.", true);
     openSettings();
     return;
   }
+  if (!$("input").value.trim()) { setHint("Dán lời vào ô nhập trước đã.", true); return; }
+  openMenu($("normalizeBtn"), normalizeMenu());
+}
+
+/** `choice`: "auto" hoặc "<nhà cung cấp>|<model>" chọn trong popup. */
+async function normalizeText(choice = "auto") {
+  if (normalizing) return;
   const text = $("input").value.trim();
   if (!text) { setHint("Dán lời vào ô nhập trước đã.", true); return; }
+  const [provider, model] = choice === "auto" ? [opts.provider, undefined] : choice.split("|");
 
   normalizing = true;
   syncNormalize();
-  setHint(`Đang nhờ ${state?.keys.scriptLabel ?? "AI"} chuẩn hoá lời…`);
+  setHint(`Đang nhờ ${model ? `${providerName(provider)} (${model})` : state?.keys.scriptLabel ?? "AI"} chuẩn hoá lời…`);
   try {
-    const res = await postJson("/api/script-normalize", { text, style: opts.style, provider: opts.provider });
+    const res = await postJson("/api/script-normalize", { text, style: opts.style, provider, model });
     if (res.text.trim() === text) {
       setHint("Lời đã đúng mẫu — không phải sửa gì.");
     } else {
       beforeNormalize = $("input").value;
       prefill(res.text);
       const notes = res.notes?.length ? ` · ${res.notes.join(" · ")}` : "";
-      setHint(`Đã chuẩn hoá bằng ${providerName(res.provider)} — không ưng thì bấm Hoàn tác.${notes}`);
+      // Model chọn bị lỗi thì server lùi sang model khác — ghi đúng model đã chuẩn hoá.
+      const switched = model && res.model && res.model !== model ? ` (${model} lỗi nên đã dùng model khác)` : "";
+      setHint(`Đã chuẩn hoá bằng ${providerName(res.provider)} (${res.model})${switched} — không ưng thì bấm Hoàn tác.${notes}`);
     }
   } catch (e) {
     setHint(e.message, true);
@@ -2683,7 +2731,7 @@ function bindComposer() {
     window.addEventListener("focus", () => setTimeout(() => { picker.accept = "image/*,video/*,audio/*"; }, 300), { once: true });
   });
   $("exampleBtn").addEventListener("click", useExample);
-  $("normalizeBtn").addEventListener("click", normalizeText);
+  $("normalizeBtn").addEventListener("click", openNormalize);
   $("undoNormalize").addEventListener("click", undoNormalize);
   $("fileInput").addEventListener("change", () => {
     addFiles([...$("fileInput").files]);
@@ -2990,6 +3038,19 @@ async function openSettings(focusName) {
             <i class="wm-zone top"></i><i class="wm-zone bottom"></i>
             <span class="wm-label" id="wmLabel"></span>
           </div>`;
+      } else if (k.type === "image") {
+        // Ảnh tải lên thư viện: ô ẩn giữ đường dẫn, ảnh tròn xem trước (chưa có = chữ S như trong video).
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="image" type="hidden" value="${escapeHtml(k.value)}" />
+          <span class="key-image" id="keyImage-${k.name}" aria-hidden="true"></span>
+          <button type="button" class="btn" data-pick-image="${k.name}">${icon("image")} Chọn ảnh…</button>
+          <button type="button" class="btn" data-clear-image="${k.name}">Bỏ ảnh</button>
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" data-file-for="${k.name}" hidden />`;
+      } else if (k.type === "color") {
+        // Ô ẩn giữ "#rrggbb" hoặc "" (= mặc định); bảng màu không có tên nên không bị gửi thẳng khi Lưu.
+        control = `<input id="key-${k.name}" name="${k.name}" data-type="color" type="hidden" value="${escapeHtml(k.value)}" />
+          <input type="color" class="key-color" data-color-for="${k.name}" value="${escapeHtml(k.value || "#ff6b2c")}" />
+          <span class="muted key-color-note" id="keyColorNote-${k.name}"></span>
+          <button type="button" class="btn" data-clear-color="${k.name}">Theo màu video</button>`;
       } else if (k.type === "text") {
         control = `<input id="key-${k.name}" name="${k.name}" data-type="text" type="text" spellcheck="false"${k.maxLength ? ` maxlength="${k.maxLength}"` : ""}${k.usd ? ` inputmode="decimal"` : ""}
                           value="${escapeHtml(k.value)}" placeholder="${escapeHtml(k.placeholder ?? "")}" />`;
@@ -3019,6 +3080,8 @@ async function openSettings(focusName) {
       }));
     applyShowIf();
     bindWatermarkPad();
+    bindImageFields();
+    bindColorFields();
     $("keyFields").querySelectorAll("[data-remove]").forEach((b) =>
       b.addEventListener("click", () => {
         const name = b.dataset.remove;
@@ -3100,6 +3163,65 @@ function bindWatermarkPad() {
   draw();
 }
 
+/** Ô ảnh trong Cài đặt (vd. ảnh đại diện Story): chọn file → tải vào thư viện → ghi đường dẫn vào ô ẩn, lưu khi bấm Lưu. */
+function bindImageFields() {
+  const show = (name) => {
+    const value = $(`key-${name}`).value;
+    $(`keyImage-${name}`).innerHTML = value ? `<img src="/public/${escapeHtml(value)}" alt="" />` : "S";
+    // Chưa có ảnh: vòng xem trước tô đúng màu nền avatar đang chọn (ô màu cùng tên + "_COLOR", nếu có).
+    $(`keyImage-${name}`).style.background = $(`key-${name}_COLOR`)?.value || "";
+    $("keyFields").querySelector(`[data-clear-image="${name}"]`).hidden = !value;
+  };
+  $("keyFields").querySelectorAll("[data-pick-image]").forEach((button) => {
+    const name = button.dataset.pickImage;
+    const picker = $("keyFields").querySelector(`[data-file-for="${name}"]`);
+    button.addEventListener("click", () => picker.click());
+    picker.addEventListener("change", async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      button.disabled = true;
+      try {
+        const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error);
+        $(`key-${name}`).value = body.path;
+        show(name);
+        $("settingsHint").textContent = "Đã tải ảnh lên — bấm Lưu để dùng.";
+      } catch (e) {
+        $("settingsHint").textContent = `Không tải lên được ${file.name}: ${e.message}`;
+      } finally {
+        button.disabled = false;
+        picker.value = "";
+      }
+    });
+    $("keyFields").querySelector(`[data-clear-image="${name}"]`).addEventListener("click", () => {
+      $(`key-${name}`).value = "";
+      show(name);
+    });
+    show(name);
+  });
+}
+
+/** Ô màu trong Cài đặt (vd. màu nền avatar Story): kéo bảng màu là ghi "#rrggbb"; "Theo màu video" về trống. */
+function bindColorFields() {
+  $("keyFields").querySelectorAll("[data-color-for]").forEach((picker) => {
+    const name = picker.dataset.colorFor;
+    const clear = $("keyFields").querySelector(`[data-clear-color="${name}"]`);
+    const show = () => {
+      const value = $(`key-${name}`).value;
+      $(`keyColorNote-${name}`).textContent = value ? value.toUpperCase() : "Đang theo màu nhấn của từng video";
+      picker.classList.toggle("unset", !value);
+      clear.hidden = !value;
+      // Vòng xem trước của ô ảnh cùng nhóm (STORY_AVATAR ↔ STORY_AVATAR_COLOR) đổi màu theo.
+      const preview = $(`keyImage-${name.replace(/_COLOR$/, "")}`);
+      if (preview) preview.style.background = value;
+    };
+    picker.addEventListener("input", () => { $(`key-${name}`).value = picker.value; show(); });
+    clear.addEventListener("click", () => { $(`key-${name}`).value = ""; show(); });
+    show();
+  });
+}
+
 // ---------- gợi ý key lúc tạo video lần đầu ----------
 /**
  * Key miễn phí làm video đẹp hơn, xếp theo mức đáng có. `links`: chữ trên link → tên ô trong Cài đặt
@@ -3172,6 +3294,8 @@ async function saveSettings(event) {
   event.preventDefault();
   const patch = {};
   $("keyFields").querySelectorAll("input, select").forEach((input) => {
+    // Ô chọn file của ô ảnh không có tên — đường dẫn nằm ở ô ẩn cùng hàng.
+    if (!input.name) return;
     const value = input.value.trim();
     // Ô bí mật để trống = giữ key cũ. Ô thường/ô chọn luôn gửi, rỗng = về mặc định.
     if (input.dataset.type !== "secret") patch[input.name] = value;

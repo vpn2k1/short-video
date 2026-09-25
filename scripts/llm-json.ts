@@ -71,9 +71,11 @@ const compatAsk = async <T>(
   provider: CompatProvider,
   ask: JsonAsk,
   read: (reply: JsonReply) => T,
-): Promise<T> => {
+  /** Model người dùng chọn cho lượt này — thử trước, lỗi thì vẫn lùi sang các model còn lại. */
+  preferred?: string,
+): Promise<{ value: T; model: string }> => {
   const config = COMPAT_PROVIDERS[provider];
-  const models = compatModels(provider);
+  const models = [...new Set([...(preferred ? [preferred] : []), ...compatModels(provider)])];
   let lastError = `${config.label}: chưa có model nào để gọi.`;
   for (const model of models) {
     const who = `${config.label} (${model})`;
@@ -104,7 +106,7 @@ const compatAsk = async <T>(
     recordCall(config.label, true);
     const body = (await response.json()) as { choices?: { message?: { content?: string | null } }[] };
     try {
-      return read({ raw: body.choices?.[0]?.message?.content ?? "", who });
+      return { value: read({ raw: body.choices?.[0]?.message?.content ?? "", who }), model };
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
@@ -112,9 +114,9 @@ const compatAsk = async <T>(
   throw new Error(lastError);
 };
 
-const claudeAsk = async (ask: JsonAsk): Promise<JsonReply> => {
+const claudeAsk = async (ask: JsonAsk, preferred?: string): Promise<JsonReply> => {
   const client = new Anthropic();
-  const model = process.env.CLAUDE_MODEL || "claude-opus-5";
+  const model = preferred || process.env.CLAUDE_MODEL || "claude-opus-5";
   const response = await client.messages.create({
     model,
     max_tokens: ask.maxTokens ?? 4000,
@@ -127,8 +129,8 @@ const claudeAsk = async (ask: JsonAsk): Promise<JsonReply> => {
   };
 };
 
-const ollamaAsk = async (ask: JsonAsk): Promise<JsonReply> => {
-  const model = process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
+const ollamaAsk = async (ask: JsonAsk, preferred?: string): Promise<JsonReply> => {
+  const model = preferred || process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
   const host = (process.env.OLLAMA_HOST || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
   let response: Response;
   try {
@@ -186,7 +188,9 @@ export const askJson = async <T>(
   ask: JsonAsk,
   read: (reply: JsonReply) => T,
   noKeyError: string,
-): Promise<{ value: T; provider: ScriptProvider }> => {
+  /** Model chọn riêng cho lượt này (chỉ áp dụng cho nhà cung cấp `choice` đã chọn cụ thể). */
+  options: { model?: string } = {},
+): Promise<{ value: T; provider: ScriptProvider; model: string }> => {
   const providers = scriptProviders(choice);
   if (providers.length === 0) {
     throw new Error(
@@ -197,12 +201,15 @@ export const askJson = async <T>(
   const failures: string[] = [];
   for (const provider of providers) {
     try {
+      const preferred = provider === choice ? options.model : undefined;
       if (provider !== "anthropic" && provider !== "ollama" && provider !== "local") {
-        return { value: await compatAsk(provider, ask, read), provider };
+        return { ...(await compatAsk(provider, ask, read, preferred)), provider };
       }
-      const reply =
-        provider === "anthropic" ? await claudeAsk(ask) : provider === "ollama" ? await ollamaAsk(ask) : await localAsk(ask);
-      return { value: read(reply), provider };
+      const reply = provider === "anthropic"
+        ? await claudeAsk(ask, preferred)
+        : provider === "ollama" ? await ollamaAsk(ask, preferred) : await localAsk(ask);
+      // Tên model nằm trong ngoặc của `who`: "Claude (claude-opus-5)".
+      return { value: read(reply), provider, model: /\(([^)]+)\)$/.exec(reply.who)?.[1] ?? reply.who };
     } catch (error) {
       failures.push(error instanceof Error ? error.message : String(error));
     }

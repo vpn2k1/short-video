@@ -9,7 +9,7 @@
  * (hoặc Ollama chạy trên máy) vì phải nhờ model đọc hiểu đoạn văn.
  */
 import { askJson, parseJson, type JsonReply } from "./llm-json";
-import type { ProviderChoice, ScriptProvider } from "./generate-script";
+import { providerModels, type ProviderChoice, type ScriptProvider } from "./generate-script";
 import { MAX_LINE, MAX_SCENES, textToScript } from "./text-script";
 import { STYLES, type StyleId } from "../src/styles/meta";
 
@@ -62,16 +62,24 @@ const readScript = (reply: JsonReply, style: StyleId | "auto") => {
 
 export const normalizeScript = async (
   input: string,
-  options: { style: StyleId | "auto"; provider?: ProviderChoice },
-): Promise<{ text: string; notes: string[]; provider: ScriptProvider }> => {
+  options: {
+    style: StyleId | "auto";
+    provider?: ProviderChoice;
+    /** Model chọn trong popup Chuẩn hoá lời — phải thuộc danh sách của `provider` (providerModels). */
+    model?: string;
+  },
+): Promise<{ text: string; notes: string[]; provider: ScriptProvider; model: string }> => {
   const text = input.replace(/\r\n?/g, "\n").trim();
   if (!text) throw new Error("Chưa có lời nào để chuẩn hoá — dán nội dung vào ô nhập trước.");
   if (text.length > MAX_INPUT) {
     throw new Error(`Đoạn dài ${text.length} ký tự — tối đa ${MAX_INPUT}. Cắt bớt rồi chuẩn hoá từng phần.`);
   }
 
-  const { value, provider } = await askJson(
-    options.provider ?? "auto",
+  const provider = options.provider ?? "auto";
+  const model = options.model && provider !== "auto" && providerModels(provider).includes(options.model)
+    ? options.model : undefined;
+  const { value, provider: used, model: usedModel } = await askJson(
+    provider,
     {
       system: systemPrompt(options.style),
       user: `Chuẩn hoá đoạn sau thành kịch bản:\n\n${text}`,
@@ -86,6 +94,7 @@ export const normalizeScript = async (
     },
     (reply) => readScript(reply, options.style),
     "Chưa có AI nào để chuẩn hoá lời. Điền key trong Cài đặt (Gemini, Groq, OpenRouter có gói miễn phí), chọn Ollama để chạy trên máy không cần key, hoặc tự viết theo mẫu ở «Xem cách viết lời».",
+    { model },
   );
-  return { ...value, provider };
+  return { ...value, provider: used, model: usedModel };
 };

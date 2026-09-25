@@ -233,6 +233,16 @@ I18N.add({
   "Cần key Cloudflare (miễn phí) hoặc Gemini — điền trong Cài đặt": "Needs a Cloudflare key (free) or Gemini — add it in Settings",
   "Phong cách hình ảnh": "Visual style",
   // --- chuẩn hoá lời
+  "Chuẩn hoá lời bằng model nào?": "Tidy up the script with which model?",
+  "Chọn model rồi nhờ AI sửa đoạn trên cho đúng mẫu: tiêu đề, chia cảnh, câu ngắn, câu nhấn — không thêm ý mới":
+    "Pick a model, then let AI fix the text above to match the format: title, scenes, short lines, punchline — no new ideas",
+  "đang dùng": "current",
+  "viết tốt nhất": "best writing",
+  "ổn định, nhanh": "stable, fast",
+  "nhanh nhất, nhẹ": "fastest, light",
+  "Flash mới nhất": "latest Flash",
+  "Flash-Lite — nhẹ, ít quá tải": "Flash-Lite — light, rarely overloaded",
+  "tự chọn một model miễn phí": "picks a free model",
   "Đang chuẩn hoá…": "Tidying up…",
   "Cần 1 API key viết lời (Gemini, Groq, OpenRouter có gói miễn phí) — bấm để mở Cài đặt": "Needs 1 script-writing API key (Gemini, Groq, OpenRouter have free tiers) — click to open Settings",
   "Dán lời vào ô trên trước đã": "Paste a script into the box above first",
@@ -405,6 +415,10 @@ I18N.patterns([
   [/^Cần (\S+) — điền trong Cài đặt$/, "Needs $1 — add it in Settings"],
   [/^Nhờ (.+) sửa đoạn trên cho đúng mẫu: tiêu đề, chia cảnh, câu ngắn, câu nhấn — không thêm ý mới$/, "Ask $1 to fix the text above to match the format: title, scenes, short lines, punchlines — no new ideas"],
   [/^Đang nhờ (.+) chuẩn hoá lời…$/, "Asking $1 to tidy up the script…"],
+  [/^Đã chuẩn hoá bằng (.+) \((\S+) lỗi nên đã dùng model khác\) — không ưng thì bấm Hoàn tác(\.?)$/,
+    "Tidied up with $1 ($2 failed, so another model was used) — click Undo if you don't like it$3"],
+  [/^Theo chip AI: (.+)$/, "Following the AI chip: $1"],
+  [/^Dùng (.+) trước; lỗi thì chuyển model\/AI khác$/, "Uses $1 first; switches model/AI on errors"],
   [/^Đã chuẩn hoá bằng (.+) — không ưng thì bấm Hoàn tác(\.?)$/, "Tidied up with $1 — click Undo if you don't like it$2"],
   [/^Gõ yêu cầu, (.+) viết lại nội dung\.$/, "Type a request and $1 rewrites the content."],
   [/^Nghe thử giọng (.+) — lần đầu gọi (.+), tốn 1 lượt; nghe lại sau đó miễn phí$/, "Preview voice $1 — the first play calls $2 and uses 1 credit; replays are free"],
@@ -446,4 +460,25 @@ I18N.patterns([
     (_, why, lang) => `${why ? `${I18N.t(why)}, and this computer has` : "This computer has"} no ${lang === "tiếng Anh" ? "English" : "Vietnamese"} voice — the video has no audio. Add a Gemini key (free) in ⚙ Settings, or install the built-in voices (npm run setup).`],
   [/^Giọng (\S+) chỉ đọc tiếng Việt$/, "Voice $1 only reads Vietnamese"],
   [/^Máy này không dùng được giọng (\S+)$/, "Voice $1 isn't available on this computer"],
+]);
+
+/* Ảnh đại diện phong cách Story (⚙ Cài đặt). */
+I18N.add({
+  "Ảnh đại diện (phong cách Story)": "Avatar (Story style)",
+  "Ảnh tròn ở đầu mỗi video phong cách 📱 Story điện thoại — như avatar kênh của bạn. Áp dụng cho mọi video Story, kể cả video làm từ trước (khi xuất lại). Để trống thì hiện chữ S. Nên dùng ảnh vuông.":
+    "The round picture at the top of every 📱 Phone story video — like your channel avatar. Applies to all Story videos, including older ones (when re-exported). Leave empty to show the letter S. A square image works best.",
+  "Chọn ảnh…": "Choose image…",
+  "Bỏ ảnh": "Remove image",
+  "Đã tải ảnh lên — bấm Lưu để dùng.": "Image uploaded — click Save to use it.",
+  "Màu nền avatar (phong cách Story)": "Avatar background (Story style)",
+  "Màu nền sau chữ S khi chưa chọn ảnh đại diện. Bấm \"Theo màu video\" để dùng màu nhấn riêng của từng video.":
+    "Background behind the letter S when no avatar image is set. Click \"Match video color\" to use each video's own accent color.",
+  "Theo màu video": "Match video color",
+  "Đang theo màu nhấn của từng video": "Using each video's accent color",
+});
+I18N.patterns([
+  [/^(.+): màu phải có dạng #rrggbb\.$/, (_, label) => `${I18N.t(label)}: the color must look like #rrggbb.`],
+]);
+I18N.patterns([
+  [/^(.+): chọn lại ảnh \(jpg, png, webp, avif\) — không thấy file (.+)\.$/, (_, label, file) => `${I18N.t(label)}: choose the image again (jpg, png, webp, avif) — file ${file} not found.`],
 ]);

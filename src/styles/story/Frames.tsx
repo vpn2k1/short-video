@@ -5,7 +5,7 @@
  */
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames } from "../../constants";
-import type { Scene } from "../../compositions/Short/schema";
+import type { Scene, ShortProps } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
 import { activeIndexAt, Grain, seeded } from "../shared";
 import { Avatar } from "./Chrome";
@@ -115,9 +115,9 @@ export const trayCenter = (vh: number) => ({ x: 540, y: vh * 0.44 });
  * Màn mở đầu phần 1: "khay story" — avatar lớn với vòng gradient đang xoay tải và dòng "Tin mới · 2 giờ trước".
  * Frame 14 ngón tay chạm (avatar lún xuống), từ frame 18 story nở ra thành vòng tròn từ avatar (xem index.tsx).
  */
-export const StoryTray: React.FC<{ vh: number; title: string; accent: string; firstImage: Scene | null }> = ({
+export const StoryTray: React.FC<{ vh: number; avatar: ShortProps["avatar"]; accent: string; firstImage: Scene | null }> = ({
   vh,
-  title,
+  avatar,
   accent,
   firstImage,
 }) => {
@@ -142,7 +142,7 @@ export const StoryTray: React.FC<{ vh: number; title: string; accent: string; fi
           scale: String(enter * tap),
         }}
       >
-        <Avatar size={size} title={title} accent={accent} spin={spin} />
+        <Avatar size={size} avatar={avatar} accent={accent} spin={spin} />
         {/* Vệt chạm của ngón tay. */}
         <div
           style={{
@@ -203,13 +203,13 @@ export const StoryTray: React.FC<{ vh: number; title: string; accent: string; fi
 export const NeighborCards: React.FC<{
   scenes: Scene[];
   accent: string;
-  title: string;
+  avatar: ShortProps["avatar"];
   /** Tâm điện thoại và nửa bề rộng thân máy (px thật). */
   cx: number;
   cy: number;
   half: number;
   cardH: number;
-}> = ({ scenes, accent, title, cx, cy, half, cardH }) => {
+}> = ({ scenes, accent, avatar, cx, cy, half, cardH }) => {
   const frame = useCurrentFrame();
   const vt = useVt();
   const index = Math.max(0, activeIndexAt(scenes, frame));
@@ -245,7 +245,7 @@ export const NeighborCards: React.FC<{
         {still ? <SceneMedia scene={still} from={msToFrames(still.startMs)} /> : <CreateBackground accent={accent} index={i} />}
         <AbsoluteFill style={{ backgroundColor: "rgba(0,0,0,0.42)" }} />
         <AbsoluteFill style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: cardW * 0.06 }}>
-          <Avatar size={cardW * 0.3} title={title} accent={accent} />
+          <Avatar size={cardW * 0.3} avatar={avatar} accent={accent} />
           <div style={{ fontFamily: UI, fontWeight: 500, fontSize: cardW * 0.065, color: "rgba(255,255,255,0.75)" }}>{vt("2 giờ")}</div>
         </AbsoluteFill>
       </div>,

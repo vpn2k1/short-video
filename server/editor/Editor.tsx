@@ -50,6 +50,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   /** Watermark theo Cài đặt — không nằm trong props.json, chỉ gắn vào khung xem trước. */
   const [watermark, setWatermark] = useState<ShortProps["watermark"]>(null);
+  const [avatar, setAvatar] = useState<ShortProps["avatar"]>(null);
   /** Tăng lên để timeline tự thu phóng vừa khung (Shift+Z). */
   const [fitRequest, setFitRequest] = useState(0);
   /** Phím Alt+1…6: chuyển tab thư viện. */
@@ -82,7 +83,7 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
   stageRef.current = stage;
   // Đang chọn vùng crop: xem trước cảnh đó ở dạng chưa crop để thấy toàn bộ khung.
   // Khung crop phủ cả khu xem trước và tự hiện toàn bộ file gốc — Player không cần bỏ crop.
-  const previewProps = useMemo(() => (props ? { ...props, watermark } : props), [props, watermark]);
+  const previewProps = useMemo(() => (props ? { ...props, watermark, avatar } : props), [props, watermark, avatar]);
 
   // ---------- Player ----------
   const { frame, playing, playerRef, seek, nowMs } = usePlayerSync(meta);
@@ -119,10 +120,11 @@ export const Editor: React.FC<{ slug: string; version: number | null }> = ({ slu
         }
       })
       .catch((e: Error) => setLoadError(e.message));
-    api<{ voices: { catalog: VoiceOption[] }; watermark?: ShortProps["watermark"] }>("/api/state")
+    api<{ voices: { catalog: VoiceOption[] }; watermark?: ShortProps["watermark"]; avatar?: ShortProps["avatar"] }>("/api/state")
       .then((d) => {
         setVoices(d.voices.catalog);
         setWatermark(d.watermark ?? null);
+        setAvatar(d.avatar ?? null);
       })
       .catch(() => undefined);
   }, [slug, requestedVersion, scheduleSave, flash]);

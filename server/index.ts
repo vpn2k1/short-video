@@ -69,7 +69,7 @@ import {
   type BiliOrder,
 } from "../scripts/bilibili";
 import { downloadLink, isVideoLink, linkInfo } from "../scripts/video-link";
-import { watermarkFromSettings } from "../scripts/watermark";
+import { avatarFromSettings, watermarkFromSettings } from "../scripts/watermark";
 import { ASPECT_IDS, ASPECTS, type AspectId } from "../src/aspects";
 import { getJob, startJob } from "./jobs";
 import { activity } from "./activity";
@@ -296,6 +296,8 @@ const server = http.createServer(async (req, res) => {
         freeMode: freeMode(),
         /** Watermark theo Cài đặt — trình chỉnh sửa gắn vào khung xem trước. */
         watermark: watermarkFromSettings(),
+        /** Ảnh đại diện kênh (phong cách Story) theo Cài đặt — trình chỉnh sửa gắn vào khung xem trước. */
+        avatar: avatarFromSettings(),
         /** Đã hiện popup gợi ý key lúc tạo video lần đầu. */
         keyTipsSeen: keyTipsSeen(),
         keys: {
@@ -370,11 +372,13 @@ const server = http.createServer(async (req, res) => {
     // Nhờ AI sửa đoạn dán vào cho đúng cú pháp kịch bản — cần 1 API key, không ghi gì ra đĩa.
     if (route === "/api/script-normalize" && req.method === "POST") {
       try {
-        const body = await readJson<{ text?: string; style?: string; provider?: string }>(req);
+        const body = await readJson<{ text?: string; style?: string; provider?: string; model?: string }>(req);
         const style = body.style === "auto" || isStyleId(body.style) ? body.style : "auto";
         return send(res, 200, await normalizeScript(String(body.text ?? ""), {
           style,
           provider: isScriptProvider(body.provider) ? body.provider : "auto",
+          // Model chọn trong popup — normalizeScript chỉ nhận model thuộc danh sách của nhà cung cấp đó.
+          model: typeof body.model === "string" ? body.model : undefined,
         }));
       } catch (error) {
         return send(res, 400, errorBody(error));

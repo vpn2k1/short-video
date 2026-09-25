@@ -4,11 +4,11 @@
  * Biểu tượng vẽ bằng SVG kiểu chung chung — không mô phỏng logo mạng xã hội nào.
  * Mọi kích thước tính bằng px của canvas ảo (xem theme.ts).
  */
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { msToFrames } from "../../constants";
-import type { Scene } from "../../compositions/Short/schema";
+import type { Scene, ShortProps } from "../../compositions/Short/schema";
 import { seeded } from "../shared";
-import { clamp, initialOf, punchFrame, ringGradient, UI, useGeo, VW } from "./theme";
+import { clamp, punchFrame, ringGradient, UI, useGeo, VW } from "./theme";
 import { useVt } from "../../i18n/video";
 
 /* ------------------------------------------------------------ biểu tượng */
@@ -45,17 +45,21 @@ const CloseIcon: React.FC<IconProps> = ({ size, color = "#fff" }) => (
 /* ------------------------------------------------------------ avatar */
 
 /**
- * Avatar tròn: chữ cái đầu của tiêu đề trên nền màu nhấn, viền đen mảnh rồi vòng gradient story.
- * `spin` xoay vòng (lúc "đang tải" ở màn mở đầu), `ring` 0..1 để tắt dần vòng.
+ * Avatar tròn: ảnh đại diện kênh (⚙ Cài đặt › Ảnh đại diện Story) nếu có, không thì chữ "S" (Story) trên màu nền
+ * chọn trong Cài đặt, chưa chọn thì màu nhấn của video — trước đây là chữ cái đầu của tiêu đề, mỗi video một chữ trông
+ * như mỗi video một tài khoản khác nhau.
+ * Viền đen mảnh rồi vòng gradient story. `spin` xoay vòng (lúc "đang tải" ở màn mở đầu), `ring` 0..1 để tắt dần vòng.
  */
 export const Avatar: React.FC<{
   size: number;
-  title: string;
+  /** props.avatar (⚙ Cài đặt): ảnh đại diện và màu nền chữ "S"; null = chữ "S" trên màu nhấn. */
+  avatar: ShortProps["avatar"];
   accent: string;
   spin?: number;
   ring?: number;
-}> = ({ size, title, accent, spin = 0, ring = 1 }) => {
+}> = ({ size, avatar, accent, spin = 0, ring = 1 }) => {
   const pad = Math.max(3, size * 0.06);
+  const image = avatar?.image ?? null;
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: ringGradient(accent, 210 + spin), opacity: ring }} />
@@ -68,24 +72,31 @@ export const Avatar: React.FC<{
           padding: pad * 0.8,
         }}
       >
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            borderRadius: "50%",
-            background: `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), transparent 60%), ${accent}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: UI,
-            fontWeight: 800,
-            fontSize: size * 0.42,
-            color: "#fff",
-            lineHeight: 1,
-          }}
-        >
-          {initialOf(title)}
-        </div>
+        {image ? (
+          <Img
+            src={staticFile(image)}
+            style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "50%",
+              background: `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), transparent 60%), ${avatar?.background ?? accent}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: UI,
+              fontWeight: 800,
+              fontSize: size * 0.42,
+              color: "#fff",
+              lineHeight: 1,
+            }}
+          >
+            S
+          </div>
+        )}
       </div>
     </div>
   );
@@ -120,7 +131,7 @@ export const ProgressBars: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
   );
 };
 
-export const Header: React.FC<{ title: string; accent: string }> = ({ title, accent }) => {
+export const Header: React.FC<{ avatar: ShortProps["avatar"]; accent: string }> = ({ avatar, accent }) => {
   const vt = useVt();
   const geo = useGeo();
   return (
@@ -139,7 +150,7 @@ export const Header: React.FC<{ title: string; accent: string }> = ({ title, acc
         textShadow: "0 2px 10px rgba(0,0,0,0.35)",
       }}
     >
-      <Avatar size={92} title={title} accent={accent} />
+      <Avatar size={92} avatar={avatar} accent={accent} />
       <div style={{ fontSize: 38, fontWeight: 500, opacity: 0.72, whiteSpace: "nowrap" }}>{vt("2 giờ")}</div>
       <div style={{ flex: 1 }} />
       <div style={{ display: "flex", alignItems: "center", gap: 30, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.35))" }}>

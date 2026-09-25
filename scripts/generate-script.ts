@@ -218,6 +218,15 @@ const providerModel = (provider: ScriptProvider, claudeModel: string) =>
         : process.env[COMPAT_PROVIDERS[provider].modelEnv] || COMPAT_PROVIDERS[provider].defaultModel;
 
 /**
+ * Các model chọn được của một nhà cung cấp (ô chọn model khi Chuẩn hoá lời): model đang dùng đứng đầu, rồi model dự
+ * phòng. Claude, Ollama, AI có sẵn chỉ có đúng model trong Cài đặt.
+ */
+export const providerModels = (provider: ScriptProvider, claudeModel = "claude-opus-5"): string[] =>
+  provider === "anthropic" || provider === "ollama" || provider === "local"
+    ? [providerModel(provider, claudeModel)]
+    : compatModels(provider);
+
+/**
  * Mọi nhà cung cấp viết kịch bản cho giao diện chọn: nhãn, model đang dùng, đã có key chưa.
  * Thứ tự đúng thứ tự thử khi "Tự động".
  */
@@ -226,6 +235,7 @@ export const scriptProviderCatalog = (claudeModel = "claude-opus-5") =>
     id,
     label: providerLabel(id),
     model: providerModel(id, claudeModel),
+    models: providerModels(id, claudeModel),
     available: hasScriptKey(id) && !(freeMode() && PAID_SCRIPT_PROVIDERS.includes(id)),
     /** Chỉ có gói trả tiền — chế độ Miễn phí tắt đi. */
     paid: PAID_SCRIPT_PROVIDERS.includes(id),

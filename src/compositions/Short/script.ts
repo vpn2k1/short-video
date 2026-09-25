@@ -274,6 +274,7 @@ export const scriptToProps = (
     texts: [],
     overlays: [],
     watermark: null,
+    avatar: null,
   };
 };
 

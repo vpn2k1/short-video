@@ -113,12 +113,6 @@ export const createGradient = (accent: string, index: number) => {
 
 /* ------------------------------------------------------------ chữ */
 
-/** Chữ cái đầu của tiêu đề cho avatar ("Một ngày ở Đà Lạt" → "M"). */
-export const initialOf = (title: string) => {
-  const first = Array.from(title.normalize("NFC").trim()).find((c) => /\p{L}|\p{N}/u.test(c));
-  return first ? first.toLocaleUpperCase("vi") : "•";
-};
-
 /** Cỡ chữ co theo độ dài: tới `short` ký tự giữ nguyên, dài hơn co theo căn bậc hai, không dưới `min`. */
 export const shrink = (text: string, base: number, short: number, min = 0.58) => {
   const length = Array.from(text.normalize("NFC")).length;

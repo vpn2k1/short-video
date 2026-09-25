@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import type { ShortProps } from "../src/compositions/Short/schema";
 import { WEBGL_STYLES, type StyleId } from "../src/styles/meta";
-import { watermarkFromSettings } from "./watermark";
+import { avatarFromSettings, watermarkFromSettings } from "./watermark";
 
 export const COMPOSITION_ID = "Short";
 
@@ -84,8 +84,8 @@ export const renderShort = async (
   /** Nhận phần trăm 0-100; server dùng để đẩy tiến độ về UI. */
   onProgressPercent?: (percent: number) => void,
 ) => {
-  // Watermark theo Cài đặt lúc render, không theo props.json đã lưu.
-  const inputProps: ShortProps = { ...props, watermark: watermarkFromSettings() };
+  // Watermark và ảnh đại diện theo Cài đặt lúc render, không theo props.json đã lưu.
+  const inputProps: ShortProps = { ...props, watermark: watermarkFromSettings(), avatar: avatarFromSettings() };
   const serveUrl = await getBundle();
 
   // selectComposition chạy calculateMetadata với chính props này, nên độ dài
@@ -187,6 +187,7 @@ export const renderScene = async (
     // Voiceover là một track cho cả video — cắt theo cảnh sẽ lệch, nên bỏ.
     voiceoverTrack: null,
     watermark: watermarkFromSettings(),
+    avatar: avatarFromSettings(),
   };
 
   const serveUrl = await getBundle();
