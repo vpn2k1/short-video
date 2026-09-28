@@ -1,0 +1,147 @@
+{
+  "title": "Bạn có biết vì sao người ta nói không ai khó ba đời không?",
+  "subtitle": "Nhà tôi là minh chứng đây!",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "captions": [
+    {
+      "text": "Nhà tôi là minh chứng đây!",
+      "startMs": 2483,
+      "endMs": 4003,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mugbhdqrij7/line-01.mp3"
+    },
+    {
+      "text": "Đời ông tôi nghèo, đời bố tôi cũng nghèo.",
+      "startMs": 4853,
+      "endMs": 7173,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mugbhdqrij7/line-02.mp3"
+    },
+    {
+      "text": "Đến đời tôi thì nghèo đến mức tiền lấy vợ còn không có.",
+      "startMs": 7623,
+      "endMs": 10903,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mugbhdqrij7/line-03.mp3"
+    },
+    {
+      "text": "Nghĩ kỹ mới thấy câu này đúng thật!",
+      "startMs": 11753,
+      "endMs": 13833,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mugbhdqrij7/line-04.mp3"
+    },
+    {
+      "text": "Vì tôi mà nghèo thế này thì lấy đâu ra vợ, không có vợ thì lấy đâu ra con?",
+      "startMs": 14683,
+      "endMs": 18843,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mugbhdqrij7/line-05.mp3"
+    },
+    {
+      "text": "Nhà tôi không phải hết nghèo sau ba đời… mà là hết luôn đời thứ tư!",
+      "startMs": 19893,
+      "endMs": 23893,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mugbhdqrij7/line-06.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "story",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-7322423.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 4453
+    },
+    {
+      "image": "uploads/stock/pexels-image-17501027.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 4853,
+      "endMs": 11353
+    },
+    {
+      "image": "uploads/stock/pexels-image-7927422.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 11753,
+      "endMs": 14283
+    },
+    {
+      "image": "uploads/stock/pexels-image-39240665.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 14683,
+      "endMs": 19493
+    },
+    {
+      "image": "uploads/stock/pexels-image-7414940.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": {
+        "text": "Nhà tôi không phải hết nghèo sau ba đời… mà là",
+        "atMs": 19893
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 19893,
+      "endMs": 24343
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": "music/stock/freesound-music-746588.mp3",
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

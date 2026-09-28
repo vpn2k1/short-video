@@ -1,0 +1,212 @@
+{
+  "title": "Không ai khó ba đời?",
+  "subtitle": "Câu chuyện thực tế của một gia đình ba thế hệ nghèo",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "captions": [
+    {
+      "text": "Bạn có biết tại sao người ta thường nói không ai khó ba đời không?",
+      "startMs": 2483,
+      "endMs": 5923,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-01.mp3"
+    },
+    {
+      "text": "Tôi thấy câu này đúng lắm!",
+      "startMs": 6573,
+      "endMs": 8253,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-02.mp3"
+    },
+    {
+      "text": "Nhà tôi là minh chứng sống đây.",
+      "startMs": 9103,
+      "endMs": 10943,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-03.mp3"
+    },
+    {
+      "text": "Đời ông tôi nghèo.",
+      "startMs": 11393,
+      "endMs": 12513,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-04.mp3"
+    },
+    {
+      "text": "Đời bố tôi cũng nghèo.",
+      "startMs": 12963,
+      "endMs": 14403,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-05.mp3"
+    },
+    {
+      "text": "Đến đời tôi thì nghèo đến mức tiền nuôi thân còn chả đủ.",
+      "startMs": 15253,
+      "endMs": 18293,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-06.mp3"
+    },
+    {
+      "text": "Nói gì đến tiền lấy vợ?",
+      "startMs": 18743,
+      "endMs": 20343,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-07.mp3"
+    },
+    {
+      "text": "Nhiều người bảo: “Cố lên, đời con khá thì đời cháu sẽ sướng!”",
+      "startMs": 21393,
+      "endMs": 24753,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-08.mp3"
+    },
+    {
+      "text": "Nhưng mọi người không hiểu vấn đề rồi…",
+      "startMs": 25203,
+      "endMs": 27123,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-09.mp3"
+    },
+    {
+      "text": "Tôi mà nghèo thế này thì lấy đâu ra vợ?",
+      "startMs": 27973,
+      "endMs": 30213,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-10.mp3"
+    },
+    {
+      "text": "Không có vợ thì lấy đâu ra con?",
+      "startMs": 30863,
+      "endMs": 32863,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-11.mp3"
+    },
+    {
+      "text": "Không có con thì lấy đâu ra đời thứ tư?",
+      "startMs": 33513,
+      "endMs": 35753,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-12.mp3"
+    },
+    {
+      "text": "Thế nên người ta bảo không ai khó ba đời là đúng rồi.",
+      "startMs": 36803,
+      "endMs": 39603,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-13.mp3"
+    },
+    {
+      "text": "Nhà tôi nghèo đến mức… nghèo xong đời tôi là hết luôn!",
+      "startMs": 40053,
+      "endMs": 43013,
+      "audio": "voices/ban-co-biet-tai-sao-nguoi-ta-thuong-noi/mufdqjf4ilb/line-14.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "story",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-7322423.jpg",
+      "visual": null,
+      "tag": "Mở đầu",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 8703
+    },
+    {
+      "image": "uploads/stock/pexels-image-17501027.jpg",
+      "visual": null,
+      "tag": "Minh chứng",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 9103,
+      "endMs": 14853
+    },
+    {
+      "image": "uploads/stock/pexels-image-7927422.jpg",
+      "visual": null,
+      "tag": "Thế hệ tôi",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 15253,
+      "endMs": 20993
+    },
+    {
+      "image": "uploads/stock/pexels-image-39240665.jpg",
+      "visual": null,
+      "tag": "Lời khuyên",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 21393,
+      "endMs": 27573
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": "Hỏi đáp",
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 27973,
+      "endMs": 36403
+    },
+    {
+      "image": null,
+      "visual": null,
+      "tag": "Kết luận",
+      "punch": {
+        "text": "Nhà tôi nghèo đến mức… nghèo xong đời tôi là hết",
+        "atMs": 40053
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 36803,
+      "endMs": 43463
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": "music/stock/freesound-music-743180.mp3",
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null
+}

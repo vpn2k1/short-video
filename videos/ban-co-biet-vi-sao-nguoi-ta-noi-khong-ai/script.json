@@ -1,0 +1,55 @@
+{
+  "style": "story",
+  "title": "Bạn có biết vì sao người ta nói không ai khó ba đời không?",
+  "subtitle": "Nhà tôi là minh chứng đây!",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "scenes": [
+    {
+      "lines": [
+        "Nhà tôi là minh chứng đây!"
+      ],
+      "image": "uploads/stock/pexels-image-16020351.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Đời ông tôi nghèo, đời bố tôi cũng nghèo.",
+        "Đến đời tôi thì nghèo đến mức tiền lấy vợ còn không có."
+      ],
+      "image": "uploads/stock/pexels-image-13684271.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Nghĩ kỹ mới thấy câu này đúng thật!"
+      ],
+      "image": "uploads/stock/pexels-image-38418974.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Vì tôi mà nghèo thế này thì lấy đâu ra vợ, không có vợ thì lấy đâu ra con?"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null
+    },
+    {
+      "lines": [
+        "Nhà tôi không phải hết nghèo sau ba đời… mà là hết luôn đời thứ tư!"
+      ],
+      "image": "uploads/stock/pexels-image-9418058.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": "Nhà tôi không phải hết nghèo sau ba đời… mà là"
+    }
+  ]
+}
