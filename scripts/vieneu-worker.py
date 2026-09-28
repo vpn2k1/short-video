@@ -4,8 +4,8 @@ Tiến trình con đọc giọng VieNeu-TTS v3 Turbo — scripts/vieneu-tts.ts g
 Chạy bằng Python độc lập kèm trong app (scripts/setup-local.ts), đọc model từ thư mục cục bộ:
 không mạng, không huggingface_hub, không torch.
 
-    python -I -B vieneu-worker.py <site-packages> <thư mục model>
-    stdin:  {"voice": "Ngọc Huyền", "items": [{"text": "...", "out": "/abs/line-01.mp3.wav"}]}
+    python -X utf8 -I -B vieneu-worker.py <site-packages> <thư mục model>
+    stdin:  JSON mã hoá UTF-8 — {"voice": "Ngọc Huyền", "items": [{"text": "...", "out": "/abs/line-01.mp3.wav"}]}
     stdout: một dòng "ok <out>" cho mỗi câu đọc xong. Lỗi: dòng "Error: ..." ra stderr, mã thoát 1.
 """
 import json
@@ -13,6 +13,13 @@ import os
 import sys
 import types
 import wave
+
+# Windows dùng codepage ANSI (cp1252/cp1258) cho stdin/stdout của tiến trình con, không phải UTF-8 — và `-I` làm
+# Python bỏ qua PYTHONUTF8/PYTHONIOENCODING nên không chữa được bằng biến môi trường. Tiếng Việt có byte 0x8D
+# ("ọ" = E1 BB 8D) mà cp1252 không giải mã được: sys.stdin.read() chết ngay ở câu đầu. Vì vậy đọc thẳng bytes rồi
+# tự giải mã UTF-8 (xem main), và ép stdout/stderr về UTF-8 để Node đọc đúng tên file và câu báo lỗi.
+for _stream in (sys.stdout, sys.stderr):
+    _stream.reconfigure(encoding="utf-8", errors="replace")
 
 SITE, MODEL = sys.argv[1], sys.argv[2]
 sys.path.insert(0, SITE)
@@ -58,7 +65,7 @@ def write_wav(path, audio, sample_rate):
 
 
 def main():
-    request = json.loads(sys.stdin.read())
+    request = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     tts = Vieneu(mode="v3turbo", backbone_repo=MODEL, backend="onnx")
     voice = request.get("voice") or None
     for item in request["items"]:

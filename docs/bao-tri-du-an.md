@@ -293,7 +293,7 @@ ba** chỗ:
 |---|---|
 | `build.files` trong `package.json` | electron-builder đóng gói |
 | `CODE` trong `desktop/main.cjs` | chép sang thư mục làm việc mỗi lần đổi phiên bản |
-| dòng `cp -R` trong `desktop/build-win.sh` và `build-linux.sh` | bản build Windows/Linux dựng trong thư mục stage |
+| dòng `cp -R` trong `desktop/build-win.sh` và `build-linux.sh` | bản build **chéo** Windows/Linux dựng trong thư mục stage |
 
 Tài nguyên người dùng sửa được (ảnh, nhạc mặc định) thì thêm vào `SEED` thay vì `CODE` — `SEED` chỉ
 chép file còn thiếu, không đè.
@@ -351,9 +351,26 @@ thử dạng `.ts` rồi gọi trong hàm `async` để tránh.
 
 ```bash
 npm run dist:mac      # .dmg Apple Silicon
-npm run dist:win      # .exe NSIS x64 — build ngay trên macOS
+npm run dist:win      # .exe NSIS x64
 npm run dist:linux    # .AppImage x64
+npm run dist:all      # mọi bản máy hiện tại dựng được
 ```
+
+Cả bốn lệnh gọi `desktop/build.mjs` — chỉ cần Node, chạy được trên cả macOS và Windows. Nó chọn cách
+build theo máy đang chạy:
+
+| Máy build | mac | win | linux |
+|---|---|---|---|
+| macOS | trực tiếp | build chéo (`desktop/build-win.sh`) | build chéo (`desktop/build-linux.sh`) |
+| Windows | ✗ cần máy macOS | trực tiếp | ✗ cần macOS/Linux, hoặc WSL/Docker |
+| Linux | ✗ cần máy macOS | build chéo | trực tiếp |
+
+- **Trực tiếp** = `remotion browser ensure` → `setup-local.ts --platform <nền tảng>` → `electron-builder`.
+  `node_modules` sẵn có đã đúng nền tảng nên không cần thư mục stage.
+- **Build chéo** dựng một bản sao app trong `release/<os>-stage` rồi `npm ci --os=… --cpu=…` vào đó; script
+  là bash nên cần `bash` + `curl` + `unzip`. Trên Windows `bash` là lối vào WSL → không dùng được, vì vậy
+  `dist:all` ở Windows chỉ dựng bản Windows và in danh sách phần bỏ qua (không báo lỗi).
+- Muốn đủ ba bản thì build trên macOS, hoặc chia theo máy/CI từng nền tảng.
 
 Mỗi lệnh tự tải Chrome Headless Shell, llama-server + model, yt-dlp cho đúng nền tảng (cache ở
 `release/cache`, model ở `vendor/models`). Cần mạng lần đầu và **ổ trống vài GB** mỗi bản (model ~1 GB
@@ -403,6 +420,7 @@ Mỗi dòng dưới đây đã từng gây lỗi thật; code tương ứng có 
 | Windows: `kill()` cắt ngang server Node | llama-server mồ côi giữ RAM | `taskkill /T` cả cây (`desktop/main.cjs`) |
 | App mở từ Finder | PATH tối thiểu, không thấy ffmpeg/Homebrew | Dựng PATH trong `main.cjs` |
 | Windows gọi biến là `Path` | Thêm thư mục vào PATH không ăn | Gom mọi biến thể về `PATH` |
+| Windows: stdio tiến trình con dùng codepage ANSI, `-I` bỏ qua `PYTHONUTF8` | Chữ tiếng Việt qua stdin → `UnicodeDecodeError`, không đọc được giọng nào | `-X utf8` + đọc `stdin.buffer` trong `scripts/vieneu-worker.py` |
 | Key còn trong `.env` và trong Cài đặt | Hai nguồn đánh nhau | `loadKeys()` chuyển sang `data/api-keys.json` rồi bỏ qua `.env` |
 | Model nhỏ trả màu `#FFF`, lặp cảnh, bịa tên ảnh | Hỏng cả lượt tạo video | `tidyScript` sửa nhẹ thay vì báo lỗi |
 | Class CSS tên chung trong `index.html` | Kiểu của phần khác đè vào hộp thoại mới | Tiền tố riêng cho class mới |

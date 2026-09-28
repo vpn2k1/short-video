@@ -42,8 +42,10 @@ export const localTtsToWavs = (items: { text: string; out: string }[], voice: st
       return;
     }
     const worker = path.join(path.dirname(fileURLToPath(import.meta.url)), "vieneu-worker.py");
+    // -X utf8: Windows mặc định dùng codepage ANSI cho stdio và đường dẫn của Python, làm chữ tiếng Việt gửi qua
+    //   stdin chết với UnicodeDecodeError. Phải là cờ dòng lệnh chứ không phải PYTHONUTF8 — -I bỏ qua biến môi trường.
     // -I: bỏ qua PYTHONPATH/PYTHONHOME và thư viện Python của người dùng; -B: không ghi .pyc vào thư mục app.
-    const child = spawn(pythonPath(), ["-I", "-B", worker, path.join(runtimeDir(), "site"), modelDir()], {
+    const child = spawn(pythonPath(), ["-X", "utf8", "-I", "-B", worker, path.join(runtimeDir(), "site"), modelDir()], {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -69,7 +71,11 @@ export const localTtsToWavs = (items: { text: string; out: string }[], voice: st
       }
       const failed = items[done]?.text;
       const reason = signal ? `dừng (${signal})` : `thoát mã ${code}`;
-      const detail = stderr.split("\n").reverse().find((line) => line.startsWith("Error: "))?.slice(7).trim() ?? "";
+      // Python chết trước khi vào main (thiếu DLL, thiếu module…) thì không có dòng "Error: " — lấy dòng cuối
+      // của stderr để người dùng vẫn thấy manh mối thay vì một câu báo lỗi trống.
+      const lines = stderr.split("\n").map((line) => line.trim()).filter(Boolean);
+      const tagged = [...lines].reverse().find((line) => line.startsWith("Error: "));
+      const detail = tagged?.slice(7).trim() ?? lines[lines.length - 1] ?? "";
       reject(
         new Error(`Giọng đọc trong app ${reason}${failed ? ` ở câu "${failed}"` : ""}. ${detail}`.trim()),
       );
