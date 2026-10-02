@@ -1,0 +1,43 @@
+{
+  "style": "comic",
+  "title": "Ba Giai và Tú Xuất đi ăn",
+  "subtitle": "Hai người nghèo bước vào quán sang và nghĩ ra một cách trả tiền rất đặc biệt.",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "scenes": [
+    {
+      "lines": [
+        "Ba Giai và Tú Xuất bước vào một quán ăn sang trọng.",
+        "Hai người gọi rất nhiều món ngon.",
+        "Ăn xong, chủ quán mang hóa đơn ra."
+      ],
+      "image": "uploads/stock/pexels-image-16021235.jpg",
+      "visual": null,
+      "tag": "QUÁN ĂN",
+      "punch": null
+    },
+    {
+      "lines": [
+        "Ba Giai nhìn hóa đơn rồi nói: “Tôi không có tiền.”",
+        "Chủ quán tức giận: “Không có tiền mà dám ăn nhiều như vậy?”",
+        "Tú Xuất lập tức nói: “Ông đừng lo, chúng tôi có cách trả.”"
+      ],
+      "image": "uploads/stock/pexels-image-7680337.jpg",
+      "visual": null,
+      "tag": "HÓA ĐƠN",
+      "punch": "chúng tôi có cách trả"
+    },
+    {
+      "lines": [
+        "Chủ quán hỏi: “Cách gì?”",
+        "Tú Xuất chỉ vào Ba Giai: “Ông ấy không có tiền.”",
+        "Rồi chỉ vào mình: “Tôi cũng không có tiền.”",
+        "Hai người nhìn nhau rồi nói: “Vậy coi như chúng tôi đã trả lời câu hỏi của ông rồi!”"
+      ],
+      "image": null,
+      "visual": null,
+      "tag": "CÚ BẺ LÁI",
+      "punch": "Vậy coi như chúng tôi đã trả lời câu hỏi của ông"
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 /**
- * Cài phần chạy offline cho app: giọng đọc VieNeu, AI có sẵn (llama-server + Qwen), yt-dlp.
+ * Cài phần chạy offline cho app: giọng đọc VieNeu, AI có sẵn (llama-server + Qwen), yt-dlp, Chrome dựng video.
  * Chỉ cần Node — không cần bash, curl hay python, nên chạy được cả trên Windows.
  *
  *   npm run setup                         cài phần còn thiếu cho máy này (npm i tự gọi qua postinstall)
- *   npm run setup -- --only voice         chỉ một phần: voice | ai | yt-dlp (nhiều phần: voice,ai)
+ *   npm run setup -- --only voice         chỉ một phần: voice | ai | yt-dlp | chrome (nhiều phần: voice,ai)
  *   npm run setup -- --force              cài lại dù đã có
  *   npx tsx scripts/setup-local.ts --platform win-x64 --dest release/win-stage --force   (desktop/build-*.sh)
  *
@@ -13,6 +13,8 @@
  *           <đích>/vendor/vieneu/<nền tảng>/site/     vieneu + onnxruntime + numpy + sea-g2p + tokenizers, đã bỏ phần thừa
  *           <đích>/vendor/models/vieneu-v3-turbo/     model ONNX — chỉ phần đọc giọng có sẵn
  *           <đích>/vendor/yt-dlp/<nền tảng>/yt-dlp[.exe]
+ *           node_modules/.remotion/chrome-headless-shell/  Chrome dựng video — chỉ cho máy đang chạy (dựng chéo thì
+ *                                                          desktop/build-<os>.sh tự tải Chrome của nền tảng đích)
  * File tải về nằm trong release/cache (kiểm SHA-256), model GGUF trong ./vendor/models — cài lại không tải lại.
  *
  * Bỏ qua bước tự cài lúc npm i: đặt SKIP_LOCAL_SETUP=1 (máy CI cũng tự bỏ qua).
@@ -31,7 +33,7 @@ const CACHE = path.join(ROOT, "release", "cache");
 
 const PLATFORMS = ["mac-arm64", "win-x64", "linux-x64"] as const;
 type Platform = (typeof PLATFORMS)[number];
-const PARTS = ["voice", "ai", "yt-dlp"] as const;
+const PARTS = ["voice", "ai", "yt-dlp", "chrome"] as const;
 type Part = (typeof PARTS)[number];
 
 const HOST = `${process.platform === "darwin" ? "mac" : process.platform === "win32" ? "win" : "linux"}-${process.arch}`;
@@ -504,10 +506,26 @@ const installYtDlp = async (dest: string, platform: Platform) => {
 
 // ---------- chạy ----------
 
+// ---------- Chrome Headless Shell (Remotion dựng video) ----------
+// Có sẵn ngay sau npm i: render lần đầu không phải đợi tải, đóng gói chép thẳng vào app (desktop/after-pack.cjs).
+// Chỉ lo cho máy đang chạy — Chrome nằm trong node_modules của dự án, không theo --dest.
+const chromeForHost = (dest: string, platform: Platform) => platform === HOST && path.resolve(dest) === ROOT;
+
+const chromeInstalled = (dest: string, platform: Platform) =>
+  !chromeForHost(dest, platform) || fs.existsSync(path.join(ROOT, "node_modules", ".remotion", "chrome-headless-shell"));
+
+const installChrome = async (dest: string, platform: Platform) => {
+  // Dựng chéo (--platform khác máy / --dest stage) luôn bỏ qua, kể cả khi có --force: script dựng tự tải Chrome của
+  // nền tảng đích — chạy `remotion browser ensure` của máy dựng ở đây vừa thừa vừa làm hỏng bản dựng khi mất mạng.
+  if (!chromeForHost(dest, platform)) return log("  (dựng chéo — Chrome của nền tảng đích do desktop/build-<os>.sh tải)");
+  run(process.execPath, [path.join(ROOT, "node_modules", "@remotion", "cli", "remotion-cli.js"), "browser", "ensure"], ROOT);
+};
+
 const COMPONENTS: Record<Part, { label: string; installed: typeof aiInstalled; install: typeof installAi }> = {
   voice: { label: "Giọng đọc VieNeu (~700 MB)", installed: voiceInstalled, install: installVoice },
   ai: { label: "AI có sẵn: llama.cpp + Qwen2.5 1.5B (~1,2 GB)", installed: aiInstalled, install: installAi },
   "yt-dlp": { label: "yt-dlp (~35 MB)", installed: (dest, platform) => fs.existsSync(ytDlpPath(dest, platform)), install: installYtDlp },
+  chrome: { label: "Chrome dựng video (~90 MB)", installed: chromeInstalled, install: installChrome },
 };
 
 const arg = (name: string) => {

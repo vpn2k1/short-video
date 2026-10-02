@@ -376,6 +376,16 @@ Mỗi lệnh tự tải Chrome Headless Shell, llama-server + model, yt-dlp cho 
 `release/cache`, model ở `vendor/models`). Cần mạng lần đầu và **ổ trống vài GB** mỗi bản (model ~1 GB
 bị chép vào app và vào bộ cài).
 
+**Kiểm tra tự động — bộ cài hỏng thì không được tạo ra:**
+
+| Lúc | Script | Kiểm tra |
+|---|---|---|
+| `npm i` (postinstall, chỉ cảnh báo) và đầu mỗi lệnh `dist:*` (dừng nếu sai) | `desktop/check-deps.mjs` | Mọi thư viện mà `src/`, `server/`, `scripts/` import đều nằm ở `dependencies` — bản đóng gói chỉ chép `dependencies`; thư viện ở devDependencies hoặc chỉ "tình cờ có" vì gói khác kéo theo sẽ thiếu trên máy người dùng |
+| Sau khi electron-builder chép file, trước khi tạo bộ cài (`desktop/after-pack.cjs`) | `desktop/verify-app.mjs` | Chép lại thư mục `examples`/`test`… electron-builder tự bỏ mà gói vẫn khai trong `exports` (vd. `three/examples/jsm`); mọi import có file thật trong bản đóng gói (Node đọc `main`, webpack/esbuild đọc `browser`→`module`→`main`); đủ Chrome, ffmpeg, ffprobe, Python + model giọng đọc, llama-server + model, yt-dlp; Python kèm app nạp được giọng đọc — cùng nền tảng thì chạy thật, dựng chéo thì đối chiếu từng file thư viện chuẩn mà Python của máy dựng nạp |
+
+`npm i` cũng tự cài Chrome dựng video cho máy đang chạy (`setup-local.ts`, phần `chrome`), cùng giọng đọc, AI
+có sẵn và yt-dlp — xong `npm i` là đủ mọi thứ để `npm start` chạy offline và để đóng gói.
+
 Bản đóng gói chạy thế nào (`desktop/main.cjs`):
 
 - `asar: false`; mã nguồn TypeScript chạy trực tiếp bằng `tsx` qua Node của Electron

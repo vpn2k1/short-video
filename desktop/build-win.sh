@@ -17,7 +17,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE/.claude/skills" "$STAGE/public" "$CACHE"
 cp -R package.json package-lock.json tsconfig.json remotion.config.ts desktop src server scripts "$STAGE/"
 cp -R .claude/skills/style-* "$STAGE/.claude/skills/"
-cp -R public/images public/music public/sfx "$STAGE/public/"
+cp -R public/fonts public/images public/music public/sfx "$STAGE/public/"
 npx tsx scripts/setup-local.ts --platform win-x64 --dest "$STAGE" --force
 
 echo "→ Cài node_modules cho win32-x64"

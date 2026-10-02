@@ -30,7 +30,10 @@ const SETUP_PLATFORM = { mac: "mac-arm64", win: "win-x64", linux: "linux-x64" };
 
 const exec = (label, cmd, args) => {
   console.log(`\n→ ${label}`);
-  const result = spawnSync(cmd, args, { cwd: ROOT, stdio: "inherit", windowsHide: true });
+  // AVS_SOURCE_ROOT: desktop/after-pack.cjs (chạy trong release/<os>-stage khi dựng chéo) cần gốc dự án thật để
+  // đối chiếu Python giọng đọc của máy dựng.
+  const env = { ...process.env, AVS_SOURCE_ROOT: ROOT };
+  const result = spawnSync(cmd, args, { cwd: ROOT, stdio: "inherit", windowsHide: true, env });
   if (result.error) throw new Error(`Không chạy được ${label}: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`${label} thoát mã ${result.status}`);
 };
@@ -61,6 +64,8 @@ if (!requested || ![...TARGETS, "all"].includes(requested)) {
 
 const skipped = [];
 try {
+  // Thư viện code dùng mà không nằm trong dependencies thì bản đóng gói sẽ thiếu — dừng trước khi tốn công dựng.
+  exec("Kiểm tra thư viện trong package.json", process.execPath, [path.join(ROOT, "desktop", "check-deps.mjs")]);
   for (const target of requested === "all" ? TARGETS : [requested]) {
     const step = plan(target);
     if (step.skip) {
