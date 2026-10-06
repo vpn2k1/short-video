@@ -5,7 +5,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { activeIndexAt, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
+import { activeIndexAt, punchLines, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import { parseStat } from "../retro/vhs";
 import {
   clamp,
@@ -258,7 +258,14 @@ export const AnimePunch: React.FC<{
   const maxWidth = wide ? W * (hasVisual ? 0.5 : 0.62) : W - safe.side * 2;
   // Có số liệu phía trên thì khối nhỏ lại để không chạm số liệu và phụ đề.
   const base = (wide ? 120 : square ? 104 : 132) * unit * (hasVisual && !wide ? (square ? 0.7 : 0.8) : 1);
-  const fontSize = Math.max(44 * unit, fitHeavy(text, base, maxWidth - 90 * unit, glyphs(text).length > 22 ? 3 : 2));
+  // Người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất, mỗi dòng giữ trên một hàng nếu được.
+  const lines = punchLines(text);
+  const fontSize = Math.max(
+    44 * unit,
+    lines.length > 1
+      ? Math.min(...lines.map((l) => fitHeavy(l, base, maxWidth - 90 * unit, 1)), base * (3 / lines.length + 0.2))
+      : fitHeavy(text, base, maxWidth - 90 * unit, glyphs(text).length > 22 ? 3 : 2),
+  );
 
   let cy: number;
   if (wide) cy = H * (captionPosition === "center" ? 0.26 : 0.42);
@@ -352,10 +359,11 @@ export const AnimePunch: React.FC<{
                 lineHeight: 1.22,
                 textAlign: "center",
                 textWrap: "balance",
+                whiteSpace: "pre-line",
                 ...outlined(fontSize, palette.deep, WHITE, 0.14),
               }}
             >
-              {text}
+              {lines.join("\n")}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { AbsoluteFill, Easing, interpolate, Sequence, spring, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import { noMotion, type Scene, type SceneVisual, type ShortProps } from "../../compositions/Short/schema";
-import { activeIndexAt, useLayout } from "../shared";
+import { activeIndexAt, punchLines, useLayout } from "../shared";
 import { Backdrop } from "./Backdrop";
 import { BellIcon, HeartIcon } from "./Icons";
 import {
@@ -40,13 +40,17 @@ const BADGE_RESERVE = 34;
 const reserveFor = (visual: SceneVisual | null) =>
   (visual?.type === "stat" ? STAT_H + STAT_GAP : 0) + (visual?.type === "badge" ? BADGE_RESERVE : 0);
 
+/** Như wrapText nhưng giữ chỗ người dùng tự ngắt dòng ("\n" trong câu nhấn). */
+const wrapParas = (text: string, size: number, weight: number, maxWidth: number) =>
+  text.split("\n").flatMap((p) => wrapText(p, size, weight, maxWidth));
+
 const block = (text: string, base: number, min: number, weight: number, maxWidth: number, maxLines: number, ratio: number): TextBlock | null => {
   if (!text.trim()) return null;
   let size = base;
-  let lines = wrapText(text, size, weight, maxWidth);
+  let lines = wrapParas(text, size, weight, maxWidth);
   while (size > min && lines.length > maxLines) {
     size -= 2;
-    lines = wrapText(text, size, weight, maxWidth);
+    lines = wrapParas(text, size, weight, maxWidth);
   }
   return { lines, fontSize: size, lineH: Math.round(size * ratio) };
 };
@@ -140,8 +144,10 @@ export const SocialStyle: React.FC<ShortProps> = ({
       for (const w of words) if (w.punch) w.appear = Math.min(w.appear, atFrame);
     }
     const headline = i === 0 ? block(title, 46 * u, 36 * u, HEADLINE_WEIGHT, bodyW, 2, 1.24) : null;
+    // Chip giữ đúng các dòng người dùng ngắt; mỗi dòng ngắt thêm được tính vào số dòng cho phép.
+    const chipLines = scene.punch ? punchLines(scene.punch.text.normalize("NFC")) : [];
     const chip =
-      scene.punch && !match ? block(`“${scene.punch.text.normalize("NFC").trim()}”`, 42 * u, 32 * u, 800, bodyW - 64 * u, 2, 1.25) : null;
+      scene.punch && !match ? block(`“${chipLines.join("\n")}”`, 42 * u, 32 * u, 800, bodyW - 64 * u, Math.max(2, chipLines.length), 1.25) : null;
 
     const maxCardH = contentH - reserveFor(scene.visual) * u;
     let fixed = chromeHeight(u);

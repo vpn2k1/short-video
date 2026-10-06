@@ -6,7 +6,7 @@
 import { Easing, interpolate } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { seeded } from "../shared";
+import { flatPunch, seeded } from "../shared";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 /** Chậm, rón rén — không lò xo, không nảy. */
@@ -114,7 +114,8 @@ const norm = (text: string) => text.normalize("NFC").toLocaleLowerCase("vi");
 
 /** Vị trí câu nhấn trong một câu phụ đề (không phân biệt hoa thường), -1 nếu không có. */
 export const punchOffset = (caption: string, punch: string) => {
-  const needle = norm(punch).trim();
+  // lời đọc không có "\n": so bằng bản phẳng của câu nhấn
+  const needle = norm(flatPunch(punch)).trim();
   if (!needle) return -1;
   return norm(caption).indexOf(needle);
 };

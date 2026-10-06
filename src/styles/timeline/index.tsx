@@ -15,7 +15,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import { noMotion, type Scene, type ShortProps } from "../../compositions/Short/schema";
 import { ensureFonts } from "../../fonts/load";
-import { activeIndexAt, Grain, useLayout } from "../shared";
+import { activeIndexAt, Grain, punchLines, useLayout } from "../shared";
 import { Axis, type AxisGeometry } from "./Axis";
 import { MilestoneCard, type CardLayout, type CardLine } from "./Card";
 import {
@@ -101,7 +101,9 @@ export const TimelineStyle: React.FC<ShortProps> = ({
   const statRoom = !vertical && scenes.some((s) => s.visual?.type === "stat" && s.image) ? 210 * unit : 0;
   const captionBase = vertical ? 50 * unit : Math.max(38 * unit, Math.min(60 * unit, textW / 10));
   const maxLines = vertical ? 4 : Math.max(3, Math.floor((rect.h - pad * 2 - eyebrowH - statRoom) / (captionBase * 1.32)));
-  const longest = (size: number) => texts.reduce((m, t) => Math.max(m, estimateLines(t, size, textW, 0.53)), 0);
+  // Câu nhấn người dùng tự ngắt dòng: cộng số dòng của từng đoạn.
+  const linesOf = (t: string, size: number) => Math.max(1, punchLines(t).reduce((n, l) => n + estimateLines(l, size, textW, 0.53), 0));
+  const longest = (size: number) => texts.reduce((m, t) => Math.max(m, linesOf(t, size)), 0);
   let captionFont = captionBase;
   while (captionFont > 32 * unit && longest(captionFont) > maxLines) captionFont *= 0.94;
   const lines = texts.length > 0 ? Math.min(6, longest(captionFont)) : 0;

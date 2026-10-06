@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { fitFontSize, FONTS, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
+import { fitFontSize, FONTS, punchLines, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import { Static } from "./Noise";
 import { osdShadow, osdSize } from "./Osd";
 import { clamp, glyphs, osdFont, OSD_WHITE, parseStat, SUB_YELLOW, upperVi } from "./vhs";
@@ -94,7 +94,10 @@ export const RetroPunch: React.FC<{ scenes: Scene[]; captionPosition: "bottom" |
   const wide = width / height > 1.2;
   const square = !wide && height / width < 1.2;
   const text = scene.punch.text.normalize("NFC");
-  const fontSize = fitFontSize(text, (wide ? 120 : square ? 104 : 132) * unit, 0.42);
+  // Người dùng tự ngắt dòng → cỡ chữ theo dòng dài nhất.
+  const lines = punchLines(text);
+  const longest = lines.reduce((a, b) => ([...b].length > [...a].length ? b : a), "");
+  const fontSize = fitFontSize(lines.length > 1 ? longest : text, (wide ? 120 : square ? 104 : 132) * unit, 0.42);
   const shaky = local < 10 ? 1 : 0.25;
   const jx = seeded(`retro-punch-x-${index}-${Math.floor(frame / 2)}`, -9, 9) * unit * shaky;
   const jy = seeded(`retro-punch-y-${index}-${Math.floor(frame / 2)}`, -3, 3) * unit * shaky;
@@ -137,6 +140,7 @@ export const RetroPunch: React.FC<{ scenes: Scene[]; captionPosition: "bottom" |
             color: "#ffffff",
             textAlign: "center",
             textWrap: "balance",
+            whiteSpace: "pre-line",
             transform: `skewX(${skew}deg)`,
             textShadow: `${rgbShadow(split, 0.9)}, 0 0 ${24 * unit}px rgba(255,255,255,0.35)`,
           }}

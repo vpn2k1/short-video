@@ -6,7 +6,7 @@ import { Easing } from "remotion";
 import { FONT_CATALOG } from "../../fonts/catalog";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
-import { seeded } from "../shared";
+import { flatPunch, seeded } from "../shared";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -117,10 +117,10 @@ export const shakeAt = (frame: number, at: number, key: string): [number, number
 
 /* ------------------------------------------------------------ câu nhấn */
 
-/** Vị trí cụm nhấn trong câu (so không phân biệt hoa thường) — [đầu, cuối) hoặc null. */
+/** Vị trí cụm nhấn trong câu (so không phân biệt hoa thường, bỏ ngắt dòng của câu nhấn) — [đầu, cuối) hoặc null. */
 export const punchRange = (text: string, punch: string): [number, number] | null => {
   const hay = text.normalize("NFC").toLocaleLowerCase("vi");
-  const needle = punch.normalize("NFC").trim().toLocaleLowerCase("vi");
+  const needle = flatPunch(punch).normalize("NFC").trim().toLocaleLowerCase("vi");
   if (!needle || hay.length !== text.normalize("NFC").length) return null;
   const at = hay.indexOf(needle);
   return at < 0 ? null : [at, at + needle.length];

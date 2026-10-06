@@ -5,6 +5,7 @@
  * ngay khi font thật về.
  */
 import { FONT_CATALOG } from "../../fonts/catalog";
+import { flatPunch } from "../shared";
 
 /** Patrick Hand — chữ viết tay bút bi, rõ ràng, đủ dấu tiếng Việt. Dùng cho lời, nhãn băng keo, giấy note. */
 export const HAND = FONT_CATALOG.patrick.stack;
@@ -69,7 +70,8 @@ export const fitLines = (
 /** Cụm nhấn nằm ở đâu trong câu (vị trí trong chuỗi NFC), hoặc null nếu không có nguyên văn. */
 export const punchSpan = (text: string, punch: string): [number, number] | null => {
   const hay = text.normalize("NFC");
-  const needle = punch.normalize("NFC").trim();
+  // Lời đọc không có "\n" → so bằng bản phẳng của câu nhấn.
+  const needle = flatPunch(punch).normalize("NFC").trim();
   if (!needle) return null;
   const at = hay.toLowerCase().indexOf(needle.toLowerCase());
   return at < 0 ? null : [at, at + needle.length];

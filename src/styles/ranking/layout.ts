@@ -7,7 +7,7 @@
  */
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, CaptionPosition, Scene } from "../../compositions/Short/schema";
-import { useLayout } from "../shared";
+import { punchLines, useLayout } from "../shared";
 import { fitText, type Fitted, rankItems, upper } from "./theme";
 import { useVt } from "../../i18n/video";
 
@@ -157,7 +157,13 @@ export const useRankLayout = (
   const punchFontMax = (strip ? 56 : 44) * u;
   const punchPadX = (strip ? 40 : 30) * u;
   const punchMaxW = strip ? width - Math.max(70 * u, safe.side * 0.6) * 2 : cardW - 40 * u;
-  const fitPunch = (text: string) => fitText(upper(text), punchMaxW - punchPadX * 2, 1, punchFontMax, punchFontMax * 0.6, 900);
+  const fitPunch = (text: string): Fitted => {
+    const rows = punchLines(upper(text));
+    if (rows.length <= 1) return fitText(upper(text), punchMaxW - punchPadX * 2, 1, punchFontMax, punchFontMax * 0.6, 900);
+    // Người dùng tự ngắt dòng: giữ đúng từng dòng, cỡ chữ theo dòng rộng nhất.
+    const size = Math.min(...rows.map((r) => fitText(r, punchMaxW - punchPadX * 2, 1, punchFontMax, punchFontMax * 0.6, 900).size));
+    return { size, lines: rows.map((r) => fitText(r, punchMaxW - punchPadX * 2, 1, size, size, 900).lines[0]) };
+  };
 
   return {
     ...base,

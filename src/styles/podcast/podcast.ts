@@ -6,7 +6,7 @@ import { interpolate } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { FONT_CATALOG } from "../../fonts/catalog";
-import { seeded } from "../shared";
+import { flatPunch, seeded } from "../shared";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -104,7 +104,7 @@ export const barHeight = (i: number, n: number, frame: number, level: number) =>
 /** Vị trí [từ đầu, từ cuối] của cụm nhấn trong danh sách từ, hoặc null nếu câu không chứa nguyên văn. */
 export const punchRange = (words: Word[], punch: string): [number, number] | null => {
   const norm = (s: string) => s.normalize("NFC").toLowerCase();
-  const needle = norm(punch).trim();
+  const needle = norm(flatPunch(punch)).trim();
   if (!needle) return null;
   let pos = 0;
   const spans = words.map((w) => {

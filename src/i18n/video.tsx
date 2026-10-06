@@ -45,6 +45,7 @@ export const VIDEO_EN: Record<string, string> = {
   "người trả lời sai": "got it wrong",
   "Bình luận số câu bạn đúng": "Comment your score",
   "ĐÁP ÁN": "ANSWER",
+  "KẾT QUẢ": "RESULTS",
   // liveshop
   "{n} lượt thích": "{n} likes",
   "Theo dõi": "Follow",

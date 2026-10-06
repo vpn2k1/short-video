@@ -16,7 +16,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import { noMotion, type Caption, type Scene, type ShortProps } from "../../compositions/Short/schema";
 import { ensureFonts, useFontReady } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, Grain, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, Grain, punchLines, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import { fitLines, measure, SANS, SERIF, upper, wrap, type Line } from "./text";
 
@@ -328,14 +328,15 @@ const blockFor = (
   }
   const rules = 2 * (30 * unit + 4 * unit);
   const extraSize = (page ? 50 : 42) * unit;
-  const extra = extraPunch ? wrap(extraPunch, extraSize, zone.w * 0.9, ready, 400) : [];
+  // Giữ đúng các dòng người dùng tự ngắt; dòng nào dài quá thì ngắt tiếp cho vừa.
+  const extra = extraPunch ? punchLines(extraPunch).flatMap((l) => wrap(l, extraSize, zone.w * 0.9, ready, 400)) : [];
   const extraH = extra.length > 0 ? extra.length * extraSize * LINE_HEIGHT + 18 * unit : 0;
   const base = (page ? 74 : layout.split ? 60 : 58) * unit;
   const { size, lines } = fitLines(
     caption.text, base, 30 * unit, zone.w * (page ? 0.92 : 0.94), zone.h - rules - extraH, LINE_HEIGHT, page ? 6 : 4, ready,
   );
   const height = lines.length * size * LINE_HEIGHT + extraH;
-  const punch = scene.punch ? findPunch(caption.text, scene.punch.text) : null;
+  const punch = scene.punch ? findPunch(caption.text, flatPunch(scene.punch.text)) : null;
   // Trang chữ: khối phụ đề bám mép trên vùng (ngay dưới kicker) để cả trang là một cụm liền; bản in: canh giữa vùng.
   const cy = page ? zone.y + rules / 2 + height / 2 : zone.y + zone.h / 2;
   return { size, lines, extra, extraSize, zone, cy, height, page, punch };
@@ -459,7 +460,7 @@ const CaptionLayer: React.FC<{
     let extra: string | null = null;
     const punchAt = scene.punch ? msToFrames(scene.punch.atMs) : Number.MAX_SAFE_INTEGER;
     if (scene.punch) {
-      const inScene = captions.some((c) => sceneOf(c) === scene && findPunch(c.text, scene.punch!.text));
+      const inScene = captions.some((c) => sceneOf(c) === scene && findPunch(c.text, flatPunch(scene.punch!.text)));
       const owner = activeIndexAt(captions, punchAt);
       if (!inScene && (owner === i || (owner < 0 && i === 0))) extra = scene.punch.text;
     }

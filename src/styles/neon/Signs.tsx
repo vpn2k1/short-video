@@ -149,7 +149,10 @@ export const NeonPunch: React.FC<{
   const lit = flicker(local, key, 16) * hum(frame, key) * powerOff(frame, end, key);
   const hue = palette.secondary;
   const text = scene.punch.text.normalize("NFC").trim();
-  const length = [...text].length;
+  // Người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất, quầng sáng cao theo số dòng.
+  const rows = text.split("\n");
+  const length = Math.max(...rows.map((r) => [...r].length));
+  const extra = (rows.length - 1) * 1.45;
   const base = (wide ? 92 : square ? 84 : 100) * unit;
   const fontSize = Math.round(base * (length <= 12 ? 1 : Math.max(0.5, Math.sqrt(12 / length))));
   const maxWidth = wide ? width * 0.5 : width - safe.side * 2;
@@ -169,9 +172,9 @@ export const NeonPunch: React.FC<{
         style={{
           position: "absolute",
           left: centerX - maxWidth * 0.75,
-          top: centerY - fontSize * 2.2,
+          top: centerY - fontSize * (2.2 + extra / 2),
           width: maxWidth * 1.5,
-          height: fontSize * 4.4,
+          height: fontSize * (4.4 + extra),
           background: `radial-gradient(closest-side, ${neon(hue, 50, 0.32 * lit)}, transparent)`,
           mixBlendMode: "screen",
         }}
@@ -204,6 +207,7 @@ export const NeonPunch: React.FC<{
               lineHeight: 1.45,
               textAlign: "center",
               textWrap: "balance",
+              whiteSpace: "pre-line",
               color: lit > 0.3 ? core(hue) : deadTube(hue),
               textShadow: lit > 0.3 ? textGlow(hue, fontSize, lit) : "none",
             }}

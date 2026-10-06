@@ -117,6 +117,8 @@ const PunchLine: React.FC<{ entry: Extract<Entry, { kind: "punch" }>; ctx: Ctx }
           boxDecorationBreak: "clone",
           WebkitBoxDecorationBreak: "clone",
           lineHeight: 1.55,
+          // Giữ đúng chỗ người dùng tự ngắt dòng.
+          whiteSpace: "pre-line",
           boxShadow: `0 0 ${(28 * ctx.unit).toFixed(1)}px ${withAlpha(ctx.accent, 0.35 + flash * 0.4)}`,
           filter: flash > 0 ? `brightness(${(1 + flash * 0.6).toFixed(2)})` : undefined,
           ...glitch(ctx.frame, entry.start, ctx.unit, `punch-${entry.start}`),

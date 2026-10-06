@@ -4,10 +4,10 @@
  */
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import type { SceneVisual } from "../../compositions/Short/schema";
-import { seeded } from "../shared";
+import { punchLines, seeded } from "../shared";
 import { parseStat } from "../tech/theme";
 import type { SportLayout } from "./layout";
-import { COND, DISPLAY, EASE_IN, EASE_OUT, fitText, INK, inkOn, PANEL, ramp, SNAP, splitTag, upper, withAlpha } from "./theme";
+import { COND, DISPLAY, EASE_IN, EASE_OUT, estimateLines, fitText, INK, inkOn, PANEL, ramp, SNAP, splitTag, upper, withAlpha } from "./theme";
 import { useVt } from "../../i18n/video";
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,11 @@ export const PunchBurst: React.FC<{ L: SportLayout; text: string; accent: string
   const fade = ramp(frame, at, 3, EASE_OUT);
   const out = ramp(frame, until, 10, EASE_IN);
   const base = Math.min(L.punch.maxH * (L.portrait ? 0.62 : 0.42), (L.portrait ? 200 : 150) * u);
-  const fit = fitText(words, base, L.punch.maxW - 60 * u, 2, 0.5, 64 * u);
+  const lines = punchLines(words);
+  const fit =
+    lines.length > 1
+      ? fitLines(lines, base * Math.min(1, 2 / lines.length), L.punch.maxW - 60 * u, lines.length, 0.5, 64 * u)
+      : fitText(words, base, L.punch.maxW - 60 * u, 2, 0.5, 64 * u);
   const size = fit.size;
   const scale = (2.3 - 1.3 * land) * (1 + 0.18 * out);
   const opacity = fade * (1 - out);
@@ -291,6 +295,15 @@ export const PunchBurst: React.FC<{ L: SportLayout; text: string; accent: string
       </div>
     </AbsoluteFill>
   );
+};
+
+/** Như fitText nhưng cho câu nhấn người dùng tự ngắt dòng: mỗi dòng ước riêng, cộng lại không quá `maxLines`. */
+const fitLines = (lines: string[], base: number, width: number, maxLines: number, charWidth: number, min: number) => {
+  const count = (size: number) => lines.reduce((n, l) => n + estimateLines(l, size, width, charWidth), 0);
+  let size = base;
+  while (size > min && count(size) > maxLines) size *= 0.94;
+  size = Math.max(min, size);
+  return { size: Math.round(size), lines: count(size) };
 };
 
 const wordBox = (maxW: number): React.CSSProperties => ({

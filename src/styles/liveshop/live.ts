@@ -7,7 +7,7 @@ import { Easing } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { FONT_CATALOG } from "../../fonts/catalog";
-import { seeded, useLayout } from "../shared";
+import { flatPunch, punchLines, seeded, useLayout } from "../shared";
 import type { VideoLanguage } from "../../i18n/video";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -91,8 +91,9 @@ export const measure = (text: string, size: number, font: string, weight: number
   return width;
 };
 
-/** Số dòng khi ngắt theo từ cho vừa `maxWidth`. */
-export const lineCount = (text: string, size: number, maxWidth: number, font: string, weight: number, ready: boolean) => {
+/** Số dòng khi ngắt theo từ cho vừa `maxWidth`; "\n" (câu nhấn người dùng tự ngắt) là ngắt dòng cứng. */
+export const lineCount = (text: string, size: number, maxWidth: number, font: string, weight: number, ready: boolean): number => {
+  if (/\r?\n/.test(text)) return punchLines(text).reduce((sum, l) => sum + lineCount(l, size, maxWidth, font, weight, ready), 0);
   const words = text.normalize("NFC").split(/\s+/).filter(Boolean);
   let lines = 0;
   let current = "";
@@ -121,7 +122,8 @@ export const fitLines = (
 /** Cụm nhấn nằm ở đâu trong câu (vị trí trong chuỗi NFC), hoặc null nếu không có nguyên văn. */
 export const punchSpan = (text: string, punch: string): [number, number] | null => {
   const hay = text.normalize("NFC");
-  const needle = punch.normalize("NFC").trim();
+  // lời đọc không có "\n": so bằng bản phẳng của câu nhấn
+  const needle = flatPunch(punch).normalize("NFC").trim();
   if (!needle) return null;
   const at = hay.toLowerCase().indexOf(needle.toLowerCase());
   return at < 0 ? null : [at, at + needle.length];

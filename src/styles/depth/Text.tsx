@@ -3,7 +3,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { parseStat } from "../retro/vhs";
 import { punchRange, upperVi } from "../neon/neon";
-import { activeIndexAt, useCaptionClock, useLayout, useSceneClock } from "../shared";
+import { activeIndexAt, flatPunch, punchLines, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import { BODY, clamp, easeOut, extrude, HEAVY, rim, type Palette } from "./depth";
 import { Cube } from "./Space";
 import { arriveAt, usePanelBox, useShape } from "./Stage";
@@ -40,7 +40,7 @@ export const DepthCaptions: React.FC<{
   const pop = spring({ frame: frame - onAt, fps, config: { damping: 13, mass: 0.6 } });
   const sceneIndex = activeIndexAt(scenes, startFrame);
   const punch = sceneIndex >= 0 ? scenes[sceneIndex]?.punch : null;
-  const range = punch && frame >= msToFrames(punch.atMs) ? punchRange(text, punch.text) : null;
+  const range = punch && frame >= msToFrames(punch.atMs) ? punchRange(text, flatPunch(punch.text)) : null;
   const parts = range
     ? [
         { text: text.slice(0, range[0]), hot: false },
@@ -115,8 +115,10 @@ export const DepthPunch: React.FC<{
   const fly = spring({ frame: local, fps, config: { damping: 11, mass: 0.8 } });
   const out = interpolate(frame, [end - 8, end], [1, 0], clamp);
   const text = upperVi(scene.punch.text.trim());
-  const length = [...text].length;
-  const base = (wide ? 100 : square ? 92 : 112) * unit;
+  // Người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất (nhiều hơn 3 dòng thì co thêm cho vừa chiều cao).
+  const lines = punchLines(text);
+  const length = lines.length > 1 ? Math.max(...lines.map((l) => [...l].length)) : [...text].length;
+  const base = (wide ? 100 : square ? 92 : 112) * unit * Math.min(1, 3 / Math.max(1, lines.length));
   const fontSize = Math.round(base * (length <= 10 ? 1 : Math.max(0.45, Math.sqrt(10 / length))));
   const maxWidth = wide ? width * 0.55 : width - safe.side * 2 + 60 * unit;
   const hasVisual = Boolean(scene.visual);
@@ -161,9 +163,10 @@ export const DepthPunch: React.FC<{
               color: palette.key,
               WebkitTextStroke: rim(fontSize),
               textShadow: extrude(palette.side, fontSize, 10, 0.7),
+              whiteSpace: "pre-line",
             }}
           >
-            {text}
+            {lines.join("\n")}
           </div>
         </div>
       </div>

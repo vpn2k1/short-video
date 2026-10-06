@@ -6,6 +6,7 @@ import { Easing, interpolate } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { FONT_CATALOG } from "../../fonts/catalog";
+import { flatPunch } from "../shared";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -148,7 +149,8 @@ export const punchFrame = (scene: Scene, enterFrame: number) => {
 export const splitPunch = (text: string, punch: string | null | undefined): [string, string, string] | null => {
   if (!punch) return null;
   const hay = text.normalize("NFC");
-  const needle = punch.normalize("NFC").trim();
+  // Lời đọc không có "\n" nên dò bằng bản phẳng; chỉ khi thẻ hiện chính câu nhấn (còn "\n") mới so nguyên văn.
+  const needle = (text.includes("\n") ? punch : flatPunch(punch)).normalize("NFC").trim();
   if (!needle) return null;
   const at = hay.toLocaleLowerCase("vi").indexOf(needle.toLocaleLowerCase("vi"));
   if (at < 0) return null;

@@ -7,7 +7,7 @@ import { ClipVideo } from "../../scenes/ClipVideo";
 import { CropBox } from "../../scenes/CropBox";
 import type { SceneCrop } from "../../compositions/Short/schema";
 import { Easing, Img, interpolate, Sequence, staticFile } from "remotion";
-import { seeded } from "../shared";
+import { punchLines, seeded } from "../shared";
 import { HAND, INK, PENCIL, roughBox, roughEllipse, STICKY, textWidth } from "./sketch";
 import { DrawnPath, WrittenText } from "./written";
 
@@ -347,7 +347,58 @@ export const PunchNote: React.FC<{
   accent: string;
   seed: string;
 }> = ({ text, cx, cy, maxWidth, unit, atFrame, frame, accent, seed }) => {
-  const fontSize = Math.max(48 * unit, Math.min(104 * unit, (maxWidth * 0.9 * 100) / Math.max(1, textWidth(text, 100))));
+  // Người dùng tự ngắt dòng: mỗi dòng một khối viết riêng, cỡ chữ theo dòng rộng nhất.
+  const rows = punchLines(text);
+  const multi = rows.length > 1;
+  const widest = multi ? Math.max(...rows.map((r) => textWidth(r, 100))) : textWidth(text, 100);
+  const fontSize = Math.max(48 * unit, Math.min(104 * unit, (maxWidth * 0.9 * 100) / Math.max(1, widest)));
+  const progress = interpolate(frame, [atFrame - 6, atFrame + 10], [0, 1], clamp);
+  const punchOf = (row: string) => ({
+    text: row,
+    accent,
+    colorT: interpolate(frame, [atFrame, atFrame + 6], [0, 1], clamp),
+    draw: interpolate(frame, [atFrame + 6, atFrame + 22], [0, 1], clamp),
+  });
+  if (multi) {
+    // Nét viết chạy lần lượt qua từng dòng theo tỉ lệ số ký tự.
+    const lengths = rows.map((r) => [...r].length);
+    const total = lengths.reduce((a, b) => a + b, 0) || 1;
+    let before = 0;
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: cx - maxWidth / 2,
+          top: cy,
+          width: maxWidth,
+          translate: "0 -50%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          fontFamily: HAND,
+          color: INK,
+        }}
+      >
+        {rows.map((row, k) => {
+          const from = before / total;
+          before += lengths[k];
+          const share = lengths[k] / total;
+          return (
+            <WrittenText
+              key={k}
+              text={row}
+              fontSize={fontSize}
+              align="center"
+              progress={Math.max(0, Math.min(1, (progress - from) / share))}
+              maxWidth={maxWidth}
+              seed={`${seed}-note${k}`}
+              punch={punchOf(row)}
+            />
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div
       style={{
@@ -366,15 +417,10 @@ export const PunchNote: React.FC<{
         text={text}
         fontSize={fontSize}
         align="center"
-        progress={interpolate(frame, [atFrame - 6, atFrame + 10], [0, 1], clamp)}
+        progress={progress}
         maxWidth={maxWidth}
         seed={`${seed}-note`}
-        punch={{
-          text,
-          accent,
-          colorT: interpolate(frame, [atFrame, atFrame + 6], [0, 1], clamp),
-          draw: interpolate(frame, [atFrame + 6, atFrame + 22], [0, 1], clamp),
-        }}
+        punch={punchOf(text)}
       />
     </div>
   );

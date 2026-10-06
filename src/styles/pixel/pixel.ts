@@ -6,7 +6,7 @@
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
 import { FONT_CATALOG } from "../../fonts/catalog";
-import { useLayout } from "../shared";
+import { flatPunch, useLayout } from "../shared";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -90,7 +90,7 @@ export const notch = (n: number) =>
 export const punchSpan = (text: string, punch: string | undefined | null): [number, number] | null => {
   if (!punch) return null;
   const hay = glyphs(text).join("").toLocaleLowerCase("vi");
-  const needle = glyphs(punch.trim()).join("").toLocaleLowerCase("vi");
+  const needle = glyphs(flatPunch(punch).trim()).join("").toLocaleLowerCase("vi");
   if (!needle) return null;
   const at = hay.indexOf(needle);
   return at < 0 ? null : [at, at + needle.length];

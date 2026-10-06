@@ -14,7 +14,7 @@ import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { ShortProps } from "../../compositions/Short/schema";
 import { ensureFonts } from "../../fonts/load";
-import { activeIndexAt, seeded, useCaptionClock, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, seeded, useCaptionClock, useLayout } from "../shared";
 import { Backdrop, StripeWipes } from "./Backdrop";
 import { LowerThird, ScoreBug, Ticker } from "./Chrome";
 import { Nameplate, PunchBurst, ReplayFrame, StatGraphic } from "./Graphics";
@@ -100,7 +100,7 @@ export const SportStyle: React.FC<ShortProps> = ({ title, subtitle, accent, capt
         startFrame={cap.startFrame}
         enter={onAir + 6}
         accent={accent}
-        punch={capScene >= 0 ? (scenes[capScene].punch?.text ?? null) : null}
+        punch={capScene >= 0 && scenes[capScene].punch ? flatPunch(scenes[capScene].punch.text) : null}
       />
       {flash > 0 ? <AbsoluteFill style={{ backgroundColor: "#ffffff", opacity: flash }} /> : null}
     </AbsoluteFill>

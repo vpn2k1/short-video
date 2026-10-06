@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, CaptionPosition, Scene } from "../../compositions/Short/schema";
-import { fitFontSize, FONTS, useCaptionClock, useLayout, useSceneClock } from "../shared";
+import { fitFontSize, FONTS, punchLines, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import {
   barHeight,
   clamp,
@@ -140,7 +140,10 @@ export const TrailerCard: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
   const rule = interpolate(frame, [at + 3, at + PUNCH_IN + 14], [0, 1], { ...clamp, easing: EASE });
   const text = upperVi(active.punch.text);
   const maxWidth = wide ? width * 0.7 : width - safe.side * 2;
-  const fontSize = Math.round(fitFontSize(text, (wide ? 132 : 128) * unit, 0.5));
+  // Người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất, giữ đúng các dòng.
+  const lines = punchLines(text);
+  const longest = lines.reduce((a, b) => ([...b].length > [...a].length ? b : a), "");
+  const fontSize = Math.round(fitFontSize(lines.length > 1 ? longest : text, (wide ? 132 : 128) * unit, 0.5));
 
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", opacity }}>
@@ -164,10 +167,11 @@ export const TrailerCard: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
             color: WHITE,
             textAlign: "center",
             textWrap: "balance",
+            whiteSpace: "pre-line",
             textShadow: `0 ${4 * unit}px ${30 * unit}px rgba(0,0,0,0.7)`,
           }}
         >
-          {text}
+          {lines.join("\n")}
         </div>
         <div style={{ width: 120 * unit * rule, height: Math.max(1, 1.5 * unit), backgroundColor: "rgba(245,241,232,0.7)" }} />
       </div>

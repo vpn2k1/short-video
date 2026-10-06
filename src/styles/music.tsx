@@ -18,7 +18,7 @@ import { staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../constants";
 import type { Caption, ShortProps } from "../compositions/Short/schema";
 import { wordTokens } from "./tokens";
-import { seeded } from "./shared";
+import { flatPunch, seeded } from "./shared";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -217,7 +217,7 @@ export const sungPart = (word: TimedWord, ms: number) =>
 export const punchMask = (text: string, words: TimedWord[], punch: string | null | undefined) => {
   if (!punch) return words.map(() => false);
   const lower = (s: string) => s.normalize("NFC").toLocaleLowerCase("vi");
-  const needle = lower(punch).trim().replace(/[.,!?;:…]+$/u, "");
+  const needle = lower(flatPunch(punch)).trim().replace(/[.,!?;:…]+$/u, "");
   const at = needle ? lower(text).indexOf(needle) : -1;
   if (at < 0) return words.map(() => false);
   const end = at + needle.length;

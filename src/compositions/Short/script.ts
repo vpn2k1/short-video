@@ -159,7 +159,8 @@ export type PropsOptions = {
  */
 const punchTiming = (punch: string, sceneCaptions: Caption[], sceneStartMs: number, sceneEndMs: number) => {
   const needle = punch.toLocaleLowerCase("vi");
-  for (const caption of sceneCaptions) {
+  // Từ cuối lên: câu đố trắc nghiệm có lựa chọn "A. …" trùng chữ với punch — mốc đúng là câu "Đáp án là …" phía sau.
+  for (const caption of [...sceneCaptions].reverse()) {
     const at = caption.text.toLocaleLowerCase("vi").indexOf(needle);
     if (at >= 0) {
       const ratio = at / Math.max(1, caption.text.length);
@@ -212,7 +213,10 @@ export const scriptToProps = (
     const sceneStartMs = cursorMs;
     // Câu đố: câu chứa đáp án (câu nhấn) phải chờ đủ thời gian đếm ngược.
     const needle = finalStyle === "quiz" ? scriptScene.punch?.toLocaleLowerCase("vi") : undefined;
-    const answerAt = needle ? scriptScene.lines.findIndex((l) => l.toLocaleLowerCase("vi").includes(needle)) : -1;
+    // Lấy câu chứa punch CUỐI CÙNG: trắc nghiệm có dòng lựa chọn "A. …" trùng chữ với punch, câu đáp án đứng sau.
+    const answerAt = needle
+      ? scriptScene.lines.map((l) => l.toLocaleLowerCase("vi").includes(needle)).lastIndexOf(true)
+      : -1;
 
     for (const [k, text] of scriptScene.lines.entries()) {
       const clip = voiceover?.[lineIndex];

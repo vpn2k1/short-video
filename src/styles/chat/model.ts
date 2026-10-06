@@ -8,7 +8,7 @@
  */
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { seeded } from "../shared";
+import { flatPunch, seeded } from "../shared";
 import { CHAT_FONT } from "./theme";
 import { translateVideoText, type VideoLanguage } from "../../i18n/video";
 
@@ -118,7 +118,8 @@ export const splitWords = (text: string, punch: string | null): { words: Word[];
   let at = -1;
   let end = -1;
   if (punch) {
-    const needle = norm(punch).replace(/[.,!?;:…]+$/u, "");
+    // Câu nhấn có thể có "\n" (người dùng tự ngắt) — tin nhắn thì không, nên so bản phẳng.
+    const needle = norm(flatPunch(punch)).replace(/[.,!?;:…]+$/u, "");
     at = needle ? norm(source).indexOf(needle) : -1;
     end = at + needle.length;
   }

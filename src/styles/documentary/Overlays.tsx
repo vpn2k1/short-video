@@ -1,7 +1,7 @@
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { fitFontSize, FONTS, Grain, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
+import { fitFontSize, flatPunch, FONTS, Grain, punchLines, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import { FADE_FRAMES } from "./Footage";
 import { useVt } from "../../i18n/video";
 
@@ -121,7 +121,8 @@ export const DocCaptions: React.FC<{ captions: Caption[]; scenes: Scene[]; posit
   const punch = scene?.punch;
   let body: React.ReactNode = text;
   if (punch && frame >= msToFrames(punch.atMs) - 2) {
-    const needle = punch.text.normalize("NFC");
+    // Câu nhấn có thể có "\n" (người dùng tự ngắt) — phụ đề thì không, nên so bản phẳng.
+    const needle = flatPunch(punch.text).normalize("NFC");
     const at = text.toLowerCase().indexOf(needle.toLowerCase());
     if (at >= 0 && needle.length > 0) {
       body = (
@@ -215,7 +216,10 @@ export const Clipping: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
     : squareWithStat
       ? width * 0.5
       : Math.min(width - safe.side * 2, 780 * unit);
-  const fontSize = Math.round(fitFontSize(text, (wide || squareWithStat ? 80 : 96) * unit, 0.5));
+  // Người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất, giữ đúng các dòng.
+  const lines = punchLines(text);
+  const longest = lines.reduce((a, b) => ([...b].length > [...a].length ? b : a), "");
+  const fontSize = Math.round(fitFontSize(lines.length > 1 ? longest : text, (wide || squareWithStat ? 80 : 96) * unit, 0.5));
 
   const position: React.CSSProperties = wide
     ? { right: safe.side + 20 * unit, top: height * 0.2 }
@@ -267,9 +271,10 @@ export const Clipping: React.FC<{ scenes: Scene[] }> = ({ scenes }) => {
               letterSpacing: -0.01 * fontSize,
               textAlign: "center",
               textWrap: "balance",
+              whiteSpace: "pre-line",
             }}
           >
-            {text}
+            {lines.join("\n")}
           </div>
           <div
             style={{

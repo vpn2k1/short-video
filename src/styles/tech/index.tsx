@@ -1,7 +1,7 @@
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { ShortProps } from "../../compositions/Short/schema";
-import { FONTS, fitFontSize, useLayout } from "../shared";
+import { FONTS, fitFontSize, punchLines, useLayout } from "../shared";
 import { TechBackground } from "./Background";
 import { TechCaption } from "./Caption";
 import { ProgressLine, Punch, STAT_PANEL_HEIGHT, TagChip, VisualPanel } from "./Overlays";
@@ -52,11 +52,20 @@ export const TechStyle: React.FC<ShortProps> = ({
   // Câu nhấn: cỡ chữ co theo độ dài từng câu, giữ chỗ cho câu chiếm nhiều dòng nhất.
   const punchBase = wide ? Math.min(96 * unit, textW / 7) : 92 * unit;
   // Khung dọc rộng đủ cho 2 dòng nên co ít hơn; khung ngang cột hẹp thì co mạnh hơn.
-  const punchSize = (text: string) => fitFontSize(text, punchBase, wide ? 0.55 : 0.68);
+  // Người dùng tự ngắt dòng ("\n") → co theo dòng dài nhất, đếm dòng theo từng đoạn.
+  const punchSize = (text: string) => {
+    const parts = punchLines(text);
+    const longest = parts.length > 1 ? parts.reduce((a, b) => ([...b].length > [...a].length ? b : a), "") : text;
+    return fitFontSize(longest, punchBase, wide ? 0.55 : 0.68);
+  };
   const punchAreaH = scenes.reduce((max, s) => {
     if (!s.punch) return max;
     const size = punchSize(s.punch.text);
-    const lines = Math.min(3, estimateLines(s.punch.text, size, textW, 0.62));
+    const parts = punchLines(s.punch.text);
+    const lines =
+      parts.length > 1
+        ? Math.min(Math.max(3, parts.length), parts.reduce((n, p) => n + estimateLines(p, size, textW, 0.62), 0))
+        : Math.min(3, estimateLines(s.punch.text, size, textW, 0.62));
     // + paddingTop (dấu tiếng Việt) + dư một chút cho sai số ước lượng.
     return Math.max(max, lines * size * 1.08 + size * 0.3);
   }, 0);

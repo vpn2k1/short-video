@@ -2,6 +2,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
+import { flatPunch, punchLines } from "../shared";
 import { BoltIcon, CartIcon, FlameIcon, ProductSilhouette } from "./Icons";
 import {
   alpha, clamp, fitLines, formatVnd, GOLD, INK, inkOn, NUM, parsePrice, SALE_ORANGE, SALE_RED, shade, SLAM, SMOOTH, UI, upper,
@@ -108,7 +109,7 @@ export const FlashSale: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; re
   const shake = age < 12 ? Math.sin(age * 2.6) * (12 - age) * 0.9 * u : 0;
   const flash = interpolate(age, [0, 2, 8], [0, 0.55, 0], clamp);
   const punch = scene.punch!.text.normalize("NFC").trim();
-  const price = parsePrice(punch);
+  const price = parsePrice(flatPunch(punch));
   const pulse = 1 + 0.05 * Math.max(0, Math.sin((age - 14) / 4));
   const headH = (wide ? 84 : 96) * u;
   const headFs = (wide ? 40 : 46) * u;
@@ -268,11 +269,12 @@ export const FlashSale: React.FC<{ geo: Geo; scenes: Scene[]; accent: string; re
     );
   } else {
     const text = upper(punch);
-    const { size } = fitLines(text, (wide ? 76 : 88) * u, 44 * u, saleW - 72 * u, 3, UI, 900, ready);
+    // người dùng tự ngắt dòng thì ít nhất đủ chỗ cho từng ấy dòng
+    const { size } = fitLines(text, (wide ? 76 : 88) * u, 44 * u, saleW - 72 * u, Math.max(3, punchLines(text).length), UI, 900, ready);
     const mark = interpolate(age, [6, 18], [0, 100], clamp);
     body = (
       <>
-        <div style={{ fontFamily: UI, fontWeight: 900, fontSize: size, lineHeight: 1.18, color: SALE_RED, textAlign: "center", textWrap: "balance" }}>
+        <div style={{ fontFamily: UI, fontWeight: 900, fontSize: size, lineHeight: 1.18, color: SALE_RED, textAlign: "center", textWrap: "balance", whiteSpace: "pre-line" }}>
           <span
             style={{
               backgroundImage: `linear-gradient(${GOLD}, ${GOLD})`,

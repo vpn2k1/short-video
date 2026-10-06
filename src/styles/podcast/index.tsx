@@ -84,6 +84,8 @@ const Quote: React.FC<{
   // Cụm nhấn không có nguyên văn trong câu → hiện luôn cụm đó trong nhãn.
   const labelBase = narrow ? vt("Đáng nhớ") : vt("Câu đáng nhớ");
   const labelText = punch && !range ? `${labelBase}: ${punch.text.normalize("NFC").trim()}` : labelBase;
+  // Câu nhấn người dùng tự ngắt dòng: nhãn cao theo số dòng, giữ đúng chỗ ngắt.
+  const labelRows = labelText.split("\n").length;
   // Lời trích của ai: tên trong tag "Khách mời: …" nếu có, không thì bỏ trống dòng ký tên.
   const speaker = scene.tag?.normalize("NFC").match(/^[^:]{1,18}:\s*(.+)$/)?.[1]?.trim() ?? "";
 
@@ -127,12 +129,13 @@ const Quote: React.FC<{
             right: pad - 16 * unit,
             top: -labelH / 2,
             maxWidth: rect.w - pad - markSize * 0.7,
-            height: labelH,
+            height: labelRows > 1 ? "auto" : labelH,
+            minHeight: labelH,
             display: "flex",
             alignItems: "center",
             gap: 10 * unit,
-            padding: `0 ${22 * unit}px 0 ${16 * unit}px`,
-            borderRadius: 999,
+            padding: labelRows > 1 ? `${10 * unit}px ${22 * unit}px ${10 * unit}px ${16 * unit}px` : `0 ${22 * unit}px 0 ${16 * unit}px`,
+            borderRadius: labelRows > 1 ? 26 * unit : 999,
             backgroundColor: accent,
             boxShadow: `0 ${8 * unit}px ${22 * unit}px rgba(0,0,0,0.4)`,
             scale: String(labelT),
@@ -140,7 +143,7 @@ const Quote: React.FC<{
           }}
         >
           <BubbleIcon size={28 * unit} color="#ffffff" />
-          <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 24 * unit, lineHeight: 1.2, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 24 * unit, lineHeight: 1.2, color: "#ffffff", whiteSpace: labelRows > 1 ? "pre" : "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {labelText}
           </div>
         </div>

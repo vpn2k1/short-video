@@ -11,7 +11,7 @@ import { noMotion, type Caption, type Scene, type ShortProps } from "../../compo
 import { FONT_CATALOG } from "../../fonts/catalog";
 import { ensureFonts } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, Grain, seeded, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, Grain, punchLines, seeded, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import { curlAt, polygonCss, polygonSvg } from "./curl";
 import { useVt } from "../../i18n/video";
@@ -151,14 +151,20 @@ const Sticker: React.FC<{ text: string; caption: string | null; cx: number; cy: 
     return `${i ? "L" : "M"} ${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)}`;
   }).join(" ") + " Z";
   // Chữ ngắn to hết cỡ; chữ dài xuống dòng trong vòng tròn.
-  const textSize = size * Math.min(0.3, 0.52 / Math.sqrt(Math.max(1, [...text].length)));
+  const lines = punchLines(text);
+  const longest = Math.max(1, ...lines.map((l) => [...l].length));
+  // Câu nhấn người dùng tự ngắt dòng: dòng dài nhất vừa ngang, đủ số dòng vừa trong vòng tròn.
+  const textSize =
+    lines.length > 1
+      ? size * Math.min(0.3, 0.72 / (0.6 * longest), 0.6 / (1.05 * lines.length))
+      : size * Math.min(0.3, 0.52 / Math.sqrt(Math.max(1, [...text].length)));
   return (
     <div style={{ position: "absolute", left: cx - size / 2, top: cy - size / 2, width: size, height: size, scale: String(t), rotate: `${((1 - t) * 90 - 8).toFixed(1)}deg` }}>
       <svg width={size} height={size} viewBox="-52 -52 104 104" style={{ position: "absolute", inset: 0, filter: `drop-shadow(0 ${4 * unit}px ${6 * unit}px rgba(90, 40, 0, 0.3))` }}>
         <path d={path} fill={accent} stroke="#ffffff" strokeWidth={4} strokeLinejoin="round" />
       </svg>
       <div style={{ position: "absolute", inset: size * 0.14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#ffffff", fontFamily: ROUND, fontWeight: 800, lineHeight: 1.05 }}>
-        <div style={{ fontSize: textSize }}>{text}</div>
+        <div style={{ fontSize: textSize, whiteSpace: "pre-line" }}>{text}</div>
         {caption ? <div style={{ fontSize: Math.max(18 * unit, textSize * 0.36), fontWeight: 600, marginTop: 4 * unit }}>{caption}</div> : null}
       </div>
     </div>
@@ -187,7 +193,7 @@ const ReadAlong: React.FC<{ captions: Caption[]; zone: Rect; frame: number; appe
     acc += w;
     return at;
   });
-  const range = punch ? findPunch(caption.text, punch.text) : null;
+  const range = punch ? findPunch(caption.text, flatPunch(punch.text)) : null;
   const punchAt = punch ? msToFrames(punch.atMs) : 0;
 
   // Cỡ chữ: câu ngắn to, câu dài nhỏ dần cho vừa vùng chữ (Baloo ~0.52em mỗi ký tự).
@@ -286,7 +292,7 @@ const Page: React.FC<{ scene: Scene; index: number; captions: Caption[]; printAt
   const bottom = height - safe.bottom;
   const contentW = right - left;
   const seed = `sb-page-${index}`;
-  const punchInText = scene.punch ? captions.some((c) => findPunch(c.text, scene.punch!.text)) : true;
+  const punchInText = scene.punch ? captions.some((c) => findPunch(c.text, flatPunch(scene.punch!.text))) : true;
   const stickerText = scene.visual ? scene.visual.text : scene.punch && !punchInText ? scene.punch.text : null;
   const stickerAt = scene.visual ? appear + 12 : scene.punch ? Math.max(appear, msToFrames(scene.punch.atMs)) : appear;
 

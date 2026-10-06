@@ -7,7 +7,7 @@
  */
 import { msToFrames } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { FONTS, seeded } from "../shared";
+import { flatPunch, FONTS, seeded } from "../shared";
 import type { VideoLanguage } from "../../i18n/video";
 
 export const SOCIAL_FONT = FONTS.sans;
@@ -123,7 +123,8 @@ export const tokenize = (captions: Caption[], punchText: string | null, minAppea
   const body = [...pieces.join(" ")];
   let match: PunchMatch = null;
   if (punchText) {
-    const needle = [...nfc(punchText).trim().toLocaleLowerCase("vi")];
+    // Lời đọc không có "\n" → so bằng bản phẳng của câu nhấn.
+    const needle = [...nfc(flatPunch(punchText)).trim().toLocaleLowerCase("vi")];
     const hay = body.map((ch) => ch.toLocaleLowerCase("vi"));
     if (needle.length) {
       for (let i = 0; i + needle.length <= hay.length; i++) {

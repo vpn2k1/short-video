@@ -8,6 +8,7 @@ import { CountdownDisc } from "./Countdown";
 import { ImageFrame, type Rect } from "./ImageFrame";
 import { BadgeRibbon, EndStrip, Flash, ProgressDots, StatSticker, SubtitleStrip } from "./Overlays";
 import { QuestionCard } from "./QuestionCard";
+import { CHOICE_CHAR_W, choiceMetrics, choiceTextWidth } from "./ChoiceList";
 import { analyzeScenes, ANSWER_CHAR_W, answerFontSize, EASE_BACK, EASE_IN, estimateLines, ramp, upper } from "./theme";
 import { TitleIntro } from "./TitleIntro";
 import { useVideoLanguage } from "../../i18n/video";
@@ -63,21 +64,64 @@ export const QuizStyle: React.FC<ShortProps> = ({
   const textW = colW - cardPadX * 2;
 
   const questionBase = (square ? 60 : wide ? 70 : 80) * unit;
-  const questionSize = (text: string) => {
+  const isList = (info: (typeof infos)[number]) => info.options.length > 0 || info.scores.length > 0;
+  const textBlockH = (text: string, size: number, lineH = 1.22) => estimateLines(text, size, textW) * size * lineH + size * 0.1;
+  const plainQuestionSize = (text: string) => {
     let size = fitFontSize(text, questionBase, 0.66);
     while (size > 30 * unit && estimateLines(text, size, textW) > 4) size = Math.round(size * 0.92);
     return size;
   };
+
+  // Cảnh trắc nghiệm / bảng xếp loại: mọi cỡ chữ nhân theo `scale` — co dần khi thẻ không vừa chỗ trống.
+  const listRows = infos.flatMap((i) => [...i.options.map((o) => o.text), ...i.scores.map((r) => r.verdict)]);
+  const listLayout = (scale: number) => {
+    const questionSize = (text: string) => {
+      let size = Math.round(questionBase * 0.7 * scale);
+      while (size > 28 * unit && estimateLines(text, size, textW) > 2) size = Math.round(size * 0.92);
+      return size;
+    };
+    const contextSize = Math.round(questionBase * 0.48 * scale);
+    // Cỡ chữ lựa chọn chung cả video: ưu tiên mỗi lựa chọn một dòng (co tới 85%), không được thì tối đa 2 dòng.
+    const optionBase = Math.round((square ? 40 : wide ? 44 : 50) * unit * scale);
+    const fitsLines = (size: number, n: number) =>
+      listRows.every((t) => estimateLines(t, size, choiceTextWidth(textW, size, unit), CHOICE_CHAR_W) <= n);
+    let optionSize = optionBase;
+    while (optionSize > optionBase * 0.85 && !fitsLines(optionSize, 1)) optionSize = Math.round(optionSize * 0.96);
+    if (!fitsLines(optionSize, 1)) {
+      optionSize = optionBase;
+      while (optionSize > 24 * unit && !fitsLines(optionSize, 2)) optionSize = Math.round(optionSize * 0.93);
+    }
+    const m = choiceMetrics(optionSize, unit);
+    const tw = choiceTextWidth(textW, optionSize, unit);
+    const rowsH = (texts: string[]) =>
+      texts.reduce(
+        (sum, t, k) =>
+          sum +
+          (k ? m.gapRows : 0) +
+          Math.max(m.letterD, estimateLines(t, optionSize, tw, CHOICE_CHAR_W) * optionSize * 1.2) +
+          m.padY * 2 +
+          8 * unit,
+        0,
+      );
+    const bodyH = infos.reduce((max, info) => {
+      if (!isList(info)) return max;
+      const ctxH = info.context ? textBlockH(info.context, contextSize, 1.25) + 8 * unit : 0;
+      const rows = info.options.length ? info.options.map((o) => o.text) : info.scores.map((r) => r.verdict);
+      return Math.max(max, ctxH + textBlockH(info.question, questionSize(info.question)) + 22 * unit + rowsH(rows));
+    }, 0);
+    return { questionSize, contextSize, optionSize, bodyH };
+  };
+
   const answerBase = (square ? 80 : wide ? 104 : 116) * unit;
-  const cardBody = infos.reduce((max, info) => {
-    const q = questionSize(info.question);
-    const qH = estimateLines(info.question, q, textW) * q * 1.22 + q * 0.1;
+  const plainBody = infos.reduce((max, info) => {
+    if (isList(info)) return max;
+    const q = plainQuestionSize(info.question);
+    const qH = textBlockH(info.question, q);
     const a = info.answer ? upper(info.answer) : "";
     const aSize = answerFontSize(a, answerBase, textW);
-    const aH = a ? Math.min(3, estimateLines(a, aSize, textW, ANSWER_CHAR_W)) * aSize * 1.12 + aSize * 0.08 + 50 * unit : 0;
+    const aH = a ? Math.min(Math.max(3, a.split("\n").length), estimateLines(a, aSize, textW, ANSWER_CHAR_W)) * aSize * 1.12 + aSize * 0.08 + 50 * unit : 0;
     return Math.max(max, qH, aH);
   }, 140 * unit);
-  const cardH = cardPadTop + cardBody + cardPadBottom + 16 * unit;
 
   const stripFont = Math.round(Math.min(44 * unit, colW / 17));
   const stripLines = Math.min(
@@ -88,7 +132,22 @@ export const QuizStyle: React.FC<ShortProps> = ({
     ),
   );
   const stripH = stripLines > 0 ? stripLines * stripFont * 1.28 + 38 * unit : 0;
-  const stripInColumn = captionPosition !== "center" && stripH > 0;
+  // Ngang/vuông có trắc nghiệm: cột phải không đủ cao cho cả thẻ lẫn dải phụ đề — dải phụ đề lên khung ảnh.
+  const stripInColumn = captionPosition !== "center" && stripH > 0 && !(wide && listRows.length > 0);
+  const cardBottomMax = stripInColumn
+    ? endCy - endH / 2 - 22 * unit - stripH - 28 * unit - ringD / 2
+    : endCy - endH / 2 - 30 * unit - ringD / 2;
+  // Chỗ cao nhất thẻ được phép chạm: ngang — dưới chấm tiến độ; dọc — chừa khung ảnh cao ít nhất 300u.
+  const cardTopMin = wide ? top + dotsH + 50 * unit + pillH / 2 : top + dotsH + 44 * unit + 300 * unit - 70 * unit;
+  const cardChrome = cardPadTop + cardPadBottom + 16 * unit;
+
+  let list = listLayout(1);
+  for (let scale = 0.94; scale >= 0.6 && cardChrome + list.bodyH > cardBottomMax - cardTopMin; scale -= 0.06) {
+    list = listLayout(scale);
+  }
+  const questionSize = (info: (typeof infos)[number]) =>
+    isList(info) ? list.questionSize(info.question) : plainQuestionSize(info.question);
+  const cardH = cardChrome + Math.max(plainBody, list.bodyH);
 
   // --- Xếp từ dưới lên ---
   const dotsY = top;
@@ -119,6 +178,8 @@ export const QuizStyle: React.FC<ShortProps> = ({
 
   // Sticker stat: ~46% bề rộng ảnh, nhưng không hẹp hơn 250u — ảnh cột hẹp (1:1) làm chú thích vỡ 3 dòng.
   const stickerW = Math.min(300 * unit, Math.max(image.w * 0.46, 250 * unit));
+  // Chấm tiến độ chỉ tính câu hỏi — bảng xếp loại cuối không phải một câu.
+  const questionInfos = infos.filter((i) => !i.scores.length);
   const chromeIn = showTitle ? ramp(frame, TITLE_FRAMES - 12, 12) : 1;
   const last = infos[infos.length - 1];
   const lastReveal = [...infos].reverse().find((i) => i.revealFrame !== null)?.revealFrame ?? null;
@@ -132,7 +193,15 @@ export const QuizStyle: React.FC<ShortProps> = ({
     <AbsoluteFill style={{ fontFamily: FONTS.sans, overflow: "hidden" }}>
       <QuizBackground accent={accent} />
 
-      <ProgressDots infos={infos} current={current} x={colX} width={colW} y={dotsY} accent={accent} opacity={chromeIn} />
+      <ProgressDots
+        infos={questionInfos}
+        current={questionInfos.filter((i) => i.index <= current).length - (infos[current]?.scores.length ? 0 : 1)}
+        x={colX}
+        width={colW}
+        y={dotsY}
+        accent={accent}
+        opacity={chromeIn}
+      />
 
       {infos.map((info, i) => {
         const isLast = i === infos.length - 1;
@@ -168,11 +237,15 @@ export const QuizStyle: React.FC<ShortProps> = ({
                 rect={card}
                 info={info}
                 accent={accent}
-                questionSize={questionSize(info.question)}
+                questionSize={questionSize(info)}
                 answerBase={answerBase}
                 padBottom={cardPadBottom}
+                optionSize={list.optionSize}
+                contextSize={list.contextSize}
               />
-              <CountdownDisc cx={discCx} cy={discCy} size={ringD} info={info} accent={accent} />
+              {info.scores.length ? null : (
+                <CountdownDisc cx={discCx} cy={discCy} size={ringD} info={info} accent={accent} />
+              )}
             </AbsoluteFill>
             {visual?.type === "stat" ? (
               <AbsoluteFill style={{ transform: exit }}>

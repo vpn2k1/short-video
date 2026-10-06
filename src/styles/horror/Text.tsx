@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, CaptionPosition, Scene } from "../../compositions/Short/schema";
-import { fitFontSize, FONTS, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
+import { fitFontSize, flatPunch, FONTS, punchLines, seeded, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import {
   BLOOD,
   BLOOD_GLOW,
@@ -66,7 +66,7 @@ export const HorrorCaptions: React.FC<{
     const off = punchOffset(text, scene.punch.text);
     if (off < 0) continue;
     punchStart = off;
-    punchLen = scene.punch.text.normalize("NFC").trim().length;
+    punchLen = flatPunch(scene.punch.text).normalize("NFC").trim().length;
     punchAt = msToFrames(scene.punch.atMs);
     break;
   }
@@ -343,6 +343,8 @@ export const LoosePunch: React.FC<{ scenes: Scene[]; captions: Caption[] }> = ({
   const opacity = interpolate(t, [0, 2, SCARE_HOLD - 10, SCARE_HOLD], [0, 1, 1, 0], clamp);
   const scale = interpolate(t, [0, 4, 14], [1.18, 1.05, 1], clamp);
   const text = upperVi(punch.text);
+  // người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất
+  const longest = punchLines(text).reduce((a, b) => ([...b].length > [...a].length ? b : a), "");
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", opacity }}>
       <div
@@ -350,11 +352,12 @@ export const LoosePunch: React.FC<{ scenes: Scene[]; captions: Caption[] }> = ({
           maxWidth: wide ? width * 0.7 : width - safe.side * 2,
           fontFamily: FONTS.playfair,
           fontWeight: 800,
-          fontSize: fitFontSize(text, (wide ? 120 : 112) * unit, 0.5),
+          fontSize: fitFontSize(longest, (wide ? 120 : 112) * unit, 0.5),
           lineHeight: 1.2,
           color: BLOOD,
           textAlign: "center",
           textWrap: "balance",
+          whiteSpace: "pre-line",
           translate: `${shake.x}px ${shake.y}px`,
           scale: `${scale}`,
           textShadow: `${shadow(unit)}, 0 0 ${30 * unit}px ${BLOOD_GLOW}`,

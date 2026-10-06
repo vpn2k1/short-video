@@ -4,7 +4,7 @@
  * Không có @remotion/layout-utils trong project nên đo bằng canvas 2D — đồng bộ,
  * xác định, dùng đúng font hệ thống lúc render. Kết quả được cache theo chuỗi.
  */
-import { FONTS } from "../shared";
+import { flatPunch, FONTS } from "../shared";
 import { wordTokens } from "../tokens";
 
 export const WORD_FONT = FONTS.sans;
@@ -56,7 +56,8 @@ export type Word = {
 };
 
 const lower = (s: string) => s.normalize("NFC").toLocaleLowerCase("vi");
-const cleanPunch = (s: string) => lower(s).trim().replace(/[.,!?;:…]+$/u, "");
+/** Câu nhấn có thể có "\n" (người dùng tự ngắt) — lời đọc thì không, nên so bản phẳng. */
+const cleanPunch = (s: string) => lower(flatPunch(s)).trim().replace(/[.,!?;:…]+$/u, "");
 
 /** Tách câu thành từ, đánh dấu các từ thuộc cụm punch (không phân biệt hoa thường). */
 export const splitWords = (text: string, punchText: string | null): Word[] => {

@@ -200,6 +200,7 @@ const SceneLayer: React.FC<{
             frame={frame}
             unit={u}
             width={box.punch.width}
+            height={box.punch.height}
             align={box.align}
             sceneIndex={index}
           />

@@ -91,6 +91,20 @@ export const fitFontSize = (text: string, base: number, minScale = 0.55) => {
 };
 
 /**
+ * Câu nhấn cho phép xuống dòng thủ công ("\n"). Khi dò câu nhấn trong lời đọc/phụ đề
+ * (vốn không có "\n") hoặc ước độ dài thì dùng bản phẳng; khi vẽ câu nhấn đứng riêng thì
+ * giữ "\n" (whiteSpace: "pre-line") hoặc tách bằng punchLines.
+ */
+export const flatPunch = (text: string) => text.replace(/[ \t]*\r?\n[ \t]*/g, " ");
+
+/** Các dòng câu nhấn người dùng tự ngắt; không có "\n" thì chỉ một dòng. */
+export const punchLines = (text: string) =>
+  text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+/**
  * Hạt phim / nhiễu giấy. SVG feTurbulence đổi seed theo frame nên hạt "sống",
  * nhưng vẫn xác định (cùng frame cùng hình).
  */

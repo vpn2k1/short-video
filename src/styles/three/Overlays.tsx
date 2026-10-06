@@ -4,7 +4,7 @@ import type { Caption, Scene } from "../../compositions/Short/schema";
 import { arriveAt, usePanelBox, useShape } from "../depth/Stage";
 import { punchRange, upperVi } from "../neon/neon";
 import { parseStat } from "../retro/vhs";
-import { activeIndexAt, useCaptionClock, useLayout, useSceneClock } from "../shared";
+import { activeIndexAt, flatPunch, punchLines, useCaptionClock, useLayout, useSceneClock } from "../shared";
 import { clamp, easeOut, SANS, type Palette } from "./three";
 
 /**
@@ -60,7 +60,7 @@ export const ThreeCaptions: React.FC<{
   const pop = spring({ frame: frame - onAt, fps, config: { damping: 16, mass: 0.6 } });
   const sceneIndex = activeIndexAt(scenes, startFrame);
   const punch = sceneIndex >= 0 ? scenes[sceneIndex]?.punch : null;
-  const range = punch && frame >= msToFrames(punch.atMs) ? punchRange(text, punch.text) : null;
+  const range = punch && frame >= msToFrames(punch.atMs) ? punchRange(text, flatPunch(punch.text)) : null;
   const parts = range
     ? [
         { text: text.slice(0, range[0]), hot: false },
@@ -128,10 +128,15 @@ export const ThreePunch: React.FC<{
   const out = interpolate(frame, [end - 8, end], [1, 0], clamp);
   const shine = interpolate(local, [6, 30], [0, 1], clamp);
   const text = upperVi(scene.punch.text.trim());
-  const length = [...text].length;
+  // Người dùng tự ngắt dòng: cỡ chữ tính theo dòng dài nhất, vùng tối cao thêm theo số dòng.
+  const rows = punchLines(text);
+  const length = Math.max(0, ...rows.map((l) => [...l].length));
+  const extraRows = Math.max(0, rows.length - 1);
   const base = (wide ? 104 : square ? 96 : 116) * unit;
-  const fontSize = Math.round(base * (length <= 10 ? 1 : Math.max(0.45, Math.sqrt(10 / length))));
   const maxWidth = wide ? width * 0.6 : width - safe.side * 2 + 60 * unit;
+  const sized = Math.round(base * (length <= 10 ? 1 : Math.max(0.45, Math.sqrt(10 / length))));
+  // Nhiều dòng tự ngắt: dòng dài nhất phải nằm gọn một hàng, không tự gãy thêm.
+  const fontSize = extraRows > 0 ? Math.min(sized, Math.round(maxWidth / (length * 0.72))) : sized;
   const hasVisual = Boolean(scene.visual);
   const centerY = captionPosition === "center"
     ? height * (hasVisual ? 0.72 : 0.28)
@@ -145,8 +150,8 @@ export const ThreePunch: React.FC<{
           position: "absolute",
           left: (width - maxWidth * 1.2) / 2,
           width: maxWidth * 1.2,
-          top: centerY - fontSize * 1.9,
-          height: fontSize * 3.8,
+          top: centerY - fontSize * (1.9 + extraRows * 0.56),
+          height: fontSize * (3.8 + extraRows * 1.12),
           background: "radial-gradient(closest-side, rgba(4,6,14,0.62), rgba(4,6,14,0.3) 60%, transparent)",
           opacity: interpolate(hit, [0, 0.5], [0, 1], clamp) * out,
         }}
@@ -171,6 +176,7 @@ export const ThreePunch: React.FC<{
             fontWeight: 900,
             fontSize,
             lineHeight: 1.12,
+            whiteSpace: "pre-line",
             ...chrome(palette, shine),
           }}
         >

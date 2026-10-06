@@ -4,7 +4,7 @@
  * không tự đọc đồng hồ cảnh — Page.tsx quyết định khi nào trang nào đang ở trên bàn.
  */
 import { Easing, interpolate } from "remotion";
-import { FONTS, seeded } from "../shared";
+import { flatPunch, FONTS, seeded } from "../shared";
 import { useVt } from "../../i18n/video";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -231,7 +231,8 @@ export const PunchLine: React.FC<{ text: string; accent: string; unit: number; p
   progress,
   maxWidth,
 }) => {
-  const len = [...text].length;
+  // Câu nhiều dòng: cỡ chữ theo dòng dài nhất.
+  const len = Math.max(...text.split("\n").map((l) => [...l].length));
   const size = Math.max(40, 66 * Math.min(1, 16 / Math.max(1, len))) * unit;
   return (
     <div
@@ -244,6 +245,7 @@ export const PunchLine: React.FC<{ text: string; accent: string; unit: number; p
         fontWeight: 900,
         fontSize: size,
         lineHeight: 1.18,
+        whiteSpace: "pre-line",
         padding: `${14 * unit}px ${26 * unit}px ${12 * unit}px`,
         boxShadow: `${10 * unit}px ${10 * unit}px 0 rgba(0,0,0,0.28)`,
         transformOrigin: "0% 50%",
@@ -391,7 +393,7 @@ export const headlineSize = (text: string, wide: boolean) => {
 /** Tìm cụm nhấn nguyên văn trong câu (không phân biệt hoa thường). */
 export const splitPunch = (text: string, punch: string | null): [string, string, string] | null => {
   if (!punch) return null;
-  const needle = punch.normalize("NFC").trim();
+  const needle = flatPunch(punch.normalize("NFC")).trim();
   const at = text.toLowerCase().indexOf(needle.toLowerCase());
   if (!needle || at < 0) return null;
   return [text.slice(0, at), text.slice(at, at + needle.length), text.slice(at + needle.length)];

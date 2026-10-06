@@ -35,12 +35,17 @@ export const PunchPopup: React.FC<{
   if (local >= LIFE - 8 && Math.floor(local / 2) % 2 === 1) return null;
   const s = bounce(local);
   const label = upperVi(text);
-  const chars = [...label].length;
+  // Người dùng tự ngắt dòng: ước từng dòng, cho phép tối đa max(2, số dòng ngắt); cỡ theo dòng dài nhất.
+  const rows = label.split("\n").map((r) => [...r].length);
+  const chars = Math.max(...rows);
   const maxW = area.w * span;
   // Bungee ~0.78em mỗi ký tự; tối đa 2 dòng.
+  const lineCount = (sz: number) => rows.reduce((n, c) => n + Math.max(1, Math.ceil((c * sz * 0.78) / maxW)), 0);
   let size = 96 * unit;
-  while (Math.ceil((chars * size * 0.78) / maxW) > 2 && size > 40 * unit) size *= 0.92;
+  while (lineCount(size) > Math.max(2, rows.length) && size > 40 * unit) size *= 0.92;
   size = Math.min(size, (maxW / Math.max(4, chars)) * 1.35);
+  // Nhiều dòng ngắt tay thì đẩy "+100 XP" xuống dưới khối chữ.
+  const extraRows = rows.length > 1 ? lineCount(size) - 1 : 0;
   const rise = snap(interpolate(local, [6, LIFE], [0, -80 * unit], clamp), P);
   const burst = interpolate(local, [0, 22], [0, 1], clamp);
 
@@ -96,6 +101,7 @@ export const PunchPopup: React.FC<{
             color: WHITE,
             textShadow: `${hardOutline(P, INK, 0)}, ${P * 2}px ${P * 2}px 0 ${accent}, ${P * 3}px ${P * 3}px 0 ${INK}`,
             textWrap: "balance",
+            whiteSpace: "pre-line",
           }}
         >
           {label}
@@ -106,7 +112,7 @@ export const PunchPopup: React.FC<{
           style={{
             position: "absolute",
             left: cx,
-            top: cy + size * 1.1 + rise + 40 * unit,
+            top: cy + size * (1.1 + extraRows * 0.75) + rise + 40 * unit,
             translate: "-50% 0",
             fontFamily: BLOCK,
             fontSize: 44 * unit,

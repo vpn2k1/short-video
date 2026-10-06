@@ -136,14 +136,15 @@ export const ScenePanel: React.FC<PanelBase & Pick<InspectorProps,
             onChange={(e) => onChange(ops.updateScene(props, i, { tag: e.target.value || null }), `scene-tag-${i}`)}
           />
         </Field>
-        <Field label="Câu nhấn (punch)">
-          <input
+        <Field label="Câu nhấn (punch)" hint="Enter để xuống dòng">
+          <textarea
+            rows={2}
             value={s.punch?.text ?? ""}
             maxLength={48}
             onChange={(e) => {
               const text = e.target.value;
               const atMs = s.punch?.atMs ?? Math.round(s.startMs + (s.endMs - s.startMs) * 0.3);
-              onChange(ops.updateScene(props, i, { punch: text ? { text, atMs } : null }), `scene-punch-${i}`);
+              onChange(ops.updateScene(props, i, { punch: text.trim() ? { text, atMs } : null }), `scene-punch-${i}`);
             }}
           />
         </Field>

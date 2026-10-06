@@ -4,7 +4,7 @@
  * khoanh đám mây sửa đổi (revision cloud) tự vẽ, kèm tam giác "!" như dấu sửa đổi trên bản vẽ thật.
  */
 import { interpolate } from "remotion";
-import { seeded } from "../shared";
+import { flatPunch, punchLines, seeded } from "../shared";
 import { C, chars, clamp, estimateLines, LABEL, MONO, NOTE, POP, ramp, withAlpha } from "./theme";
 import type { Box } from "./Drawing";
 import { useVt } from "../../i18n/video";
@@ -18,7 +18,7 @@ const LINE_H = 1.46;
 /** Vị trí cụm nhấn trong câu, tính theo chỉ số ký tự (code point); null nếu câu không chứa nguyên văn cụm đó. */
 export const punchRange = (text: string, punch: string): [number, number] | null => {
   const hay = text.normalize("NFC").toLocaleLowerCase("vi");
-  const needle = punch.normalize("NFC").trim().toLocaleLowerCase("vi");
+  const needle = flatPunch(punch).normalize("NFC").trim().toLocaleLowerCase("vi");
   if (!needle) return null;
   const at = hay.indexOf(needle);
   if (at < 0) return null;
@@ -69,8 +69,11 @@ const PunchSpan: React.FC<{
   seed: string;
   decoration: React.CSSProperties;
 }> = ({ shown, hidden, full, t, size, accent, seed, decoration }) => {
-  const estW = chars(full).length * size * CHAR_W + size * 0.3;
-  const estH = size * 1.25;
+  // Câu nhấn đứng riêng có thể nhiều dòng (người dùng tự ngắt): mây ôm dòng dài nhất và đủ số dòng.
+  const rows = full.split("\n");
+  const extraH = (rows.length - 1) * size * LINE_H;
+  const estW = Math.max(...rows.map((r) => chars(r).length)) * size * CHAR_W + size * 0.3;
+  const estH = size * 1.25 + extraH;
   const padX = size * 0.28;
   const padY = size * 0.2;
   const cloud = cloudPath(estW + padX * 2, estH + padY * 2, size * 0.42, seed);
@@ -79,7 +82,9 @@ const PunchSpan: React.FC<{
   const color = t > 0 ? accent : C.ink;
   return (
     <span style={{ position: "relative", display: "inline-block", padding: `0 ${(size * 0.1).toFixed(1)}px`, margin: `0 ${(size * 0.18).toFixed(1)}px 0 ${(size * 0.1).toFixed(1)}px` }}>
-      <span style={{ color, fontWeight: 700, ...decoration, textDecorationColor: withAlpha(accent, 0.7) }}>{shown}</span>
+      <span style={{ color, fontWeight: 700, whiteSpace: rows.length > 1 ? "pre-line" : undefined, ...decoration, textDecorationColor: withAlpha(accent, 0.7) }}>
+        {shown}
+      </span>
       <span style={{ opacity: 0, fontWeight: 700 }}>{hidden}</span>
       {t > 0 ? (
         <svg
@@ -91,7 +96,7 @@ const PunchSpan: React.FC<{
             // Vừa khít chiều cao dòng (line-height 1.46): không lấn chữ dòng trên/dưới.
             top: size * 0.1,
             width: `calc(100% + ${(padX * 1.2).toFixed(1)}px)`,
-            height: size * 1.34,
+            height: size * 1.34 + extraH,
             overflow: "visible",
             pointerEvents: "none",
           }}
@@ -266,7 +271,7 @@ const RevisionNote: React.FC<{ text: string; at: number; frame: number; size: nu
     <div style={{ display: "flex", alignItems: "baseline", gap: size * 0.4, opacity: Math.min(1, t * 3), paddingTop: size * 0.4 }}>
       <span style={{ fontFamily: MONO, fontSize: size * 0.5, color: accent, letterSpacing: "0.1em", flexShrink: 0 }}>{vt("GHI CHÚ")} ⚠</span>
       <span style={{ fontFamily: NOTE, fontSize: size, lineHeight: LINE_H, color: C.ink }}>
-        <PunchSpan shown={text} hidden="" full={text} t={t} size={size} accent={accent} seed={seed} decoration={{}} />
+        <PunchSpan shown={punchLines(text).join("\n")} hidden="" full={punchLines(text).join("\n")} t={t} size={size} accent={accent} seed={seed} decoration={{}} />
       </span>
       <span style={{ width: 20 * unit }} />
     </div>
@@ -294,13 +299,15 @@ export const NotesBlock: React.FC<{
   const linesOf = (list: NoteItem[], size: number) =>
     list.reduce((sum, it) => sum + estimateLines(it.text, size, textW(size), CHAR_W), 0);
   const heightOf = (list: NoteItem[], size: number) => linesOf(list, size) * size * LINE_H + Math.max(0, list.length - 1) * size * 0.5;
-  const avail = box.h - header - (punch ? base * 0.4 : 0);
+  const matched = punch ? items.findIndex((it) => punchRange(it.text, punch.text)) : -1;
+  // Dòng sửa đổi riêng nhiều dòng (người dùng tự ngắt) thì chừa thêm chỗ cho các dòng sau.
+  const extraRows = punch && matched < 0 ? (punchLines(punch.text).length - 1) * base * LINE_H : 0;
+  const avail = box.h - header - (punch ? base * 0.4 : 0) - extraRows;
   const min = 30 * unit;
   let size = base;
   while (size > min && heightOf(items, size) > avail) size *= 0.95;
   size = Math.max(min, size);
 
-  const matched = punch ? items.findIndex((it) => punchRange(it.text, punch.text)) : -1;
   const visible = items.map((it, i) => ({ it, i })).filter(({ it }) => it.start <= frame);
   // Không vừa: bỏ dần câu cũ nhất (chỉ trong các câu đang hiện).
   let shown = visible;

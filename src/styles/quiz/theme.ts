@@ -5,7 +5,7 @@
 import { Easing, interpolate } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { fitFontSize } from "../shared";
+import { fitFontSize, punchLines } from "../shared";
 import { translateVideoText, type VideoLanguage } from "../../i18n/video";
 
 export const INK = "#1d1740";
@@ -96,17 +96,23 @@ export const paletteFrom = (accent: string) => {
 /**
  * Cỡ chữ đáp án (in hoa, weight 900): ưu tiên vừa MỘT dòng trong `width`, không nhỏ hơn
  * 60% cỡ gốc; dài hơn nữa thì cho xuống dòng. Hệ số 0.72/ký tự đo từ still "MÀU XANH LAM".
+ * Người dùng tự xuống dòng ("\n") thì tính theo dòng dài nhất.
  */
 export const ANSWER_CHAR_W = 0.72;
 export const answerFontSize = (text: string, base: number, width: number) => {
-  const len = Math.max(1, [...text].length);
-  const byLength = fitFontSize(text, base, 0.5);
+  const longest = punchLines(text).reduce((a, b) => ([...b].length > [...a].length ? b : a), "");
+  const len = Math.max(1, [...longest].length);
+  const byLength = fitFontSize(longest, base, 0.5);
   const oneLine = width / (len * ANSWER_CHAR_W);
   return Math.round(Math.min(byLength, Math.max(oneLine, base * 0.6)));
 };
 
 /** Ước số dòng khi chữ xuống dòng trong khung rộng `width`. */
-export const estimateLines = (text: string, fontSize: number, width: number, charWidth = 0.54) => {
+export const estimateLines = (text: string, fontSize: number, width: number, charWidth = 0.54): number => {
+  // Có "\n" tự ngắt: mỗi đoạn tự xuống dòng riêng.
+  if (text.includes("\n")) {
+    return text.split("\n").reduce((sum, part) => sum + estimateLines(part, fontSize, width, charWidth), 0);
+  }
   const perLine = Math.max(4, Math.floor(width / (fontSize * charWidth)));
   // Ngắt theo từ: cộng dồn từng từ, xuống dòng khi tràn.
   const words = text.trim().split(/\s+/);
@@ -129,6 +135,34 @@ const norm = (text: string) => text.normalize("NFC").toLocaleLowerCase("vi").rep
 /** Câu kiểu "Suy nghĩ 3 giây nhé…", "Bạn đoán được không?" — dòng chờ trước đáp án. */
 const PAUSE_RE = /(suy nghĩ|nghĩ kỹ|đoán|giây|đếm ngược|3\s*[,.…]?\s*2\s*[,.…]?\s*1|bình luận|chốt đáp án|trả lời đi|bạn chọn|\b(?:think|guess|seconds?|count ?down|comment|lock (?:it )?in|your answer|pick one|choose)\b)/i;
 
+export type QuizOption = {
+  letter: string;
+  text: string;
+  /** Frame lựa chọn bắt đầu được đọc. */
+  frame: number;
+  correct: boolean;
+};
+
+export type ScoreRow = { range: string; verdict: string; frame: number };
+
+/** "A. I'd like noodles", "B) Fever", "C: …" — chữ cái A–F đứng đầu, theo sau là . ) : hoặc gạch. */
+const OPTION_RE = /^\s*([A-Fa-f])\s*[.):\-–]\s+(.+)$/;
+/** "9–10 câu: Excellent! 🌟", "0-4 câu: Keep practicing!" — dòng xếp loại theo số câu đúng. */
+const SCORE_RE = /^\s*\**\s*(\d+\s*[–\-—]\s*\d+|\d+\+?)\s*(câu|questions?|correct)?\s*\**\s*[:：]\s*\**\s*(.+?)\s*\**\s*$/i;
+
+/** Đáp án đúng trong các lựa chọn: punch mở đầu bằng chữ cái ("A. …") hoặc chứa/khớp chữ của lựa chọn. */
+const correctOption = (options: { letter: string; text: string }[], punch: string) => {
+  const lead = punch.match(OPTION_RE);
+  if (lead) {
+    const byLetter = options.findIndex((o) => o.letter === lead[1].toUpperCase());
+    if (byLetter >= 0) return byLetter;
+  }
+  const p = norm(punch);
+  const exact = options.findIndex((o) => norm(o.text) === p);
+  if (exact >= 0) return exact;
+  return options.findIndex((o) => p.includes(norm(o.text)) || norm(o.text).includes(p));
+};
+
 export type SceneInfo = {
   scene: Scene;
   index: number;
@@ -141,6 +175,12 @@ export type SceneInfo = {
   label: string;
   /** Chữ câu hỏi trên thẻ. */
   question: string;
+  /** Câu dẫn tình huống trước câu hỏi (chỉ khi cảnh có các lựa chọn A/B/C) — hiện nhỏ phía trên câu hỏi. */
+  context: string | null;
+  /** Lựa chọn trắc nghiệm "A. …", "B. …" — mỗi lựa chọn nảy vào lúc được đọc. Rỗng = câu hỏi thường. */
+  options: QuizOption[];
+  /** Bảng xếp loại cuối video ("9–10 câu: Excellent!") — rỗng nếu cảnh không có. */
+  scores: ScoreRow[];
   /** Frame câu hỏi bắt đầu được đọc — thẻ hiện chữ từ đây. */
   questionFrame: number;
   /** Frame lật đáp án; null nếu cảnh không có punch. */
@@ -175,8 +215,7 @@ export const analyzeScenes = (
   showTitle: boolean,
   language?: VideoLanguage,
 ): SceneInfo[] => {
-  const total = scenes.length;
-  return scenes.map((scene, index) => {
+  const infos = scenes.map((scene, index) => {
     const start = msToFrames(scene.startMs);
     const end = Math.max(start + 1, msToFrames(scene.endMs));
     const enter = index === 0 ? Math.max(start, showTitle ? TITLE_FRAMES - 12 : 0) : start;
@@ -190,14 +229,43 @@ export const analyzeScenes = (
     if (punch) {
       const p = norm(punch.text);
       answerPos = own.findIndex(({ c }) => punch.atMs >= c.startMs && punch.atMs <= c.endMs + 200 && norm(c.text).includes(p));
-      if (answerPos < 0) answerPos = own.findIndex(({ c }) => norm(c.text).includes(p));
+      // Câu chứa punch cuối cùng — lựa chọn "A. …" có thể trùng chữ với punch, câu đáp án đứng sau nó.
+      if (answerPos < 0) answerPos = own.map(({ c }) => norm(c.text).includes(p)).lastIndexOf(true);
       if (answerPos < 0) answerPos = own.findIndex(({ c }) => punch.atMs >= c.startMs && punch.atMs <= c.endMs);
     }
 
     const pre = answerPos >= 0 ? own.slice(0, answerPos) : punch ? own.filter(({ c }) => c.startMs < punch.atMs) : own;
-    let body = pre;
-    // Dòng chờ ngay trước đáp án.
-    if (punch && body.length >= 2) {
+
+    // Trắc nghiệm: các dòng "A. …" "B. …" trước đáp án lên thẻ thành lựa chọn; câu hỏi chỉ tính từ các dòng trước
+    // lựa chọn đầu tiên (lựa chọn có thể có "?" — "Do you have a reservation?" — không được nhầm là câu hỏi).
+    const firstOption = pre.findIndex(({ c }) => OPTION_RE.test(c.text));
+    const optionItems = firstOption >= 0 ? pre.slice(firstOption).filter(({ c }) => OPTION_RE.test(c.text)) : [];
+    const hasOptions = optionItems.length >= 2;
+    const rawOptions = hasOptions
+      ? optionItems.map(({ c }) => {
+          const m = c.text.match(OPTION_RE)!;
+          return { letter: m[1].toUpperCase(), text: m[2].trim(), frame: Math.max(enter, msToFrames(c.startMs)) };
+        })
+      : [];
+    const correctAt = hasOptions && punch ? correctOption(rawOptions, punch.text) : -1;
+    const options: QuizOption[] = rawOptions.map((o, k) => ({ ...o, correct: k === correctAt }));
+
+    // Bảng xếp loại cuối video: cần ít nhất 2 dòng khớp mẫu, cảnh không có punch. Câu hỏi = các dòng trước bảng.
+    const scoreCandidates = punch ? [] : own.filter(({ c }) => SCORE_RE.test(c.text));
+    const scoreItems = scoreCandidates.length >= 2 ? scoreCandidates : [];
+    const scores: ScoreRow[] = scoreItems.map(({ c }) => {
+      const m = c.text.match(SCORE_RE)!;
+      const range = m[1].replace(/\s+/g, "").replace(/-/g, "–");
+      return { range: m[2] ? `${range} ${m[2]}` : range, verdict: m[3], frame: Math.max(enter, msToFrames(c.startMs)) };
+    });
+
+    let body = hasOptions
+      ? pre.slice(0, firstOption)
+      : scoreItems.length
+        ? own.filter(({ c }) => c.startMs < scoreItems[0].c.startMs)
+        : pre;
+    // Dòng chờ ngay trước đáp án (trắc nghiệm: dòng chờ nằm sau các lựa chọn, đã không thuộc body).
+    if (punch && !hasOptions && body.length >= 2) {
       const last = body[body.length - 1].c.text;
       const hasQuestionBefore = body.slice(0, -1).some(({ c }) => c.text.includes("?"));
       // Dòng có "?" chỉ là dòng chờ khi trước nó đã có câu hỏi ("Bạn đoán được không?").
@@ -218,13 +286,16 @@ export const analyzeScenes = (
     let qStart = qEnd;
     while (qStart > 0 && !/[.!…]["”]?\s*$/.test(body[qStart - 1].c.text.trim())) qStart--;
     const questionItems = qEnd >= 0 ? body.slice(qStart, qEnd + 1) : [];
+    // Câu dẫn tình huống ("Bạn đang ở nhà hàng…") đi kèm câu hỏi trắc nghiệm; câu hook kết thúc bằng "!" thì không.
+    const contextItems = hasOptions
+      ? body.slice(0, Math.max(0, qStart)).filter(({ c }) => !/!["”]?\s*$/.test(c.text.trim()))
+      : [];
+    const context = contextItems.length ? contextItems.map(({ c }) => c.text.trim()).join(" ") : null;
 
     const fallback = own[0]?.c.text ?? "?";
     const question = questionItems.length ? questionItems.map(({ c }) => c.text.trim()).join(" ") : fallback;
-    const questionFrame = Math.max(
-      enter,
-      questionItems.length ? msToFrames(questionItems[0].c.startMs) : enter,
-    );
+    const firstShown = contextItems[0] ?? questionItems[0];
+    const questionFrame = Math.max(enter, firstShown ? msToFrames(firstShown.c.startMs) : enter);
 
     let revealFrame = punch ? Math.max(msToFrames(punch.atMs), enter + 10) : null;
 
@@ -244,7 +315,9 @@ export const analyzeScenes = (
       if (revealFrame - from >= COUNTDOWN_MIN) countdown = { from, to: revealFrame };
     }
 
-    const hiddenCaptions = questionItems.map(({ i }) => i);
+    const hiddenCaptions = [...contextItems, ...questionItems, ...(hasOptions ? optionItems : []), ...(scores.length ? scoreItems : [])].map(
+      ({ i }) => i,
+    );
     if (answerPos >= 0) hiddenCaptions.push(own[answerPos].i);
 
     return {
@@ -253,15 +326,31 @@ export const analyzeScenes = (
       start,
       end,
       enter,
-      label: upper(scene.tag?.trim() || translateVideoText(language, "CÂU {n}/{total}", { n: index + 1, total })),
+      label: "",
       question,
+      context,
+      options,
+      scores,
       questionFrame,
       revealFrame,
       answer: punch ? punch.text.trim() : null,
       countdown,
       hiddenCaptions,
-    };
+    } satisfies SceneInfo;
   });
+  // Đánh số câu bỏ qua cảnh bảng xếp loại.
+  const questionTotal = infos.filter((i) => !i.scores.length).length;
+  let questionNumber = 0;
+  for (const info of infos) {
+    if (!info.scores.length) questionNumber += 1;
+    info.label = upper(
+      info.scene.tag?.trim() ||
+        (info.scores.length
+          ? translateVideoText(language, "KẾT QUẢ")
+          : translateVideoText(language, "CÂU {n}/{total}", { n: questionNumber, total: questionTotal })),
+    );
+  }
+  return infos;
 };
 
 /** Tách số đầu tiên của stat ("73%", "9/10", "2,5 triệu") để đếm lên; không có số → null. */

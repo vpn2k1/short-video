@@ -363,7 +363,10 @@ export const RubberStamp: React.FC<{ text: string; top: string; x: number; y: nu
   const ink = deep(accent, 0.12);
   const main = upper(text);
   let size = 64 * unit;
-  while (Math.ceil((chars(main) * size * 0.66) / (width - 60 * unit)) > 2 && size > 28 * unit) size *= 0.93;
+  // Người dùng tự ngắt dòng: mỗi dòng ước riêng, cho phép tối đa max(2, số dòng ngắt).
+  const parts = main.split("\n");
+  const lines = (s: number) => parts.reduce((n, p) => n + Math.max(1, Math.ceil((chars(p) * s * 0.66) / (width - 60 * unit))), 0);
+  while (lines(size) > Math.max(2, parts.length) && size > 28 * unit) size *= 0.93;
   const scale = interpolate(t, [0, 0.55, 0.75, 1], [2.2, 0.92, 1.04, 1], clamp);
   return (
     <div
@@ -390,7 +393,7 @@ export const RubberStamp: React.FC<{ text: string; top: string; x: number; y: nu
       <div style={{ fontFamily: UI, fontWeight: 800, fontSize: Math.min(24 * unit, (width - 70 * unit) / (chars(top) * 0.82)), lineHeight: 1.35, letterSpacing: "0.12em", paddingTop: 4 * unit, whiteSpace: "nowrap" }}>
         {upper(top)}
       </div>
-      <div style={{ fontFamily: UI, fontWeight: 900, fontSize: size, lineHeight: 1.34, paddingTop: size * 0.1 }}>{main}</div>
+      <div style={{ fontFamily: UI, fontWeight: 900, fontSize: size, lineHeight: 1.34, paddingTop: size * 0.1, whiteSpace: "pre-line" }}>{main}</div>
     </div>
   );
 };

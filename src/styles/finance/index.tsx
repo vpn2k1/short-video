@@ -13,7 +13,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { ShortProps } from "../../compositions/Short/schema";
 import { ensureFonts } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, useCaptionClock, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, punchLines, useCaptionClock, useLayout } from "../shared";
 import { PriceChart, type Plot, trendUp, xOf, yOf } from "./Chart";
 import {
   BG, buildSeries, clamp, clockAt, DOWN, fmtPrice, INK, isDownText, LINE, MUTED, priceOf, sceneMoods, SPIKE_RISE,
@@ -138,7 +138,7 @@ export const FinanceStyle: React.FC<ShortProps> = ({
   const showCaptions = frame >= introEnd - 10 && cap.caption !== null;
   const capScene = cap.caption ? activeIndexAt(scenes, msToFrames(cap.caption.startMs)) : -1;
   const capPunch = capScene >= 0 ? scenes[capScene].punch : null;
-  const pieces = cap.caption ? splitCaption(cap.caption.text, capPunch?.text ?? null) : [];
+  const pieces = cap.caption ? splitCaption(cap.caption.text, capPunch ? flatPunch(capPunch.text) : null) : [];
   const punchOn = capPunch ? interpolate(frame, [msToFrames(capPunch.atMs), msToFrames(capPunch.atMs) + 6], [0, 1], clamp) : 0;
   const capFont = cap.caption
     ? Math.round(captionFont * Math.max(0.74, Math.min(1, (maxLines * textW) / ([...cap.caption.text].length * captionFont * 0.56 + 1) ) ))
@@ -328,9 +328,11 @@ export const FinanceStyle: React.FC<ShortProps> = ({
         const peak = pf + SPIKE_RISE;
         const px = xOf(plot, peak);
         const py = yOf(plot, series, valueAt(series, peak));
-        const size = Math.round(Math.max(30, Math.min(46, 46 - Math.max(0, [...s.punch.text].length - 18) * 0.8)) * unit);
+        // người dùng tự ngắt dòng: ước cỡ và bề rộng theo dòng dài nhất
+        const longest = Math.max(0, ...punchLines(s.punch.text).map((l) => [...l].length));
+        const size = Math.round(Math.max(30, Math.min(46, 46 - Math.max(0, longest - 18) * 0.8)) * unit);
         const maxW = Math.min(wide ? plotRight - side : contentW * 0.82, 760 * unit);
-        const estW = Math.min(maxW, [...s.punch.text].length * size * 0.58 + size * 1.6 + 52 * unit);
+        const estW = Math.min(maxW, longest * size * 0.58 + size * 1.6 + 52 * unit);
         // khung ngang: bong bóng không được lấn sang cột thẻ ảnh bên phải
         const rightEdge = wide ? plotRight : width - side;
         const anchorX = Math.max(side + estW / 2, Math.min(px, rightEdge - estW / 2));

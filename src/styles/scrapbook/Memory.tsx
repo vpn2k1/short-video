@@ -9,7 +9,7 @@ import { Easing, interpolate } from "remotion";
 import { msToFrames } from "../../constants";
 import type { Scene } from "../../compositions/Short/schema";
 import { SceneMedia } from "../media";
-import { seeded } from "../shared";
+import { punchLines, seeded } from "../shared";
 import { Doodle, PushPin, TAPE_COLORS, WashiTape, type DoodleKind } from "./paper";
 import { HAND, INK, inkOn, PHOTO_PAPER, ROUND, SCRIPT, shade } from "./text";
 import { useVt } from "../../i18n/video";
@@ -276,7 +276,13 @@ const StickyNote: React.FC<Props> = ({ scene, index, w, h, appear, frame, unit }
   const S = Math.min(w * 0.46, 370 * unit);
   const text = punch.text.trim();
   const len = [...text].length;
-  const size = Math.min(S * 0.24, Math.sqrt((S * 0.78 * S * 0.62) / Math.max(1, len)) * 1.45);
+  const lines = punchLines(text);
+  let size = Math.min(S * 0.24, Math.sqrt((S * 0.78 * S * 0.62) / Math.max(1, len)) * 1.45);
+  // Người dùng tự ngắt dòng: dòng dài nhất phải vừa ngang, đủ số dòng phải vừa dọc.
+  if (lines.length > 1) {
+    const longest = Math.max(...lines.map((l) => [...l].length));
+    size = Math.min(size, (S * 0.8) / (0.48 * longest), (S * 0.72) / (1.08 * lines.length));
+  }
   const rot = seeded(`sb-pn-${index}`, 3, 8);
   return (
     <div
@@ -310,7 +316,7 @@ const StickyNote: React.FC<Props> = ({ scene, index, w, h, appear, frame, unit }
           boxSizing: "border-box",
         }}
       >
-        <div style={{ fontFamily: HAND, fontSize: size, lineHeight: 1.08, color: INK, textAlign: "center", overflowWrap: "break-word", maxWidth: "100%" }}>
+        <div style={{ fontFamily: HAND, fontSize: size, lineHeight: 1.08, color: INK, textAlign: "center", overflowWrap: "break-word", whiteSpace: "pre-line", maxWidth: "100%" }}>
           {text}
         </div>
       </div>

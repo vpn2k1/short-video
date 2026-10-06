@@ -14,7 +14,7 @@ import { noMotion, type Caption, type Scene, type ShortProps } from "../../compo
 import { FONT_CATALOG } from "../../fonts/catalog";
 import { ensureFonts } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, Grain, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, Grain, punchLines, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -151,7 +151,7 @@ const Prose: React.FC<{
   const punchWords = new Set<number>();
   if (punch) {
     captions.forEach((caption, index) => {
-      const range = findPunch(caption.text, punch.text);
+      const range = findPunch(caption.text, flatPunch(punch.text));
       if (!range) return;
       const offset = words.findIndex((w) => w.caption === index);
       for (let k = range[0]; k <= range[1]; k++) punchWords.add(offset + k);
@@ -249,7 +249,10 @@ const PullQuote: React.FC<{ text: string; caption: string | null; box: Rect; app
   text, caption, box, appear, frame, unit, accent,
 }) => {
   const t = interpolate(frame, [appear, appear + 12], [0, 1], clamp);
-  const size = Math.min(box.h * 0.5, (box.w / Math.max(4, [...text].length)) * 1.5, 150 * unit);
+  // Câu nhấn người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất và số dòng.
+  const lines = punchLines(text);
+  const longest = Math.max(0, ...lines.map((l) => [...l].length));
+  const size = Math.min(box.h * (lines.length > 1 ? 0.7 / lines.length : 0.5), (box.w / Math.max(4, lines.length > 1 ? longest : [...text].length)) * 1.5, 150 * unit);
   return (
     <div
       style={{
@@ -269,7 +272,7 @@ const PullQuote: React.FC<{ text: string; caption: string | null; box: Rect; app
       }}
     >
       <div style={{ width: box.w * 0.3, height: 2 * unit, backgroundColor: accent }} />
-      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontStyle: "italic", fontSize: size, lineHeight: 1.1, color: accent }}>{text}</div>
+      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontStyle: "italic", fontSize: size, lineHeight: 1.1, color: accent, whiteSpace: "pre-line" }}>{lines.join("\n")}</div>
       {caption ? <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: Math.max(28 * unit, size * 0.3), color: FADED }}>{caption}</div> : null}
       <div style={{ width: box.w * 0.3, height: 2 * unit, backgroundColor: accent }} />
     </div>
@@ -312,11 +315,13 @@ const TextPage: React.FC<{
   if (scene.tag) y += headerH + 20 * unit;
 
   const bottom = page.h - inset.bottom;
-  const punchInText = scene.punch ? captions.some((c) => findPunch(c.text, scene.punch!.text)) : true;
+  const punchInText = scene.punch ? captions.some((c) => findPunch(c.text, flatPunch(scene.punch!.text))) : true;
   const quoteText = scene.visual ? scene.visual.text : scene.punch && !punchInText ? scene.punch.text : null;
   const plate = !spread && scene.image ? { x: left, y, w: contentW, h: Math.min((bottom - y) * 0.42, contentW * 0.72) } : null;
   if (plate) y += plate.h + 34 * unit;
-  const quote = quoteText !== null ? { x: left, y, w: contentW, h: Math.min(220 * unit, (bottom - y) * 0.3) } : null;
+  // Câu nhấn nhiều dòng (người dùng tự ngắt) thì khung trích dẫn cao thêm cho mỗi dòng sau.
+  const quoteGrow = 1 + 0.35 * Math.max(0, (quoteText ? punchLines(quoteText).length : 1) - 1);
+  const quote = quoteText !== null ? { x: left, y, w: contentW, h: Math.min(220 * unit * quoteGrow, (bottom - y) * 0.3 * quoteGrow) } : null;
   if (quote) y += quote.h + 20 * unit;
 
   return (

@@ -6,7 +6,7 @@
  */
 import { Easing, interpolate } from "remotion";
 import type { Scene } from "../../compositions/Short/schema";
-import { FONTS } from "../shared";
+import { flatPunch, FONTS } from "../shared";
 
 export const FONT = FONTS.sans;
 
@@ -199,7 +199,7 @@ export const rankItems = (scenes: Scene[]): RankItem[] =>
   scenes.map((scene, index) => {
     const parsed = parseTag(scene.tag);
     const rank = parsed.rank ?? scenes.length - index;
-    const name = parsed.name || (scene.punch ? nfc(scene.punch.text).trim() : "");
+    const name = parsed.name || (scene.punch ? nfc(flatPunch(scene.punch.text)).trim() : "");
     return { index, rank: Math.max(0, rank), name, scene };
   });
 

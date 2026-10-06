@@ -4,6 +4,7 @@
  * Cụm `punch` đổi sang màu nhấn và có gạch chân bút dạ vẽ bằng stroke-dashoffset.
  */
 import { interpolateColors } from "remotion";
+import { flatPunch } from "../shared";
 import { HAND, INK, scribbleUnderline, textWidth } from "./sketch";
 
 /** Nét SVG tự vẽ: progress 0 → chưa có gì, 1 → vẽ xong. */
@@ -53,9 +54,14 @@ const splitWords = (text: string): WordSpan[] => {
  */
 export const findPunch = (text: string, punch: string): [number, number] | null => {
   const hay = normalize(text).toLowerCase();
-  const needle = normalize(punch).trim().toLowerCase();
+  let needle = normalize(punch).trim().toLowerCase();
   if (!needle) return null;
-  const at = hay.indexOf(needle);
+  let at = hay.indexOf(needle);
+  // Câu nhấn có "\n" người dùng tự ngắt, lời đọc thì không: thử lại bằng bản phẳng.
+  if (at < 0) {
+    needle = normalize(flatPunch(punch)).trim().toLowerCase();
+    at = hay.indexOf(needle);
+  }
   if (at < 0) return null;
   const words = splitWords(normalize(text));
   let first = -1;

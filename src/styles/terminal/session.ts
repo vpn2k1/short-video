@@ -7,7 +7,7 @@
  */
 import { TITLE_FRAMES, msToFrames } from "../../constants";
 import type { Caption, Scene, SceneVisual } from "../../compositions/Short/schema";
-import { activeIndexAt } from "../shared";
+import { activeIndexAt, flatPunch } from "../shared";
 import { chars, slugify } from "./theme";
 import { translateVideoText, type VideoLanguage } from "../../i18n/video";
 
@@ -84,10 +84,12 @@ export const buildSession = ({
   captions.forEach((c) => {
     const s = sceneOf(c.startMs);
     const punch = s >= 0 && !punched.has(s) ? scenes[s].punch : null;
-    const hit = punch && c.text.normalize("NFC").toLowerCase().includes(punch.text.normalize("NFC").toLowerCase());
+    // Lời đọc không có "\n" nên dò bằng bản phẳng của câu nhấn.
+    const flat = punch ? flatPunch(punch.text) : "";
+    const hit = punch && c.text.normalize("NFC").toLowerCase().includes(flat.normalize("NFC").toLowerCase());
     const start = Math.max(msToFrames(c.startMs), introEnd);
     push(
-      { kind: "cmd", text: c.text, start: 0, typeEnd: 0, punch: hit && punch ? punch.text : null, scene: s },
+      { kind: "cmd", text: c.text, start: 0, typeEnd: 0, punch: hit && punch ? flat : null, scene: s },
       start,
       20,
       Math.max(start + 8, msToFrames(c.endMs)),

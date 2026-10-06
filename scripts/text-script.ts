@@ -68,6 +68,45 @@ const splitLong = (line: string): string[] => {
 };
 
 const TAG_LINE = /^\[(.+)\]$/;
+
+/** "A. I'd like noodles", "B) Fever" — dòng lựa chọn trắc nghiệm (cùng mẫu với src/styles/quiz/theme.ts). */
+const QUIZ_OPTION = /^\s*[A-Fa-f]\s*[.):\-–]\s+\S/;
+const QUIZ_ANSWER = /^(đáp án|answer)\b/i;
+/** "9–10 câu: Excellent! 🌟" — dòng bảng xếp loại. */
+const QUIZ_SCORE = /^\s*(\d+\s*[–\-—]\s*\d+|\d+\+?)\s*(câu|questions?|correct)?\s*[:：]\s*\S/i;
+
+/**
+ * Câu đố: người dùng hay để dòng trống giữa câu hỏi, các lựa chọn A/B/C và "Đáp án là …" — mỗi dòng trống là một cảnh
+ * thì thẻ câu hỏi, lựa chọn và đáp án rơi vào 3 cảnh khác nhau. Gộp khối lựa chọn / đáp án vào câu hỏi đứng trước
+ * (cảnh trước chưa có đáp án, khối sau không có [nhãn] riêng); bảng xếp loại và dòng sau nó gộp thành một cảnh,
+ * bỏ câu nhấn của bảng (in đậm "**9–10 câu:**" không phải đáp án).
+ */
+const mergeQuizScenes = (scenes: ScriptScene[], ownTag: boolean[]): ScriptScene[] => {
+  const out: ScriptScene[] = [];
+  const isScoreScene = (scene: ScriptScene) => scene.lines.filter((l) => QUIZ_SCORE.test(l)).length >= 2;
+  scenes.forEach((scene, i) => {
+    const prev = out[out.length - 1];
+    const scoreBlock = scene.lines.every((l) => QUIZ_SCORE.test(l));
+    if (scoreBlock) scene = { ...scene, punch: null };
+    const joinable =
+      prev &&
+      !ownTag[i] &&
+      !prev.punch &&
+      prev.lines.length + scene.lines.length <= MAX_LINES_PER_SCENE &&
+      (QUIZ_OPTION.test(scene.lines[0]) || QUIZ_ANSWER.test(scene.lines[0]) || scoreBlock || isScoreScene(prev));
+    if (!joinable) {
+      out.push(scene);
+      return;
+    }
+    out[out.length - 1] = {
+      ...prev,
+      lines: [...prev.lines, ...scene.lines],
+      visual: prev.visual ?? scene.visual,
+      punch: scene.punch,
+    };
+  });
+  return out;
+};
 const STAT_LINE = /^!\s*([^|]+?)\s*(?:\|\s*(.+))?$/;
 const PUNCH_MARK = /\*\*(.+?)\*\*|\*(.+?)\*/;
 
@@ -200,11 +239,14 @@ export const textToScript = (
 
   // ---- từng cảnh ----
   const scenes: ScriptScene[] = [];
+  /** Cảnh có dòng [nhãn] của chính nó — câu đố dùng để biết đâu là đầu một câu hỏi mới. */
+  const ownTag: boolean[] = [];
   let pendingTag: string | null = null;
   let splitCount = 0;
 
   for (const block of blocks) {
     let tag: string | null = pendingTag;
+    let hasOwnTag = pendingTag !== null;
     pendingTag = null;
     let visual: ScriptScene["visual"] = null;
     let punch: string | null = null;
@@ -212,7 +254,7 @@ export const textToScript = (
 
     for (const raw of block) {
       const tagMatch = raw.match(TAG_LINE);
-      if (tagMatch) { tag = clipWords(tagMatch[1], 18); continue; }
+      if (tagMatch) { tag = clipWords(tagMatch[1], 18); hasOwnTag = true; continue; }
 
       const statMatch = raw.match(STAT_LINE);
       if (statMatch) {
@@ -249,6 +291,7 @@ export const textToScript = (
         visual: k === 0 ? visual : null,
         punch: needle && chunk.some((l) => l.toLocaleLowerCase("vi").includes(needle)) ? punch : null,
       });
+      ownTag.push(k === 0 && hasOwnTag);
     }
   }
 
@@ -257,15 +300,6 @@ export const textToScript = (
     throw new Error(`Kịch bản có ${scenes.length} cảnh — tối đa ${MAX_SCENES}. Bớt dòng trống để gộp cảnh.`);
   }
   if (splitCount > 0) notes.push(`Tách ${splitCount} câu dài hơn ${MAX_LINE} ký tự.`);
-
-  // ---- ảnh ----
-  const uploads = options.uploads ?? [];
-  scenes.forEach((scene, i) => {
-    scene.image = uploads[i] ?? options.previousImages?.[i] ?? null;
-  });
-  if (uploads.length > scenes.length) {
-    notes.push(`Có ${uploads.length} file đính kèm nhưng chỉ ${scenes.length} cảnh — file thừa không dùng.`);
-  }
 
   // ---- tiêu đề, phong cách ----
   const firstLine = scenes[0].lines[0];
@@ -287,6 +321,23 @@ export const textToScript = (
   } else {
     style = guessStyle(all, scenes);
     notes.push(`Tự chọn phong cách "${style}" theo từ khoá — đổi ở chip phong cách nếu chưa hợp.`);
+  }
+
+  if (style === "quiz") {
+    const merged = mergeQuizScenes(scenes, ownTag);
+    if (merged.length < scenes.length) {
+      notes.push(`Câu đố: gộp lựa chọn / đáp án vào cùng cảnh với câu hỏi (${scenes.length} → ${merged.length} cảnh).`);
+      scenes.splice(0, scenes.length, ...merged);
+    }
+  }
+
+  // ---- ảnh ----
+  const uploads = options.uploads ?? [];
+  scenes.forEach((scene, i) => {
+    scene.image = uploads[i] ?? options.previousImages?.[i] ?? null;
+  });
+  if (uploads.length > scenes.length) {
+    notes.push(`Có ${uploads.length} file đính kèm nhưng chỉ ${scenes.length} cảnh — file thừa không dùng.`);
   }
 
   try {

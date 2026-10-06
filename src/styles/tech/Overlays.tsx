@@ -125,6 +125,8 @@ export const Punch: React.FC<{
     letterSpacing: -0.02 * fontSize,
     textAlign: align,
     width: "100%",
+    // Giữ chỗ người dùng tự ngắt dòng trong câu nhấn.
+    whiteSpace: "pre-line",
     // Chừa chỗ cho dấu tiếng Việt ở dòng trên cùng.
     paddingTop: fontSize * 0.08,
   };

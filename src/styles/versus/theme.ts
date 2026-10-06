@@ -9,6 +9,7 @@
  */
 import { Easing, interpolate } from "remotion";
 import { FONT_CATALOG } from "../../fonts/catalog";
+import { punchLines } from "../shared";
 
 export const DISPLAY = FONT_CATALOG.anton.stack;
 export const BODY = FONT_CATALOG.bevietnam.stack;
@@ -180,8 +181,11 @@ export const verdictOffset = (g: Geo) => (g.portrait ? g.H : g.W) / 2 + g.tilt +
 /** In hoa tiếng Việt bằng JS (CSS text-transform làm lệch móc Ư/Ơ với font hẹp). */
 export const upper = (text: string) => text.normalize("NFC").toLocaleUpperCase("vi");
 
-/** Ước số dòng khi chữ xuống dòng trong bề rộng `width`. */
-export const estimateLines = (text: string, fontSize: number, width: number, charWidth: number) => {
+/** Ước số dòng khi chữ xuống dòng trong bề rộng `width`. Có "\n" (câu nhấn tự ngắt) thì cộng từng đoạn. */
+export const estimateLines = (text: string, fontSize: number, width: number, charWidth: number): number => {
+  if (text.includes("\n")) {
+    return Math.max(1, punchLines(text).reduce((n, l) => n + estimateLines(l, fontSize, width, charWidth), 0));
+  }
   const words = text.split(/\s+/).filter(Boolean);
   const max = width / (fontSize * charWidth);
   let lines = 1;

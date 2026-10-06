@@ -108,6 +108,7 @@ export const MilestoneCard: React.FC<{
             opacity: lineIn,
             translate: `0 ${(1 - lineIn) * 14 * unit}px`,
             overflowWrap: "break-word",
+            whiteSpace: "pre-line",
           }}
         >
           {parts ? (

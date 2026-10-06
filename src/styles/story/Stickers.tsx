@@ -8,7 +8,7 @@ import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene, SceneVisual } from "../../compositions/Short/schema";
 import { parseStat } from "../retro/vhs";
-import { activeIndexAt, seeded, useCaptionClock } from "../shared";
+import { activeIndexAt, flatPunch, punchLines, seeded, useCaptionClock } from "../shared";
 import { CUBE_FRAMES } from "./Frames";
 import {
   appearAt,
@@ -63,9 +63,16 @@ const TextBlock: React.FC<{ text: string; size: number; bg: string; ink: string;
 /** Phần còn lại của câu khi bỏ cụm nhấn — ngắn thì nhãn thăm dò đã đủ nói thay câu đó. */
 const remainderLength = (text: string, punch: string) => {
   const hay = text.normalize("NFC").toLocaleLowerCase("vi");
-  const needle = punch.normalize("NFC").trim().toLocaleLowerCase("vi");
+  // Lời đọc không có "\n" → so bằng bản phẳng của câu nhấn.
+  const needle = flatPunch(punch).normalize("NFC").trim().toLocaleLowerCase("vi");
   const rest = needle && hay.includes(needle) ? hay.replace(needle, "") : hay;
   return (rest.match(/[\p{L}\p{N}]/gu) ?? []).length;
+};
+
+/** Câu nhấn người dùng tự ngắt dòng: co cỡ chữ theo dòng dài nhất thay vì cả câu. */
+const longestLine = (text: string) => {
+  const lines = punchLines(text);
+  return lines.length > 1 ? lines.reduce((a, b) => (Array.from(b).length > Array.from(a).length ? b : a), "") : text;
 };
 
 /* ------------------------------------------------------------ phụ đề */
@@ -485,7 +492,7 @@ const Poll: React.FC<{ text: string; t: number; pop: number; accent: string }> =
           fontFamily: UI,
         }}
       >
-        <div style={{ fontSize: shrink(text, 54, 24, 0.66), fontWeight: 800, color: "#111", textAlign: "center", lineHeight: 1.35, marginBottom: 26 }}>
+        <div style={{ fontSize: shrink(longestLine(text), 54, 24, 0.66), fontWeight: 800, color: "#111", textAlign: "center", lineHeight: 1.35, marginBottom: 26, whiteSpace: "pre-line" }}>
           {text}
         </div>
         {options.map((o, i) => (
@@ -557,7 +564,7 @@ const GifSticker: React.FC<{ text: string; t: number; pop: number; accent: strin
   const fill = inkOn(accent) === "#fff" ? "#fff" : "#111";
   const stroke = fill === "#fff" ? accent : "#fff";
   const upper = upperVi(text);
-  const size = shrink(upper, 108, 12, 0.5);
+  const size = shrink(longestLine(upper), 108, 12, 0.5);
   const cy = geo.vh * 0.66;
   return (
     <>
@@ -599,6 +606,7 @@ const GifSticker: React.FC<{ text: string; t: number; pop: number; accent: strin
               color: fill,
               textAlign: "center",
               padding: "0.12em 0.3em 0",
+              whiteSpace: "pre-line",
               textShadow: `${outline(stroke, size * 0.075)}, 0 ${size * 0.12}px 0 rgba(0,0,0,0.28)`,
             }}
           >

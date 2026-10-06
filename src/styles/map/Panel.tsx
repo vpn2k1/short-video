@@ -5,6 +5,7 @@
 import { Easing, interpolate } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import type { Caption, Scene } from "../../compositions/Short/schema";
+import { flatPunch } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import { chars, clamp, deep, MAP, mix, pad2, SERIF, UI, upper } from "./geo";
 import type { Rect } from "./parts";
@@ -81,7 +82,7 @@ export const CaptionPanel: React.FC<{
   const start = caption ? msToFrames(caption.startMs) : 0;
   const enter = interpolate(frame, [start, start + 8], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const punch = scene?.punch ?? null;
-  const range = punch && text ? findPunch(text, punch.text) : null;
+  const range = punch && text ? findPunch(text, flatPunch(punch.text)) : null;
   const at = punch ? Math.max(start, msToFrames(punch.atMs)) : 0;
   // Chấm hành trình: tối đa 12 chấm; nhiều hơn thì thành thanh tiến độ.
   const dots = total <= 12;

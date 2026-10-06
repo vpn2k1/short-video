@@ -6,7 +6,7 @@
  * → thanh NÓNG. Chữ luôn nằm trong safe.side; nền các dải được phép tràn mép.
  */
 import type { Caption, Scene } from "../../compositions/Short/schema";
-import { useLayout } from "../shared";
+import { punchLines, useLayout } from "../shared";
 import { fitText, measure, nfc, upper, type Fitted } from "./theme";
 import { translateVideoText, useVt, type VideoLanguage } from "../../i18n/video";
 
@@ -88,8 +88,13 @@ export const useNewsLayout = (title: string, captions: Caption[], scenes: Scene[
   const punchTextW = contentW - nongW - 24 * u;
   const punchMax = (stacked ? 62 : 50) * u;
   const punchMin = (stacked ? 38 : 32) * u;
-  const fitPunch = (text: string) =>
-    fitPreferOne(upper(text), punchTextW, punchMax, (stacked ? 46 : 38) * u, punchMin, 900);
+  const fitPunch = (text: string): Fitted => {
+    const rows = punchLines(upper(text));
+    if (rows.length <= 1) return fitPreferOne(upper(text), punchTextW, punchMax, (stacked ? 46 : 38) * u, punchMin, 900);
+    // Người dùng tự ngắt dòng: giữ đúng từng dòng, cỡ chữ theo dòng rộng nhất.
+    const size = Math.min(...rows.map((r) => fitText(r, punchTextW, 1, punchMax, punchMin, 900).size));
+    return { size, lines: rows.map((r) => fitText(r, punchTextW, 1, size, size, 900).lines[0]) };
+  };
   const punchH = Math.round(
     scenes.reduce((max, s) => {
       if (!s.punch) return max;

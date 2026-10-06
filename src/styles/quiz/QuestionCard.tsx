@@ -3,6 +3,7 @@ import { FONTS, useLayout } from "../shared";
 import type { Rect } from "./ImageFrame";
 import { answerFontSize, EASE_BACK, EASE_IN_OUT, GREEN, GREEN_DARK, INK, paletteFrom, ramp, upper, type SceneInfo } from "./theme";
 import { useVt } from "../../i18n/video";
+import { OptionRows, ScoreRows } from "./ChoiceList";
 
 /** Số frame lật thẻ. */
 export const FLIP_FRAMES = 14;
@@ -15,6 +16,10 @@ type Props = {
   answerBase: number;
   /** Khoảng trống phía dưới dành cho đĩa đồng hồ đè lên mép thẻ. */
   padBottom: number;
+  /** Cỡ chữ hàng lựa chọn / bảng xếp loại (chung cả video). */
+  optionSize: number;
+  /** Cỡ chữ câu dẫn tình huống phía trên câu hỏi trắc nghiệm. */
+  contextSize: number;
 };
 
 /**
@@ -22,15 +27,18 @@ type Props = {
  * Tới revealFrame thẻ lật quanh trục Y: nửa đầu mặt trước quay 0→90°, nửa sau mặt xanh
  * đáp án quay -90→0°. Chỉ vẽ một mặt mỗi frame nên không cần backface-visibility.
  */
-export const QuestionCard: React.FC<Props> = ({ rect, info, accent, questionSize, answerBase, padBottom }) => {
+export const QuestionCard: React.FC<Props> = ({ rect, info, accent, questionSize, answerBase, padBottom, optionSize, contextSize }) => {
   const frame = useCurrentFrame();
   const { unit } = useLayout();
   const vt = useVt();
   const pal = paletteFrom(accent);
   const radius = 44 * unit;
   const reveal = info.revealFrame;
+  // Trắc nghiệm / bảng xếp loại: không lật thẻ — đáp án tô xanh ngay trong danh sách.
+  const list = info.options.length > 0 || info.scores.length > 0;
+  const listRevealed = list && reveal !== null && frame >= reveal;
 
-  const flip = reveal === null ? 0 : ramp(frame, reveal, FLIP_FRAMES, EASE_IN_OUT);
+  const flip = reveal === null || list ? 0 : ramp(frame, reveal, FLIP_FRAMES, EASE_IN_OUT);
   const angle = flip * 180;
   const showBack = angle > 90;
   const faceAngle = showBack ? angle - 180 : angle;
@@ -102,10 +110,63 @@ export const QuestionCard: React.FC<Props> = ({ rect, info, accent, questionSize
                 transform: `scale(${0.6 + 0.4 * answerIn})`,
                 opacity: Math.min(1, answerIn * 2),
                 overflowWrap: "break-word",
+                whiteSpace: "pre-line",
               }}
             >
               {answerText}
             </div>
+          </div>
+        ) : list ? (
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "stretch",
+              gap: 22 * unit,
+            }}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                opacity: textIn,
+                transform: `translateY(${(1 - textIn) * 24 * unit}px) scale(${0.92 + 0.08 * textIn})`,
+              }}
+            >
+              {info.context ? (
+                <div
+                  style={{
+                    fontFamily: FONTS.sans,
+                    fontWeight: 600,
+                    fontSize: contextSize,
+                    lineHeight: 1.25,
+                    color: "rgba(29,23,64,0.68)",
+                    marginBottom: 8 * unit,
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {info.context}
+                </div>
+              ) : null}
+              <div
+                style={{
+                  fontFamily: FONTS.sans,
+                  fontWeight: 800,
+                  fontSize: questionSize,
+                  lineHeight: 1.22,
+                  paddingTop: questionSize * 0.06,
+                  color: INK,
+                  overflowWrap: "break-word",
+                }}
+              >
+                {info.question}
+              </div>
+            </div>
+            {info.options.length ? (
+              <OptionRows info={info} accent={accent} fontSize={optionSize} />
+            ) : (
+              <ScoreRows info={info} accent={accent} fontSize={optionSize} />
+            )}
           </div>
         ) : (
           <div
@@ -159,7 +220,7 @@ export const QuestionCard: React.FC<Props> = ({ rect, info, accent, questionSize
             display: "flex",
             alignItems: "center",
             gap: 12 * unit,
-            backgroundColor: showBack ? GREEN_DARK : pal.deep,
+            backgroundColor: showBack || listRevealed ? GREEN_DARK : pal.deep,
             border: `${5 * unit}px solid #ffffff`,
             boxShadow: `0 ${8 * unit}px ${18 * unit}px -${6 * unit}px rgba(20,8,40,0.5)`,
             fontFamily: FONTS.sans,

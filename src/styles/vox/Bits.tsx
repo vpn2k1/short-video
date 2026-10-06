@@ -4,7 +4,7 @@
  */
 import { interpolate, spring } from "remotion";
 import type { Caption, SceneVisual } from "../../compositions/Short/schema";
-import { FONTS, fitFontSize, seeded } from "../shared";
+import { FONTS, fitFontSize, punchLines, seeded } from "../shared";
 import { HIGHLIGHT, INK, PAPER_LIGHT } from "./palette";
 import { useVt } from "../../i18n/video";
 
@@ -172,7 +172,19 @@ export const VisualBit: React.FC<{
 };
 
 /** Ước lượng cỡ chữ condensed in hoa để vừa cột: không từ nào tràn, tối đa ~3 dòng. */
-const fitColumn = (text: string, base: number, colWidth: number) => {
+const fitColumn = (text: string, base: number, colWidth: number, colHeight: number) => {
+  const rows = punchLines(text);
+  if (rows.length > 1) {
+    // Người dùng tự ngắt dòng: mỗi dòng nằm gọn một hàng, đủ chỗ theo chiều cao cột.
+    const longestRow = rows.reduce((a, b) => ([...b].length > [...a].length ? b : a));
+    const longestWord = Math.max(4, ...rows.flatMap((r) => r.split(/\s+/)).map((w) => [...w].length));
+    return Math.min(
+      fitFontSize(longestRow, base, 0.5),
+      colWidth / (longestWord * 0.62),
+      colWidth / (Math.max(4, [...longestRow].length) * 0.6),
+      colHeight / (rows.length * 1.3),
+    );
+  }
   const words = text.split(/\s+/);
   const longest = Math.max(4, ...words.map((w) => [...w].length));
   const total = Math.max(4, [...text].length);
@@ -188,14 +200,15 @@ export const Punch: React.FC<{
   unit: number;
   width: number;
   align: "center" | "left";
+  height: number;
   sceneIndex: number;
-}> = ({ text, f, fps, frame, unit, width, align, sceneIndex }) => {
+}> = ({ text, f, fps, frame, unit, width, height, align, sceneIndex }) => {
   if (f < 0) return null;
   const s = spring({ frame: f, fps, config: { damping: 9, stiffness: 180 } });
   const progress = interpolate(f, [3, 15], [0, 1], { ...clamp });
   const baseRot = seeded(`vox-punch-${sceneIndex}`, -3.5, -1);
   const idle = Math.sin(((frame + sceneIndex * 37) / (fps * 3.7)) * Math.PI * 2) * 0.7;
-  const fontSize = fitColumn(text, 118 * unit, width);
+  const fontSize = fitColumn(text, 118 * unit, width, height);
   return (
     <div
       style={{
@@ -214,6 +227,7 @@ export const Punch: React.FC<{
           lineHeight: 1.26,
           color: INK,
           padding: `0 ${14 * unit}px`,
+          whiteSpace: "pre-line",
           ...sweep(progress),
         }}
       >

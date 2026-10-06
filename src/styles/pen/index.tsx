@@ -10,7 +10,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import { noMotion, type Caption, type Scene, type ShortProps } from "../../compositions/Short/schema";
 import { useFontReady } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, Grain, seeded, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, Grain, punchLines, seeded, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import {
   blockHeight, FountainPen, INK, InkText, LINE_HEIGHT, nibAt, PAPER, SCRIPT, SCRIPT_WEIGHT, wrap, type InkBlock,
@@ -31,7 +31,9 @@ const FALLBACK_SCENE: Scene = {
 type Rect = { x: number; y: number; w: number; h: number };
 
 /** Vị trí ký tự của cụm nhấn trong câu (theo code point), hoặc null. */
-const punchRange = (text: string, punch: string): [number, number] | null => {
+const punchRange = (text: string, raw: string): [number, number] | null => {
+  // Lời đọc không có "\n" — so bằng bản phẳng của câu nhấn.
+  const punch = flatPunch(raw);
   if (!findPunch(text, punch)) return null;
   const hay = text.normalize("NFC").toLowerCase();
   const needle = punch.normalize("NFC").trim().toLowerCase();
@@ -132,7 +134,13 @@ const MarginNote: React.FC<{
   const t = interpolate(frame, [appear, appear + 10], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2)) });
   if (t <= 0) return null;
   // Chữ ngắn ("80%") to hết cỡ; chữ dài được xuống dòng, cỡ theo diện tích ô.
-  const size = Math.min(box.h * 0.5, Math.sqrt((box.w * box.h * 0.7) / Math.max(1, [...text].length)), 180 * unit);
+  let size = Math.min(box.h * 0.5, Math.sqrt((box.w * box.h * 0.7) / Math.max(1, [...text].length)), 180 * unit);
+  // Câu nhấn người dùng tự ngắt dòng: đủ chỗ cho từng dòng, dòng dài nhất không tràn ô.
+  const rows = punchLines(text);
+  if (rows.length > 1) {
+    const longest = Math.max(...rows.map((r) => [...r].length));
+    size = Math.min(size, (box.h * 0.85) / (rows.length * 1.1), box.w / (longest * 0.5));
+  }
   return (
     <div
       style={{
@@ -154,7 +162,7 @@ const MarginNote: React.FC<{
         opacity: t,
       }}
     >
-      <div style={{ fontSize: size, lineHeight: 1.1, maxWidth: box.w }}>{text}</div>
+      <div style={{ fontSize: size, lineHeight: 1.1, maxWidth: box.w, whiteSpace: "pre-line" }}>{text}</div>
       {caption ? <div style={{ fontSize: Math.max(30 * unit, size * 0.3), color: INK, fontWeight: 500, maxWidth: box.w }}>{caption}</div> : null}
     </div>
   );

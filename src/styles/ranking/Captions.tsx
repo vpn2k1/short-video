@@ -83,10 +83,11 @@ export const PunchPill: React.FC<{ L: RankLayout; scenes: Scene[] }> = ({ L, sce
 
   const fitted = L.fitPunch(scene.punch!.text);
   if (fitted.lines.length === 0) return null;
-  const line = fitted.lines[0];
-  const textW = measure(line, fitted.size, 900) * 1.05;
+  // Thường một dòng; người dùng tự ngắt dòng thì viên cao theo số dòng, rộng theo dòng dài nhất.
+  const textW = Math.max(...fitted.lines.map((l) => measure(l, fitted.size, 900))) * 1.05;
   const w = textW + P.padX * 2;
-  const h = fitted.size * 1.3 + 22 * u;
+  const rowH = fitted.size * 1.3 + 22 * u;
+  const h = rowH + (fitted.lines.length - 1) * fitted.size * 1.3;
 
   const capTop = C.centered ? C.centerY - C.maxH / 2 : C.bottom - C.maxH;
   const bottom = !strip && !C.centered ? L.bar.y - P.gap : capTop - P.gap;
@@ -115,7 +116,7 @@ export const PunchPill: React.FC<{ L: RankLayout; scenes: Scene[] }> = ({ L, sce
         style={{
           position: "absolute",
           inset: 0,
-          borderRadius: h / 2,
+          borderRadius: rowH / 2,
           backgroundImage: GOLD_GRADIENT,
           border: `${4 * u}px solid ${GOLD_LIGHT}`,
           boxShadow: `0 ${12 * u}px ${30 * u}px rgba(0,0,0,0.5), 0 0 ${40 * u}px rgba(255,201,60,0.45)`,
@@ -125,8 +126,8 @@ export const PunchPill: React.FC<{ L: RankLayout; scenes: Scene[] }> = ({ L, sce
           justifyContent: "center",
         }}
       >
-        <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: fitted.size, lineHeight: 1.3, color: INK, whiteSpace: "nowrap" }}>
-          {line}
+        <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: fitted.size, lineHeight: 1.3, color: INK, whiteSpace: "pre", textAlign: "center" }}>
+          {fitted.lines.join("\n")}
         </div>
         {shine > 0 && shine < 1 ? (
           <div

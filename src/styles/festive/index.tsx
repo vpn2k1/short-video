@@ -17,7 +17,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import { noMotion, type Caption, type Scene, type ShortProps } from "../../compositions/Short/schema";
 import { ensureFonts } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import {
   BlossomBranch, Burst, Cloud, CoinMedal, EnvelopeCard, FallingPetals, Flower, FoilDefs, Lantern, LuckyRain, RedBackdrop, Sparkles,
@@ -385,10 +385,10 @@ const CaptionLayer: React.FC<{
     const scene = pages[sceneIndex];
     const start = Math.max(msToFrames(caption.startMs), titleEnd);
     const punchAt = scene.punch ? Math.max(msToFrames(scene.punch.atMs), start + 4) : 1e9;
-    const punch = scene.punch ? findPunch(caption.text, scene.punch.text) : null;
+    const punch = scene.punch ? findPunch(caption.text, flatPunch(scene.punch.text)) : null;
     let extra: string | null = null;
     if (scene.punch) {
-      const inScene = captions.some((c) => sceneIndexOf(c) === sceneIndex && findPunch(c.text, scene.punch!.text));
+      const inScene = captions.some((c) => sceneIndexOf(c) === sceneIndex && findPunch(c.text, flatPunch(scene.punch!.text)));
       const owner = activeIndexAt(captions, msToFrames(scene.punch.atMs));
       if (!inScene && (owner === i || (owner < 0 && i === 0))) extra = scene.punch.text;
     }
@@ -425,7 +425,7 @@ const CaptionLayer: React.FC<{
         {cur.extra ? (
           <div
             style={{
-              fontFamily: SERIF, fontWeight: 800, fontSize: size * 0.8, lineHeight: 1.3, color: GOLD_LIGHT, textAlign: "center",
+              fontFamily: SERIF, fontWeight: 800, fontSize: size * 0.8, lineHeight: 1.3, color: GOLD_LIGHT, textAlign: "center", whiteSpace: "pre-line",
               opacity: Math.min(1, extraT * 2), scale: String(0.7 + 0.3 * extraT),
               textShadow: `0 0 ${18 * unit}px rgba(255, 200, 70, 0.8), 0 ${2 * unit}px 0 ${GOLD_DEEP}`,
             }}
@@ -467,7 +467,7 @@ const CaptionLayer: React.FC<{
         >
           <div
             style={{
-              fontFamily: ROUND, fontWeight: 800, fontSize: size * 0.9, lineHeight: 1.3, color: RED_DARK, textAlign: "center",
+              fontFamily: ROUND, fontWeight: 800, fontSize: size * 0.9, lineHeight: 1.3, color: RED_DARK, textAlign: "center", whiteSpace: "pre-line",
               padding: `${8 * unit}px ${30 * unit}px ${4 * unit}px`, borderRadius: 60 * unit, background: GOLD_FOIL,
               boxShadow: `0 0 ${26 * unit}px rgba(255, 200, 70, 0.7), 0 ${8 * unit}px ${18 * unit}px rgba(40, 0, 4, 0.5)`,
             }}

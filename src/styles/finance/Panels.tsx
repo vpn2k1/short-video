@@ -388,6 +388,7 @@ export const PunchBubble: React.FC<{
           boxShadow: `0 0 ${40 * unit}px ${color}99, 0 ${12 * unit}px ${30 * unit}px rgba(0,0,0,0.5)`,
           textAlign: "center",
           width: "max-content",
+          whiteSpace: "pre-line",
         }}
       >
         <span style={{ fontFamily: DATA, fontSize: size * 0.7, marginRight: size * 0.3 }}>{arrow(up)}</span>

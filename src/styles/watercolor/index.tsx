@@ -15,7 +15,7 @@ import { msToFrames, TITLE_FRAMES } from "../../constants";
 import { noMotion, type Caption, type Scene, type ShortProps } from "../../compositions/Short/schema";
 import { useFontReady } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, seeded, useLayout } from "../shared";
+import { activeIndexAt, punchLines, seeded, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import {
   blobGrow, blobsFor, Blossom, Branch, BrushStroke, INK, INK_SOFT, maskUri, PAPER, paletteFor, PaperTexture,
@@ -293,7 +293,13 @@ const blockFor = (caption: Caption, scene: Scene, layout: WcLayout, ready: boole
   const reserve = scene.tag ? TAG_RESERVE(unit) : 0;
   const zone = { x: t.x, y: t.y + reserve, w: t.w, h: t.h - reserve };
   const extraSize = (split ? 60 : 64) * unit;
-  const extra = extraPunch ? wrap(extraPunch, extraSize, zone.w * 0.92, SCRIPT_BOLD, ready).slice(0, 2) : [];
+  // Câu nhấn người dùng tự ngắt dòng: ngắt từng đoạn riêng, giữ đủ số dòng họ ngắt.
+  const rows = extraPunch ? punchLines(extraPunch) : [];
+  const extra = extraPunch
+    ? rows.length > 1
+      ? rows.flatMap((r) => wrap(r, extraSize, zone.w * 0.92, SCRIPT_BOLD, ready)).slice(0, Math.max(2, rows.length))
+      : wrap(extraPunch, extraSize, zone.w * 0.92, SCRIPT_BOLD, ready).slice(0, 2)
+    : [];
   const extraH = extra.length * extraSize * 1.4 + (extra.length ? 10 * unit : 0);
   // Câu ngắn: chữ viết tay lớn. Co tới 54px mà vẫn tràn → câu dài, chuyển sang Lora cho dễ đọc.
   let face: Face = SCRIPT_FACE;

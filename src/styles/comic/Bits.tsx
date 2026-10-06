@@ -4,7 +4,7 @@
  */
 import { Easing, interpolate, spring } from "remotion";
 import type { SceneVisual } from "../../compositions/Short/schema";
-import { FONTS, seeded } from "../shared";
+import { FONTS, punchLines, seeded } from "../shared";
 import { burstPoints, clamp, fitBlock, INK, outline, upperVi, WHITE, YELLOW } from "./palette";
 
 /**
@@ -290,7 +290,8 @@ export const PunchBurst: React.FC<{
   const shakeY = Math.cos(f * 3.7) * shakeAmp * 0.6;
   const breathe = 1 + Math.sin(f * 0.5) * 0.012;
 
-  const upper = upperVi(text);
+  // Giữ đúng các dòng người dùng tự ngắt trong câu nhấn.
+  const upper = punchLines(upperVi(text)).join("\n");
   const fontSize = fitBlock(upper, {
     maxWidth: w * 0.6,
     maxHeight: h * 0.46,
@@ -349,6 +350,7 @@ export const PunchBurst: React.FC<{
             textAlign: "center",
             textShadow: outline(Math.max(3, fontSize * 0.055), INK, fontSize * 0.07),
             transform: "rotate(-3deg)",
+            whiteSpace: "pre-line",
           }}
         >
           {upper}

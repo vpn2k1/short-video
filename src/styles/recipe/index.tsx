@@ -13,7 +13,7 @@ import { noMotion, type Caption, type Scene, type ShortProps } from "../../compo
 import { FONT_CATALOG } from "../../fonts/catalog";
 import { ensureFonts } from "../../fonts/load";
 import { SceneMedia } from "../media";
-import { activeIndexAt, Grain, seeded, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, Grain, punchLines, seeded, useLayout } from "../shared";
 import { findPunch } from "../whiteboard/written";
 import {
   BasketIcon, CheckIcon, chipIconFor, deep, ForkIcon, iconFor, INK, KitchenTable, PAPER, SpoonIcon, tint, WhiskIcon,
@@ -415,7 +415,11 @@ const TipSticker: React.FC<{ text: string; x: number; y: number; w: number; t: n
 }) => {
   const vt = useVt();
   const n = chars(text);
-  const size = Math.max(34 * unit, Math.min(50 * unit, (w * 2.9) / Math.max(12, n)));
+  // Người dùng tự ngắt dòng: cỡ chữ theo dòng dài nhất (dòng đầu kèm "Mẹo: ").
+  const lines = punchLines(text);
+  const longest = Math.max(...lines.map((l, i) => chars(l) + (i === 0 ? 5 : 0)));
+  const fitW = lines.length > 1 ? (w - 52 * unit) / (0.5 * longest) : (w * 2.9) / Math.max(12, n);
+  const size = Math.max(34 * unit, Math.min(50 * unit, fitW));
   const tilt = seeded(`${seed}-tip`, 2, 5);
   const draw = interpolate(t, [0.5, 1], [0, 1], clamp);
   const aw = 150 * unit;
@@ -444,6 +448,7 @@ const TipSticker: React.FC<{ text: string; x: number; y: number; w: number; t: n
           fontSize: size,
           lineHeight: 1.12,
           color: INK,
+          whiteSpace: "pre-line",
         }}
       >
         {/* Băng keo mờ */}
@@ -541,7 +546,7 @@ const Instruction: React.FC<{ captions: Caption[]; zone: Rect; frame: number; ap
   const start = Math.max(appear, msToFrames(caption.startMs));
   if (frame < start) return null;
   const text = caption.text.normalize("NFC");
-  const range = punch ? findPunch(text, punch.text) : null;
+  const range = punch ? findPunch(text, flatPunch(punch.text)) : null;
   const punchAt = punch ? Math.max(start, msToFrames(punch.atMs)) : 0;
   const lineHeight = 1.28;
   let size = 76 * unit;
@@ -610,7 +615,7 @@ const Checklist: React.FC<{ captions: Caption[]; zone: Rect; frame: number; appe
         const tickAt = k + 1 < captions.length ? msToFrames(captions[k + 1].startMs) : Math.min(end - 12, msToFrames(c.endMs) + 6);
         const t = interpolate(frame, [start, start + 8], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
         const tick = interpolate(frame, [tickAt, tickAt + 8], [0, 1], clamp);
-        const range = punch ? findPunch(items[k], punch.text) : null;
+        const range = punch ? findPunch(items[k], flatPunch(punch.text)) : null;
         const current = t > 0 && tick <= 0;
         return (
           <div key={`i-${k}`} style={{ display: "flex", alignItems: "flex-start", gap: size * 0.5, opacity: t === 0 ? 0.22 : 0.22 + t * 0.78, translate: `${((1 - t) * 20 * unit).toFixed(1)}px 0` }}>

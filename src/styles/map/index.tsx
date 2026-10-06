@@ -12,7 +12,7 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { msToFrames, TITLE_FRAMES } from "../../constants";
 import { noMotion, type Scene, type ShortProps } from "../../compositions/Short/schema";
 import { ensureFonts } from "../../fonts/load";
-import { activeIndexAt, Grain, useLayout } from "../shared";
+import { activeIndexAt, flatPunch, Grain, useLayout } from "../shared";
 import {
   bezierAngle, bezierAt, blendCamera, buildWorld, chars, clamp, deep, FLY, MAP, mix, OUT, pad2, POP, toScreen, type Camera, type Pt,
 } from "./geo";
@@ -285,8 +285,8 @@ export const MapStyle: React.FC<ShortProps> = ({ title, subtitle, accent, captio
   const pinColor = accent;
   const pastColor = mix(accent, MAP.ink, 0.35);
   const cardZoom = (i: number) => interpolate(frame, [starts[i], Math.max(starts[i] + 1, endOf(i))], [1.03, 1.12], clamp);
-  const stampText = scene.punch ? (chars(scene.punch.text) <= 24 ? scene.punch.text : vt("Đã đến!")) : "";
-  const stampTop = scene.punch && chars(scene.punch.text) <= 24 ? vt("Đã đến · chặng {n}", { n: pad2(active + 1) }) : vt("★ chặng {n} ★", { n: pad2(active + 1) });
+  const stampText = scene.punch ? (chars(flatPunch(scene.punch.text)) <= 24 ? scene.punch.text : vt("Đã đến!")) : "";
+  const stampTop = scene.punch && chars(flatPunch(scene.punch.text)) <= 24 ? vt("Đã đến · chặng {n}", { n: pad2(active + 1) }) : vt("★ chặng {n} ★", { n: pad2(active + 1) });
   const stampW = imgMode ? Math.min(L.card.w * 0.62, 460 * unit) : Math.min(width * 0.6, 480 * unit);
   const stampAt = imgMode
     ? { x: L.card.x + stampW * 0.5 + 10 * unit, y: L.card.y + L.card.h - 70 * unit }

@@ -4,6 +4,7 @@
  */
 import type { SceneVisual } from "../../compositions/Short/schema";
 import { parseStat } from "../tech/theme";
+import { flatPunch, punchLines } from "../shared";
 import { plateHeight, type CaptionSpot, type PlateSpot } from "./layout";
 import { BODY, DISPLAY, EASE_OUT, fitText, inkOn, NIGHT, ramp, upper, withAlpha } from "./theme";
 
@@ -210,7 +211,9 @@ export const Stamp: React.FC<{
   if (frame < at || opacity <= 0.001) return null;
   const label = upper(text);
   const base = Math.min(150 * u, maxH * 0.62);
-  const fit0 = fitText(label, base, maxW * 0.9 - 64 * u, 3, 0.5, 40 * u);
+  // Người dùng tự ngắt dòng: mỗi dòng của họ nằm gọn một hàng (co chữ tới khi vừa), không gãy thêm.
+  const rows = punchLines(label).length;
+  const fit0 = fitText(label, base, maxW * 0.9 - 64 * u, rows > 1 ? rows : 3, 0.5, 40 * u);
   // Không cao quá vùng trống: khung dấu = số dòng × cỡ chữ + viền, đệm.
   const fit = { ...fit0, size: Math.max(36 * u, Math.min(fit0.size, (maxH - 70 * u) / (fit0.lines * 1.12))) };
   // Rơi từ to xuống đúng cỡ trong 7 frame (tăng tốc = cú đập), rồi nảy nhẹ.
@@ -290,10 +293,12 @@ export const captionFit = (text: string, boxW: number, u: number, portrait: bool
 /** Tách câu thành [trước, cụm nhấn, sau] để tô cụm nhấn màu phe. */
 const splitPunch = (text: string, punch: string | null): [string, string, string] => {
   if (!punch) return [text, "", ""];
+  // Lời đọc không có "\n": dò bằng bản phẳng của câu nhấn.
+  const needle = flatPunch(punch).normalize("NFC").trim();
   const hay = text.normalize("NFC");
-  const at = hay.toLocaleLowerCase("vi").indexOf(punch.normalize("NFC").trim().toLocaleLowerCase("vi"));
+  const at = hay.toLocaleLowerCase("vi").indexOf(needle.toLocaleLowerCase("vi"));
   if (at < 0) return [hay, "", ""];
-  const end = at + punch.normalize("NFC").trim().length;
+  const end = at + needle.length;
   return [hay.slice(0, at), hay.slice(at, end), hay.slice(end)];
 };
 

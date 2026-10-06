@@ -4,7 +4,7 @@
  * Không có @remotion/layout-utils trong project nên đo bằng canvas 2D — đồng bộ,
  * xác định, và dùng đúng font hệ thống lúc render. Kết quả được cache theo chuỗi.
  */
-import { FONTS } from "../shared";
+import { flatPunch, FONTS } from "../shared";
 import { wordTokens } from "../tokens";
 
 export const WORD_FONT = FONTS.sans;
@@ -65,7 +65,7 @@ export const splitWords = (text: string, punchText: string | null): Word[] => {
   // Tách theo từ — tiếng Nhật/Trung không có dấu cách thì cắt bằng Intl.Segmenter (src/styles/tokens.ts).
   for (const t of wordTokens(source)) words.push({ text: upper(t.text), offset: t.offset, punch: false });
   if (punchText) {
-    const needle = strip(punchText).trim().replace(/[.,!?;:…]+$/u, "");
+    const needle = strip(flatPunch(punchText)).trim().replace(/[.,!?;:…]+$/u, "");
     const at = needle ? strip(source).indexOf(needle) : -1;
     if (at >= 0) {
       const end = at + needle.length;
@@ -79,7 +79,7 @@ export const splitWords = (text: string, punchText: string | null): Word[] => {
 };
 
 export const hasPunch = (text: string, punchText: string) => {
-  const needle = strip(punchText).trim().replace(/[.,!?;:…]+$/u, "");
+  const needle = strip(flatPunch(punchText)).trim().replace(/[.,!?;:…]+$/u, "");
   return needle.length > 0 && strip(text).includes(needle);
 };
 

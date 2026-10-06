@@ -92,29 +92,33 @@ export const outline = (width: number, color = INK, depth = 0, depthColor = INK)
 
 /**
  * Cỡ chữ lớn nhất để khối chữ vừa hộp: không từ nào tràn ngang, tổng số dòng vừa chiều cao.
- * Ước lượng bề rộng ký tự theo em (`charW`) — đủ chính xác cho chữ in hoa đậm.
+ * Ước lượng bề rộng ký tự theo em (`charW`) — đủ chính xác cho chữ in hoa đậm. "\n" (người dùng tự ngắt) luôn mở dòng mới.
  */
 export const fitBlock = (
   text: string,
   opts: { maxWidth: number; maxHeight: number; base: number; charW?: number; lineH?: number; min?: number },
 ) => {
   const { maxWidth, maxHeight, base, charW = 0.68, lineH = 1.12, min = 0 } = opts;
-  const words = text.split(/\s+/).filter(Boolean);
+  const paragraphs = text.split("\n").map((p) => p.split(/\s+/).filter(Boolean)).filter((p) => p.length > 0);
+  const words = paragraphs.flat();
   if (words.length === 0) return base;
   let fs = base;
   for (let k = 0; k < 40; k++) {
     const cw = fs * charW;
     const longest = Math.max(...words.map((w) => [...w].length)) * cw;
-    let lines = 1;
-    let cur = 0;
-    for (const w of words) {
-      const ww = [...w].length * cw;
-      const next = cur === 0 ? ww : cur + fs * 0.3 + ww;
-      if (next > maxWidth && cur > 0) {
-        lines++;
-        cur = ww;
-      } else {
-        cur = next;
+    let lines = 0;
+    for (const para of paragraphs) {
+      lines++;
+      let cur = 0;
+      for (const w of para) {
+        const ww = [...w].length * cw;
+        const next = cur === 0 ? ww : cur + fs * 0.3 + ww;
+        if (next > maxWidth && cur > 0) {
+          lines++;
+          cur = ww;
+        } else {
+          cur = next;
+        }
       }
     }
     if (longest <= maxWidth && lines * fs * lineH <= maxHeight) return Math.max(min, fs);

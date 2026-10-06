@@ -3,7 +3,7 @@
  * Mọi "ngẫu nhiên" đi qua seeded() — cùng frame cùng hình, render song song không lệch.
  */
 import { FONT_CATALOG } from "../../fonts/catalog";
-import { seeded } from "../shared";
+import { flatPunch, seeded } from "../shared";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -139,7 +139,7 @@ export const powerOff = (frame: number, end: number, key: string) => {
 /** Vị trí cụm nhấn trong câu (so không phân biệt hoa thường) — [đầu, cuối) hoặc null. */
 export const punchRange = (text: string, punch: string): [number, number] | null => {
   const hay = text.normalize("NFC").toLocaleLowerCase("vi");
-  const needle = punch.normalize("NFC").trim().toLocaleLowerCase("vi");
+  const needle = flatPunch(punch.normalize("NFC")).trim().toLocaleLowerCase("vi");
   if (!needle || hay.length !== text.normalize("NFC").length) return null;
   const at = hay.indexOf(needle);
   return at < 0 ? null : [at, at + needle.length];

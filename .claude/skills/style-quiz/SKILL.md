@@ -30,6 +30,8 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
 |---|---|
 | `scenes[i]` | một câu hỏi. Caption của cảnh được tách thành: [dòng mở] [câu hỏi] [dòng chờ] [câu đáp án] [dòng kết] (`analyzeScenes` trong `theme.ts`) |
 | câu hỏi | khối caption liền nhau kết thúc ở câu có `?` cuối cùng trước đáp án (dòng trước không kết thúc bằng `.` `!` `…` được ghép vào). Hiện trên thẻ, nảy vào đúng lúc câu bắt đầu được đọc. Cỡ `fitFontSize`, tự co cho ≤ 4 dòng |
+| lựa chọn A/B/C | ≥ 2 caption dạng "A. …", "B) …", "C: …" (chữ A–F) trước câu đáp án → danh sách hàng trên thẻ, mỗi hàng nảy vào lúc được đọc. Câu hỏi chỉ tính từ các dòng TRƯỚC lựa chọn đầu tiên (lựa chọn có "?" không bị nhầm là câu hỏi); dòng kể tình huống trước câu hỏi (không kết thúc bằng "!") hiện nhỏ phía trên câu hỏi. Tới lúc lộ đáp án: KHÔNG lật thẻ — hàng đúng chuyển xanh + ✓ nhún, hàng sai mờ và gạch ngang. Hàng đúng = punch mở đầu bằng chữ cái ("B. Headache") hoặc khớp chữ của lựa chọn |
+| bảng xếp loại | cảnh không có punch, ≥ 2 caption dạng "9–10 câu: Excellent! 🌟" → bảng viên số câu + lời nhận xét, nảy từng hàng; nhãn "KẾT QUẢ", không có đĩa đồng hồ, không tính vào chấm tiến độ / số câu. Câu hỏi trên thẻ = các dòng trước bảng; dòng sau bảng hiện ở dải phụ đề |
 | dòng chờ | caption ngay trước câu đáp án nếu khớp "suy nghĩ / đoán / giây / 3-2-1…" hoặc không có `?` |
 | `punch` | đáp án. Tại `atMs`: đĩa đồng hồ thành đĩa xanh ✓ nảy, thẻ lật `rotateY` 14 frame sang mặt xanh "ĐÁP ÁN" + chữ in hoa cỡ lớn (ưu tiên vừa một dòng), chớp sáng 9 frame, 32 hạt pháo giấy. `null` → chỉ có câu hỏi, đĩa hiện "?" suốt cảnh |
 | đồng hồ | tối đa 3 s trước `punch.atMs`, không bắt đầu trước lúc cảnh hiện + 0.8 s; cửa sổ ngắn thì đếm từ 2 hoặc 1; ngắn hơn 12 frame thì bỏ. Vòng SVG cạn dần (`stroke-dashoffset`), hổ phách → cam → đỏ, số phóng mỗi lần đổi, số 1 đỏ và rung |
@@ -71,6 +73,11 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
 - Không blur/backdrop-filter; lớp toàn khung chỉ là gradient CSS. Chớp sáng chỉ 9 frame.
 - Emoji màu vàng trên nền vàng bị chìm — 👇 ở dải kết nằm trong đĩa tối riêng.
 - Câu hỏi > 4 dòng ở khung 1:1 co tới ~30px — giữ câu hỏi ≤ 60 ký tự.
+- Trắc nghiệm: punch trùng chữ với dòng lựa chọn ("A. Can I try it on?") — mọi chỗ dò punch (`scriptToProps`, `punchTiming`,
+  `analyzeScenes`) lấy câu chứa punch CUỐI CÙNG (câu "Đáp án là …"); lấy câu đầu thì khoảng lặng 3 s chèn nhầm trước lựa chọn A.
+- So `frame >= revealFrame`, không so `ramp(..., EASE_BACK) > 0`: EASE_BACK(0) ra ~2e-16 nên đáp án lộ từ đầu cảnh.
+- Thẻ cao cố định theo cảnh cao nhất; cỡ chữ trắc nghiệm co dần (tới 60%) khi thẻ không vừa. Ngang/vuông có trắc nghiệm thì
+  dải phụ đề nằm trên khung ảnh để cột phải đủ cao. Lựa chọn ≤ 30 ký tự để vừa một dòng.
 
 ## Viết nội dung cho phong cách này
 
@@ -85,7 +92,13 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
   "Cái gì bạn vẫn giữ sau khi đã trao cho người khác?" → lời hứa.
 - Cảnh đầu mở bằng một câu hook TRƯỚC câu hỏi 1, kết thúc bằng dấu chấm than, KHÔNG bịa tỉ lệ: "Câu cuối khó nhất!",
   "Đúng hết 5 câu là cao thủ ẩm thực!".
-- Thứ tự caption trong mỗi cảnh, mỗi dòng một caption:
+- Trắc nghiệm (khi người dùng đưa sẵn lựa chọn A/B/C, hoặc chủ đề học từ vựng/giao tiếp): MỖI CẢNH MỘT CÂU, gồm đủ
+  [câu tình huống (tuỳ chọn)] [câu hỏi có "?"] ["A. …"] ["B. …"] ["C. …"] ["Đáp án là B. …"] — KHÔNG tách lựa chọn hay đáp án
+  sang cảnh khác. Không cần dòng chờ: app tự chừa 3 giây đếm 3·2·1 sau lựa chọn cuối. `punch` = nguyên văn "B. Headache"
+  (chữ cái + lựa chọn đúng). Lựa chọn ngắn, ≤ 30 ký tự.
+- Bảng xếp loại cuối (tuỳ chọn): một cảnh riêng không punch: "Bạn đúng được bao nhiêu câu?", rồi mỗi mức một dòng
+  "9–10 câu: Excellent! 🌟", rồi dòng kêu gọi bình luận.
+- Thứ tự caption trong mỗi cảnh câu hỏi thường, mỗi dòng một caption:
   1. Câu hỏi ≤ 60 ký tự, kết thúc bằng "?" ("Cố đô cuối cùng của Việt Nam là thành phố nào?"). Câu dài thì tách 2 caption, caption đầu không kết thúc bằng dấu chấm.
   2. Một dòng chờ ngắn: "Suy nghĩ 3 giây nhé…", "Đoán nhanh nào…", "Đáp án của bạn là gì?". Sau dòng này app tự chừa 3 giây lặng cho đồng hồ đếm 3·2·1 — đừng viết thêm câu lấp chỗ trống.
   3. Câu đáp án bắt đầu bằng "Đáp án là …": "Đáp án là Huế."
@@ -105,6 +118,7 @@ description: Phong cách "Câu đố" — nền game show rực theo accent, m�
 - `src/styles/quiz/Background.tsx` — gradient, tia sáng xoay, lưới chấm, vignette.
 - `src/styles/quiz/ImageFrame.tsx` — khung ảnh/video viền trắng, Ken Burns, ô "?" khi không có ảnh.
 - `src/styles/quiz/QuestionCard.tsx` — thẻ câu hỏi, viên tag, lật sang mặt đáp án xanh.
+- `src/styles/quiz/ChoiceList.tsx` — hàng lựa chọn A/B/C (tô xanh đáp án đúng) và bảng xếp loại.
 - `src/styles/quiz/Countdown.tsx` — đĩa "?" / vòng đếm ngược 3·2·1 / đĩa ✓.
 - `src/styles/quiz/Confetti.tsx` — pháo giấy xác định theo seed.
 - `src/styles/quiz/Overlays.tsx` — chấm tiến độ, sticker stat, ruy băng badge, dải phụ đề, dải kêu gọi bình luận, chớp sáng.
