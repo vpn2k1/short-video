@@ -1,0 +1,30 @@
+{
+  "id": "dancing-character",
+  "name": "Nhân vật nhảy",
+  "description": "Nhân vật nhảy với hiệu ứng chuyển động",
+  "character": {
+    "src": "public/templates/characters/character-01.png",
+    "x": 50,
+    "y": 50,
+    "scale": 100
+  },
+  "animation": {
+    "type": "movement",
+    "duration": 2000,
+    "keyframes": [
+      { "atMs": 0, "x": 50, "y": 60, "width": 100, "rotate": 0, "opacity": 1 },
+      { "atMs": 250, "x": 50, "y": 40, "width": 100, "rotate": -5, "opacity": 1 },
+      { "atMs": 500, "x": 50, "y": 60, "width": 100, "rotate": 5, "opacity": 1 },
+      { "atMs": 750, "x": 50, "y": 40, "width": 100, "rotate": -5, "opacity": 1 },
+      { "atMs": 1000, "x": 50, "y": 60, "width": 100, "rotate": 0, "opacity": 1 },
+      { "atMs": 1250, "x": 45, "y": 50, "width": 100, "rotate": 10, "opacity": 1 },
+      { "atMs": 1500, "x": 55, "y": 50, "width": 100, "rotate": -10, "opacity": 1 },
+      { "atMs": 2000, "x": 50, "y": 50, "width": 100, "rotate": 0, "opacity": 1 }
+    ]
+  },
+  "backgroundColor": "#87CEEB",
+  "captions": [
+    { "text": "Hãy nhảy cùng tôi!", "startMs": 0, "endMs": 2000 }
+  ],
+  "music": null
+}

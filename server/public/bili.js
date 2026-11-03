@@ -49,7 +49,7 @@ const biliCount = (n) => (n >= 10_000 ? `${(n / 10_000).toFixed(n >= 100_000 ? 0
 
 function showBili() {
   stopFollowing();
-  for (const id of ["view-chat", "view-library", "view-multi", "view-batch", "view-subs"]) $(id).hidden = true;
+  for (const id of ["view-chat", "view-library", "view-multi", "view-batch", "view-subs", "view-template"]) $(id).hidden = true;
   $("view-bili").hidden = false;
   setNav("bili");
   current = null;

@@ -1,0 +1,870 @@
+{
+  "title": "- Good morning, how can I help you?",
+  "subtitle": "",
+  "accent": "#e8590c",
+  "background": "#0b0b12",
+  "captions": [
+    {
+      "text": "- Good morning, how can I help you?",
+      "startMs": 3480,
+      "endMs": 5860,
+      "audio": null
+    },
+    {
+      "text": "- I don't feel well.",
+      "startMs": 5860,
+      "endMs": 7340,
+      "audio": null
+    },
+    {
+      "text": "- I'm sorry to hear that.",
+      "startMs": 7370,
+      "endMs": 9570,
+      "audio": null
+    },
+    {
+      "text": "What's the matter?",
+      "startMs": 10850,
+      "endMs": 11550,
+      "audio": null
+    },
+    {
+      "text": "- I have a headache.",
+      "startMs": 12374,
+      "endMs": 13309,
+      "audio": null
+    },
+    {
+      "text": "- Do you have a fever?",
+      "startMs": 14616,
+      "endMs": 15436,
+      "audio": null
+    },
+    {
+      "text": "- I think so.",
+      "startMs": 16121,
+      "endMs": 16821,
+      "audio": null
+    },
+    {
+      "text": "And I have a cough.",
+      "startMs": 17298,
+      "endMs": 18057,
+      "audio": null
+    },
+    {
+      "text": "- How long have you felt this way?",
+      "startMs": 21132,
+      "endMs": 22866,
+      "audio": null
+    },
+    {
+      "text": "Since yesterday.",
+      "startMs": 23249,
+      "endMs": 24022,
+      "audio": null
+    },
+    {
+      "text": "Do you have a sore throat?",
+      "startMs": 24598,
+      "endMs": 25433,
+      "audio": null
+    },
+    {
+      "text": "- Yes, a little.",
+      "startMs": 26049,
+      "endMs": 26773,
+      "audio": null
+    },
+    {
+      "text": "- Okay.",
+      "startMs": 27252,
+      "endMs": 27640,
+      "audio": null
+    },
+    {
+      "text": "Let me check.",
+      "startMs": 27640,
+      "endMs": 28926,
+      "audio": null
+    },
+    {
+      "text": "- You should get some rest.",
+      "startMs": 30357,
+      "endMs": 31392,
+      "audio": null
+    },
+    {
+      "text": "- Okay.",
+      "startMs": 32003,
+      "endMs": 32703,
+      "audio": null
+    },
+    {
+      "text": "- Drink plenty of water.",
+      "startMs": 34074,
+      "endMs": 35086,
+      "audio": null
+    },
+    {
+      "text": "- Should I stay home today?",
+      "startMs": 35634,
+      "endMs": 36575,
+      "audio": null
+    },
+    {
+      "text": "- Yes, if you feel unwell.",
+      "startMs": 37046,
+      "endMs": 38423,
+      "audio": null
+    },
+    {
+      "text": "- Take this medicine after meals.",
+      "startMs": 40268,
+      "endMs": 41846,
+      "audio": null
+    },
+    {
+      "text": "- How often should I take it?",
+      "startMs": 42294,
+      "endMs": 43706,
+      "audio": null
+    },
+    {
+      "text": "- Twice a day.",
+      "startMs": 44256,
+      "endMs": 45020,
+      "audio": null
+    },
+    {
+      "text": "Follow the instructions on the package.",
+      "startMs": 45020,
+      "endMs": 46665,
+      "audio": null
+    },
+    {
+      "text": "- Thank you, doctor.",
+      "startMs": 47026,
+      "endMs": 47860,
+      "audio": null
+    },
+    {
+      "text": "- You're welcome.",
+      "startMs": 47860,
+      "endMs": 48540,
+      "audio": null
+    },
+    {
+      "text": "Get well soon.",
+      "startMs": 48540,
+      "endMs": 49329,
+      "audio": null
+    },
+    {
+      "text": "- You have a headache and a fever.",
+      "startMs": 50515,
+      "endMs": 52132,
+      "audio": null
+    },
+    {
+      "text": "What should you tell the doctor?",
+      "startMs": 53243,
+      "endMs": 54525,
+      "audio": null
+    },
+    {
+      "text": "The correct answer is A.",
+      "startMs": 57498,
+      "endMs": 60000,
+      "audio": null
+    },
+    {
+      "text": "- Chào buổi sáng, tôi giúp gì được cho bạn?",
+      "startMs": 3480,
+      "endMs": 5860,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Tôi cảm thấy không khỏe.",
+      "startMs": 5860,
+      "endMs": 7340,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Tôi rất tiếc khi nghe điều đó.",
+      "startMs": 7370,
+      "endMs": 9570,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Có chuyện gì vậy?",
+      "startMs": 10850,
+      "endMs": 11550,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Tôi bị đau đầu.",
+      "startMs": 12374,
+      "endMs": 13309,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Bạn có bị sốt không?",
+      "startMs": 14616,
+      "endMs": 15436,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Tôi nghĩ là có.",
+      "startMs": 16121,
+      "endMs": 16821,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Và tôi bị ho.",
+      "startMs": 17298,
+      "endMs": 18057,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Bạn cảm thấy thế này bao lâu rồi?",
+      "startMs": 21132,
+      "endMs": 22866,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Từ hôm qua.",
+      "startMs": 23249,
+      "endMs": 24022,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Bạn có bị đau họng không?",
+      "startMs": 24598,
+      "endMs": 25433,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Có, một chút.",
+      "startMs": 26049,
+      "endMs": 26773,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Được rồi.",
+      "startMs": 27252,
+      "endMs": 27640,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Để tôi kiểm tra.",
+      "startMs": 27640,
+      "endMs": 28926,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Bạn nên nghỉ ngơi.",
+      "startMs": 30357,
+      "endMs": 31392,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Vâng.",
+      "startMs": 32003,
+      "endMs": 32703,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Uống nhiều nước vào.",
+      "startMs": 34074,
+      "endMs": 35086,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Tôi có nên ở nhà hôm nay không?",
+      "startMs": 35634,
+      "endMs": 36575,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Có, nếu bạn cảm thấy không khỏe.",
+      "startMs": 37046,
+      "endMs": 38423,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Uống thuốc này sau bữa ăn.",
+      "startMs": 40268,
+      "endMs": 41846,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Tôi nên uống bao nhiêu lần một ngày?",
+      "startMs": 42294,
+      "endMs": 43706,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Hai lần một ngày.",
+      "startMs": 44256,
+      "endMs": 45020,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Làm theo hướng dẫn trên bao bì.",
+      "startMs": 45020,
+      "endMs": 46665,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Cảm ơn bác sĩ.",
+      "startMs": 47026,
+      "endMs": 47860,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Không có gì.",
+      "startMs": 47860,
+      "endMs": 48540,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Mau khỏe lại nhé.",
+      "startMs": 48540,
+      "endMs": 49329,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "- Bạn bị đau đầu và sốt.",
+      "startMs": 50515,
+      "endMs": 52132,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Bạn nên nói gì với bác sĩ?",
+      "startMs": 53243,
+      "endMs": 54525,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    },
+    {
+      "text": "Câu trả lời đúng là A.",
+      "startMs": 57498,
+      "endMs": 60000,
+      "audio": null,
+      "style": {
+        "font": "sans",
+        "size": 54,
+        "weight": 900,
+        "color": "#ffd400",
+        "accent": "#000000",
+        "preset": "outline",
+        "x": 50,
+        "y": 89,
+        "uppercase": false,
+        "italic": false,
+        "width": 86,
+        "align": "center"
+      },
+      "track": 1
+    }
+  ],
+  "aspect": "9:16",
+  "style": "plain",
+  "language": "vi",
+  "scenes": [
+    {
+      "image": null,
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 60032
+    }
+  ],
+  "overlays": [
+    {
+      "src": "uploads/1792376759436-merged-1.mp4",
+      "startMs": 0,
+      "endMs": 60032,
+      "trimStartMs": 0,
+      "volume": 0,
+      "track": 0,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "aspect": 0.563,
+      "rotate": 0,
+      "opacity": 1,
+      "radius": 0,
+      "fit": "contain",
+      "crop": {
+        "x": 0.0605,
+        "y": 0,
+        "w": 0.8816,
+        "h": 0.8816,
+        "mediaAspect": 0.5625,
+        "ratio": "frame",
+        "rotate": 0,
+        "flipH": false,
+        "flipV": false,
+        "fit": "cover"
+      },
+      "fadeMs": 0,
+      "keyframes": []
+    }
+  ],
+  "captionPosition": "bottom",
+  "captionLook": {
+    "font": "sans",
+    "size": 64,
+    "weight": 800,
+    "color": "#ffffff",
+    "accent": "#000000",
+    "preset": "outline",
+    "x": 50,
+    "y": 80,
+    "uppercase": false,
+    "italic": false,
+    "width": 86,
+    "align": "center"
+  },
+  "showTitle": false,
+  "voiceoverTrack": "voices/merged-1/track.mp3",
+  "music": null,
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null,
+  "avatar": null
+}

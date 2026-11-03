@@ -1286,6 +1286,7 @@
       <a href="#/subs"><i data-icon="captions"></i><b>Thêm phụ đề</b><span>Phụ đề cho video có sẵn, nhiều ngôn ngữ</span></a>
       <a href="#" id="fromAudio"><i data-icon="audio-lines"></i><b>Từ âm thanh có sẵn</b><span>Giọng thu, podcast, bài hát → video có phụ đề và hình</span></a>
       <a href="#" id="fromLink"><i data-icon="link"></i><b>Từ link video</b><span>Dán link YouTube, TikTok, Facebook… để sửa hoặc thêm phụ đề</span></a>
+      <a href="#/template"><i data-icon="person-standing"></i><b>Tạo video theo mẫu</b><span>Chọn nhân vật có sẵn (người que, hoạt hình…), dán lời — tự chọn hành động, biểu cảm theo từng câu</span></a>
     </nav>
     <div class="recent" id="recentWrap" hidden>
       <div class="recent-head"><h2>Gần đây</h2><a href="#/library">Xem tất cả <i data-icon="arrow-right"></i></a></div>
@@ -1443,6 +1444,38 @@ Lưu lại để làm theo nhé!</pre>
     </div>
     <p class="hint" id="multiHint"></p>
     <input type="file" id="multiFile" accept="image/*,video/*" hidden />
+  </div>
+</section>
+
+<!-- ===== Tạo video theo mẫu nhân vật ===== -->
+<section class="tpl" id="view-template" hidden>
+  <div class="ms-wrap">
+    <a class="back-link" href="#/"><i data-icon="arrow-left"></i> Tạo video</a>
+    <div class="page-head">
+      <h1>Tạo video theo mẫu</h1>
+      <p class="muted">Chọn 1 nhân vật có sẵn, dán lời — mỗi câu tự chọn hành động/biểu cảm theo từ khoá. Không cần API key.</p>
+    </div>
+    <div class="hm-grid" id="tplGrid"></div>
+    <div class="ms-settings">
+      <label class="ms-field ms-wide"><span>Tên video</span>
+        <input id="tplTitle" type="text" maxlength="60" placeholder="Video mới" /></label>
+      <label class="ms-field ms-wide"><span>Lời đọc (mỗi dòng một câu)</span>
+        <textarea id="tplText" rows="6" placeholder="Hôm nay mình rất vui!&#10;Cùng nhảy một chút nhé.&#10;Chào mọi người, hẹn gặp lại!"></textarea></label>
+      <label class="ms-field"><span>Tỉ lệ khung</span><select id="tplAspect"></select></label>
+      <div class="ms-field"><span>Giọng đọc</span><select id="tplVoice"></select></div>
+      <label class="ms-field"><span>Nhạc nền</span><select id="tplMusic"></select></label>
+    </div>
+    <div class="ms-foot">
+      <span class="muted" id="tplSummary"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" id="tplSubmit"><i data-icon="clapperboard"></i> Tạo video</button>
+    </div>
+    <p class="hint" id="tplHint"></p>
+    <div id="tplProgress" hidden>
+      <div class="progress"><div id="tplBar"></div></div>
+      <p class="lastlog" id="tplLog"></p>
+    </div>
+    <div id="tplResult" hidden></div>
   </div>
 </section>
 
@@ -2221,6 +2254,7 @@ Lưu lại để làm theo nhé!</pre>
 </dialog>
 
 <script src="/app.js"></script>
+<script src="/template.js"></script>
 <script src="/subs.js"></script>
 <script src="/bili.js"></script>
 <script src="/hook-media.js"></script>

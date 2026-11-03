@@ -1,0 +1,638 @@
+{
+  "title": "BẠN TRẢ LỜI ĐƯỢC MẤY CÂU?",
+  "subtitle": "10 câu tiếng Anh giao tiếp thực tế",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "captions": [
+    {
+      "text": "Bạn đang ở nhà hàng và muốn gọi món.",
+      "startMs": 2483,
+      "endMs": 4323,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-01.mp3"
+    },
+    {
+      "text": "Bạn nói câu nào?",
+      "startMs": 4773,
+      "endMs": 6053,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-02.mp3"
+    },
+    {
+      "text": "A. I’d like noodles, please.",
+      "startMs": 6703,
+      "endMs": 8863,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-03.mp3"
+    },
+    {
+      "text": "B. I am noodles.",
+      "startMs": 9313,
+      "endMs": 11073,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-04.mp3"
+    },
+    {
+      "text": "C. Where is noodles?",
+      "startMs": 11523,
+      "endMs": 13523,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-05.mp3"
+    },
+    {
+      "text": "Đáp án là A. I’d like noodles, please.",
+      "startMs": 16523,
+      "endMs": 19723,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-06.mp3"
+    },
+    {
+      "text": "Bạn đang mua quần áo và muốn thử một chiếc áo.",
+      "startMs": 20573,
+      "endMs": 22893,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-07.mp3"
+    },
+    {
+      "text": "Bạn nói câu nào?",
+      "startMs": 23343,
+      "endMs": 24383,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-08.mp3"
+    },
+    {
+      "text": "A. Can I try it on?",
+      "startMs": 25033,
+      "endMs": 26713,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-09.mp3"
+    },
+    {
+      "text": "B. Can I wear it home?",
+      "startMs": 27363,
+      "endMs": 29123,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-10.mp3"
+    },
+    {
+      "text": "C. Can I take it?",
+      "startMs": 29773,
+      "endMs": 31453,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-11.mp3"
+    },
+    {
+      "text": "Đáp án là A. Can I try it on?",
+      "startMs": 34453,
+      "endMs": 36853,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-12.mp3"
+    },
+    {
+      "text": "Bạn bị đau đầu và muốn mua thuốc.",
+      "startMs": 37903,
+      "endMs": 39663,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-13.mp3"
+    },
+    {
+      "text": "Từ nào có nghĩa là “đau đầu”?",
+      "startMs": 40113,
+      "endMs": 41953,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-14.mp3"
+    },
+    {
+      "text": "A. Fever",
+      "startMs": 42603,
+      "endMs": 43963,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-15.mp3"
+    },
+    {
+      "text": "B. Headache",
+      "startMs": 44213,
+      "endMs": 45493,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-16.mp3"
+    },
+    {
+      "text": "C. Cough",
+      "startMs": 45743,
+      "endMs": 47343,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-17.mp3"
+    },
+    {
+      "text": "Đáp án là B. Headache.",
+      "startMs": 50343,
+      "endMs": 52103,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-18.mp3"
+    },
+    {
+      "text": "Bạn đến khách sạn và muốn xác nhận việc đặt phòng.",
+      "startMs": 52953,
+      "endMs": 55513,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-19.mp3"
+    },
+    {
+      "text": "Bạn hỏi câu nào?",
+      "startMs": 55963,
+      "endMs": 57403,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-20.mp3"
+    },
+    {
+      "text": "A. Do you have a reservation?",
+      "startMs": 58053,
+      "endMs": 60373,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-21.mp3"
+    },
+    {
+      "text": "B. Do you have a passport?",
+      "startMs": 61023,
+      "endMs": 63023,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-22.mp3"
+    },
+    {
+      "text": "C. Do you have a room key?",
+      "startMs": 63673,
+      "endMs": 65673,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-23.mp3"
+    },
+    {
+      "text": "Đáp án là A. Do you have a reservation?",
+      "startMs": 68673,
+      "endMs": 71633,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-24.mp3"
+    },
+    {
+      "text": "Bạn đi xe và muốn biết người lái xe được gọi là gì.",
+      "startMs": 72683,
+      "endMs": 75483,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-25.mp3"
+    },
+    {
+      "text": "Đó là ai?",
+      "startMs": 75933,
+      "endMs": 77053,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-26.mp3"
+    },
+    {
+      "text": "A. Passenger",
+      "startMs": 77703,
+      "endMs": 79623,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-27.mp3"
+    },
+    {
+      "text": "B. Customer",
+      "startMs": 79873,
+      "endMs": 81553,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-28.mp3"
+    },
+    {
+      "text": "C. Driver",
+      "startMs": 81803,
+      "endMs": 83483,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-29.mp3"
+    },
+    {
+      "text": "Đáp án là C. Driver.",
+      "startMs": 86483,
+      "endMs": 88403,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-30.mp3"
+    },
+    {
+      "text": "Bạn đang đợi tài xế và muốn hỏi nên gặp nhau ở đâu.",
+      "startMs": 89253,
+      "endMs": 92133,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-31.mp3"
+    },
+    {
+      "text": "Bạn hỏi câu nào?",
+      "startMs": 92583,
+      "endMs": 93943,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-32.mp3"
+    },
+    {
+      "text": "A. Where should I meet my driver?",
+      "startMs": 94593,
+      "endMs": 96993,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-33.mp3"
+    },
+    {
+      "text": "B. Where should I sleep?",
+      "startMs": 97643,
+      "endMs": 99243,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-34.mp3"
+    },
+    {
+      "text": "C. Where should I eat?",
+      "startMs": 99893,
+      "endMs": 101733,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-35.mp3"
+    },
+    {
+      "text": "Đáp án là A. Where should I meet my driver?",
+      "startMs": 104733,
+      "endMs": 107773,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-36.mp3"
+    },
+    {
+      "text": "Bạn muốn nhờ nhân viên đưa cho mình một chiếc túi.",
+      "startMs": 108823,
+      "endMs": 111143,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-37.mp3"
+    },
+    {
+      "text": "Bạn nói câu nào?",
+      "startMs": 111593,
+      "endMs": 112953,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-38.mp3"
+    },
+    {
+      "text": "A. Can I have a bag, please?",
+      "startMs": 113603,
+      "endMs": 115763,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-39.mp3"
+    },
+    {
+      "text": "B. I am a bag.",
+      "startMs": 116413,
+      "endMs": 118093,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-40.mp3"
+    },
+    {
+      "text": "C. Where bag go?",
+      "startMs": 118543,
+      "endMs": 120543,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-41.mp3"
+    },
+    {
+      "text": "Đáp án là A. Can I have a bag, please?",
+      "startMs": 123543,
+      "endMs": 126423,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-42.mp3"
+    },
+    {
+      "text": "Bạn muốn biết tàu khởi hành lúc mấy giờ.",
+      "startMs": 127473,
+      "endMs": 129713,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-43.mp3"
+    },
+    {
+      "text": "Bạn hỏi câu nào?",
+      "startMs": 130163,
+      "endMs": 131603,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-44.mp3"
+    },
+    {
+      "text": "A. Where is the train?",
+      "startMs": 132253,
+      "endMs": 134093,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-45.mp3"
+    },
+    {
+      "text": "B. What time does the train leave?",
+      "startMs": 134743,
+      "endMs": 137143,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-46.mp3"
+    },
+    {
+      "text": "C. Who is the train?",
+      "startMs": 137793,
+      "endMs": 139713,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-47.mp3"
+    },
+    {
+      "text": "Đáp án là B. What time does the train leave?",
+      "startMs": 142713,
+      "endMs": 145593,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-48.mp3"
+    },
+    {
+      "text": "Nhân viên quán cà phê hỏi “HOT OR ICED?”",
+      "startMs": 146643,
+      "endMs": 149603,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-49.mp3"
+    },
+    {
+      "text": "Câu này có nghĩa là gì?",
+      "startMs": 150253,
+      "endMs": 151933,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-50.mp3"
+    },
+    {
+      "text": "A. Hot or cold?",
+      "startMs": 152583,
+      "endMs": 154183,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-51.mp3"
+    },
+    {
+      "text": "B. Big or small?",
+      "startMs": 154833,
+      "endMs": 156593,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-52.mp3"
+    },
+    {
+      "text": "C. Sweet or salty?",
+      "startMs": 157243,
+      "endMs": 159083,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-53.mp3"
+    },
+    {
+      "text": "Đáp án là A. Hot or cold?",
+      "startMs": 162083,
+      "endMs": 164963,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-54.mp3"
+    },
+    {
+      "text": "Bạn muốn nhờ một người đợi mình một phút.",
+      "startMs": 166013,
+      "endMs": 167773,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-55.mp3"
+    },
+    {
+      "text": "Bạn nói câu nào?",
+      "startMs": 168223,
+      "endMs": 169583,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-56.mp3"
+    },
+    {
+      "text": "A. Can you wait a minute?",
+      "startMs": 170233,
+      "endMs": 171993,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-57.mp3"
+    },
+    {
+      "text": "B. Can you run?",
+      "startMs": 172643,
+      "endMs": 174083,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-58.mp3"
+    },
+    {
+      "text": "C. Can you leave?",
+      "startMs": 174733,
+      "endMs": 176093,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-59.mp3"
+    },
+    {
+      "text": "Đáp án là A. Can you wait a minute?",
+      "startMs": 179093,
+      "endMs": 181493,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-60.mp3"
+    },
+    {
+      "text": "Bạn đúng được bao nhiêu câu?",
+      "startMs": 182543,
+      "endMs": 184143,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-61.mp3"
+    },
+    {
+      "text": "9–10 câu: Excellent! 🌟",
+      "startMs": 184793,
+      "endMs": 187113,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-62.mp3"
+    },
+    {
+      "text": "7–8 câu: Very good! 👏",
+      "startMs": 187363,
+      "endMs": 189843,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-63.mp3"
+    },
+    {
+      "text": "5–6 câu: Good job! 👍",
+      "startMs": 190093,
+      "endMs": 192653,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-64.mp3"
+    },
+    {
+      "text": "0–4 câu: Keep practicing! 💪",
+      "startMs": 192903,
+      "endMs": 195623,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-65.mp3"
+    },
+    {
+      "text": "Bạn đúng mấy câu? Bình luận nhé!",
+      "startMs": 195873,
+      "endMs": 197953,
+      "audio": "voices/ban-tra-loi-duoc-may-cau/muw6ze0034o/line-66.mp3"
+    }
+  ],
+  "aspect": "9:16",
+  "style": "quiz",
+  "language": "vi",
+  "scenes": [
+    {
+      "image": "uploads/stock/pexels-image-32552931.jpg",
+      "visual": null,
+      "tag": "CÂU 1",
+      "punch": {
+        "text": "A. I’d like noodles, please.",
+        "atMs": 17365
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 0,
+      "endMs": 20173
+    },
+    {
+      "image": "uploads/stock/pexels-image-7454714.jpg",
+      "visual": null,
+      "tag": "CÂU 2",
+      "punch": {
+        "text": "A. Can I try it on?",
+        "atMs": 35281
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 20573,
+      "endMs": 37503
+    },
+    {
+      "image": "uploads/stock/pexels-image-8213138.jpg",
+      "visual": null,
+      "tag": "CÂU 3",
+      "punch": {
+        "text": "B. Headache",
+        "atMs": 51143
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 37903,
+      "endMs": 52553
+    },
+    {
+      "image": "uploads/stock/pexels-image-37264836.jpg",
+      "visual": null,
+      "tag": "CÂU 4",
+      "punch": {
+        "text": "A. Do you have a reservation?",
+        "atMs": 69432
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 52953,
+      "endMs": 72283
+    },
+    {
+      "image": "uploads/stock/pexels-image-5835591.jpg",
+      "visual": null,
+      "tag": "CÂU 5",
+      "punch": {
+        "text": "C. Driver",
+        "atMs": 87443
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 72683,
+      "endMs": 88853
+    },
+    {
+      "image": "uploads/stock/pexels-image-5835577.jpg",
+      "visual": null,
+      "tag": "CÂU 6",
+      "punch": {
+        "text": "A. Where should I meet my driver?",
+        "atMs": 105440
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 89253,
+      "endMs": 108423
+    },
+    {
+      "image": "uploads/stock/pexels-image-9461258.jpg",
+      "visual": null,
+      "tag": "CÂU 7",
+      "punch": {
+        "text": "A. Can I have a bag, please?",
+        "atMs": 124301
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 108823,
+      "endMs": 127073
+    },
+    {
+      "image": "uploads/stock/pexels-image-31193738.jpg",
+      "visual": null,
+      "tag": "CÂU 8",
+      "punch": {
+        "text": "B. What time does the train leave?",
+        "atMs": 143368
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 127473,
+      "endMs": 146243
+    },
+    {
+      "image": "uploads/stock/pexels-image-36047415.jpg",
+      "visual": null,
+      "tag": "CÂU 9",
+      "punch": {
+        "text": "A. Hot or cold?",
+        "atMs": 163235
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 146643,
+      "endMs": 165613
+    },
+    {
+      "image": "uploads/stock/pexels-image-8542942.jpg",
+      "visual": null,
+      "tag": "CÂU 10 — CÂU KHÓ",
+      "punch": {
+        "text": "A. Can you wait a minute?",
+        "atMs": 179779
+      },
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 166013,
+      "endMs": 182143
+    },
+    {
+      "image": "uploads/stock/pexels-image-33323136.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null,
+      "trimStartMs": 0,
+      "volume": 0,
+      "crop": null,
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "rotate": 0,
+      "opacity": 1,
+      "keyframes": [],
+      "startMs": 182543,
+      "endMs": 198403
+    }
+  ],
+  "overlays": [],
+  "captionPosition": "bottom",
+  "showTitle": true,
+  "voiceoverTrack": null,
+  "music": "music/stock/freesound-music-761372.mp3",
+  "sfx": false,
+  "musicVolume": 0.5,
+  "voiceVolume": 1,
+  "audioClips": [],
+  "texts": [],
+  "watermark": null,
+  "avatar": null
+}

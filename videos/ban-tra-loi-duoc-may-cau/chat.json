@@ -1,0 +1,279 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "# BẠN TRẢ LỜI ĐƯỢC MẤY CÂU?\n\n> 10 câu tiếng Anh giao tiếp thực tế\n\n[CÂU 1]\nBạn đang ở nhà hàng và muốn gọi món.\nBạn nói câu nào?\n\nA. I’d like noodles, please.\nB. I am noodles.\nC. Where is noodles?\n\nĐáp án là **A. I’d like noodles, please.**\n\n[CÂU 2]\nBạn đang mua quần áo và muốn thử một chiếc áo.\nBạn nói câu nào?\n\nA. Can I try it on?\nB. Can I wear it home?\nC. Can I take it?\n\nĐáp án là **A. Can I try it on?**\n\n[CÂU 3]\nBạn bị đau đầu và muốn mua thuốc.\nTừ nào có nghĩa là “đau đầu”?\n\nA. Fever\nB. Headache\nC. Cough\n\nĐáp án là **B. Headache**.\n\n[CÂU 4]\nBạn đến khách sạn và muốn xác nhận việc đặt phòng.\nBạn hỏi câu nào?\n\nA. Do you have a reservation?\nB. Do you have a passport?\nC. Do you have a room key?\n\nĐáp án là **A. Do you have a reservation?**\n\n[CÂU 5]\nBạn đi xe và muốn biết người lái xe được gọi là gì.\nĐó là ai?\n\nA. Passenger\nB. Customer\nC. Driver\n\nĐáp án là **C. Driver**.\n\n[CÂU 6]\nBạn đang đợi tài xế và muốn hỏi nên gặp nhau ở đâu.\nBạn hỏi câu nào?\n\nA. Where should I meet my driver?\nB. Where should I sleep?\nC. Where should I eat?\n\nĐáp án là **A. Where should I meet my driver?**\n\n[CÂU 7]\nBạn muốn nhờ nhân viên đưa cho mình một chiếc túi.\nBạn nói câu nào?\n\nA. Can I have a bag, please?\nB. I am a bag.\nC. Where bag go?\n\nĐáp án là **A. Can I have a bag, please?**\n\n[CÂU 8]\nBạn muốn biết tàu khởi hành lúc mấy giờ.\nBạn hỏi câu nào?\n\nA. Where is the train?\nB. What time does the train leave?\nC. Who is the train?\n\nĐáp án là **B. What time does the train leave?**\n\n[CÂU 9]\nNhân viên quán cà phê hỏi “HOT OR ICED?”\nCâu này có nghĩa là gì?\n\nA. Hot or cold?\nB. Big or small?\nC. Sweet or salty?\n\nĐáp án là **A. Hot or cold?**\n\n[CÂU 10 — CÂU KHÓ]\nBạn muốn nhờ một người đợi mình một phút.\nBạn nói câu nào?\n\nA. Can you wait a minute?\nB. Can you run?\nC. Can you leave?\n\nĐáp án là **A. Can you wait a minute?**\n\nBạn đúng được bao nhiêu câu?\n\n**9–10 câu:** Excellent! 🌟\n**7–8 câu:** Very good! 👏\n**5–6 câu:** Good job! 👍\n**0–4 câu:** Keep practicing! 💪\n\nBạn đúng mấy câu? Bình luận nhé!",
+      "at": 1791261726615,
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "at": 1791262226066,
+      "text": "Đã tạo \"BẠN TRẢ LỜI ĐƯỢC MẤY CÂU?\" · 🧠 Câu đố · 33 cảnh · 183.9s\n🎙 giọng matilda · 🎵 freesound-music-761372\n🖼 33/33 cảnh có hình từ kho ảnh miễn phí · các cảnh 5, 7, 9, 16, 17, 23, 30, 31 chỉ có ảnh cùng chủ đề, không đúng thứ đang nói — xem lại trong Chỉnh sửa · ghi nguồn trong public/uploads/stock/CREDITS.txt",
+      "style": "quiz",
+      "mp4": "/out/versions/ban-tra-loi-duoc-may-cau/v1.mp4?t=1791262226408",
+      "aspect": "9:16",
+      "scenes": [
+        {
+          "lines": [
+            "Bạn đang ở nhà hàng và muốn gọi món.",
+            "Bạn nói câu nào?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. I’d like noodles, please.",
+            "B. I am noodles.",
+            "C. Where is noodles?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là A. I’d like noodles, please."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn đang mua quần áo và muốn thử một chiếc áo.",
+            "Bạn nói câu nào?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Can I try it on?",
+            "B. Can I wear it home?",
+            "C. Can I take it?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là A. Can I try it on?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn bị đau đầu và muốn mua thuốc.",
+            "Từ nào có nghĩa là “đau đầu”?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Fever",
+            "B. Headache",
+            "C. Cough"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là B. Headache."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn đến khách sạn và muốn xác nhận việc đặt phòng.",
+            "Bạn hỏi câu nào?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Do you have a reservation?",
+            "B. Do you have a passport?",
+            "C. Do you have a room key?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là A. Do you have a reservation?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn đi xe và muốn biết người lái xe được gọi là gì.",
+            "Đó là ai?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Passenger",
+            "B. Customer",
+            "C. Driver"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là C. Driver."
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn đang đợi tài xế và muốn hỏi nên gặp nhau ở đâu.",
+            "Bạn hỏi câu nào?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Where should I meet my driver?",
+            "B. Where should I sleep?",
+            "C. Where should I eat?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là A. Where should I meet my driver?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn muốn nhờ nhân viên đưa cho mình một chiếc túi.",
+            "Bạn nói câu nào?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Can I have a bag, please?",
+            "B. I am a bag.",
+            "C. Where bag go?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là A. Can I have a bag, please?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn muốn biết tàu khởi hành lúc mấy giờ.",
+            "Bạn hỏi câu nào?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Where is the train?",
+            "B. What time does the train leave?",
+            "C. Who is the train?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là B. What time does the train leave?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Nhân viên quán cà phê hỏi “HOT OR ICED?”",
+            "Câu này có nghĩa là gì?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Hot or cold?",
+            "B. Big or small?",
+            "C. Sweet or salty?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là A. Hot or cold?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn muốn nhờ một người đợi mình một phút.",
+            "Bạn nói câu nào?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "A. Can you wait a minute?",
+            "B. Can you run?",
+            "C. Can you leave?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Đáp án là A. Can you wait a minute?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn đúng được bao nhiêu câu?"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "9–10 câu: Excellent! 🌟",
+            "7–8 câu: Very good! 👏",
+            "5–6 câu: Good job! 👍",
+            "0–4 câu: Keep practicing! 💪"
+          ],
+          "image": null
+        },
+        {
+          "lines": [
+            "Bạn đúng mấy câu? Bình luận nhé!"
+          ],
+          "image": null
+        }
+      ],
+      "version": 1
+    },
+    {
+      "role": "assistant",
+      "at": 1791263721102,
+      "text": "Đã xuất từ trình chỉnh sửa (chỉnh từ bản 1) · 199.4s",
+      "mp4": "/out/versions/ban-tra-loi-duoc-may-cau/v2.mp4?t=1791263721276",
+      "aspect": "9:16",
+      "style": "quiz",
+      "edited": true,
+      "from": 1,
+      "version": 2
+    }
+  ],
+  "settings": {
+    "kind": "video",
+    "style": "quiz",
+    "mode": "text",
+    "aspect": "9:16",
+    "voice": "matilda",
+    "music": "music/stock/freesound-music-761372.mp3",
+    "video": "",
+    "provider": "auto",
+    "images": "pexels",
+    "art": "auto",
+    "length": "auto",
+    "hook": "auto",
+    "hookMedia": "",
+    "language": "vi"
+  }
+}

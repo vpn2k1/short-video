@@ -123,6 +123,7 @@ async function boot() {
   bindSettings();
   bindHistory();
   bindMulti();
+  bindTemplate();
   bindBatch();
   bindSubs();
   bindBili();
@@ -160,6 +161,7 @@ function route() {
   if (hash === "multi") return showMulti(null);
   const multiMatch = hash.match(/^multi\/([a-z0-9-]+)$/);
   if (multiMatch) return showMulti(multiMatch[1]);
+  if (hash === "template") return showTemplate();
   const m = hash.match(/^v\/([a-z0-9-]+)$/);
   showChat(m ? m[1] : null);
 }
@@ -177,6 +179,7 @@ async function showChat(slug) {
   $("view-multi").hidden = true;
   $("view-batch").hidden = true;
   $("view-subs").hidden = true;
+  $("view-template").hidden = true;
   $("view-chat").hidden = false;
   setNav(slug ? "" : "new");
   stopFollowing();
@@ -249,6 +252,7 @@ async function showLibrary(tab = "videos") {
   $("view-multi").hidden = true;
   $("view-batch").hidden = true;
   $("view-subs").hidden = true;
+  $("view-template").hidden = true;
   $("view-library").hidden = false;
   setNav("lib");
 
@@ -3365,6 +3369,7 @@ async function showMulti(slug) {
   $("view-library").hidden = true;
   $("view-batch").hidden = true;
   $("view-subs").hidden = true;
+  $("view-template").hidden = true;
   $("view-multi").hidden = false;
   setNav(slug ? "" : "multi");
   current = slug;
@@ -4019,6 +4024,7 @@ async function showBatch(id) {
   $("view-library").hidden = true;
   $("view-multi").hidden = true;
   $("view-subs").hidden = true;
+  $("view-template").hidden = true;
   $("view-batch").hidden = false;
   // Loạt thêm phụ đề mở từ màn Phụ đề — giữ nút đó sáng.
   setNav(id && batchCur?.source === "subs" ? "subs" : "batch");

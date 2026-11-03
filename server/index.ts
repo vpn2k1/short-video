@@ -79,6 +79,7 @@ import { videoBudget } from "../scripts/video-budget";
 import { downloadStock, isStockKind, isStockProvider, searchStock, stockProviders, type Orientation } from "../scripts/stock";
 import { pipelineStatus, runRenderStage, runVoiceStage } from "./pipeline";
 import { slugify } from "../scripts/slug";
+import { createTemplateVideo, listTemplates } from "./template-video";
 
 try {
   process.loadEnvFile(path.resolve(process.cwd(), ".env"));
@@ -656,6 +657,18 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, clipAnalysisStatus(route.split("/")[4]));
       } catch (error) {
         return send(res, 404, errorBody(error));
+      }
+    }
+
+    // ---- tạo video theo mẫu nhân vật (người que, hoạt hình…) ----
+    if (route === "/api/templates") {
+      return send(res, 200, listTemplates());
+    }
+    if (route === "/api/template" && req.method === "POST") {
+      try {
+        return send(res, 200, createTemplateVideo(await readJson(req)));
+      } catch (error) {
+        return send(res, 400, errorBody(error));
       }
     }
 

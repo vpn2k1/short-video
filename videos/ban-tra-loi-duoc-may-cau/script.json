@@ -1,0 +1,163 @@
+{
+  "style": "quiz",
+  "title": "BẠN TRẢ LỜI ĐƯỢC MẤY CÂU?",
+  "subtitle": "10 câu tiếng Anh giao tiếp thực tế",
+  "accent": "#ff6b2c",
+  "background": "#0f1115",
+  "scenes": [
+    {
+      "lines": [
+        "Bạn đang ở nhà hàng và muốn gọi món.",
+        "Bạn nói câu nào?",
+        "A. I’d like noodles, please.",
+        "B. I am noodles.",
+        "C. Where is noodles?",
+        "Đáp án là A. I’d like noodles, please."
+      ],
+      "image": "uploads/stock/pexels-image-32552931.jpg",
+      "visual": null,
+      "tag": "CÂU 1",
+      "punch": "A. I’d like noodles, please."
+    },
+    {
+      "lines": [
+        "Bạn đang mua quần áo và muốn thử một chiếc áo.",
+        "Bạn nói câu nào?",
+        "A. Can I try it on?",
+        "B. Can I wear it home?",
+        "C. Can I take it?",
+        "Đáp án là A. Can I try it on?"
+      ],
+      "image": "uploads/stock/pexels-image-7454714.jpg",
+      "visual": null,
+      "tag": "CÂU 2",
+      "punch": "A. Can I try it on?"
+    },
+    {
+      "lines": [
+        "Bạn bị đau đầu và muốn mua thuốc.",
+        "Từ nào có nghĩa là “đau đầu”?",
+        "A. Fever",
+        "B. Headache",
+        "C. Cough",
+        "Đáp án là B. Headache."
+      ],
+      "image": "uploads/stock/pexels-image-8213138.jpg",
+      "visual": null,
+      "tag": "CÂU 3",
+      "punch": "B. Headache"
+    },
+    {
+      "lines": [
+        "Bạn đến khách sạn và muốn xác nhận việc đặt phòng.",
+        "Bạn hỏi câu nào?",
+        "A. Do you have a reservation?",
+        "B. Do you have a passport?",
+        "C. Do you have a room key?",
+        "Đáp án là A. Do you have a reservation?"
+      ],
+      "image": "uploads/stock/pexels-image-37264836.jpg",
+      "visual": null,
+      "tag": "CÂU 4",
+      "punch": "A. Do you have a reservation?"
+    },
+    {
+      "lines": [
+        "Bạn đi xe và muốn biết người lái xe được gọi là gì.",
+        "Đó là ai?",
+        "A. Passenger",
+        "B. Customer",
+        "C. Driver",
+        "Đáp án là C. Driver."
+      ],
+      "image": "uploads/stock/pexels-image-5835591.jpg",
+      "visual": null,
+      "tag": "CÂU 5",
+      "punch": "C. Driver"
+    },
+    {
+      "lines": [
+        "Bạn đang đợi tài xế và muốn hỏi nên gặp nhau ở đâu.",
+        "Bạn hỏi câu nào?",
+        "A. Where should I meet my driver?",
+        "B. Where should I sleep?",
+        "C. Where should I eat?",
+        "Đáp án là A. Where should I meet my driver?"
+      ],
+      "image": "uploads/stock/pexels-image-5835577.jpg",
+      "visual": null,
+      "tag": "CÂU 6",
+      "punch": "A. Where should I meet my driver?"
+    },
+    {
+      "lines": [
+        "Bạn muốn nhờ nhân viên đưa cho mình một chiếc túi.",
+        "Bạn nói câu nào?",
+        "A. Can I have a bag, please?",
+        "B. I am a bag.",
+        "C. Where bag go?",
+        "Đáp án là A. Can I have a bag, please?"
+      ],
+      "image": "uploads/stock/pexels-image-9461258.jpg",
+      "visual": null,
+      "tag": "CÂU 7",
+      "punch": "A. Can I have a bag, please?"
+    },
+    {
+      "lines": [
+        "Bạn muốn biết tàu khởi hành lúc mấy giờ.",
+        "Bạn hỏi câu nào?",
+        "A. Where is the train?",
+        "B. What time does the train leave?",
+        "C. Who is the train?",
+        "Đáp án là B. What time does the train leave?"
+      ],
+      "image": "uploads/stock/pexels-image-31193738.jpg",
+      "visual": null,
+      "tag": "CÂU 8",
+      "punch": "B. What time does the train leave?"
+    },
+    {
+      "lines": [
+        "Nhân viên quán cà phê hỏi “HOT OR ICED?”",
+        "Câu này có nghĩa là gì?",
+        "A. Hot or cold?",
+        "B. Big or small?",
+        "C. Sweet or salty?",
+        "Đáp án là A. Hot or cold?"
+      ],
+      "image": "uploads/stock/pexels-image-36047415.jpg",
+      "visual": null,
+      "tag": "CÂU 9",
+      "punch": "A. Hot or cold?"
+    },
+    {
+      "lines": [
+        "Bạn muốn nhờ một người đợi mình một phút.",
+        "Bạn nói câu nào?",
+        "A. Can you wait a minute?",
+        "B. Can you run?",
+        "C. Can you leave?",
+        "Đáp án là A. Can you wait a minute?"
+      ],
+      "image": "uploads/stock/pexels-image-8542942.jpg",
+      "visual": null,
+      "tag": "CÂU 10 — CÂU KHÓ",
+      "punch": "A. Can you wait a minute?"
+    },
+    {
+      "lines": [
+        "Bạn đúng được bao nhiêu câu?",
+        "9–10 câu: Excellent! 🌟",
+        "7–8 câu: Very good! 👏",
+        "5–6 câu: Good job! 👍",
+        "0–4 câu: Keep practicing! 💪",
+        "Bạn đúng mấy câu? Bình luận nhé!"
+      ],
+      "image": "uploads/stock/pexels-image-33323136.jpg",
+      "visual": null,
+      "tag": null,
+      "punch": null
+    }
+  ]
+}

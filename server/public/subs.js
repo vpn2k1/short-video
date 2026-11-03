@@ -576,7 +576,7 @@ function bindSubs() {
 
 async function showSubs() {
   stopFollowing();
-  for (const id of ["view-chat", "view-library", "view-multi", "view-batch"]) $(id).hidden = true;
+  for (const id of ["view-chat", "view-library", "view-multi", "view-batch", "view-template"]) $(id).hidden = true;
   $("view-subs").hidden = false;
   setNav("subs");
   current = null;
