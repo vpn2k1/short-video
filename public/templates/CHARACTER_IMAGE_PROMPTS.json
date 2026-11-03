@@ -1,0 +1,62 @@
+{
+  "mode": "built-in image_gen",
+  "source": "TEMPLATE_IDEAS.md",
+  "prompts": [
+    {
+      "id": "stickgirl",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Simple minimalist stick figure girl with a ponytail, black line art, white filled round face, friendly face, same minimalist stick figure style.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, generous transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no props. One character only."
+    },
+    {
+      "id": "robot-kid",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Cute small cartoon robot with a square body, round eyes, blue and white panels.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "cat-mascot",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Friendly orange cartoon cat mascot standing on two legs.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "dog-mascot",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Friendly brown cartoon dog mascot standing upright on two legs with floppy ears.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "businessman",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Friendly office worker wearing a shirt, tie and trousers.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "student",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Cute cartoon student wearing school uniform and a backpack, hands empty.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "superhero",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Original cartoon superhero with a cape, confident relaxed standing pose, no franchise logos.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "princess",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Cute cartoon princess wearing a dress and a small crown.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "chef",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Friendly cartoon chef wearing a chef uniform, apron and tall chef hat.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "doctor",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Friendly cartoon doctor wearing a white coat and stethoscope.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "farmer",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Friendly Vietnamese farmer wearing traditional brown ao ba ba, trousers and Vietnamese conical non la hat.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "astronaut",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Friendly cartoon astronaut in a white space suit with helmet and visible friendly face.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "panda",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Cute friendly black and white cartoon panda mascot standing upright on two legs.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    },
+    {
+      "id": "ghost",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent PNG character overlay for short video templates\nPrimary request: Cute friendly cartoon ghost, round simple white body, soft wavy bottom, small relaxed side arms, friendly face.\nStyle: simple flat 2D vector-like illustration, bold clean dark outlines, few solid contrasting colors, legible at small overlay size. Friendly cohesive mascot design.\nComposition: single isolated character, full body front view looking directly at camera, upright neutral idle pose, arms down or slightly open, hands empty. Centered in a portrait 4:5 canvas, transparent margins, entire silhouette visible.\nConstraints: genuinely transparent alpha background. No ground, no scenery, no cast shadow, no text, no watermark, no handheld props. One character only."
+    }
+  ]
+}
